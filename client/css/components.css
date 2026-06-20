@@ -319,6 +319,31 @@
   max-width: 220px;
 }
 
+/* ---- Icon bar (grouped icon buttons, e.g. align directions) -------------- */
+.rb-iconbar {
+  display: inline-flex;
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  overflow: hidden;
+}
+.rb-iconbar button {
+  width: 34px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-right: 1px solid var(--rb-border);
+  background: var(--rb-control);
+  color: var(--rb-text-muted);
+  cursor: pointer;
+  transition: background var(--rb-transition), color var(--rb-transition);
+}
+.rb-iconbar button:last-child { border-right: 0; }
+.rb-iconbar button:hover { background: var(--rb-control-hover); color: var(--rb-text); }
+.rb-iconbar button:active { background: var(--rb-accent); color: var(--rb-accent-text); }
+.rb-iconbar button svg { width: 18px; height: 18px; }
+
 /* ---- Anchor 9-point grid ------------------------------------------------- */
 .rb-anchor-grid {
   display: grid;
