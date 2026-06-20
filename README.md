@@ -2,7 +2,7 @@
 
 # ◗ Rebound
 
-**A free, open-source easing & motion-design panel for After Effects.**
+**A free easing & motion-design panel for After Effects.**
 
 Shape easing curves, design physical springs with real overshoot, fix anchor
 points, align and array layers, and rig follow-through — from one cohesive

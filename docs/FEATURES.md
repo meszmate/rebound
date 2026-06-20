@@ -1,6 +1,6 @@
 # Rebound — Feature Catalog
 
-This is the working specification and roadmap for Rebound, a free, open-source
+This is the working specification and roadmap for Rebound, a free
 motion-design panel for After Effects. Every feature here is an **original
 implementation** built on public, non-proprietary techniques — CSS cubic-bezier
 timing, the Penner easing equations, spring physics (a damped harmonic

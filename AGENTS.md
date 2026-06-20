@@ -1,6 +1,6 @@
 # Rebound — contributor & agent guide
 
-Rebound is a free, open-source **After Effects panel** for easing, springs, and
+Rebound is a free **After Effects panel** for easing, springs, and
 motion-design workflow tools. It is a buildless Adobe **CEP** extension: an
 HTML/CSS/JS panel that talks to an **ExtendScript** host.
 

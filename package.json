@@ -2,7 +2,7 @@
   "name": "rebound",
   "version": "0.1.0",
   "private": true,
-  "description": "Rebound — a free, open-source After Effects panel for easing, springs, and motion-design workflow tools. A clean-room alternative inspired by Flow and Motion.",
+  "description": "Rebound — a free After Effects panel for easing, springs, and motion-design workflow tools.",
   "license": "MIT",
   "author": "Rebound contributors",
   "homepage": "https://github.com/meszmate/rebound#readme",
