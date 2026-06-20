@@ -125,9 +125,32 @@
   function buildDemo(d) {
     var stage = el('div.rb-demo-stage');
     stage.innerHTML = d.svg;
+    easeDemoAnimates(stage);
     var caption = el('div.rb-demo-caption');
     caption.innerHTML = d.caption;
     return el('div.rb-demo', null, [stage, caption]);
+  }
+
+  // Give every demo animation a buttery standard ease per segment, unless it
+  // already declares an explicit calcMode or keySplines (the hand-tuned physics
+  // demos set calcMode="linear" on dense samples and are left untouched). This
+  // turns the default linear illustrative loops into smooth ones in one pass.
+  function easeDemoAnimates(host) {
+    var svg = host.querySelector('svg');
+    if (!svg) return;
+    var anims = svg.querySelectorAll('animate, animateTransform');
+    for (var i = 0; i < anims.length; i++) {
+      var a = anims[i];
+      if (a.getAttribute('calcMode') || a.getAttribute('keySplines')) continue;
+      var vals = a.getAttribute('values');
+      if (!vals) continue;
+      var segs = vals.split(';').length - 1;
+      if (segs < 1) continue;
+      var ks = [];
+      for (var s = 0; s < segs; s++) ks.push('0.4 0 0.2 1');
+      a.setAttribute('calcMode', 'spline');
+      a.setAttribute('keySplines', ks.join(';'));
+    }
   }
 
   // A subtle "what Rebound does differently" callout for tools that overlap a
@@ -300,7 +323,7 @@
     var m = R.toolMeta.forTool(tool.id) || {};
     var demoWrap = el('div.rb-card-demo');
     var d = R.toolDemos && R.toolDemos[tool.id];
-    if (d) demoWrap.innerHTML = d.svg;
+    if (d) { demoWrap.innerHTML = d.svg; easeDemoAnimates(demoWrap); }
 
     var iconEl = el('span.rb-card-icon');
     iconEl.innerHTML = R.toolMeta.svg(m.icon || R.toolMeta.ICONS.curve);
