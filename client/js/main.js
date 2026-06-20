@@ -65,6 +65,7 @@
 
     var main = el('div.rb-main', null, [
       buildTopbar(),
+      buildContextStrip(),
       el('div.rb-content', null, [browseEl, detailEl])
     ]);
     app.appendChild(main);
@@ -77,6 +78,9 @@
       setInterval(pollSelection, 800);
     } else {
       R.log.info('Running outside the host, selection polling disabled.');
+      // Dev-only hook so the panel can be driven with a fake selection in the
+      // browser preview. Never present when running inside After Effects.
+      R._debug = { setSelection: function (sel) { appStore.update({ selection: sel }); } };
     }
 
     // Land directly in the default tool, ready to use.
@@ -198,6 +202,58 @@
     var s = el('span.' + cls);
     s.innerHTML = R.toolMeta.svg(inner);
     return s;
+  }
+
+  // ---- Selection-aware suggestions -----------------------------------------
+
+  // Pick the tools most relevant to what is selected right now. Returns null
+  // when there is nothing worth suggesting (the strip then hides).
+  function suggestionsFor(sel) {
+    if (!sel || !sel.hasComp) return null;
+    if (sel.totalSelectedKeys >= 2) {
+      var tools = ['ease', 'spring', 'smooth'];
+      var props = sel.properties || [];
+      for (var i = 0; i < props.length; i++) {
+        if (props[i] && props[i].hasExpression) { tools.push('bake'); break; }
+      }
+      return { label: sel.totalSelectedKeys + ' keyframes', tools: tools };
+    }
+    if (sel.selectedLayerCount >= 2) {
+      return { label: sel.selectedLayerCount + ' layers', tools: ['align', 'stagger', 'sequence'] };
+    }
+    if (sel.selectedLayerCount === 1) {
+      return { label: '1 layer', tools: ['anchor', 'motion', 'drift'] };
+    }
+    return null;
+  }
+
+  function buildContextStrip() {
+    var label = el('span.rb-ctx-label', { text: '' });
+    var chips = el('div.rb-ctx-chips');
+    var strip = el('div.rb-ctxstrip.rb-hidden', null, [
+      svgSpan('rb-ctx-spark', '<path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="3"/>'),
+      label,
+      chips
+    ]);
+
+    appStore.select(function (s) { return s.selection; }, function (sel) {
+      var sug = suggestionsFor(sel);
+      if (!sug) { strip.classList.add('rb-hidden'); return; }
+      label.textContent = sug.label;
+      R.dom.clear(chips);
+      sug.tools.forEach(function (id) {
+        var t = R.tools.get(id);
+        if (!t) return;
+        var active = appStore.get().activeTool === id;
+        chips.appendChild(el('button.rb-ctx-chip' + (active ? '.is-active' : ''), {
+          type: 'button', title: 'Open ' + t.title,
+          onclick: function () { openToolById(id); }
+        }, [t.title]));
+      });
+      strip.classList.remove('rb-hidden');
+    });
+
+    return strip;
   }
 
   // ---- Browse (category / search) ------------------------------------------
