@@ -51,7 +51,15 @@
       'aria-label': 'Back to category', title: 'Back (Esc)', onclick: back
     }, [icon('<path d="M15 6l-6 6 6 6"/>')]);
     detailEl = el('div.rb-detail.rb-hidden', null, [
-      el('div.rb-detail-bar', null, [backBtn, breadcrumbEl]),
+      el('div.rb-detail-bar', null, [
+        backBtn,
+        breadcrumbEl,
+        el('span.rb-rail-spacer'),
+        el('span.rb-kbd-hint', { title: 'Run this tool’s main action' }, [
+          el('span.rb-kbd', { text: ctrlSymbol() + '⏎' }),
+          el('span.rb-kbd-hint-label', { text: 'Apply' })
+        ])
+      ]),
       mountsEl
     ]);
 
@@ -82,6 +90,25 @@
     var span = el('span.rb-icon');
     span.innerHTML = R.toolMeta.svg(inner);
     return span;
+  }
+
+  // Platform-appropriate modifier glyph for shortcut hints.
+  function ctrlSymbol() {
+    var mac = /Mac|iPod|iPhone|iPad/.test((navigator && navigator.platform) || '');
+    return mac ? '⌘' : 'Ctrl ';
+  }
+
+  // Run the visible tool's primary action (its footer primary button), so the
+  // whole apply flow is reachable from the keyboard.
+  function triggerPrimaryAction() {
+    if (view !== 'detail') return false;
+    var id = appStore.get().activeTool;
+    var m = id && mounted[id];
+    if (!m || !m.wrap) return false;
+    var btn = m.wrap.querySelector('.rb-action-bar .rb-btn.is-primary');
+    if (!btn || btn.disabled) return false;
+    btn.click();
+    return true;
   }
 
   function buildDemo(d) {
@@ -387,10 +414,18 @@
         if (searchInput) searchInput.select();
         return;
       }
+      // Ctrl/Cmd+Enter runs the active tool's main action from anywhere,
+      // including while typing in one of its fields.
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (triggerPrimaryAction()) e.preventDefault();
+        return;
+      }
       if (e.key === '/' && !inInput) { e.preventDefault(); if (searchInput) searchInput.focus(); return; }
 
       if (view === 'detail') {
-        if (e.key === 'Escape' && !inInput) { e.preventDefault(); back(); }
+        if (e.key === 'Escape' && !inInput) { e.preventDefault(); back(); return; }
+        // A plain Enter applies too, as long as focus is not in a text field.
+        if (e.key === 'Enter' && !inInput) { if (triggerPrimaryAction()) e.preventDefault(); return; }
         return;
       }
       if (!inInput) onListKeydown(e);

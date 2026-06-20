@@ -150,6 +150,25 @@
 }
 .rb-crumb-section, .rb-crumb-sep { color: var(--rb-text-faint); }
 .rb-crumb-tool { color: var(--rb-text); font-weight: 600; }
+.rb-kbd-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 2px);
+}
+.rb-kbd-hint .rb-kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-1);
+  background: var(--rb-bg-raised);
+  color: var(--rb-text-muted);
+}
+/* On a narrow panel the label drops, the key cap stays. */
+@media (max-width: 360px) {
+  .rb-kbd-hint-label { display: none; }
+}
 
 /* ---- Favorites star + first-run intro ------------------------------------ */
 .rb-launch-row-star {
