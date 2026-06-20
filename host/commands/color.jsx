@@ -19,6 +19,11 @@
   var FILL_COLOR = 'ADBE Vector Fill Color';
   var EFFECT_PARADE = 'ADBE Effect Parade';
   var FILL_EFFECT = 'ADBE Fill';
+  // Stable matchName for the Fill effect's Color parameter. The localized
+  // display name ("Color") and the raw index both break: on a non-English AE
+  // the name differs, and index 2 of ADBE Fill is the "All Masks" checkbox,
+  // not the color (which is index 3 / matchName ADBE Fill-0003).
+  var FILL_EFFECT_COLOR = 'ADBE Fill-0003';
 
   function clamp01(v) {
     if (v == null || isNaN(v)) return 0;
@@ -64,13 +69,28 @@
       layer.source.mainSource instanceof SolidSource;
   }
 
+  // Locate the Fill effect's Color parameter without relying on a localized
+  // display name or a magic index: prefer the stable matchName, then fall back
+  // to the first color-typed parameter on the effect.
+  function fillColorParam(fill) {
+    var byMatch = null;
+    try { byMatch = fill.property(FILL_EFFECT_COLOR); } catch (eMatch) {}
+    if (byMatch && byMatch.propertyValueType === PropertyValueType.COLOR) return byMatch;
+    for (var i = 1; i <= fill.numProperties; i++) {
+      var p = fill.property(i);
+      if (p && p.propertyValueType === PropertyValueType.COLOR) return p;
+    }
+    return null;
+  }
+
   // Add (or reuse) a Fill effect on the layer and set its color.
   function colorViaFillEffect(layer, rgb) {
     var fx = layer.property(EFFECT_PARADE);
     if (!fx) return false;
-    var fill = fx.addProperty(FILL_EFFECT);
-    // The Fill effect's color is its Color parameter (matchName-stable by index).
-    var colorProp = fill.property('Color') || fill.property(2);
+    var existing = R.rig.findByName(layer, 'Rebound Fill');
+    var fill = existing || fx.addProperty(FILL_EFFECT);
+    if (!existing) fill.name = 'Rebound Fill';
+    var colorProp = fillColorParam(fill);
     if (!colorProp) return false;
     return setColorProp(colorProp, rgb);
   }
