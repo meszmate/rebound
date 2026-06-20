@@ -84,11 +84,14 @@
     }
 
     // --- Scope + options ---
+    // In & Out is already adaptive across a selection: the first key eases out,
+    // interior keys ease on both sides, and the last key eases in (each segment
+    // sets the outgoing ease on its start key and the incoming ease on its end
+    // key). Out and In restrict to a single side.
     var scopeCtl = ui.segmented([
-      { value: 'out', label: 'Out', title: 'Ease the outgoing side' },
-      { value: 'inout', label: 'In & Out', title: 'Ease both sides' },
-      { value: 'in', label: 'In', title: 'Ease the incoming side' },
-      { value: 'auto', label: 'Auto', title: 'Ease-out the first key, in&out the middle, ease-in the last' }
+      { value: 'out', label: 'Out', title: 'Ease the outgoing side only' },
+      { value: 'inout', label: 'In & Out', title: 'Ease both sides (adapts at the ends of the selection)' },
+      { value: 'in', label: 'In', title: 'Ease the incoming side only' }
     ], { value: scope, onChange: function (v) { scope = v; } });
 
     var allToggle = ui.toggle({
