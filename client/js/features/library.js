@@ -164,9 +164,15 @@
   // Public helper so the Ease tool can save the current curve into the library.
   R.presets = R.presets || {};
   R.presets.saveCustom = function (curve, name, extra) {
-    var data = R.disk.read('user-presets', { schemaVersion: 1, items: [] });
+    var data = R.disk.read('user-presets', { schemaVersion: 1, items: [], seq: 0 });
     data.items = data.items || [];
-    var id = 'user-' + (data.items.length + 1) + '-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    // A monotonic sequence, never reused, so deleting a middle preset cannot
+    // make the next save collide with an existing id (which would attach stale
+    // favorites to the wrong preset). Migrate older files that lack a seq.
+    if (typeof data.seq !== 'number') data.seq = data.items.length;
+    data.seq += 1;
+    var slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    var id = 'user-' + data.seq + '-' + slug;
     var preset = { id: id, name: name, collection: 'Custom', builtin: false, curve: curve };
     if (extra) for (var k in extra) if (extra.hasOwnProperty(k)) preset[k] = extra[k];
     data.items.push(preset);
