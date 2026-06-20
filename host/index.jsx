@@ -64,6 +64,12 @@
   load('commands/vignette.jsx');
   load('commands/reset.jsx');
   load('commands/echo.jsx');
+  load('commands/sequence.jsx');
+  load('commands/smooth.jsx');
+  load('commands/nullify.jsx');
+  load('commands/lean.jsx');
+  load('commands/tags.jsx');
+  load('commands/precompose.jsx');
 
   $.__rebound.loaded = true;
 })();

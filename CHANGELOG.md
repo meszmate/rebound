@@ -33,5 +33,8 @@ All notable changes to Rebound are documented here. The format follows
 - **Radial** (ring array), **Color** (fill/solid/effect recolor), **Vignette**
   (edge-darkening adjustment layer), **Reset** (transform reset), **Follow**
   (follow-through trail), **Echo** (optical trail). 26 tools across 9 groups.
+- **Sequence** (end-to-end timing), **Smooth** (roving/auto-bezier keys),
+  **Nullify** (control null + parent), **Lean** (velocity tilt), **Tags**
+  (project-resident layer tags), **Precompose**. 32 tools across 10 groups.
 
 [Unreleased]: https://github.com/meszmate/rebound/commits/main

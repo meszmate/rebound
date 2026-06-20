@@ -115,6 +115,8 @@ export default [
       'no-unused-vars': 'off',
       'no-redeclare': 'off',
       'no-prototype-builtins': 'off',
+      // Best-effort host calls intentionally swallow unsupported-API errors.
+      'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
 
