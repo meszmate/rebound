@@ -61,7 +61,7 @@
       return { type: 'fn', fn: makeBounce(elasticity, maxBounces) };
     }
     var previewHost = el('div');
-    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', axis: 'vertical', sample: 'shape' });
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', axis: 'vertical', sample: 'shape', duration: 1600 });
     function updateReadout() {
       preview.setReadout('Elasticity ' + Math.round(elasticity * 100) + '% · gravity ' + R.units.round(gravity, 1));
     }
