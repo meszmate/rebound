@@ -319,6 +319,36 @@
   max-width: 220px;
 }
 
+/* ---- Anchor 9-point grid ------------------------------------------------- */
+.rb-anchor-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+}
+.rb-anchor-grid button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.rb-anchor-grid button::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rb-text-faint);
+  transition: background var(--rb-transition), transform var(--rb-transition);
+}
+.rb-anchor-grid button:hover::after { background: var(--rb-accent); transform: scale(1.35); }
+.rb-anchor-grid button.is-active::after { background: var(--rb-accent); }
+
 /* ---- Empty state --------------------------------------------------------- */
 .rb-empty {
   display: flex;

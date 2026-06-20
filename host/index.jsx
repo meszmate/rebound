@@ -39,6 +39,9 @@
 
   load('commands/system.jsx');
   load('commands/ease.jsx');
+  load('commands/spring.jsx');
+  load('commands/anchor.jsx');
+  load('commands/align.jsx');
 
   $.__rebound.loaded = true;
 })();
