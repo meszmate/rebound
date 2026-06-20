@@ -1,12 +1,14 @@
 /*
  * Rebound host, Vignette (edge-darkening adjustment layer).
  *
- * Creates a black adjustment layer named "Vignette" sized to the comp, then cuts
- * a feathered elliptical hole in it with a single subtractive mask so the center
- * stays clear and the edges darken. Amount drives the layer opacity, Feather the
- * mask feather, and Scale the ellipse size as a percentage of the frame. Every
- * property is addressed by matchName; the layer is an adjustment layer so the
- * darkening composites over everything beneath it.
+ * Creates a black solid named "Vignette" sized to the comp, then cuts a
+ * feathered elliptical hole in it with a single subtractive mask so the center
+ * stays clear and the black edges darken whatever sits beneath. Amount drives
+ * the layer opacity, Feather the mask feather, and Scale the ellipse size as a
+ * percentage of the frame. Every property is addressed by matchName. The layer
+ * is a normal solid, not an adjustment layer: an adjustment layer composites
+ * only the effects applied to it and ignores its own black pixels, so a black
+ * adjustment layer with no effect would darken nothing.
  */
 (function () {
   var R = $.__rebound;
@@ -68,7 +70,6 @@
     var scale = clamp(num(args.scale, 100), 50, 150);
 
     var layer = comp.layers.addSolid([0, 0, 0], 'Vignette', comp.width, comp.height, 1);
-    layer.adjustmentLayer = true;
 
     // Mask is described in layer space; the solid spans the full comp.
     var cx = comp.width / 2;
