@@ -150,6 +150,21 @@
 }
 .rb-slider input[type='range']:active::-webkit-slider-thumb { cursor: grabbing; }
 
+/* ---- Color input -------------------------------------------------------- */
+.rb-color-input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  background: transparent;
+  cursor: pointer;
+}
+.rb-color-input::-webkit-color-swatch-wrapper { padding: 2px; }
+.rb-color-input::-webkit-color-swatch { border: none; border-radius: 3px; }
+
 /* ---- Toggle -------------------------------------------------------------- */
 .rb-toggle {
   display: inline-flex;
