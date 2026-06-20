@@ -6,17 +6,17 @@
 
 :root {
   /* Fallbacks; theme.js overwrites these from the host skin at boot. */
-  --rb-bg: #2b2b2b;
-  --rb-bg-raised: #333;
-  --rb-bg-sunken: #232323;
-  --rb-border: #3d3d3d;
-  --rb-border-strong: #4a4a4a;
-  --rb-control: #3a3a3a;
-  --rb-control-hover: #454545;
-  --rb-text: #e1e3e7;
-  --rb-text-muted: #969aa2;
+  --rb-bg: #1e1f23;
+  --rb-bg-raised: #2f3034;
+  --rb-bg-sunken: #17181b;
+  --rb-border: #3b3c40;
+  --rb-border-strong: #58595c;
+  --rb-control: #37383b;
+  --rb-control-hover: #4b4c4f;
+  --rb-text: #e3e5ea;
+  --rb-text-muted: #989ca4;
   --rb-text-faint: #6e727a;
-  --rb-accent: #4990e2;
+  --rb-accent: #5496fa;
   --rb-accent-text: #fff;
   --rb-danger: #e5534b;
   --rb-warning: #e8a838;

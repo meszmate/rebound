@@ -43,11 +43,11 @@
     return {
       isDark: dark,
       bg: rgb(bg[0], bg[1], bg[2]),
-      bgRaised: rgb.apply(null, mix(bg, toward, 0.06)),
-      bgSunken: rgb.apply(null, mix(bg, away, 0.18)),
-      border: rgb.apply(null, mix(bg, toward, 0.16)),
-      borderStrong: rgb.apply(null, mix(bg, toward, 0.28)),
-      control: rgb.apply(null, mix(bg, toward, 0.12)),
+      bgRaised: rgb.apply(null, mix(bg, toward, 0.075)),
+      bgSunken: rgb.apply(null, mix(bg, away, 0.24)),
+      border: rgb.apply(null, mix(bg, toward, 0.13)),
+      borderStrong: rgb.apply(null, mix(bg, toward, 0.26)),
+      control: rgb.apply(null, mix(bg, toward, 0.11)),
       controlHover: rgb.apply(null, mix(bg, toward, 0.2)),
       text: dark ? 'rgb(225,227,231)' : 'rgb(28,30,34)',
       textMuted: dark ? 'rgb(150,154,162)' : 'rgb(96,100,108)',
@@ -82,11 +82,11 @@
     root.setAttribute('data-theme', p.isDark ? 'dark' : 'light');
   }
 
-  var defaultAccent = [73, 144, 226]; // Rebound blue
+  var defaultAccent = [84, 150, 250]; // Rebound blue (a touch more vivid)
   var accentOverride = null;
 
   function readSkin() {
-    var bg = [43, 43, 43];
+    var bg = [30, 31, 35]; // refined default dark base (slightly cool); host overrides
     var fontSize = 11;
     try {
       var env = R.bridge && R.bridge.cs ? R.bridge.cs.getHostEnvironment() : null;
