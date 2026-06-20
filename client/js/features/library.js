@@ -28,6 +28,7 @@
     var filter = 'all';
     var query = '';
     var scope = 'inout';
+    var applyToAll = false;
     var favorites = loadFavorites();
 
     var searchInput = el('input', { type: 'text', placeholder: 'Search presets…',
@@ -120,7 +121,7 @@
     }
 
     function apply(preset) {
-      ctx.invoke('ease.apply', { curve: preset.curve, scope: scope })
+      ctx.invoke('ease.apply', { curve: preset.curve, scope: scope, applyToAll: applyToAll })
         .then(function (res) {
           ctx.toast('Applied ' + preset.name + ' to ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' });
           ctx.refreshSelection();
@@ -133,6 +134,10 @@
       { value: 'inout', label: 'In & Out' },
       { value: 'in', label: 'In' }
     ], { value: scope, onChange: function (v) { scope = v; } });
+    var allToggle = ui.toggle({ label: 'Every key', value: applyToAll,
+      title: 'Apply the preset to every keyframe of the property, not just the selected ones.',
+      onChange: function (v) { applyToAll = v; } });
+    ctx.body.appendChild(allToggle.el);
     ctx.footer.appendChild(el('span.rb-faint', { text: 'Apply as' }));
     ctx.footer.appendChild(scopeCtl.el);
     ctx.footer.appendChild(el('span.rb-spacer'));
