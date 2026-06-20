@@ -1,0 +1,133 @@
+/*
+ * Rebound, Context Home.
+ * A calm selection-reactive band (inspector + suggested actions) shown above the
+ * browse area. One accent (the curve stroke); everything else is the grey scale.
+ * Fixed-ish heights keep the workbench from twitching as the selection changes.
+ */
+.rb-ctxhome {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-3);
+  border-bottom: 1px solid var(--rb-border);
+  background: var(--rb-bg-raised);
+}
+.rb-ctxhome.is-empty {
+  padding: var(--rb-gap-2) var(--rb-gap-3);
+  gap: 0;
+}
+
+/* Inspector band -----------------------------------------------------------*/
+.rb-ctx-band {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+}
+.rb-ctxhome.is-empty .rb-ctx-band { min-height: 0; }
+
+.rb-ctx-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  width: 100%;
+}
+.rb-ctx-curve {
+  flex: none;
+  width: 120px;
+  height: 56px;
+  display: flex;
+}
+.rb-ctx-curve .rb-curve-chip { width: 120px; height: 56px; }
+.rb-ctx-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.rb-ctx-name {
+  font-weight: 600;
+  color: var(--rb-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-ctx-sub {
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-variant-numeric: tabular-nums;
+}
+.rb-ctx-path {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 2px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rb-ctx-plain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-2);
+  width: 100%;
+}
+.rb-ctx-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.rb-ctx-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--rb-control);
+  color: var(--rb-text);
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-weight: 600;
+}
+.rb-ctx-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--rb-radius-1);
+  border: 1px solid var(--rb-border);
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 2px);
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-ctx-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--rb-radius-1);
+  border: 1px solid var(--rb-border);
+  flex: none;
+}
+.rb-ctx-empty {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+}
+
+/* Suggested actions --------------------------------------------------------*/
+.rb-ctx-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.rb-ctxhome.is-empty .rb-ctx-suggest { display: none; }
+
+/* Gentle entrance only when the context actually changes. */
+.rb-ctx-enter { animation: rb-ctx-fade 120ms ease-out; }
+@keyframes rb-ctx-fade {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rb-ctx-enter { animation: none; }
+}
