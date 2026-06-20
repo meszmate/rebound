@@ -187,6 +187,18 @@
   line-height: 1.4;
 }
 
+/* ---- Home <-> Detail transition (disabled under reduced-motion) ----------- */
+@keyframes rb-view-in-detail {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rb-view-in-home {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+.rb-detail:not(.rb-hidden) { animation: rb-view-in-detail 140ms ease; }
+.rb-home:not(.rb-hidden) { animation: rb-view-in-home 140ms ease; }
+
 .rb-body {
   flex: 1 1 auto;
   min-height: 0;
