@@ -1,0 +1,73 @@
+/*
+ * Rebound — Recoil tool.
+ * Adds velocity-driven elastic overshoot to keyframed properties via a live,
+ * art-directable expression rig (Overshoot / Bounce / Friction sliders).
+ */
+;(function (R) {
+  'use strict';
+
+  var el = R.dom.el;
+  var ui = R.ui;
+
+  R.tools.register({
+    id: 'recoil',
+    title: 'Recoil',
+    group: 'Physics',
+    order: 0,
+    keywords: ['recoil', 'overshoot', 'bounce', 'elastic', 'spring', 'follow through'],
+    mount: mount
+  });
+
+  function mount(ctx) {
+    var overshoot = 60;
+    var bounce = 2;
+    var friction = 6;
+
+    var halfLife = el('span.rb-chip', { text: '' });
+    function refreshChip() {
+      var hl = friction > 0 ? Math.log(2) / friction : 0;
+      halfLife.textContent = 'Half-life ' + R.units.round(hl, 2) + 's';
+    }
+
+    var overshootSlider = ui.slider({ label: 'Overshoot', min: 0, max: 200, step: 1, value: overshoot,
+      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { overshoot = v; } });
+    var bounceSlider = ui.slider({ label: 'Bounce', min: 0.5, max: 8, step: 0.1, value: bounce,
+      onInput: function (v) { bounce = v; } });
+    var frictionSlider = ui.slider({ label: 'Friction', min: 0.5, max: 20, step: 0.1, value: friction,
+      onInput: function (v) { friction = v; refreshChip(); } });
+
+    ctx.body.appendChild(el('div.rb-col', null, [
+      el('div.rb-faint', { text: 'Adds elastic overshoot after each keyframe, scaled by the incoming velocity. Non-destructive — your keyframes stay.' }),
+      overshootSlider.el,
+      bounceSlider.el,
+      frictionSlider.el,
+      el('div.rb-row', null, [halfLife])
+    ]));
+
+    var scopeText = el('span.rb-scope', { text: '' });
+    ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
+    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+
+    var off = ctx.onSelection(function (sel) {
+      scopeText.textContent = sel && sel.hasComp
+        ? (sel.totalSelectedKeys >= 2 ? sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies') : 'Select a keyframed property')
+        : 'Open a composition';
+    });
+    scopeText.textContent = '';
+
+    function doApply() {
+      ctx.invoke('recoil.apply', { overshoot: overshoot, bounce: bounce, friction: friction })
+        .then(function (res) { ctx.toast('Recoil on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not apply Recoil', { kind: 'error' }); });
+    }
+    function doRemove() {
+      ctx.invoke('recoil.remove', {})
+        .then(function (res) { ctx.toast('Removed Recoil from ' + res.cleared + ' propert' + (res.cleared === 1 ? 'y' : 'ies'), { kind: 'info' }); })
+        .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
+    }
+
+    refreshChip();
+    return { destroy: off };
+  }
+})(window.Rebound = window.Rebound || {});

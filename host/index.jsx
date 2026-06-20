@@ -36,12 +36,15 @@
   load('lib/json.jsx');
   load('lib/core.jsx');
   load('lib/util.jsx');
+  load('lib/rig.jsx');
 
   load('commands/system.jsx');
   load('commands/ease.jsx');
   load('commands/spring.jsx');
   load('commands/anchor.jsx');
   load('commands/align.jsx');
+  load('commands/recoil.jsx');
+  load('commands/drift.jsx');
 
   $.__rebound.loaded = true;
 })();
