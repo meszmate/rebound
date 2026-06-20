@@ -319,6 +319,28 @@
   max-width: 220px;
 }
 
+/* ---- Preset bar ---------------------------------------------------------- */
+.rb-presetbar {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+}
+.rb-preset-label { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); flex: none; }
+.rb-preset-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--rb-control-h);
+  background: var(--rb-bg-sunken);
+  color: var(--rb-text);
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  padding: 0 var(--rb-gap-2);
+  font-family: inherit;
+  font-size: var(--rb-font-size);
+  cursor: pointer;
+}
+.rb-preset-select:focus { outline: none; border-color: var(--rb-accent); }
+
 /* ---- Icon bar (grouped icon buttons, e.g. align directions) -------------- */
 .rb-iconbar {
   display: inline-flex;

@@ -158,7 +158,41 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not bake spring', { kind: 'error' }); });
     }
 
+    function getState() {
+      return {
+        mode: mode, response: simple.response, bounce: simple.bounce,
+        mass: physical.mass, stiffness: physical.stiffness, damping: physical.damping, velocity: simple.velocity
+      };
+    }
+    function applyState(s) {
+      if (!s) return;
+      mode = s.mode === 'physical' ? 'physical' : 'simple';
+      modeCtl.set(mode);
+      simpleBox.classList.toggle('rb-hidden', mode !== 'simple');
+      physicalBox.classList.toggle('rb-hidden', mode !== 'physical');
+      if (s.response != null) { simple.response = s.response; settleSlider.set(s.response); }
+      if (s.bounce != null) { simple.bounce = s.bounce; bounceSlider.set(s.bounce); }
+      if (s.mass != null) { physical.mass = s.mass; massSlider.set(s.mass); }
+      if (s.stiffness != null) { physical.stiffness = s.stiffness; stiffSlider.set(s.stiffness); }
+      if (s.damping != null) { physical.damping = s.damping; dampSlider.set(s.damping); }
+      if (s.velocity != null) { simple.velocity = s.velocity; physical.velocity = s.velocity; velSlider.set(s.velocity); }
+      refresh();
+    }
+
     refresh();
-    return { destroy: function () { off(); preview.destroy(); editor.destroy(); } };
+    return {
+      presets: {
+        toolId: 'spring',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Gentle', state: { mode: 'simple', response: 0.6, bounce: 0.12, velocity: 0 } },
+          { name: 'Bouncy', state: { mode: 'simple', response: 0.5, bounce: 0.45, velocity: 0 } },
+          { name: 'Snappy', state: { mode: 'simple', response: 0.32, bounce: 0.22, velocity: 0 } },
+          { name: 'Heavy', state: { mode: 'physical', mass: 3, stiffness: 120, damping: 14, velocity: 0 } }
+        ]
+      },
+      destroy: function () { off(); preview.destroy(); editor.destroy(); }
+    };
   }
 })(window.Rebound = window.Rebound || {});

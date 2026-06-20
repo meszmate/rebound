@@ -297,8 +297,16 @@
         R.log.error('Tool "' + tool.id + '" failed to mount', err);
         host.appendChild(el('div.rb-empty', null, ['This tool failed to load: ' + (err.message || err)]));
       }
+      var demoNode = null;
       if (R.toolDemos && R.toolDemos[tool.id] && !PREVIEW_TOOLS[tool.id]) {
-        host.insertBefore(buildDemo(R.toolDemos[tool.id]), host.firstChild);
+        demoNode = buildDemo(R.toolDemos[tool.id]);
+        host.insertBefore(demoNode, host.firstChild);
+      }
+      // A preset bar for tools that expose one (save/recall their settings).
+      if (api && api.presets && R.ui.presetBar) {
+        var bar = R.ui.presetBar(api.presets);
+        if (demoNode) host.insertBefore(bar, demoNode.nextSibling);
+        else host.insertBefore(bar, host.firstChild);
       }
       mounted[tool.id] = { wrap: wrap, api: api };
     }
