@@ -1,27 +1,38 @@
 /*
  * Rebound host, Tags (mark layers with reusable name tags and select by them).
  *
- * Tags live in each layer's .comment as space-separated #tokens, so they ride
- * inside the saved project and survive round-trips. A tag name normalizes to a
- * single #token; we match whole tokens (never substrings) so #foo never trips
- * on #foobar. Apply stamps the token (and an optional label color), Select is a
- * read-only pass that selects every tagged layer in the comp, and Clear strips
- * our tokens back out of the selected layers' comments.
+ * Tags live in each layer's .comment as space-separated tokens, so they ride
+ * inside the saved project and survive round-trips. Every Rebound tag is
+ * namespaced with a "#rb:" prefix (e.g. #rb:hero) so Clear only ever removes
+ * our own tokens and never touches a user's own comment notes like "#3 of 5".
+ * We match whole tokens (never substrings) so #rb:foo never trips on #rb:foobar.
+ * Apply stamps the token (and an optional label color), Select selects every
+ * tagged layer in the comp, and Clear strips our tokens out of the selection.
  */
 (function () {
   var R = $.__rebound;
   var util = R.util;
 
-  // Reduce a free-form tag string to a bare token (no leading '#', no spaces).
+  // Namespace for Rebound's own tokens, so Clear can tell them apart from a
+  // user's free-form comment text.
+  var PREFIX = '#rb:';
+
+  // Reduce a free-form tag string to a bare token (no '#', no ':', no spaces).
   function normalizeTag(raw) {
     var s = raw == null ? '' : ('' + raw);
     // Trim surrounding whitespace.
     s = s.replace(/^\s+/, '').replace(/\s+$/, '');
-    // Drop a leading '#', then collapse inner whitespace to single hyphens so a
-    // tag stays one whitespace-delimited token in the comment.
+    // Drop any leading '#', strip our namespace separator, then collapse inner
+    // whitespace to single hyphens so a tag stays one whitespace-delimited token.
     s = s.replace(/^#+/, '');
+    s = s.replace(/:/g, '-');
     s = s.replace(/\s+/g, '-');
     return s;
+  }
+
+  // The stored token for a normalized tag.
+  function tokenFor(tag) {
+    return PREFIX + tag;
   }
 
   // Split a comment into its whitespace-delimited tokens.
@@ -32,9 +43,9 @@
     return s.split(/\s+/);
   }
 
-  // Does this comment carry the exact #tag token?
+  // Does this comment carry the exact #rb:tag token?
   function hasTag(comment, tag) {
-    var want = '#' + tag;
+    var want = tokenFor(tag);
     var toks = tokensOf(comment);
     for (var i = 0; i < toks.length; i++) {
       if (toks[i] === want) return true;
@@ -57,7 +68,7 @@
       var layer = layers[i];
       var comment = layer.comment;
       if (!hasTag(comment, tag)) {
-        var token = '#' + tag;
+        var token = tokenFor(tag);
         layer.comment = (comment && ('' + comment).length) ? (comment + ' ' + token) : token;
       }
       if (label >= 1 && label <= 16) {
@@ -98,7 +109,8 @@
       var kept = [];
       var removed = false;
       for (var t = 0; t < toks.length; t++) {
-        if (toks[t].charAt(0) === '#') { removed = true; continue; }
+        // Only strip our own namespaced tokens; leave user comment text intact.
+        if (toks[t].indexOf(PREFIX) === 0) { removed = true; continue; }
         kept.push(toks[t]);
       }
       if (removed) {
@@ -111,6 +123,6 @@
   }
 
   R.register('tags.apply', apply, 'Rebound: Apply Tag');
-  R.register('tags.select', select);
+  R.register('tags.select', select, 'Rebound: Select Tagged');
   R.register('tags.clear', clear, 'Rebound: Clear Tags');
 })();
