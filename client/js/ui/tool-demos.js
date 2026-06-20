@@ -62,6 +62,7 @@
 
   // Card visuals for the four tools that use the interactive Preview Stage on
   // their page (these captions are not shown on the page, only the SVG in cards).
+  // Ease: a dot eases along a curve.
   D.ease = demo(
     'Shape a cubic-bezier and apply it to your keyframes.',
     '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
@@ -70,17 +71,35 @@
       '<animateMotion dur="2.8s" repeatCount="indefinite" keyPoints="0;1;1;0" keyTimes="0;0.45;0.55;1" calcMode="linear" ' +
       'path="M16 54 C 44 54, 60 18, 104 18"/></circle></svg>'
   );
-  D.spring = demo('Physical spring with real overshoot.', springCardSvg(1.2));
-  D.recoil = demo('Velocity-driven overshoot.', springCardSvg(1.28));
-  D.bounce = demo('Gravitational rebound.', springCardSvg(1.14));
 
-  function springCardSvg(peak) {
-    return '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
-      '<g transform="translate(60,38)"><rect x="-17" y="-13" width="34" height="26" rx="5" style="fill:var(--rb-accent)">' +
-      '<animateTransform attributeName="transform" type="scale" ' +
-      'values="0.2;' + peak + ';0.9;1.06;0.98;1;0.2" ' +
-      'keyTimes="0;0.42;0.58;0.72;0.84;0.92;1" dur="3.2s" repeatCount="indefinite"/></rect></g></svg>';
-  }
+  // Spring: a box pops in with overshoot and settles (scale).
+  D.spring = demo('Physical spring with real overshoot.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet"><g transform="translate(60,38)">' +
+    '<rect x="-17" y="-13" width="34" height="26" rx="5" style="fill:var(--rb-accent)">' +
+    '<animateTransform attributeName="transform" type="scale" values="0.15;1.2;0.9;1.07;0.97;1;1;0.15" ' +
+    'keyTimes="0;0.4;0.55;0.69;0.81;0.9;0.97;1" dur="3.2s" calcMode="spline" ' +
+    'keySplines="0.3 0 0.3 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0.4 0 0.6 1;0 0 1 1" repeatCount="indefinite"/>' +
+    '</rect></g></svg>');
+
+  // Recoil: a box flies in toward its mark and oscillates back to rest (horizontal).
+  D.recoil = demo('Velocity-driven overshoot after a keyframe.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+    '<line x1="60" y1="16" x2="60" y2="56" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.3"/>' +
+    '<rect x="45" y="24" width="30" height="24" rx="4" style="fill:var(--rb-accent)">' +
+    '<animateTransform attributeName="transform" type="translate" values="-62,0;0,0;17,0;-10,0;6,0;-3,0;1,0;0,0" ' +
+    'keyTimes="0;0.3;0.42;0.55;0.68;0.79;0.88;1" dur="3.3s" calcMode="spline" ' +
+    'keySplines="0.45 0 0.1 1;0.3 0 0.5 1;0.3 0 0.5 1;0.3 0 0.5 1;0.3 0 0.5 1;0.3 0 0.5 1;0 0 1 1" repeatCount="indefinite"/>' +
+    '</rect></svg>');
+
+  // Bounce: a ball drops and rebounds off a floor, each bounce smaller.
+  D.bounce = demo('Gravitational rebound, each bounce smaller.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+    '<line x1="18" y1="58" x2="102" y2="58" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>' +
+    '<circle cx="60" r="8" style="fill:var(--rb-accent)">' +
+    '<animate attributeName="cy" values="14;50;30;50;39;50;45;50;14" ' +
+    'keyTimes="0;0.26;0.42;0.56;0.68;0.78;0.87;0.96;1" dur="2.8s" calcMode="spline" ' +
+    'keySplines="0.4 0 1 0.6;0.1 0.5 0.5 1;0.4 0 1 0.6;0.1 0.5 0.5 1;0.4 0 1 0.6;0.1 0.5 0.5 1;0.4 0 1 0.6;0 0 1 1" repeatCount="indefinite"/>' +
+    '</circle></svg>');
 
   R.toolDemos = D;
   R.registerToolDemo = function (id, caption, svg) { D[id] = demo(caption, svg); };
