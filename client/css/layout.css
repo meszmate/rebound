@@ -151,6 +151,42 @@
 .rb-crumb-section, .rb-crumb-sep { color: var(--rb-text-faint); }
 .rb-crumb-tool { color: var(--rb-text); font-weight: 600; }
 
+/* ---- Favorites star + first-run intro ------------------------------------ */
+.rb-launch-row-star {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--rb-text-faint);
+  cursor: pointer;
+  opacity: 0;
+  border-radius: var(--rb-radius-1);
+  transition: opacity var(--rb-transition), color var(--rb-transition);
+}
+.rb-launch-row:hover .rb-launch-row-star,
+.rb-launch-row.is-active .rb-launch-row-star { opacity: 0.6; }
+.rb-launch-row-star:hover { opacity: 1; background: var(--rb-bg-sunken); }
+.rb-launch-row-star.is-on { opacity: 1; color: var(--rb-warning); }
+.rb-launch-row-star svg { width: 14px; height: 14px; }
+.rb-launch-row-star.is-on svg { fill: currentColor; }
+
+.rb-home-intro { padding: var(--rb-gap-4) var(--rb-gap-2) var(--rb-gap-1); }
+.rb-home-intro-title {
+  font-size: calc(var(--rb-font-size) + 3px);
+  font-weight: 600;
+  color: var(--rb-text);
+}
+.rb-home-intro-sub {
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
 .rb-body {
   flex: 1 1 auto;
   min-height: 0;
