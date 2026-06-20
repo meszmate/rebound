@@ -1,0 +1,81 @@
+/*
+ * Rebound — Bake tool.
+ * Bakes each selected property's live animation — whether it is driven by an
+ * expression or by keyframes — into clean, evenly spaced keyframes by sampling
+ * the value at a fixed frame step across a chosen time range.
+ */
+;(function (R) {
+  'use strict';
+
+  var el = R.dom.el;
+  var ui = R.ui;
+
+  R.tools.register({
+    id: 'bake',
+    title: 'Bake',
+    group: 'Easing',
+    order: 5,
+    keywords: ['bake', 'sample', 'expression', 'keyframe', 'convert', 'flatten', 'frame'],
+    mount: mount
+  });
+
+  function mount(ctx) {
+    var range = 'work';
+    var stepFrames = 1;
+
+    var rangeCtl = ui.segmented([
+      { value: 'work', label: 'Work area', title: 'Sample across the composition work area' },
+      { value: 'layer', label: 'Layer duration', title: 'Sample across each layer’s in-to-out span' }
+    ], { value: range, onChange: function (v) { range = v; } });
+
+    var stepField = ui.numberField({
+      label: 'Step',
+      value: stepFrames,
+      min: 1,
+      max: 60,
+      step: 1,
+      decimals: 0,
+      suffix: 'f',
+      width: '110px',
+      onChange: function (v) { stepFrames = v; }
+    });
+
+    ctx.body.appendChild(el('div.rb-col', null, [
+      el('div.rb-faint', { text: 'Samples each selected property’s animation into clean keyframes, one every few frames. Works on expression-driven and keyframed properties alike.' }),
+      el('div.rb-section-label', { text: 'Range' }),
+      rangeCtl.el,
+      el('div.rb-section-label', { text: 'Sample step' }),
+      stepField.el
+    ]));
+
+    var scopeText = el('span.rb-scope', { text: '' });
+    ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    scopeText.textContent = describe(ctx.getSelection());
+
+    function doApply() {
+      ctx.invoke('bake.apply', { range: range, stepFrames: stepFrames })
+        .then(function (res) {
+          ctx.toast('Baked ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') +
+            ' into ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's'), { kind: 'success' });
+          ctx.refreshSelection();
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not bake', { kind: 'error' }); });
+    }
+
+    return { destroy: off };
+  }
+
+  function describe(sel) {
+    if (!sel || !sel.hasComp) return 'Open a composition';
+    var count = 0;
+    var props = sel.properties || [];
+    for (var i = 0; i < props.length; i++) {
+      if (props[i].isTimeVarying) count++;
+    }
+    if (!count) return 'Select animated properties to bake';
+    return count + ' animated propert' + (count === 1 ? 'y' : 'ies');
+  }
+})(window.Rebound = window.Rebound || {});

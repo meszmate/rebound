@@ -70,6 +70,12 @@
   load('commands/lean.jsx');
   load('commands/tags.jsx');
   load('commands/precompose.jsx');
+  load('commands/velocity.jsx');
+  load('commands/copyease.jsx');
+  load('commands/bake.jsx');
+  load('commands/kinetic.jsx');
+  load('commands/separate.jsx');
+  load('commands/break.jsx');
 
   $.__rebound.loaded = true;
 })();

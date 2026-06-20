@@ -36,5 +36,8 @@ All notable changes to Rebound are documented here. The format follows
 - **Sequence** (end-to-end timing), **Smooth** (roving/auto-bezier keys),
   **Nullify** (control null + parent), **Lean** (velocity tilt), **Tags**
   (project-resident layer tags), **Precompose**. 32 tools across 10 groups.
+- **Velocity** (numeric speed/influence), **Copy Ease** (copy/paste ease),
+  **Bake** (expressions → clean keyframes), **Kinetic** (velocity-driven),
+  **Separate** (dimensions), **Break** (split shape layer). 38 tools, 10 groups.
 
 [Unreleased]: https://github.com/meszmate/rebound/commits/main
