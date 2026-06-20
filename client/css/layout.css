@@ -1,0 +1,197 @@
+/*
+ * Rebound — app shell layout.
+ * Header (title + tool switch + search) / tab rail / scrolling tool body /
+ * sticky action bar. Reflows for thin vertical and wide horizontal docks.
+ */
+.rb-header {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-2) var(--rb-gap-3);
+  border-bottom: 1px solid var(--rb-border);
+  flex: none;
+}
+.rb-header .rb-logo {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--rb-text);
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+}
+.rb-header .rb-logo .rb-logo-mark { color: var(--rb-accent); }
+
+.rb-search {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--rb-gap-3);
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border);
+  color: var(--rb-text-muted);
+  cursor: text;
+  min-width: 0;
+}
+.rb-search input {
+  border: 0;
+  background: transparent;
+  color: var(--rb-text);
+  font-family: inherit;
+  font-size: var(--rb-font-size);
+  outline: none;
+  width: 100%;
+  min-width: 40px;
+}
+
+.rb-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sub-navigation chips (shown when a group has several tools). */
+.rb-subnav {
+  display: flex;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-2) var(--rb-gap-4);
+  border-bottom: 1px solid var(--rb-border);
+  overflow-x: auto;
+  flex: none;
+}
+.rb-subnav .rb-chip { cursor: pointer; }
+
+/* Tool mount area: one .rb-tool visible at a time. */
+#rb-mounts {
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+.rb-tool {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+}
+.rb-tool.rb-hidden { display: none; }
+
+.rb-tool-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--rb-gap-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-4);
+}
+
+/* Sticky bottom action bar (Apply etc.). */
+.rb-action-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-3) var(--rb-gap-4);
+  border-top: 1px solid var(--rb-border);
+  background: var(--rb-bg);
+  flex: none;
+}
+.rb-action-bar .rb-scope {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Selection summary strip. */
+.rb-selstrip {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-2) var(--rb-gap-4);
+  border-bottom: 1px solid var(--rb-border);
+  background: var(--rb-bg-raised);
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  flex: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-selstrip .rb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rb-text-faint);
+  flex: none;
+}
+.rb-selstrip.is-live .rb-dot { background: var(--rb-success); }
+
+/* Control rows used by tools. */
+.rb-control-row {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: var(--rb-gap-3);
+}
+.rb-control-row > label { color: var(--rb-text-muted); }
+
+/* Wide-dock: give the curve editor and library side-by-side room. */
+@media (min-width: 560px) {
+  .rb-split {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(200px, 320px);
+    gap: var(--rb-gap-4);
+    align-items: start;
+  }
+}
+
+/* Command palette overlay. */
+#rb-palette {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  z-index: 1200;
+}
+#rb-palette .rb-palette-box {
+  width: min(440px, 90%);
+  background: var(--rb-bg-raised);
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+#rb-palette input {
+  width: 100%;
+  height: 36px;
+  border: 0;
+  border-bottom: 1px solid var(--rb-border);
+  background: transparent;
+  color: var(--rb-text);
+  font-size: calc(var(--rb-font-size) + 2px);
+  padding: 0 var(--rb-gap-4);
+  outline: none;
+}
+#rb-palette .rb-palette-list { max-height: 320px; overflow-y: auto; }
+#rb-palette .rb-palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-3) var(--rb-gap-4);
+  cursor: pointer;
+}
+#rb-palette .rb-palette-item.is-active { background: var(--rb-control); }
+#rb-palette .rb-palette-item .rb-palette-kbd {
+  margin-left: auto;
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+}

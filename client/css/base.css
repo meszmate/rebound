@@ -1,0 +1,137 @@
+/*
+ * Rebound — base layer: reset, root layout, typography, scrollbars.
+ * All colours come from CSS custom properties set by core/theme.js so a host
+ * theme change is a one-line variable swap with no re-render.
+ */
+
+:root {
+  /* Fallbacks; theme.js overwrites these from the host skin at boot. */
+  --rb-bg: #2b2b2b;
+  --rb-bg-raised: #333;
+  --rb-bg-sunken: #232323;
+  --rb-border: #3d3d3d;
+  --rb-border-strong: #4a4a4a;
+  --rb-control: #3a3a3a;
+  --rb-control-hover: #454545;
+  --rb-text: #e1e3e7;
+  --rb-text-muted: #969aa2;
+  --rb-text-faint: #6e727a;
+  --rb-accent: #4990e2;
+  --rb-accent-text: #fff;
+  --rb-danger: #e5534b;
+  --rb-warning: #e8a838;
+  --rb-success: #5cb878;
+  --rb-font-size: 11px;
+
+  /* Spacing + radius scale (original Rebound design language). */
+  --rb-gap-1: 2px;
+  --rb-gap-2: 4px;
+  --rb-gap-3: 8px;
+  --rb-gap-4: 12px;
+  --rb-gap-5: 16px;
+  --rb-gap-6: 24px;
+  --rb-radius-1: 3px;
+  --rb-radius-2: 5px;
+  --rb-radius-3: 8px;
+  --rb-radius-pill: 999px;
+  --rb-control-h: 24px;
+  --rb-transition: 120ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--rb-bg);
+  color: var(--rb-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: var(--rb-font-size);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+#rb-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+h1, h2, h3, h4, p {
+  margin: 0;
+}
+
+a {
+  color: var(--rb-accent);
+  text-decoration: none;
+}
+
+/* Headings / section labels */
+.rb-section-label {
+  font-size: calc(var(--rb-font-size) - 1px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--rb-text-faint);
+  font-weight: 600;
+  margin-bottom: var(--rb-gap-2);
+}
+
+/* Scrollbars (thin, themed). */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rb-border-strong);
+  border-radius: var(--rb-radius-pill);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rb-text-faint);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+}
+
+/* Focus visibility for keyboard users. */
+:focus-visible {
+  outline: 2px solid var(--rb-accent);
+  outline-offset: 1px;
+  border-radius: var(--rb-radius-1);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Utility layout helpers. */
+.rb-row { display: flex; align-items: center; gap: var(--rb-gap-3); }
+.rb-col { display: flex; flex-direction: column; gap: var(--rb-gap-3); }
+.rb-grow { flex: 1 1 auto; min-width: 0; }
+.rb-spacer { flex: 1 1 auto; }
+.rb-wrap { flex-wrap: wrap; }
+.rb-muted { color: var(--rb-text-muted); }
+.rb-faint { color: var(--rb-text-faint); }
+.rb-hidden { display: none !important; }
+.rb-scroll { overflow-y: auto; overflow-x: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

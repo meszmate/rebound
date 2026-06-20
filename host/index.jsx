@@ -1,0 +1,44 @@
+/*
+ * Rebound host entry point.
+ *
+ * Loaded two ways (either is sufficient; both are idempotent):
+ *   1. Declared as <ScriptPath> in CSXS/manifest.xml, auto-loaded by AE.
+ *   2. Explicitly bootstrapped by the panel bridge, which sets
+ *      $.__rebound_root to the extension folder before evaluating this file.
+ *
+ * It locates its own folder and evaluates each host module in dependency order.
+ */
+(function () {
+  function hostDir() {
+    // Prefer the root the panel handed us (most reliable under CEP).
+    if (typeof $.__rebound_root === 'string' && $.__rebound_root.length) {
+      return $.__rebound_root.replace(/[\\\/]+$/, '') + '/host';
+    }
+    // Otherwise derive it from this file's own location.
+    if ($.fileName) {
+      return File($.fileName).parent.fsName;
+    }
+    throw new Error('Rebound: cannot determine host directory.');
+  }
+
+  var dir = hostDir();
+
+  function load(relative) {
+    var f = new File(dir + '/' + relative);
+    if (!f.exists) {
+      throw new Error('Rebound host file missing: ' + relative);
+    }
+    $.evalFile(f);
+  }
+
+  // Order matters: JSON polyfill, then the RPC core, then shared utils, then
+  // each command module registers itself.
+  load('lib/json.jsx');
+  load('lib/core.jsx');
+  load('lib/util.jsx');
+
+  load('commands/system.jsx');
+  load('commands/ease.jsx');
+
+  $.__rebound.loaded = true;
+})();

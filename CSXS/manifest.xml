@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Rebound — Adobe CEP extension manifest.
+
+  Declares two extensions that share one bundle:
+    * com.meszmate.rebound.panel    — the main Rebound panel
+    * com.meszmate.rebound.settings  — the settings / preferences panel
+
+  Host range targets After Effects 2019 (16.0) and newer. CEP 9 runtime
+  (CSXS 9.0) is the floor; it ships with AE 2019+ and supports the CEF
+  features (Node.js integration, file access) Rebound relies on.
+
+  CEFCommandLine flags:
+    --enable-nodejs               give the panel a Node.js runtime (preset
+                                  + settings files are read/written directly)
+    --allow-file-access-from-files  let the panel load local assets/icons
+    --disable-pinch               stop trackpad pinch from zooming the panel
+-->
+<ExtensionManifest Version="9.0"
+                   ExtensionBundleId="com.meszmate.rebound"
+                   ExtensionBundleVersion="0.1.0"
+                   ExtensionBundleName="Rebound"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <ExtensionList>
+    <Extension Id="com.meszmate.rebound.panel" Version="0.1.0" />
+    <Extension Id="com.meszmate.rebound.settings" Version="0.1.0" />
+  </ExtensionList>
+
+  <ExecutionEnvironment>
+    <HostList>
+      <Host Name="AEFT" Version="[16.0,99.9]" />
+    </HostList>
+    <LocaleList>
+      <Locale Code="All" />
+    </LocaleList>
+    <RequiredRuntimeList>
+      <RequiredRuntime Name="CSXS" Version="9.0" />
+    </RequiredRuntimeList>
+  </ExecutionEnvironment>
+
+  <DispatchInfoList>
+    <!-- Main panel -->
+    <Extension Id="com.meszmate.rebound.panel">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./client/index.html</MainPath>
+          <ScriptPath>./host/index.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--enable-nodejs</Parameter>
+            <Parameter>--allow-file-access-from-files</Parameter>
+            <Parameter>--disable-pinch</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>true</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>Panel</Type>
+          <Menu>Rebound</Menu>
+          <Geometry>
+            <Size>
+              <Width>320</Width>
+              <Height>520</Height>
+            </Size>
+            <MinSize>
+              <Width>240</Width>
+              <Height>320</Height>
+            </MinSize>
+            <MaxSize>
+              <Width>1400</Width>
+              <Height>2000</Height>
+            </MaxSize>
+          </Geometry>
+          <Icons>
+            <Icon Type="Normal">./client/assets/icons/panel-normal.png</Icon>
+            <Icon Type="RollOver">./client/assets/icons/panel-rollover.png</Icon>
+            <Icon Type="DarkNormal">./client/assets/icons/panel-darknormal.png</Icon>
+            <Icon Type="DarkRollOver">./client/assets/icons/panel-darkrollover.png</Icon>
+          </Icons>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+
+    <!-- Settings panel -->
+    <Extension Id="com.meszmate.rebound.settings">
+      <DispatchInfo>
+        <Resources>
+          <MainPath>./client/settings.html</MainPath>
+          <ScriptPath>./host/index.jsx</ScriptPath>
+          <CEFCommandLine>
+            <Parameter>--enable-nodejs</Parameter>
+            <Parameter>--allow-file-access-from-files</Parameter>
+            <Parameter>--disable-pinch</Parameter>
+          </CEFCommandLine>
+        </Resources>
+        <Lifecycle>
+          <AutoVisible>false</AutoVisible>
+        </Lifecycle>
+        <UI>
+          <Type>ModalDialog</Type>
+          <Menu>Rebound Settings</Menu>
+          <Geometry>
+            <Size>
+              <Width>480</Width>
+              <Height>560</Height>
+            </Size>
+            <MinSize>
+              <Width>360</Width>
+              <Height>400</Height>
+            </MinSize>
+            <MaxSize>
+              <Width>900</Width>
+              <Height>1200</Height>
+            </MaxSize>
+          </Geometry>
+        </UI>
+      </DispatchInfo>
+    </Extension>
+  </DispatchInfoList>
+</ExtensionManifest>

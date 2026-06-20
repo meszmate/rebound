@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Build / packaging output
+dist/
+*.zxp
+*.p12
+*.pfx
+cert.p12
+certificate.p12
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs & coverage
+*.log
+coverage/
+.nyc_output/
+
+# CEP local debug artifacts
+.tmp/
+*.local
+
+# Scratch / working files (research digests, scratch scripts)
+tools/_*
+docs/research/
+
+# Machine-specific local dev config
+.claude/launch.json

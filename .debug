@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CEP remote-debugging config.
+  When PlayerDebugMode is enabled (see docs/INSTALL.md), each extension below
+  can be inspected from a Chromium browser at http://localhost:<Port>.
+  Open the matching port while the panel is loaded in After Effects.
+-->
+<ExtensionList>
+  <Extension Id="com.meszmate.rebound.panel">
+    <HostList>
+      <Host Name="AEFT" Port="8718"/>
+    </HostList>
+  </Extension>
+  <Extension Id="com.meszmate.rebound.settings">
+    <HostList>
+      <Host Name="AEFT" Port="8719"/>
+    </HostList>
+  </Extension>
+</ExtensionList>

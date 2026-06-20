@@ -1,0 +1,15 @@
+# Normalize line endings: text files are LF in the repo.
+* text=auto eol=lf
+
+# ExtendScript / shell scripts must stay LF.
+*.jsx text eol=lf
+*.jsxinc text eol=lf
+*.mjs text eol=lf
+*.sh text eol=lf
+
+# Binary assets.
+*.png binary
+*.jpg binary
+*.zxp binary
+*.p12 binary
+*.pfx binary

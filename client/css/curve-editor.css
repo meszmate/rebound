@@ -1,0 +1,82 @@
+/*
+ * Rebound — curve editor widget styling.
+ * The editor is an SVG so it stays crisp at any HiDPI scale and themes via
+ * CSS variables / currentColor.
+ */
+.rb-curve {
+  position: relative;
+  width: 100%;
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-3);
+  overflow: hidden;
+  touch-action: none;
+}
+.rb-curve svg { display: block; width: 100%; height: 100%; }
+
+.rb-curve .rb-grid-line { stroke: var(--rb-border); stroke-width: 1; }
+.rb-curve .rb-grid-line.is-mid { stroke: var(--rb-border-strong); }
+.rb-curve .rb-grid-frame { stroke: var(--rb-border-strong); fill: none; stroke-width: 1; }
+
+/* The easing curve and a faint reference diagonal. */
+.rb-curve .rb-ref-line { stroke: var(--rb-border); stroke-width: 1; stroke-dasharray: 3 3; }
+.rb-curve .rb-curve-path {
+  stroke: var(--rb-accent);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+}
+.rb-curve .rb-curve-ghost {
+  stroke: var(--rb-text-faint);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-dasharray: 4 4;
+}
+.rb-curve .rb-overshoot-band { fill: var(--rb-warning); opacity: 0.06; }
+
+/* Handles + tangent lines. */
+.rb-curve .rb-tangent { stroke: var(--rb-text-faint); stroke-width: 1; }
+.rb-curve .rb-handle {
+  fill: var(--rb-bg);
+  stroke: var(--rb-accent);
+  stroke-width: 2;
+  cursor: grab;
+}
+.rb-curve .rb-handle:hover { fill: var(--rb-accent); }
+.rb-curve .rb-handle.is-dragging { cursor: grabbing; fill: var(--rb-accent); }
+.rb-curve .rb-anchor-dot { fill: var(--rb-text-faint); }
+
+/* The looping "feel it" motion swatch dot. */
+.rb-curve .rb-swatch-dot { fill: var(--rb-accent); }
+.rb-curve .rb-swatch-track { stroke: var(--rb-border-strong); stroke-width: 1; }
+
+/* Live readout chip shown while dragging a handle. */
+.rb-curve-readout {
+  position: absolute;
+  padding: 2px 6px;
+  border-radius: var(--rb-radius-1);
+  background: #000;
+  color: #fff;
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+  transform: translate(-50%, -130%);
+}
+
+/* Mode tabs for Progress / Speed / Value space. */
+.rb-curve-spaces {
+  display: flex;
+  gap: var(--rb-gap-2);
+  margin-top: var(--rb-gap-2);
+}
+
+/* Fidelity / warning banner under the editor. */
+.rb-fidelity {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-faint);
+}
+.rb-fidelity.is-warn { color: var(--rb-warning); }

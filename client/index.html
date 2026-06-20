@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rebound</title>
+
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/curve-editor.css" />
+</head>
+<body>
+  <div id="rb-app"></div>
+  <div id="rb-toasts"></div>
+
+  <!--
+    Buildless: classic scripts loaded in dependency order. Each attaches to the
+    global Rebound namespace. Adding a feature = create its file and add one
+    <script> line in the "Features" block below.
+  -->
+
+  <!-- Vendored -->
+  <script src="js/lib/CSInterface.js"></script>
+
+  <!-- Core -->
+  <script src="js/core/log.js"></script>
+  <script src="js/core/events.js"></script>
+  <script src="js/core/dom.js"></script>
+  <script src="js/core/units.js"></script>
+  <script src="js/core/bridge.js"></script>
+  <script src="js/core/theme.js"></script>
+  <script src="js/core/store.js"></script>
+  <script src="js/core/registry.js"></script>
+
+  <!-- Easing engine -->
+  <script src="js/easing/bezier.js"></script>
+  <script src="js/easing/penner.js"></script>
+  <script src="js/easing/spring.js"></script>
+  <script src="js/easing/sampler.js"></script>
+
+  <!-- Presets -->
+  <script src="js/presets/defaults.js"></script>
+
+  <!-- UI -->
+  <script src="js/ui/controls.js"></script>
+  <script src="js/ui/curve-editor.js"></script>
+
+  <!-- Features (one line per tool) -->
+  <script src="js/features/ease.js"></script>
+
+  <!-- Boot last -->
+  <script src="js/main.js"></script>
+</body>
+</html>

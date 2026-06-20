@@ -1,0 +1,332 @@
+/*
+ * Rebound — reusable components.
+ * Buttons, segmented controls, sliders, numeric fields, toggles, tabs, chips,
+ * tiles, toasts, tooltips. Original visual language; themed via CSS variables.
+ */
+
+/* ---- Buttons ------------------------------------------------------------ */
+.rb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rb-gap-2);
+  height: var(--rb-control-h);
+  padding: 0 var(--rb-gap-4);
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-control);
+  color: var(--rb-text);
+  font-size: var(--rb-font-size);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--rb-transition), border-color var(--rb-transition);
+}
+.rb-btn:hover { background: var(--rb-control-hover); }
+.rb-btn:active { transform: translateY(0.5px); }
+.rb-btn[disabled],
+.rb-btn.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.rb-btn.is-primary {
+  background: var(--rb-accent);
+  border-color: var(--rb-accent);
+  color: var(--rb-accent-text);
+  font-weight: 600;
+}
+.rb-btn.is-primary:hover { filter: brightness(1.08); }
+.rb-btn.is-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.rb-btn.is-ghost:hover { background: var(--rb-control); }
+.rb-btn.is-danger:hover { border-color: var(--rb-danger); color: var(--rb-danger); }
+.rb-btn.is-block { width: 100%; }
+.rb-btn.is-icon {
+  width: var(--rb-control-h);
+  padding: 0;
+}
+
+/* ---- Segmented control --------------------------------------------------- */
+.rb-segmented {
+  display: inline-flex;
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  padding: 2px;
+  gap: 2px;
+}
+.rb-segmented button {
+  flex: 1 1 auto;
+  height: calc(var(--rb-control-h) - 6px);
+  min-width: 28px;
+  padding: 0 var(--rb-gap-3);
+  border: 0;
+  border-radius: var(--rb-radius-1);
+  background: transparent;
+  color: var(--rb-text-muted);
+  font-family: inherit;
+  font-size: var(--rb-font-size);
+  cursor: pointer;
+  transition: background var(--rb-transition), color var(--rb-transition);
+}
+.rb-segmented button:hover { color: var(--rb-text); }
+.rb-segmented button.is-active {
+  background: var(--rb-control);
+  color: var(--rb-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* ---- Numeric field ------------------------------------------------------- */
+.rb-field {
+  display: inline-flex;
+  align-items: center;
+  height: var(--rb-control-h);
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+  overflow: hidden;
+}
+.rb-field:focus-within { border-color: var(--rb-accent); }
+.rb-field label {
+  padding: 0 var(--rb-gap-2) 0 var(--rb-gap-3);
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+  cursor: ew-resize;
+}
+.rb-field input {
+  width: 100%;
+  min-width: 28px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--rb-text);
+  font-family: inherit;
+  font-size: var(--rb-font-size);
+  padding: 0 var(--rb-gap-3) 0 0;
+  text-align: right;
+  outline: none;
+}
+.rb-field .rb-suffix {
+  padding-right: var(--rb-gap-3);
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+}
+.rb-field.is-invalid { border-color: var(--rb-danger); }
+
+/* ---- Slider -------------------------------------------------------------- */
+.rb-slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-2);
+}
+.rb-slider .rb-slider-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.rb-slider .rb-slider-name { color: var(--rb-text-muted); }
+.rb-slider .rb-slider-val { color: var(--rb-text); font-variant-numeric: tabular-nums; }
+.rb-slider input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-bg-sunken);
+  outline: none;
+}
+.rb-slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--rb-accent);
+  border: 2px solid var(--rb-bg);
+  cursor: grab;
+}
+.rb-slider input[type='range']:active::-webkit-slider-thumb { cursor: grabbing; }
+
+/* ---- Toggle -------------------------------------------------------------- */
+.rb-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  cursor: pointer;
+}
+.rb-toggle .rb-toggle-track {
+  position: relative;
+  width: 30px;
+  height: 16px;
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border-strong);
+  transition: background var(--rb-transition);
+  flex: none;
+}
+.rb-toggle .rb-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--rb-text-muted);
+  transition: transform var(--rb-transition), background var(--rb-transition);
+}
+.rb-toggle.is-on .rb-toggle-track { background: var(--rb-accent); border-color: var(--rb-accent); }
+.rb-toggle.is-on .rb-toggle-track::after { transform: translateX(14px); background: #fff; }
+
+/* ---- Tabs / nav rail ----------------------------------------------------- */
+.rb-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--rb-border);
+  padding: 0 var(--rb-gap-3);
+  flex: none;
+  overflow-x: auto;
+}
+.rb-tabs button {
+  height: 30px;
+  padding: 0 var(--rb-gap-3);
+  border: 0;
+  background: transparent;
+  color: var(--rb-text-muted);
+  font-family: inherit;
+  font-size: var(--rb-font-size);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.rb-tabs button:hover { color: var(--rb-text); }
+.rb-tabs button.is-active {
+  color: var(--rb-text);
+  border-bottom-color: var(--rb-accent);
+}
+
+/* ---- Chip / pill --------------------------------------------------------- */
+.rb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  height: 18px;
+  padding: 0 var(--rb-gap-3);
+  border-radius: var(--rb-radius-pill);
+  background: var(--rb-bg-sunken);
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  border: 1px solid var(--rb-border);
+}
+.rb-chip.is-accent { color: var(--rb-accent); border-color: var(--rb-accent); }
+.rb-chip.is-warning { color: var(--rb-warning); border-color: var(--rb-warning); }
+
+/* ---- Preset tile --------------------------------------------------------- */
+.rb-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-3);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-raised);
+  cursor: pointer;
+  transition: border-color var(--rb-transition), background var(--rb-transition);
+}
+.rb-tile:hover { border-color: var(--rb-border-strong); background: var(--rb-control); }
+.rb-tile.is-active { border-color: var(--rb-accent); }
+.rb-tile .rb-tile-name {
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-tile svg { width: 100%; height: 38px; display: block; }
+.rb-tile .rb-tile-star {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: var(--rb-text-faint);
+  opacity: 0;
+  transition: opacity var(--rb-transition);
+}
+.rb-tile:hover .rb-tile-star { opacity: 1; }
+.rb-tile .rb-tile-star.is-on { opacity: 1; color: var(--rb-warning); }
+
+/* ---- Section card -------------------------------------------------------- */
+.rb-card {
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-3);
+  background: var(--rb-bg-raised);
+  padding: var(--rb-gap-4);
+}
+
+/* ---- Toasts -------------------------------------------------------------- */
+#rb-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: var(--rb-gap-4);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-2);
+  z-index: 1000;
+  pointer-events: none;
+  max-width: 92%;
+}
+.rb-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-3) var(--rb-gap-4);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-raised);
+  border: 1px solid var(--rb-border-strong);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  color: var(--rb-text);
+  pointer-events: auto;
+  animation: rb-toast-in 160ms ease;
+}
+.rb-toast.is-error { border-left: 3px solid var(--rb-danger); }
+.rb-toast.is-success { border-left: 3px solid var(--rb-success); }
+.rb-toast.is-info { border-left: 3px solid var(--rb-accent); }
+.rb-toast .rb-toast-action {
+  color: var(--rb-accent);
+  cursor: pointer;
+  font-weight: 600;
+}
+@keyframes rb-toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Tooltip ------------------------------------------------------------- */
+.rb-tooltip {
+  position: fixed;
+  z-index: 1100;
+  padding: var(--rb-gap-2) var(--rb-gap-3);
+  border-radius: var(--rb-radius-1);
+  background: #000;
+  color: #fff;
+  font-size: calc(var(--rb-font-size) - 1px);
+  pointer-events: none;
+  opacity: 0.92;
+  max-width: 220px;
+}
+
+/* ---- Empty state --------------------------------------------------------- */
+.rb-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-6) var(--rb-gap-4);
+  text-align: center;
+  color: var(--rb-text-muted);
+}

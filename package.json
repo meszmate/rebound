@@ -1,0 +1,48 @@
+{
+  "name": "rebound",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rebound — a free, open-source After Effects panel for easing, springs, and motion-design workflow tools. A clean-room alternative inspired by Flow and Motion.",
+  "license": "MIT",
+  "author": "Rebound contributors",
+  "homepage": "https://github.com/meszmate/rebound#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meszmate/rebound.git"
+  },
+  "bugs": {
+    "url": "https://github.com/meszmate/rebound/issues"
+  },
+  "keywords": [
+    "after-effects",
+    "cep",
+    "extendscript",
+    "easing",
+    "spring",
+    "motion-design",
+    "animation"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "cert": "node tools/make-cert.mjs",
+    "pack": "node tools/pack.mjs",
+    "install:dev": "node tools/install-dev.mjs",
+    "uninstall:dev": "node tools/install-dev.mjs --remove",
+    "debug:on": "node tools/player-debug-mode.mjs --on",
+    "debug:off": "node tools/player-debug-mode.mjs --off",
+    "check": "npm run lint && npm run test"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^9.0.0",
+    "vitest": "^3.0.0"
+  }
+}
