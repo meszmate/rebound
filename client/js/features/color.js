@@ -26,7 +26,11 @@
 
   function mount(ctx) {
     var hue = 210;
+    var saturation = 100;
     var lightness = 55;
+    var target = 'fill';
+
+    function currentRgb() { return hslToRgb(hue, saturation / 100, lightness / 100); }
 
     var swatchRow = el('div.rb-row.rb-wrap');
     for (var i = 0; i < PALETTE.length; i++) {
@@ -35,27 +39,44 @@
 
     var preview = el('button.rb-btn.is-icon', {
       title: 'Apply the slider color',
-      onclick: function () { apply(hslToRgb(hue, 1, lightness / 100)); }
+      onclick: function () { apply(currentRgb()); }
     });
-    paint(preview, hslToRgb(hue, 1, lightness / 100));
+    paint(preview, currentRgb());
+
+    // Native picker: pick any color and apply it directly.
+    var hexInput = el('input.rb-color-input', { type: 'color', value: '#1fa6e0',
+      title: 'Pick any color and apply it',
+      onchange: function (e) { apply(hexToRgb(e.target.value)); } });
 
     var hueSlider = ui.slider({ label: 'Hue', min: 0, max: 360, step: 1, value: hue,
       format: function (v) { return Math.round(v) + '°'; },
       onInput: function (v) { hue = v; updatePreview(); } });
+    var satSlider = ui.slider({ label: 'Saturation', min: 0, max: 100, step: 1, value: saturation,
+      format: function (v) { return Math.round(v) + '%'; },
+      onInput: function (v) { saturation = v; updatePreview(); } });
     var lightSlider = ui.slider({ label: 'Lightness', min: 0, max: 100, step: 1, value: lightness,
       format: function (v) { return Math.round(v) + '%'; },
       onInput: function (v) { lightness = v; updatePreview(); } });
 
+    var targetCtl = ui.segmented([
+      { value: 'fill', label: 'Fill', title: 'Recolor fills' },
+      { value: 'stroke', label: 'Stroke', title: 'Recolor strokes (shape layers)' },
+      { value: 'both', label: 'Both', title: 'Recolor fills and strokes' }
+    ], { value: target, onChange: function (v) { target = v; } });
+
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Sets the color of selected layers. Click a swatch, or dial in a color with the Hue and Lightness sliders.' }),
+      el('div.rb-faint', { text: 'Sets the color of selected layers. Click a swatch, dial in Hue, Saturation, and Lightness, or pick any color. Stroke targets apply to shape layers.' }),
       swatchRow,
       hueSlider.el,
+      satSlider.el,
       lightSlider.el,
-      el('div.rb-row', null, [preview, el('span.rb-faint.rb-grow', { text: 'Slider color' })])
+      el('div.rb-section-label', { text: 'Target' }),
+      targetCtl.el,
+      el('div.rb-row', null, [preview, el('span.rb-faint.rb-grow', { text: 'Slider color' }), hexInput])
     ]));
 
     function updatePreview() {
-      paint(preview, hslToRgb(hue, 1, lightness / 100));
+      paint(preview, currentRgb());
     }
 
     function makeSwatch(hex) {
@@ -80,7 +101,7 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function apply(rgb) {
-      ctx.invoke('color.apply', { rgb: rgb })
+      ctx.invoke('color.apply', { rgb: rgb, target: target })
         .then(function (res) {
           if (!res.colored) {
             ctx.toast('No layers were colored', { kind: 'info' });

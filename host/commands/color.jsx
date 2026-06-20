@@ -17,6 +17,8 @@
   var GROUP_CONTENTS = 'ADBE Vectors Group';
   var FILL = 'ADBE Vector Graphic - Fill';
   var FILL_COLOR = 'ADBE Vector Fill Color';
+  var STROKE = 'ADBE Vector Graphic - Stroke';
+  var STROKE_COLOR = 'ADBE Vector Stroke Color';
   var EFFECT_PARADE = 'ADBE Effect Parade';
   var FILL_EFFECT = 'ADBE Fill';
   // Stable matchName for the Fill effect's Color parameter. The localized
@@ -50,18 +52,27 @@
     return true;
   }
 
-  // Recurse a vectors group, recoloring every Fill operator found within.
-  function recolorFills(group, rgb) {
+  // Recurse a vectors group, recoloring every operator of the given matchName
+  // (Fill or Stroke) found within. The color parameter differs per operator.
+  function recolorOp(group, rgb, opMatch, colorMatch) {
     var hit = 0;
     for (var i = 1; i <= group.numProperties; i++) {
       var child = group.property(i);
-      if (child.matchName === FILL) {
-        if (setColorProp(child.property(FILL_COLOR), rgb)) hit++;
+      if (child.matchName === opMatch) {
+        if (setColorProp(child.property(colorMatch), rgb)) hit++;
       } else if (child.matchName === GROUP_CONTENTS) {
-        hit += recolorFills(child, rgb);
+        hit += recolorOp(child, rgb, opMatch, colorMatch);
       }
     }
     return hit;
+  }
+
+  function recolorFills(group, rgb) {
+    return recolorOp(group, rgb, FILL, FILL_COLOR);
+  }
+
+  function recolorStrokes(group, rgb) {
+    return recolorOp(group, rgb, STROKE, STROKE_COLOR);
   }
 
   function isSolid(layer) {
@@ -95,11 +106,20 @@
     return setColorProp(colorProp, rgb);
   }
 
-  function colorLayer(layer, rgb) {
+  // target: 'fill' (default), 'stroke', or 'both'. Strokes only exist on shape
+  // layers; solids and the Fill-effect path are fill-only, so a stroke-only
+  // target leaves them untouched (reported as skipped).
+  function colorLayer(layer, rgb, target) {
+    var wantFill = target === 'fill' || target === 'both';
+    var wantStroke = target === 'stroke' || target === 'both';
     var root = layer.property(ROOT);
     if (root) {
-      return recolorFills(root, rgb) > 0;
+      var hit = 0;
+      if (wantFill) hit += recolorFills(root, rgb);
+      if (wantStroke) hit += recolorStrokes(root, rgb);
+      return hit > 0;
     }
+    if (!wantFill) return false;
     if (isSolid(layer)) {
       layer.source.mainSource.color = [rgb[0], rgb[1], rgb[2]];
       return true;
@@ -113,13 +133,14 @@
     if (!layers || !layers.length) throw new Error('Select one or more layers to color.');
 
     var rgb = readColor(args && args.rgb);
+    var target = (args && (args.target === 'stroke' || args.target === 'both')) ? args.target : 'fill';
 
     var colored = 0;
     var skipped = [];
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (colorLayer(layer, rgb)) colored++;
+      if (colorLayer(layer, rgb, target)) colored++;
       else skipped.push(layer.name + ' (cannot be colored)');
     }
 
