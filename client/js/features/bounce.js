@@ -25,13 +25,40 @@
     var maxBounces = 4;
     var eachKey = false;
 
-    // Preview: a settling rebound synthesized from the rig parameters.
-    function previewCurve() {
-      return {
-        type: 'spring',
-        response: R.units.clamp(2 / gravity, 0.3, 1.3),
-        bounce: R.units.clamp(elasticity * 0.75, 0, 0.75)
+    // Preview the REAL motion: a gravitational ball-bounce (rise to target, then
+    // a series of decreasing rebounds settling onto it), not a spring overshoot.
+    // Parametric in elasticity (how much each rebound keeps) and max bounces.
+    function makeBounce(elas, bounces) {
+      var e = Math.max(0.15, Math.min(0.85, elas));
+      var n = Math.max(1, Math.min(5, Math.round(bounces)));
+      var widths = [1.0];
+      var drops = [];
+      // First rebound dips a modest amount below the target; each later rebound
+      // keeps a fraction `e` of the previous depth, so it visibly settles.
+      var base = 0.2 + 0.12 * e;
+      for (var k = 1; k <= n; k++) { var d = base * Math.pow(e, k - 1); drops.push(d); widths.push(2.4 * Math.sqrt(d)); }
+      var total = 0, i;
+      for (i = 0; i < widths.length; i++) total += widths[i];
+      var nw = widths.map(function (x) { return x / total; });
+      var starts = [0];
+      for (i = 1; i < nw.length; i++) starts.push(starts[i - 1] + nw[i - 1]);
+      return function (t) {
+        if (t <= 0) return 0;
+        if (t >= 1) return 1;
+        if (t < starts[1]) { var u = t / nw[0]; return u * u * (3 - 2 * u); } // smooth rise to target
+        for (var s = 1; s <= n; s++) {
+          var s0 = starts[s];
+          var s1 = (s < n) ? starts[s + 1] : 1;
+          if (t < s1 || s === n) {
+            var u2 = (t - s0) / (s1 - s0);
+            return 1 - drops[s - 1] * 4 * u2 * (1 - u2); // dip below target and return
+          }
+        }
+        return 1;
       };
+    }
+    function previewCurve() {
+      return { type: 'fn', fn: makeBounce(elasticity, maxBounces) };
     }
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape' });
