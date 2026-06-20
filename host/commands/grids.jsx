@@ -2,10 +2,12 @@
  * Rebound host, Grids (composition guide-overlay shape layer).
  *
  * Creates a non-rendering shape layer named "Guides" filled with thin rectangles
- * standing in for grid lines. Thirds draws lines at 1/3 and 2/3 of each axis,
- * Golden at the 0.382 / 0.618 divisions, and Columns draws "count" even vertical
- * bands inset by a gutter. Every property is addressed by matchName; the layer is
- * flagged guideLayer so it never renders.
+ * standing in for guide lines. Thirds draws lines at 1/3 and 2/3 of each axis,
+ * Golden at the 0.382 / 0.618 divisions, Columns draws a real design column grid
+ * (margin + gutter + computed column width) as edge lines, and Safe draws the
+ * broadcast action-safe and title-safe rectangles. The line color is settable so
+ * the guides stay visible on any background. Every property is addressed by
+ * matchName; the layer is flagged guideLayer so it never renders.
  */
 (function () {
   var R = $.__rebound;
@@ -39,28 +41,63 @@
     xform.property(V_GROUP_POS).setValue([cx - comp.width / 2, cy - comp.height / 2]);
   }
 
+  // A full-height vertical line at comp-x, clamped inside the frame so a 1px
+  // line at the very edge is not half-clipped.
   function addVertical(contents, comp, x, w, color) {
-    addLine(contents, comp, x, comp.height / 2, w, comp.height, color);
+    var cx = x;
+    if (cx < w / 2) cx = w / 2;
+    if (cx > comp.width - w / 2) cx = comp.width - w / 2;
+    addLine(contents, comp, cx, comp.height / 2, w, comp.height, color);
   }
 
   function addHorizontal(contents, comp, y, h, color) {
-    addLine(contents, comp, comp.width / 2, y, comp.width, h, color);
+    var cy = y;
+    if (cy < h / 2) cy = h / 2;
+    if (cy > comp.height - h / 2) cy = comp.height - h / 2;
+    addLine(contents, comp, comp.width / 2, cy, comp.width, h, color);
+  }
+
+  // A rectangle outline inset by (mx, my) from the comp edges, drawn as four
+  // thin lines of width lw. Used for the safe-area guides.
+  function addRectOutline(contents, comp, mx, my, lw, color) {
+    var innerW = comp.width - 2 * mx;
+    var innerH = comp.height - 2 * my;
+    // Left and right edges (full inner height).
+    addLine(contents, comp, mx + lw / 2, comp.height / 2, lw, innerH, color);
+    addLine(contents, comp, comp.width - mx - lw / 2, comp.height / 2, lw, innerH, color);
+    // Top and bottom edges (full inner width).
+    addLine(contents, comp, comp.width / 2, my + lw / 2, innerW, lw, color);
+    addLine(contents, comp, comp.width / 2, comp.height - my - lw / 2, innerW, lw, color);
   }
 
   function num(v, fallback) {
     return (v == null || isNaN(v)) ? fallback : v;
   }
 
+  function clamp01(v) {
+    if (v == null || isNaN(v)) return 0;
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+
+  // Resolve the guide color: caller-supplied RGB triplet, else a visible cyan
+  // that reads against both light and dark comps.
+  function readColor(rgb) {
+    if (rgb && rgb.length >= 3) return [clamp01(rgb[0]), clamp01(rgb[1]), clamp01(rgb[2])];
+    return [0, 0.85, 1];
+  }
+
   function apply(args) {
     var comp = util.activeComp();
     var preset = args.preset || 'thirds';
+    var color = readColor(args && args.color);
+    var lw = num(args && args.lineWidth, 1);
+    if (lw < 1) lw = 1;
 
     var layer = comp.layers.addShape();
     layer.name = 'Guides';
     layer.guideLayer = true;
 
     var contents = layer.property(CONTENTS);
-    var color = [1, 1, 1];
 
     if (preset === 'columns') {
       var count = Math.round(num(args.count, 12));
@@ -68,18 +105,28 @@
       if (count > 100) count = 100;
       var gutter = num(args.gutter, 20);
       if (gutter < 0) gutter = 0;
+      var margin = num(args.margin, 0);
+      if (margin < 0) margin = 0;
 
-      // Even bands across the width; the gutter is the visible band thickness.
-      var bandW = gutter > 0 ? gutter : 1;
+      // Real column model: column width = (W - 2*margin - (n-1)*gutter) / n.
+      // Draw a thin line at each column's left and right edge.
+      var usable = comp.width - 2 * margin - (count - 1) * gutter;
+      var colW = usable / count;
+      if (colW < 1) colW = 1;
       for (var i = 0; i < count; i++) {
-        var cx = (i + 0.5) * (comp.width / count);
-        addVertical(contents, comp, cx, bandW, color);
+        var left = margin + i * (colW + gutter);
+        addVertical(contents, comp, left, lw, color);
+        addVertical(contents, comp, left + colW, lw, color);
       }
+    } else if (preset === 'safe') {
+      // Broadcast safe areas: action-safe inset 5%, title-safe inset 10%.
+      addRectOutline(contents, comp, comp.width * 0.05, comp.height * 0.05, lw, color);
+      addRectOutline(contents, comp, comp.width * 0.10, comp.height * 0.10, lw, color);
     } else {
       var fractions = preset === 'golden' ? [0.382, 0.618] : [1 / 3, 2 / 3];
       for (var f = 0; f < fractions.length; f++) {
-        addVertical(contents, comp, fractions[f] * comp.width, 1, color);
-        addHorizontal(contents, comp, fractions[f] * comp.height, 1, color);
+        addVertical(contents, comp, fractions[f] * comp.width, lw, color);
+        addHorizontal(contents, comp, fractions[f] * comp.height, lw, color);
       }
     }
 
