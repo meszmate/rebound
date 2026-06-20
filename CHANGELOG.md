@@ -39,5 +39,8 @@ All notable changes to Rebound are documented here. The format follows
 - **Velocity** (numeric speed/influence), **Copy Ease** (copy/paste ease),
   **Bake** (expressions → clean keyframes), **Kinetic** (velocity-driven),
   **Separate** (dimensions), **Break** (split shape layer). 38 tools, 10 groups.
+- **Palette** (color schemes), **Reverse** (mirror keyframes), **Demo** (build a
+  practice comp), **Link** (parent), **Stroke**, **Text Break**, **Gradient**.
+  45 tools across 11 groups.
 
 [Unreleased]: https://github.com/meszmate/rebound/commits/main

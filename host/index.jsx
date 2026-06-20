@@ -76,6 +76,12 @@
   load('commands/kinetic.jsx');
   load('commands/separate.jsx');
   load('commands/break.jsx');
+  load('commands/reverse.jsx');
+  load('commands/demo.jsx');
+  load('commands/link.jsx');
+  load('commands/stroke.jsx');
+  load('commands/textbreak.jsx');
+  load('commands/gradient.jsx');
 
   $.__rebound.loaded = true;
 })();
