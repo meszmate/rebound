@@ -25,7 +25,8 @@
 
   function mount(ctx) {
     var width = 4;
-    var rgb = hexToRgb(PALETTE[7]);
+    var activeHex = PALETTE[7];
+    var rgb = hexToRgb(activeHex);
 
     var widthField = ui.numberField({ label: 'Width', value: width, min: 0, step: 1, decimals: 0, suffix: 'px', width: '110px',
       onChange: function (v) { width = v; } });
@@ -41,7 +42,7 @@
       var b = el('button.rb-btn.is-icon', { title: 'Stroke ' + hex });
       b.style.background = hex;
       b.style.borderColor = hex;
-      b.addEventListener('click', function () { rgb = hexToRgb(hex); setActive(hex); });
+      b.addEventListener('click', function () { activeHex = hex; rgb = hexToRgb(hex); setActive(hex); });
       swatches.push({ hex: hex, el: b });
       return b;
     }
@@ -90,7 +91,29 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not remove stroke', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { width: width, hex: activeHex };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.width != null) { width = s.width; widthField.set(s.width); }
+      if (s.hex != null) { activeHex = s.hex; rgb = hexToRgb(s.hex); setActive(s.hex); }
+    }
+
+    return {
+      presets: {
+        toolId: 'stroke',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Thin ink', state: { width: 2, hex: '#1a1c20' } },
+          { name: 'Bold red', state: { width: 8, hex: '#f4453a' } },
+          { name: 'Sky line', state: { width: 4, hex: '#1fa6e0' } },
+          { name: 'Heavy violet', state: { width: 12, hex: '#9b3fd6' } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   // Hex string ('#rrggbb') to 0..1 RGB triplet.

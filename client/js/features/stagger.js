@@ -52,7 +52,30 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not stagger', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { intervalFrames: intervalFrames, reverse: reverse, anchor: anchor };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.intervalFrames != null) { intervalFrames = s.intervalFrames; intervalField.set(s.intervalFrames); }
+      if (s.reverse != null) { reverse = s.reverse; reverseToggle.set(s.reverse); }
+      if (s.anchor != null) { anchor = s.anchor; anchorCtl.set(s.anchor); }
+    }
+
+    return {
+      presets: {
+        toolId: 'stagger',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Tight cascade', state: { intervalFrames: 2, reverse: false, anchor: 'playhead' } },
+          { name: 'Wide cascade', state: { intervalFrames: 8, reverse: false, anchor: 'first' } },
+          { name: 'Reverse fan', state: { intervalFrames: 4, reverse: true, anchor: 'playhead' } },
+          { name: 'From first layer', state: { intervalFrames: 6, reverse: false, anchor: 'first' } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

@@ -55,7 +55,30 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not sequence', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { order: order, overlapFrames: overlapFrames, trim: trim };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.order != null) { order = s.order; orderSeg.set(s.order); }
+      if (s.overlapFrames != null) { overlapFrames = s.overlapFrames; overlapSlider.set(s.overlapFrames); }
+      if (s.trim != null) { trim = s.trim; trimToggle.set(s.trim); }
+    }
+
+    return {
+      presets: {
+        toolId: 'sequence',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Butt joined', state: { order: 'selection', overlapFrames: 0, trim: false } },
+          { name: 'Crossfade', state: { order: 'selection', overlapFrames: 12, trim: false } },
+          { name: 'Spaced out', state: { order: 'selection', overlapFrames: -10, trim: false } },
+          { name: 'Top-down trim', state: { order: 'topdown', overlapFrames: 0, trim: true } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

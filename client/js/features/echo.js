@@ -50,7 +50,30 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not add Echo', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { echoTime: echoTime, numEchoes: numEchoes, decay: decay };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.echoTime != null) { echoTime = s.echoTime; echoTimeSlider.set(s.echoTime); }
+      if (s.numEchoes != null) { numEchoes = s.numEchoes; numEchoesField.set(s.numEchoes); }
+      if (s.decay != null) { decay = s.decay; decaySlider.set(s.decay); }
+    }
+
+    return {
+      presets: {
+        toolId: 'echo',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Subtle trail', state: { echoTime: -0.03, numEchoes: 4, decay: 0.5 } },
+          { name: 'Long smear', state: { echoTime: -0.08, numEchoes: 16, decay: 0.85 } },
+          { name: 'Strobe', state: { echoTime: -0.12, numEchoes: 6, decay: 1 } },
+          { name: 'Ghost fade', state: { echoTime: -0.05, numEchoes: 10, decay: 0.65 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {
