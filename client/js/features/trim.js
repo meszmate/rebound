@@ -57,7 +57,31 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not trim', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { trimIn: trimIn, trimOut: trimOut, paddingFrames: paddingFrames };
+    }
+
+    function applyState(s) {
+      if (!s) return;
+      if (s.trimIn != null) { trimIn = s.trimIn; inToggle.set(s.trimIn); }
+      if (s.trimOut != null) { trimOut = s.trimOut; outToggle.set(s.trimOut); }
+      if (s.paddingFrames != null) { paddingFrames = s.paddingFrames; padField.set(s.paddingFrames); }
+    }
+
+    return {
+      presets: {
+        toolId: 'trim',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Both ends', state: { trimIn: true, trimOut: true, paddingFrames: 0 } },
+          { name: 'In only', state: { trimIn: true, trimOut: false, paddingFrames: 0 } },
+          { name: 'Out only', state: { trimIn: false, trimOut: true, paddingFrames: 0 } },
+          { name: 'Padded', state: { trimIn: true, trimOut: true, paddingFrames: 2 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

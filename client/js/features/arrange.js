@@ -50,7 +50,31 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not arrange', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { columns: columns, gapX: gapX, gapY: gapY };
+    }
+
+    function applyState(s) {
+      if (!s) return;
+      if (s.columns != null) { columns = s.columns; columnsField.set(s.columns); }
+      if (s.gapX != null) { gapX = s.gapX; gapXField.set(s.gapX); }
+      if (s.gapY != null) { gapY = s.gapY; gapYField.set(s.gapY); }
+    }
+
+    return {
+      presets: {
+        toolId: 'arrange',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Auto square', state: { columns: 0, gapX: 16, gapY: 16 } },
+          { name: 'Tight grid', state: { columns: 0, gapX: 4, gapY: 4 } },
+          { name: 'Single row', state: { columns: 0, gapX: 24, gapY: 24 } },
+          { name: 'Four columns', state: { columns: 4, gapX: 16, gapY: 16 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

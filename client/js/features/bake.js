@@ -78,7 +78,31 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not bake', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { range: range, stepFrames: stepFrames, includeExpressions: includeExpressions };
+    }
+
+    function applyState(s) {
+      if (!s) return;
+      if (s.range != null) { range = s.range; rangeCtl.set(s.range); }
+      if (s.stepFrames != null) { stepFrames = s.stepFrames; stepField.set(s.stepFrames); }
+      if (s.includeExpressions != null) { includeExpressions = s.includeExpressions; exprToggle.set(s.includeExpressions); }
+    }
+
+    return {
+      presets: {
+        toolId: 'bake',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Every frame', state: { range: 'work', stepFrames: 1, includeExpressions: false } },
+          { name: 'Coarse sample', state: { range: 'work', stepFrames: 4, includeExpressions: false } },
+          { name: 'Layer span', state: { range: 'layer', stepFrames: 1, includeExpressions: false } },
+          { name: 'With expressions', state: { range: 'work', stepFrames: 1, includeExpressions: true } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

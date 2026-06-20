@@ -47,7 +47,29 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not smooth', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { roving: roving, autoBezier: autoBezier };
+    }
+
+    function applyState(s) {
+      if (!s) return;
+      if (s.roving != null) { roving = s.roving; rovingToggle.set(s.roving); }
+      if (s.autoBezier != null) { autoBezier = s.autoBezier; autoBezierToggle.set(s.autoBezier); }
+    }
+
+    return {
+      presets: {
+        toolId: 'smooth',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Smooth', state: { roving: false, autoBezier: true } },
+          { name: 'Smooth + rove', state: { roving: true, autoBezier: true } },
+          { name: 'Auto bezier', state: { roving: false, autoBezier: true } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {
