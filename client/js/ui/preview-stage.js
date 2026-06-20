@@ -34,6 +34,10 @@
     var holdMs = opts.hold != null ? opts.hold : 480;
     var property = opts.property || 'position';
     var sample = opts.sample || 'shape';
+    // 'horizontal' (a value sliding along a track) or 'vertical' (an object
+    // dropping onto a floor, for gravity bounces). Vertical matches the bounce
+    // card so the preview and the showcase read as the same motion.
+    var axis = opts.axis === 'vertical' ? 'vertical' : 'horizontal';
     var showLinearGhost = opts.ghostLinear !== false;
     var slowmo = 1;
     var reduced = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -49,6 +53,10 @@
       el('span.rb-preview-marker.is-start'), el('span.rb-preview-marker.is-end'),
       ghost, dot
     ]);
+    if (axis === 'vertical') {
+      stage.classList.add('is-vertical');
+      stage.appendChild(el('span.rb-preview-floor'));
+    }
 
     // Named setters so both the in-stage controls and the public API drive them.
     function setProperty(p) { property = p; if (propSeg) propSeg.set(p); renderAt(phaseToP()); }
@@ -95,36 +103,43 @@
 
     function totalCycle() { return (duration / 1000) * slowmo + holdMs / 1000; }
 
-    function range() { return Math.max(0, stage.clientWidth - 32); }
+    function hrange() { return Math.max(0, stage.clientWidth - 32); }
+    function vrange() { return Math.max(0, stage.clientHeight - 50); }
+    function centerX() { return stage.clientWidth / 2 - 16; }
 
-    // Apply the eased value e (may overshoot) to the sample for the active property.
+    // Apply the eased value e (may overshoot) to the sample for the active
+    // property. Horizontal slides along the track; vertical drops onto the floor
+    // (value 1 = resting on the floor, dips above it = bounces).
     function applyTo(node, e, isGhost) {
-      var transform = '';
+      var baseX = axis === 'vertical' ? centerX() : hrange() / 2;
+      var tx = baseX;
+      var ty = 0;
+      var scale = 1;
+      var rot = 0;
       var opacity = 1;
       switch (property) {
-        case 'scale':
-          transform = 'translateX(' + (range() / 2) + 'px) scale(' + (0.25 + clamp01ish(e) * 0.75) + ')';
-          break;
-        case 'rotation':
-          transform = 'translateX(' + (range() / 2) + 'px) rotate(' + (e * 180) + 'deg)';
-          break;
-        case 'opacity':
-          transform = 'translateX(' + (range() / 2) + 'px)';
-          opacity = clamp01(e);
-          break;
+        case 'scale': scale = 0.25 + clamp01ish(e) * 0.75; break;
+        case 'rotation': rot = e * 180; break;
+        case 'opacity': opacity = clamp01(e); break;
         default: // position
-          transform = 'translateX(' + (e * range()) + 'px)';
+          if (axis === 'vertical') ty = (e - 0.5) * vrange();
+          else tx = e * hrange();
       }
-      node.style.transform = transform;
+      var t = 'translate(' + tx + 'px,' + ty + 'px)';
+      if (scale !== 1) t += ' scale(' + scale + ')';
+      if (rot) t += ' rotate(' + rot + 'deg)';
+      node.style.transform = t;
       node.style.opacity = isGhost ? opacity * 0.5 : opacity;
     }
 
     function renderAt(p) {
       var fn = sampler.toFunction(getCurve());
       applyTo(dot, fn(p), false);
-      if (showLinearGhost) applyTo(ghost, p, true);
-      ghost.style.display = showLinearGhost ? '' : 'none';
-      ghostTrack.style.display = showLinearGhost ? '' : 'none';
+      // The vs-linear ghost only makes sense along the horizontal track.
+      var ghostOn = showLinearGhost && axis !== 'vertical';
+      if (ghostOn) applyTo(ghost, p, true);
+      ghost.style.display = ghostOn ? '' : 'none';
+      ghostTrack.style.display = ghostOn ? '' : 'none';
     }
 
     function frame(ts) {

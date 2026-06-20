@@ -35,7 +35,7 @@
       };
     }
     var previewHost = el('div');
-    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'scale', sample: 'shape' });
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape' });
 
     var halfLife = el('span.rb-chip', { text: '' });
     function refreshChip() {

@@ -76,6 +76,20 @@
   background: var(--rb-text-faint);
 }
 
+/* Vertical (gravity) mode: an object drops onto a floor, matching the Bounce
+   card. The horizontal track and markers give way to a floor line. */
+.rb-preview-stage.is-vertical .rb-preview-track,
+.rb-preview-stage.is-vertical .rb-preview-marker { display: none; }
+.rb-preview-floor {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--rb-border-strong);
+}
+
 .rb-preview-controls {
   display: flex;
   align-items: center;
