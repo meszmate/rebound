@@ -1,9 +1,11 @@
 /*
  * Rebound host, Bounce (gravitational rebound on existing keyframes).
  *
- * After the last keyframe a property passes, the value rebounds off its target
- * like a ball, each bounce smaller. Driven by a generated expression backed by
- * three shared Slider Controls. Non-destructive: the original keyframes stay.
+ * After a keyframe a property passes, the value rebounds off its target like a
+ * ball, each bounce smaller. Driven by a generated expression backed by shared
+ * controls. The "Bounce Each Key" checkbox chooses whether the rebound fires
+ * after EVERY keyframe or only after the final one (the default, a single ball
+ * drop). Non-destructive: the original keyframes stay.
  */
 (function () {
   var R = $.__rebound;
@@ -15,9 +17,10 @@
       'elas = effect("Bounce Elasticity")("Slider");',
       'grav = effect("Bounce Gravity")("Slider");',
       'maxB = Math.floor(effect("Bounce Count")("Slider"));',
+      'eachKey = effect("Bounce Each Key")("Checkbox");',
       'n = 0;',
       'if (numKeys > 0) { n = nearestKey(time).index; if (key(n).time > time) n--; }',
-      'if (n > 0 && n == numKeys) {',
+      'if (n > 0 && (eachKey || n == numKeys)) {',
       '  t = time - key(n).time;',
       '  v = velocityAtTime(key(n).time - thisComp.frameDuration / 10);',
       '  amp = v * elas;',
@@ -50,6 +53,7 @@
       rig.ensureSlider(layer, 'Bounce Elasticity', args.elasticity != null ? args.elasticity : 0.7);
       rig.ensureSlider(layer, 'Bounce Gravity', args.gravity != null ? args.gravity : 4);
       rig.ensureSlider(layer, 'Bounce Count', args.maxBounces != null ? args.maxBounces : 4);
+      rig.ensureCheckbox(layer, 'Bounce Each Key', args.eachKey != null ? args.eachKey : false);
 
       if (rig.setExpression(p, expression())) applied++;
       else skipped.push(p.name + ' (has an expression)');

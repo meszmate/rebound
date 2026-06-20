@@ -22,6 +22,7 @@
     var overshoot = 60;
     var bounce = 2;
     var friction = 6;
+    var eachKey = true;
 
     // Preview: synthesize a representative overshoot spring from the sliders so
     // the motion is visible before applying (scale pops the overshoot best).
@@ -49,13 +50,17 @@
       onInput: function (v) { bounce = v; refreshChip(); } });
     var frictionSlider = ui.slider({ label: 'Friction', min: 0.5, max: 20, step: 0.1, value: friction,
       onInput: function (v) { friction = v; refreshChip(); } });
+    var eachKeyToggle = ui.toggle({ label: 'After every keyframe', value: eachKey,
+      title: 'On: overshoot fires after every keyframe the value passes. Off: only after the final keyframe.',
+      onChange: function (v) { eachKey = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
-      el('div.rb-faint', { text: 'Adds elastic overshoot after each keyframe, scaled by the incoming velocity. Non-destructive, your keyframes stay.' }),
+      el('div.rb-faint', { text: 'Adds elastic overshoot after a keyframe, scaled by the incoming velocity. Non-destructive, your keyframes stay.' }),
       overshootSlider.el,
       bounceSlider.el,
       frictionSlider.el,
+      eachKeyToggle.el,
       el('div.rb-row', null, [halfLife])
     ]));
 
@@ -72,7 +77,7 @@
     scopeText.textContent = '';
 
     function doApply() {
-      ctx.invoke('recoil.apply', { overshoot: overshoot, bounce: bounce, friction: friction })
+      ctx.invoke('recoil.apply', { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: eachKey })
         .then(function (res) { ctx.toast('Recoil on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Recoil', { kind: 'error' }); });
     }

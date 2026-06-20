@@ -1,9 +1,11 @@
 /*
  * Rebound host, Recoil (velocity-driven overshoot on existing keyframes).
  *
- * Adds elastic overshoot AFTER the last keyframe a property passes, scaled by
- * the velocity arriving at that keyframe, via a generated expression backed by
- * three shared Slider Controls. Non-destructive: the original keyframes stay.
+ * Adds elastic overshoot after a keyframe a property passes, scaled by the
+ * velocity arriving at that keyframe, via a generated expression backed by
+ * shared controls. The "Recoil Each Key" checkbox chooses whether overshoot
+ * fires after EVERY keyframe (the value settles after each move) or only after
+ * the final keyframe. Non-destructive: the original keyframes stay.
  */
 (function () {
   var R = $.__rebound;
@@ -15,9 +17,10 @@
       'amp = effect("Recoil Overshoot")("Slider") / 100;',
       'freq = effect("Recoil Bounce")("Slider");',
       'dec = effect("Recoil Friction")("Slider");',
+      'eachKey = effect("Recoil Each Key")("Checkbox");',
       'n = 0;',
       'if (numKeys > 0) { n = nearestKey(time).index; if (key(n).time > time) n--; }',
-      'if (n > 0 && n == numKeys) {',
+      'if (n > 0 && (eachKey || n == numKeys)) {',
       '  t = time - key(n).time;',
       '  v = velocityAtTime(key(n).time - thisComp.frameDuration / 10);',
       '  value + v * amp * Math.sin(freq * t * 2 * Math.PI) / Math.exp(dec * t);',
@@ -44,6 +47,7 @@
       rig.ensureSlider(layer, 'Recoil Overshoot', args.overshoot != null ? args.overshoot : 60);
       rig.ensureSlider(layer, 'Recoil Bounce', args.bounce != null ? args.bounce : 2);
       rig.ensureSlider(layer, 'Recoil Friction', args.friction != null ? args.friction : 6);
+      rig.ensureCheckbox(layer, 'Recoil Each Key', args.eachKey != null ? args.eachKey : true);
 
       if (rig.setExpression(p, expression())) applied++;
       else skipped.push(p.name + ' (has an expression)');

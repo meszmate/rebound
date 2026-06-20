@@ -23,6 +23,7 @@
     var elasticity = 0.7;
     var gravity = 4;
     var maxBounces = 4;
+    var eachKey = false;
 
     // Preview: a settling rebound synthesized from the rig parameters.
     function previewCurve() {
@@ -44,13 +45,17 @@
       onInput: function (v) { gravity = v; updateReadout(); } });
     var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 24, step: 1, decimals: 0,
       width: '110px', onChange: function (v) { maxBounces = v; } });
+    var eachKeyToggle = ui.toggle({ label: 'After every keyframe', value: eachKey,
+      title: 'On: the value rebounds after every keyframe it passes. Off: only after the final keyframe (a single ball drop).',
+      onChange: function (v) { eachKey = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
-      el('div.rb-faint', { text: 'Rebounds the value off its target after the last keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
+      el('div.rb-faint', { text: 'Rebounds the value off its target after a keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
       elasticitySlider.el,
       gravitySlider.el,
-      ui.row('Max bounces', bouncesField.el)
+      ui.row('Max bounces', bouncesField.el),
+      eachKeyToggle.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -66,7 +71,7 @@
     scopeText.textContent = '';
 
     function doApply() {
-      ctx.invoke('bounce.apply', { elasticity: elasticity, gravity: gravity, maxBounces: maxBounces })
+      ctx.invoke('bounce.apply', { elasticity: elasticity, gravity: gravity, maxBounces: maxBounces, eachKey: eachKey })
         .then(function (res) { ctx.toast('Bounce on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Bounce', { kind: 'error' }); });
     }
