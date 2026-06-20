@@ -147,7 +147,13 @@
            ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
     });
 
-    var children = [search, el('span.rb-selchip', null, [selDot, selText])];
+    // Visible wordmark so it is always clear this is the Rebound panel.
+    var brand = el('div.rb-brand', { title: 'Rebound' }, [
+      el('span.rb-brand-mark', { text: '◗' }),
+      el('span.rb-brand-name', { text: 'Rebound' })
+    ]);
+
+    var children = [brand, search, el('span.rb-selchip', null, [selDot, selText])];
     if (R.bridge.available) {
       children.push(el('button.rb-btn.is-ghost.is-icon', {
         title: 'Reload host (dev)', 'aria-label': 'Reload host',

@@ -75,6 +75,28 @@
   border-bottom: 1px solid var(--rb-border);
   flex: none;
 }
+.rb-brand {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  user-select: none;
+}
+.rb-brand-mark {
+  color: var(--rb-accent);
+  font-size: 15px;
+  line-height: 1;
+}
+.rb-brand-name {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--rb-text);
+  font-size: var(--rb-font-size);
+}
+/* On a narrow panel keep the mark, drop the wordmark to save room. */
+@media (max-width: 360px) {
+  .rb-brand-name { display: none; }
+}
 .rb-selchip {
   display: flex;
   align-items: center;
