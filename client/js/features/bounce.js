@@ -30,7 +30,7 @@
     // Parametric in elasticity (how much each rebound keeps) and max bounces.
     function makeBounce(elas, bounces) {
       var e = Math.max(0.15, Math.min(0.85, elas));
-      var n = Math.max(1, Math.min(5, Math.round(bounces)));
+      var n = Math.max(1, Math.min(8, Math.round(bounces)));
       var widths = [1.0];
       var drops = [];
       // First rebound dips a modest amount below the target; each later rebound
@@ -63,6 +63,9 @@
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', axis: 'vertical', sample: 'shape', duration: 1600 });
     function updateReadout() {
+      // Gravity sets how fast the bounce plays (higher gravity, faster), so it
+      // drives the preview pacing; elasticity and max bounces shape the curve.
+      preview.setDuration(Math.round(R.units.clamp(6400 / gravity, 600, 3200)));
       preview.setReadout('Elasticity ' + Math.round(elasticity * 100) + '% · gravity ' + R.units.round(gravity, 1));
     }
 

@@ -103,6 +103,10 @@
     var cachedSig = null;
     function curveFn() {
       var c = getCurve();
+      // A function curve cannot be serialized (JSON.stringify drops it), so it
+      // must never be cached, otherwise live slider changes would be ignored.
+      // Return its fn fresh every frame; cache only serializable curves.
+      if (c && c.type === 'fn') return typeof c.fn === 'function' ? c.fn : function (t) { return t; };
       var sig = JSON.stringify(c);
       if (sig !== cachedSig) { cachedSig = sig; cachedFn = sampler.toFunction(c); }
       return cachedFn;

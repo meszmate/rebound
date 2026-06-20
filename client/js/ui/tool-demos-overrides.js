@@ -105,7 +105,7 @@
   // The exact bounce model from features/bounce.js, so the card matches the tool.
   function makeBounce(elas, bounces) {
     var e = Math.max(0.15, Math.min(0.85, elas));
-    var n = Math.max(1, Math.min(5, Math.round(bounces)));
+    var n = Math.max(1, Math.min(8, Math.round(bounces)));
     var widths = [1.0];
     var drops = [];
     var base = 0.2 + 0.12 * e;
