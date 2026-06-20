@@ -33,9 +33,15 @@
     var outSpeed = num(args.outSpeed, 0);
     var setInfluence = !!args.setInfluence;
     var setSpeed = !!args.setSpeed;
+    // Side gates: when a side is off its keyframe ease is left exactly as is.
+    var applyIn = args.applyIn !== false;
+    var applyOut = args.applyOut !== false;
 
     if (!setInfluence && !setSpeed) {
       throw new Error('Enable "Set influence" or "Set speed".');
+    }
+    if (!applyIn && !applyOut) {
+      throw new Error('Enable the in side or the out side.');
     }
 
     var comp = util.activeComp();
@@ -59,12 +65,20 @@
         var outArr = [];
 
         for (var d = 0; d < dims; d++) {
-          var inInf = setInfluence ? inInfluence : clampInfluence(curIn[d].influence);
-          var outInf = setInfluence ? outInfluence : clampInfluence(curOut[d].influence);
-          var inSpd = setSpeed ? inSpeed : curIn[d].speed;
-          var outSpd = setSpeed ? outSpeed : curOut[d].speed;
-          inArr.push(new KeyframeEase(inSpd, inInf));
-          outArr.push(new KeyframeEase(outSpd, outInf));
+          if (applyIn) {
+            var inInf = setInfluence ? inInfluence : clampInfluence(curIn[d].influence);
+            var inSpd = setSpeed ? inSpeed : curIn[d].speed;
+            inArr.push(new KeyframeEase(inSpd, inInf));
+          } else {
+            inArr.push(new KeyframeEase(curIn[d].speed, clampInfluence(curIn[d].influence)));
+          }
+          if (applyOut) {
+            var outInf = setInfluence ? outInfluence : clampInfluence(curOut[d].influence);
+            var outSpd = setSpeed ? outSpeed : curOut[d].speed;
+            outArr.push(new KeyframeEase(outSpd, outInf));
+          } else {
+            outArr.push(new KeyframeEase(curOut[d].speed, clampInfluence(curOut[d].influence)));
+          }
         }
 
         ensureBezier(p, ki);
