@@ -42,6 +42,7 @@
     var W = 300;
     var H = height;
     var view = computeView(curve);
+    var frozenView = null; // held stable during a drag so the handle never "runs away"
     var ghost = opts.ghost ? clone(opts.ghost) : null;
     var rafToken = null;
     var swatchPhase = 0;
@@ -85,7 +86,7 @@
 
     function render() {
       measure();
-      view = computeView(curve);
+      view = frozenView || computeView(curve);
       R.dom.clear(svgEl);
 
       // Grid: thirds.
@@ -160,7 +161,7 @@
         x1: mapX(anchorX), y1: mapV(anchorY), x2: mapX(hx), y2: mapV(hy), class: 'rb-tangent'
       }));
       var circle = svg('circle', {
-        cx: mapX(hx), cy: mapV(hy), r: 6, class: 'rb-handle', 'data-handle': key,
+        cx: mapX(hx), cy: mapV(hy), r: 7, class: 'rb-handle', 'data-handle': key,
         tabindex: 0, role: 'slider', 'aria-label': key === 'h1' ? 'Out handle' : 'In handle'
       });
       circle.addEventListener('pointerdown', startDrag(key, circle));
@@ -173,12 +174,19 @@
         e.preventDefault();
         circle.classList.add('is-dragging');
         circle.setPointerCapture(e.pointerId);
+        // Freeze a generous view for the whole drag so the coordinate space
+        // never rescales under the pointer (you can always drag back down).
+        var base = computeView(curve);
+        frozenView = { vMin: Math.min(base.vMin, -1.3), vMax: Math.max(base.vMax, 2.3) };
+        render();
         var move = function (ev) {
           var p = toPlot(ev);
           applyHandle(key, domX(p.x), domV(p.y), ev);
         };
         var up = function (ev) {
           circle.classList.remove('is-dragging');
+          frozenView = null;
+          render();
           hideReadout();
           window.removeEventListener('pointermove', move);
           window.removeEventListener('pointerup', up);

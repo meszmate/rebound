@@ -37,13 +37,13 @@
 /* Handles + tangent lines. */
 .rb-curve .rb-tangent { stroke: var(--rb-text-faint); stroke-width: 1; }
 .rb-curve .rb-handle {
-  fill: var(--rb-bg);
-  stroke: var(--rb-accent);
-  stroke-width: 2;
+  fill: var(--rb-accent);
+  stroke: var(--rb-bg);
+  stroke-width: 2.5;
   cursor: grab;
 }
-.rb-curve .rb-handle:hover { fill: var(--rb-accent); }
-.rb-curve .rb-handle.is-dragging { cursor: grabbing; fill: var(--rb-accent); }
+.rb-curve .rb-handle:hover { stroke: var(--rb-text); }
+.rb-curve .rb-handle.is-dragging { cursor: grabbing; stroke: var(--rb-text); }
 .rb-curve .rb-anchor-dot { fill: var(--rb-text-faint); }
 
 /* The looping "feel it" motion swatch dot. */

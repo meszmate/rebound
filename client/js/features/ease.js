@@ -27,7 +27,7 @@
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, {
       value: curve,
-      swatch: true,
+      swatch: false,
       allowOvershoot: true,
       onChange: function (c) {
         curve = c;
