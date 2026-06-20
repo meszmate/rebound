@@ -12,10 +12,14 @@
   var el = R.dom.el;
   var ui = R.ui;
 
+  // Tuned to match Apple's SwiftUI springs (bounce = 1 - dampingFraction):
+  // Smooth = critically damped (no overshoot), Snappy = the buttery default,
+  // Bouncy = visible overshoot. Response is the perceptual duration.
   var PRESETS = {
-    gentle: { label: 'Gentle', response: 0.6, bounce: 0.12 },
-    bouncy: { label: 'Bouncy', response: 0.5, bounce: 0.45 },
-    snappy: { label: 'Snappy', response: 0.32, bounce: 0.22 }
+    smooth: { label: 'Smooth', response: 0.5, bounce: 0 },
+    snappy: { label: 'Snappy', response: 0.42, bounce: 0.15 },
+    bouncy: { label: 'Bouncy', response: 0.5, bounce: 0.3 },
+    gentle: { label: 'Gentle', response: 0.7, bounce: 0.1 }
   };
 
   R.tools.register({
@@ -29,7 +33,8 @@
 
   function mountSpring(ctx) {
     var mode = 'simple'; // simple | physical
-    var simple = { response: 0.5, bounce: 0.3, velocity: 0 };
+    // Default to Snappy, the buttery iOS-style feel.
+    var simple = { response: 0.42, bounce: 0.15, velocity: 0 };
     var physical = { mass: 1, stiffness: 120, damping: 12, velocity: 0 };
 
     function curve() {
@@ -53,28 +58,45 @@
       sample: 'shape'
     });
 
+    var overshootChip = el('span.rb-chip', { text: '' });
     var settleChip = el('span.rb-chip', { text: '' });
     var regimeChip = el('span.rb-chip', { text: '' });
+
+    // Peak overshoot fraction past the target, from the damping ratio (v0=0).
+    function overshootOf(spec) {
+      var z = spec.zeta;
+      if (z >= 1) return 0;
+      return Math.exp(-Math.PI * z / Math.sqrt(1 - z * z));
+    }
 
     function refresh() {
       var c = curve();
       editor.setCurve(c);
       var spec = R.easing.spring.spring(c);
       var settle = isFinite(spec.settleTime) ? spec.settleTime : 0;
+      var over = overshootOf(spec);
+
+      overshootChip.textContent = over > 0.001 ? 'Overshoot ' + Math.round(over * 100) + '%' : 'No overshoot';
       settleChip.textContent = 'Settle ' + R.units.round(settle, 2) + 's';
-      regimeChip.textContent = spec.regime;
-      regimeChip.classList.toggle('is-warning', spec.regime !== 'underdamped');
-      preview.setReadout('Settle ' + R.units.round(settle, 2) + 's · ' + spec.regime);
+      regimeChip.textContent = spec.regime === 'underdamped' ? 'Springy'
+        : spec.regime === 'critical' ? 'Critically damped' : 'Overdamped';
+      // Only a genuinely sluggish (slow, no-overshoot) spring is a warning;
+      // critical damping is the smoothest, most desirable case.
+      regimeChip.classList.toggle('is-warning', spec.regime === 'overdamped' && settle > 1.2);
+
+      // Pace the preview by the real settle time so a slow spring reads slow.
+      if (preview.setDuration) preview.setDuration(Math.max(280, Math.round(settle * 1000)));
+      preview.setReadout((over > 0.001 ? Math.round(over * 100) + '% overshoot · ' : 'no overshoot · ') + 'settle ' + R.units.round(settle, 2) + 's');
     }
 
     // --- Simple controls ---
     var bounceSlider = ui.slider({
-      label: 'Bounce', min: 0, max: 0.8, step: 0.01, value: simple.bounce,
+      label: 'Bounce / overshoot', min: 0, max: 0.8, step: 0.01, value: simple.bounce,
       format: function (v) { return Math.round(v * 100) + '%'; },
       onInput: function (v) { simple.bounce = v; refresh(); }
     });
     var settleSlider = ui.slider({
-      label: 'Settle', min: 0.15, max: 1.5, step: 0.01, value: simple.response,
+      label: 'Response', min: 0.15, max: 1.5, step: 0.01, value: simple.response,
       format: function (v) { return R.units.round(v, 2) + 's'; },
       onInput: function (v) { simple.response = v; refresh(); }
     });
@@ -123,7 +145,7 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-row', null, [settleChip, regimeChip]),
+      el('div.rb-row', null, [overshootChip, settleChip, regimeChip]),
       el('div.rb-section-label', { text: 'Spring' }),
       modeCtl.el,
       simpleBox,
@@ -186,10 +208,11 @@
         get: getState,
         set: applyState,
         defaults: [
-          { name: 'Gentle', state: { mode: 'simple', response: 0.6, bounce: 0.12, velocity: 0 } },
-          { name: 'Bouncy', state: { mode: 'simple', response: 0.5, bounce: 0.45, velocity: 0 } },
-          { name: 'Snappy', state: { mode: 'simple', response: 0.32, bounce: 0.22, velocity: 0 } },
-          { name: 'Heavy', state: { mode: 'physical', mass: 3, stiffness: 120, damping: 14, velocity: 0 } }
+          { name: 'Smooth', state: { mode: 'simple', response: 0.5, bounce: 0, velocity: 0 } },
+          { name: 'Snappy', state: { mode: 'simple', response: 0.42, bounce: 0.15, velocity: 0 } },
+          { name: 'Bouncy', state: { mode: 'simple', response: 0.5, bounce: 0.3, velocity: 0 } },
+          { name: 'Gentle', state: { mode: 'simple', response: 0.7, bounce: 0.1, velocity: 0 } },
+          { name: 'Heavy', state: { mode: 'physical', mass: 2.4, stiffness: 180, damping: 26, velocity: 0 } }
         ]
       },
       destroy: function () { off(); preview.destroy(); editor.destroy(); }
