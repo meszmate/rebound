@@ -10,7 +10,7 @@
 
 .rb-preview-stage {
   position: relative;
-  height: 76px;
+  height: 96px;
   background: var(--rb-bg-sunken);
   border: 1px solid var(--rb-border);
   border-radius: var(--rb-radius-3);
@@ -28,7 +28,7 @@
   border-radius: 2px;
 }
 .rb-preview-track-ghost {
-  top: calc(50% - 22px);
+  top: calc(50% - 30px);
   opacity: 0.5;
 }
 
@@ -48,30 +48,31 @@
   position: absolute;
   left: 16px;
   top: 50%;
-  width: 18px;
-  height: 18px;
-  margin-top: -9px;
-  margin-left: -9px;
-  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  margin-left: -13px;
+  /* A rounded square (not a circle) so scale AND rotation read clearly. */
+  border-radius: var(--rb-radius-2);
   background: var(--rb-accent);
   color: var(--rb-accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   will-change: transform;
 }
 .rb-preview-dot.is-text {
   width: auto;
   height: auto;
-  min-width: 24px;
-  padding: 2px 5px;
-  margin-top: -11px;
+  min-width: 28px;
+  padding: 3px 8px;
+  margin-top: -14px;
   border-radius: var(--rb-radius-1);
 }
 .rb-preview-ghost {
-  top: calc(50% - 22px);
+  top: calc(50% - 30px);
   background: var(--rb-text-faint);
 }
 
@@ -79,6 +80,7 @@
   display: flex;
   align-items: center;
   gap: var(--rb-gap-3);
+  flex-wrap: wrap;
 }
 .rb-preview-readout {
   color: var(--rb-text-faint);
