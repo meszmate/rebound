@@ -36,7 +36,7 @@
         p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
       } else if (type === 'easyEase') {
         p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
-        var dims = util.dimensionsOf(p);
+        var dims = util.isSpatial(p) ? 1 : util.dimensionsOf(p);
         var inEase = [];
         var outEase = [];
         for (var d = 0; d < dims; d++) {

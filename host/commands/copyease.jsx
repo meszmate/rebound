@@ -75,7 +75,8 @@
     var count = 0;
     for (var i = 0; i < list.length; i++) {
       var prop = list[i];
-      var dims = util.dimensionsOf(prop);
+      // Spatial Position/Anchor take a single temporal ease; others per dimension.
+      var dims = util.isSpatial(prop) ? 1 : util.dimensionsOf(prop);
       var keys = prop.selectedKeys;
 
       for (var k = 0; k < keys.length; k++) {

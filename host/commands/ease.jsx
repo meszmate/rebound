@@ -34,6 +34,17 @@
     return v instanceof Array ? v : [v];
   }
 
+  // Euclidean distance between two value vectors (for spatial properties, the
+  // ease is a single scalar along the motion path, not per-axis).
+  function magnitude(a, b) {
+    var s = 0;
+    for (var i = 0; i < a.length; i++) {
+      var d = (b[i] || 0) - (a[i] || 0);
+      s += d * d;
+    }
+    return Math.sqrt(s);
+  }
+
   // Collect the leaf properties to operate on, with the key indices to use.
   function targets(applyToAll) {
     var comp = util.activeComp();
@@ -82,7 +93,10 @@
     for (var t = 0; t < list.length; t++) {
       var prop = list[t].prop;
       var idx = list[t].indices;
-      var dims = util.dimensionsOf(prop);
+      // Unseparated spatial Position/Anchor take ONE temporal ease (along the
+      // path); everything else is per dimension.
+      var spatial = util.isSpatial(prop);
+      var dims = spatial ? 1 : util.dimensionsOf(prop);
       var didProp = false;
 
       for (var s = 0; s < idx.length - 1; s++) {
@@ -96,7 +110,7 @@
         var outArr = [];
         var inArr = [];
         for (var d = 0; d < dims; d++) {
-          var dv = (bVals[d] || 0) - (aVals[d] || 0);
+          var dv = spatial ? magnitude(aVals, bVals) : (bVals[d] || 0) - (aVals[d] || 0);
           var avg = dv / dt;
           outArr.push(outEase(curve, avg));
           inArr.push(inEase(curve, avg));
@@ -136,7 +150,7 @@
 
       var aVals = valuesAt(p, a);
       var bVals = valuesAt(p, b);
-      var dv = (bVals[0] || 0) - (aVals[0] || 0);
+      var dv = util.isSpatial(p) ? magnitude(aVals, bVals) : (bVals[0] || 0) - (aVals[0] || 0);
       var avg = dv / dt;
 
       var outE = p.keyOutTemporalEase(a)[0];

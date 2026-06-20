@@ -46,7 +46,8 @@
       var p = props[i];
       if (!(p instanceof Property)) continue;
       if (!p.canVaryOverTime) continue;
-      var dims = util.dimensionsOf(p);
+      // Spatial Position/Anchor take a single temporal ease; others per dimension.
+      var dims = util.isSpatial(p) ? 1 : util.dimensionsOf(p);
       if (dims < 1) continue;
       var keys = p.selectedKeys;
 
