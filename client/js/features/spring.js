@@ -45,6 +45,14 @@
       allowOvershoot: true
     });
 
+    // Live preview — springs read best on Scale (the overshoot pops).
+    var previewHost = el('div');
+    var preview = ui.PreviewStage(previewHost, {
+      getCurve: curve,
+      property: 'scale',
+      sample: 'shape'
+    });
+
     var settleChip = el('span.rb-chip', { text: '' });
     var regimeChip = el('span.rb-chip', { text: '' });
 
@@ -56,6 +64,7 @@
       settleChip.textContent = 'Settle ' + R.units.round(settle, 2) + 's';
       regimeChip.textContent = spec.regime;
       regimeChip.classList.toggle('is-warning', spec.regime !== 'underdamped');
+      preview.setReadout('Settle ' + R.units.round(settle, 2) + 's · ' + spec.regime);
     }
 
     // --- Simple controls ---
@@ -112,6 +121,7 @@
     }));
 
     ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
       editorHost,
       el('div.rb-row', null, [settleChip, regimeChip]),
       el('div.rb-section-label', { text: 'Spring' }),
@@ -149,6 +159,6 @@
     }
 
     refresh();
-    return { destroy: function () { off(); editor.destroy(); } };
+    return { destroy: function () { off(); preview.destroy(); editor.destroy(); } };
   }
 })(window.Rebound = window.Rebound || {});

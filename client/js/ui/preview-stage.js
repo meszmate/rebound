@@ -50,15 +50,41 @@
       ghost, dot
     ]);
 
+    // Named setters so both the in-stage controls and the public API drive them.
+    function setProperty(p) { property = p; if (propSeg) propSeg.set(p); renderAt(phaseToP()); }
+    function setSample(s) { sample = s; setSampleNode(); if (sampleBtn) sampleBtn.textContent = s === 'shape' ? '●' : 'Aa'; }
+    function setSlowmo(f) { slowmo = f; if (speedBtn) speedBtn.textContent = f === 1 ? '1×' : '¼×'; }
+    function setGhost(on) { showLinearGhost = on; renderAt(phaseToP()); }
+
     var playBtn = el('button.rb-btn.is-ghost.is-icon', {
       'aria-label': 'Play or pause the preview', title: 'Play / pause',
       onclick: togglePlay
     }, [reduced ? '▶' : '❚❚']);
-    var readout = el('span.rb-preview-readout.rb-grow', { text: '' });
-    var controls = el('div.rb-preview-controls', null, [playBtn, readout]);
+
+    var propSeg = R.ui.segmented([
+      { value: 'position', label: 'Pos', title: 'Position' },
+      { value: 'scale', label: 'Scale', title: 'Scale' },
+      { value: 'rotation', label: 'Rot', title: 'Rotation' },
+      { value: 'opacity', label: 'Fade', title: 'Opacity' }
+    ], { value: property, onChange: function (v) { setProperty(v); } });
+
+    var sampleBtn = el('button.rb-btn.is-ghost.is-icon', {
+      title: 'Shape / text sample', 'aria-label': 'Toggle shape or text sample',
+      onclick: function () { setSample(sample === 'shape' ? 'text' : 'shape'); }
+    }, [sample === 'shape' ? '●' : 'Aa']);
+
+    var speedBtn = el('button.rb-btn.is-ghost.is-icon', {
+      title: 'Slow motion', 'aria-label': 'Toggle slow motion',
+      onclick: function () { setSlowmo(slowmo === 1 ? 4 : 1); }
+    }, ['1×']);
+
+    var readout = el('span.rb-preview-readout', { text: '' });
 
     container.appendChild(stage);
-    container.appendChild(controls);
+    if (opts.controls !== false) {
+      container.appendChild(el('div.rb-preview-controls', null, [playBtn, propSeg.el, sampleBtn, speedBtn]));
+    }
+    container.appendChild(el('div.rb-preview-controls', null, [readout]));
 
     var rafId = null;
     var last = 0;
@@ -175,11 +201,11 @@
 
     return {
       el: container,
-      setProperty: function (p) { property = p; renderAt(phaseToP()); },
-      setSample: function (s) { sample = s; setSampleNode(); },
+      setProperty: setProperty,
+      setSample: setSample,
       setDuration: function (ms) { duration = ms; },
-      setSlowmo: function (f) { slowmo = f; },
-      setGhost: function (on) { showLinearGhost = on; renderAt(phaseToP()); },
+      setSlowmo: setSlowmo,
+      setGhost: setGhost,
       setReadout: setReadout,
       play: play,
       pause: pause,
