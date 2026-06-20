@@ -26,8 +26,7 @@
     'layer-light': ['motion', 'drift', 'follow', 'keys'],
     'layer-av': ['anchor', 'motion', 'drift', 'echo'],
     'multi-same': ['align', 'stagger', 'sequence', 'arrange'],
-    'multi-mixed': ['align', 'arrange', 'stagger', 'link'],
-    'none': ['library', 'demo', 'tags']
+    'multi-mixed': ['align', 'arrange', 'stagger', 'link']
   };
 
   var KIND_LABEL = {
@@ -207,7 +206,7 @@
       bandBody.appendChild(renderReadout(typeId, sel));
 
       R.dom.clear(suggestRow);
-      var acts = actionsFor(typeId);
+      var acts = typeId === 'none' ? [] : actionsFor(typeId);
       acts.forEach(function (id) {
         var t = R.tools.get(id);
         if (!t) return;

@@ -115,28 +115,7 @@
 }
 .rb-selchip .rb-dot.is-live { background: var(--rb-success); }
 .rb-seltext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-/* Selection-aware suggestion strip, sits under the topbar and reacts live to
-   the host selection, offering the tools that fit what is selected. */
-.rb-ctxstrip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px var(--rb-gap-3);
-  border-bottom: 1px solid var(--rb-border);
-  background: var(--rb-bg-raised);
-  overflow-x: auto;
-  flex: none;
-}
-.rb-ctxstrip::-webkit-scrollbar { height: 0; }
-.rb-ctx-spark { display: inline-flex; color: var(--rb-accent); flex: none; }
-.rb-ctx-spark svg { width: 13px; height: 13px; }
-.rb-ctx-label {
-  color: var(--rb-text-muted);
-  font-size: calc(var(--rb-font-size) - 1px);
-  white-space: nowrap;
-  flex: none;
-}
-.rb-ctx-chips { display: flex; align-items: center; gap: 6px; flex: none; }
+/* Quiet action chip, used by the Context Home suggested-actions row. */
 .rb-ctx-chip {
   border: 1px solid var(--rb-border);
   background: var(--rb-control);
