@@ -19,6 +19,30 @@ rough build-size estimate (S / M / L).
 
 ---
 
+## Implementation status
+
+**Shipped (45 tools across 11 groups):** Ease, Library, Velocity, Copy Ease,
+Smooth, Bake · Spring · Recoil, Drift, Bounce, Motion (orbit/spin/look-at),
+Follow, Lean, Kinetic · Anchor, Reset, Nullify, Separate, Link · Align,
+Distribute, Arrange, Flip, Grids, Composition, Precompose · Stagger, Sequence,
+Trim, Reverse, Fade, Keyframes · Multiply, Radial, Echo, Vignette · Shapes, Trim
+Paths, Break, Text Break · Color, Palette, Stroke, Gradient · Tags · Demo. Plus
+the platform: the curve editor, command palette, host theme sync, settings
+panel, undo-grouped batching, structured errors, and JSON persistence.
+
+**Roadmap (larger sub-systems, specified below but not yet built):** advanced
+curve-editor modes (multi-space Speed/Value graph, multi-segment run editing,
+before/after onion-skin, magnetic snapping, preset matching, spatial-path
+easing, per-axis separate-dimension curves); a particle field and brush-recorder;
+a Verlet soft-body (jiggle); plexus connectors and a motion tracer; a cursor &
+UI-interaction kit; and richer gradient color-stop authoring (constrained by
+ExtendScript). Each is a substantial feature on its own.
+
+The sections below describe the full intended design; anything not in the
+"Shipped" list above is roadmap.
+
+---
+
 ## 1. Easing — the curve editor
 
 The heart of Rebound: one curve surface that authors easing, then writes it to

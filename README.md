@@ -34,9 +34,29 @@ See the full roadmap in [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Status
 
-Early development. The easing engine, host bridge, theme, curve editor, and the
-**Ease** tool are working; the broader toolkit is being built out against the
-catalog in [docs/FEATURES.md](docs/FEATURES.md). Expect rough edges.
+Active early development, but already broad: **45 tools across 11 groups** ship
+today, built on a fully unit-tested easing/spring engine and a clean
+panel↔host bridge.
+
+| Group | Tools |
+| --- | --- |
+| **Easing** | Ease · Library · Velocity · Copy Ease · Smooth · Bake |
+| **Springs** | Spring |
+| **Physics** | Recoil · Drift · Bounce · Motion (orbit/spin/look-at) · Follow · Lean · Kinetic |
+| **Transform** | Anchor · Reset · Nullify · Separate · Link |
+| **Layout** | Align · Distribute · Arrange · Flip · Grids · Composition · Precompose |
+| **Timing** | Stagger · Sequence · Trim · Reverse · Fade · Keyframes |
+| **Generators** | Multiply · Radial · Echo · Vignette |
+| **Shapes** | Shapes · Trim Paths · Break · Text Break |
+| **Color** | Color · Palette · Stroke · Gradient |
+| **Organization** | Tags |
+| **Help** | Demo |
+
+The panel UI is verified in a browser; the ExtendScript host is reviewed against
+Adobe's API and best exercised live in After Effects (see install/testing
+below). The full catalog and the remaining roadmap (multi-space/multi-segment
+curve editing, a particle field, soft-body, plexus connectors, a cursor kit) are
+in [docs/FEATURES.md](docs/FEATURES.md). Expect rough edges.
 
 ## Install
 
