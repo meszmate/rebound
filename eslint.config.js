@@ -27,6 +27,8 @@ const browserGlobals = {
   matchMedia: 'readonly',
   ResizeObserver: 'readonly',
   MutationObserver: 'readonly',
+  IntersectionObserver: 'readonly',
+  performance: 'readonly',
   Promise: 'readonly',
   // CEP / vendored
   CSInterface: 'readonly',

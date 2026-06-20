@@ -1,0 +1,98 @@
+/*
+ * Rebound — Preview Stage styling.
+ * A compact looping motion sample. Compositor-friendly (transform/opacity only).
+ */
+.rb-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-3);
+}
+
+.rb-preview-stage {
+  position: relative;
+  height: 76px;
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-3);
+  overflow: hidden;
+}
+
+.rb-preview-track {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--rb-border-strong);
+  border-radius: 2px;
+}
+.rb-preview-track-ghost {
+  top: calc(50% - 22px);
+  opacity: 0.5;
+}
+
+.rb-preview-marker {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  margin-top: -6px;
+  background: var(--rb-border-strong);
+  border-radius: 1px;
+}
+.rb-preview-marker.is-start { left: 16px; }
+.rb-preview-marker.is-end { right: 16px; }
+
+.rb-preview-dot {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-top: -9px;
+  margin-left: -9px;
+  border-radius: 50%;
+  background: var(--rb-accent);
+  color: var(--rb-accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  will-change: transform;
+}
+.rb-preview-dot.is-text {
+  width: auto;
+  height: auto;
+  min-width: 24px;
+  padding: 2px 5px;
+  margin-top: -11px;
+  border-radius: var(--rb-radius-1);
+}
+.rb-preview-ghost {
+  top: calc(50% - 22px);
+  background: var(--rb-text-faint);
+}
+
+.rb-preview-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+}
+.rb-preview-readout {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Property / sample switchers (added in the depth pass) live in this row too. */
+.rb-preview-opts {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  flex-wrap: wrap;
+}

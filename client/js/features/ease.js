@@ -32,8 +32,22 @@
       onChange: function (c) {
         curve = c;
         syncFields();
+        updateReadout();
       }
     });
+
+    // --- Live preview stage (driven by the same sampler that Apply uses) ---
+    var previewHost = el('div');
+    var preview = ui.PreviewStage(previewHost, {
+      getCurve: function () { return curve; },
+      property: 'position',
+      sample: 'shape'
+    });
+    function updateReadout() {
+      preview.setReadout('cubic-bezier(' + ['x1', 'y1', 'x2', 'y2'].map(function (k) {
+        return R.units.round(curve[k], 2);
+      }).join(', ') + ')');
+    }
 
     // --- Numeric bezier fields ---
     var fields = {};
@@ -47,6 +61,7 @@
         onChange: function (v) {
           curve[key] = key.charAt(0) === 'x' ? clamp01(v) : v;
           editor.setCurve(curve);
+          updateReadout();
         }
       });
       fields[key] = f;
@@ -102,6 +117,7 @@
           curve = { type: 'bezier', x1: parsed[0], y1: parsed[1], x2: parsed[2], y2: parsed[3] };
           editor.setCurve(curve);
           syncFields();
+          updateReadout();
           ctx.toast('Pasted curve', { kind: 'success' });
         });
       }
@@ -124,11 +140,13 @@
         curve = { type: 'bezier', x1: preset.curve.x1, y1: preset.curve.y1, x2: preset.curve.x2, y2: preset.curve.y2 };
         editor.setCurve(curve);
         syncFields();
+        updateReadout();
       }));
     });
 
     // --- Assemble body ---
     ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
@@ -184,6 +202,7 @@
           curve = res.curve;
           editor.setCurve(curve);
           syncFields();
+          updateReadout();
           ctx.toast('Read ease from ' + res.propertyName, { kind: 'info' });
         })
         .catch(function (err) {
@@ -191,9 +210,12 @@
         });
     }
 
+    updateReadout();
+
     return {
       destroy: function () {
         off();
+        preview.destroy();
         editor.destroy();
       }
     };
