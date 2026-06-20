@@ -107,6 +107,16 @@
       }
     }, ['Paste']);
 
+    var saveBtn = el('button.rb-btn.is-ghost', {
+      title: 'Save the current curve to your library',
+      onclick: function () {
+        var name = typeof prompt === 'function' ? prompt('Preset name', suggestName(curve)) : suggestName(curve);
+        if (!name) return;
+        var preset = R.presets.saveCustom(JSON.parse(JSON.stringify(curve)), name);
+        ctx.toast('Saved "' + preset.name + '" to the library', { kind: 'success' });
+      }
+    }, ['★ Save']);
+
     // --- Compact preset strip ---
     var presetStrip = el('div.rb-row.rb-wrap', { style: { gap: '6px' } });
     (R.presets.defaults || []).slice(0, 12).forEach(function (preset) {
@@ -122,7 +132,7 @@
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
-      el('div.rb-row', null, [copyBtn, pasteBtn]),
+      el('div.rb-row', null, [copyBtn, pasteBtn, saveBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
       allToggle.el,
@@ -211,6 +221,14 @@
   }
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+  function suggestName(curve) {
+    var startFlat = curve.y1 <= 0.05;
+    var endFlat = curve.y2 >= 0.95;
+    var kind = startFlat && endFlat ? 'In Out' : startFlat ? 'In' : endFlat ? 'Out' : 'Custom';
+    var overshoot = curve.y1 < -0.02 || curve.y2 > 1.02;
+    return (overshoot ? 'Overshoot ' : 'Ease ') + kind;
+  }
 
   function parseCubicBezier(text) {
     if (!text) return null;
