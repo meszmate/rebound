@@ -1,53 +1,95 @@
 /*
  * Rebound, Keyframe utilities.
- * Quick interpolation-type setters for the selected keyframes.
+ * Interpolation-type setters for the selected (or all) keyframes: Linear, Hold,
+ * Bezier, Easy Ease (both / in only / out only with a settable influence), Auto
+ * Bezier, Continuous Bezier, and Rove.
  */
 ;(function (R) {
   'use strict';
 
   var el = R.dom.el;
+  var ui = R.ui;
 
   R.tools.register({
     id: 'keys',
     title: 'Keyframes',
     group: 'Timing',
     order: 2,
-    keywords: ['keyframe', 'interpolation', 'linear', 'hold', 'easy ease', 'bezier'],
+    keywords: ['keyframe', 'interpolation', 'linear', 'hold', 'easy ease', 'bezier', 'rove', 'auto', 'continuous'],
     mount: mount,
     commands: [
       { id: 'easyEase', title: 'Easy ease selected keys', run: function (ctx) { set(ctx, 'easyEase'); } }
     ]
   });
 
-  var TYPES = [
-    { type: 'linear', label: 'Linear' },
-    { type: 'easyEase', label: 'Easy Ease' },
-    { type: 'hold', label: 'Hold' },
-    { type: 'bezier', label: 'Bezier' }
+  // Grouped so the panel reads as Basic / Ease / Smooth rows.
+  var GROUPS = [
+    { label: 'Basic', types: [
+      { type: 'linear', label: 'Linear' },
+      { type: 'hold', label: 'Hold' },
+      { type: 'bezier', label: 'Bezier' }
+    ] },
+    { label: 'Ease', types: [
+      { type: 'easyEase', label: 'Easy Ease' },
+      { type: 'easyEaseIn', label: 'Ease In' },
+      { type: 'easyEaseOut', label: 'Ease Out' }
+    ] },
+    { label: 'Smooth', types: [
+      { type: 'autoBezier', label: 'Auto Bezier' },
+      { type: 'continuous', label: 'Continuous' },
+      { type: 'roving', label: 'Rove' }
+    ] }
   ];
 
   function mount(ctx) {
-    var row = el('div.rb-row.rb-wrap', null, TYPES.map(function (t) {
-      return el('button.rb-btn', { onclick: function () { set(ctx, t.type); } }, [t.label]);
-    }));
+    var inInfluence = 33.33;
+    var outInfluence = 33.33;
+    var allKeys = false;
 
-    ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Set the interpolation of the selected keyframes.' }),
-      row
-    ]));
+    var inField = ui.numberField({ label: 'Influence In', value: inInfluence, min: 0.1, max: 100,
+      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function (v) { inInfluence = v; } });
+    var outField = ui.numberField({ label: 'Influence Out', value: outInfluence, min: 0.1, max: 100,
+      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function (v) { outInfluence = v; } });
+    var allToggle = ui.toggle({ label: 'All keys (not just selected)', value: allKeys,
+      title: 'Apply to every keyframe on the selected properties, not only the ones you picked.',
+      onChange: function (v) { allKeys = v; } });
+
+    function half(node) { return el('div', { style: { flex: '1 1 96px', minWidth: '96px' } }, [node]); }
+
+    var body = el('div.rb-col', null, [
+      el('div.rb-faint', { text: 'Set the interpolation of the selected keyframes. Ease In and Ease Out shape just one side; the influence below drives the eased side.' })
+    ]);
+    GROUPS.forEach(function (g) {
+      body.appendChild(el('div.rb-section-label', { text: g.label }));
+      body.appendChild(el('div.rb-row.rb-wrap', null, g.types.map(function (t) {
+        return el('button.rb-btn', { title: t.label, onclick: function () {
+          set(ctx, t.type, { inInfluence: inInfluence, outInfluence: outInfluence, allKeys: allKeys });
+        } }, [t.label]);
+      })));
+    });
+    body.appendChild(el('div.rb-section-label', { text: 'Easy Ease influence' }));
+    body.appendChild(el('div.rb-row.rb-wrap', null, [half(inField.el), half(outField.el)]));
+    body.appendChild(allToggle.el);
+    ctx.body.appendChild(body);
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     var off = ctx.onSelection(function (sel) {
       scopeText.textContent = sel && sel.hasComp
-        ? (sel.totalSelectedKeys ? sel.totalSelectedKeys + ' keyframe' + (sel.totalSelectedKeys === 1 ? '' : 's') + ' selected' : 'Select keyframes')
+        ? (sel.totalSelectedKeys ? sel.totalSelectedKeys + ' keyframe' + (sel.totalSelectedKeys === 1 ? '' : 's') + ' selected' : (allKeys ? 'Targeting all keys' : 'Select keyframes'))
         : 'Open a composition';
     });
     return { destroy: off };
   }
 
-  function set(ctx, type) {
-    ctx.invoke('keys.setInterp', { type: type })
+  function set(ctx, type, opts) {
+    var args = { type: type };
+    if (opts) {
+      args.inInfluence = opts.inInfluence;
+      args.outInfluence = opts.outInfluence;
+      args.allKeys = opts.allKeys;
+    }
+    ctx.invoke('keys.setInterp', args)
       .then(function (res) { ctx.toast('Set ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's'), { kind: 'success' }); })
       .catch(function (err) { ctx.toast(err.message || 'Could not set keyframes', { kind: 'error' }); });
   }
