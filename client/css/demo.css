@@ -1,0 +1,30 @@
+/*
+ * Rebound — tool demo block.
+ * A small looping illustration (self-contained animated SVG) plus a caption,
+ * shown at the top of a tool's page so you see what it does before you act.
+ */
+.rb-demo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-3);
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-3);
+}
+.rb-demo-stage {
+  width: 100%;
+  height: 88px;
+  color: var(--rb-text-muted);
+}
+.rb-demo-stage svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.rb-demo-caption {
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  line-height: 1.45;
+}
+.rb-demo-caption strong { color: var(--rb-text); font-weight: 600; }

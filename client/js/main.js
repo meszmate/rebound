@@ -98,6 +98,14 @@
     return span;
   }
 
+  function buildDemo(d) {
+    var stage = el('div.rb-demo-stage');
+    stage.innerHTML = d.svg;
+    var caption = el('div.rb-demo-caption');
+    caption.innerHTML = d.caption;
+    return el('div.rb-demo', null, [stage, caption]);
+  }
+
   // ---- Home launcher -------------------------------------------------------
 
   function toolsInSection(sid) {
@@ -247,6 +255,11 @@
       } catch (err) {
         R.log.error('Tool "' + tool.id + '" failed to mount', err);
         host.appendChild(el('div.rb-empty', null, ['This tool failed to load: ' + (err.message || err)]));
+      }
+      // A "what it does" demo above the controls, for tools without a live
+      // Preview Stage of their own.
+      if (R.toolDemos && R.toolDemos[tool.id]) {
+        host.insertBefore(buildDemo(R.toolDemos[tool.id]), host.firstChild);
       }
       mounted[tool.id] = { wrap: wrap, api: api };
     }
