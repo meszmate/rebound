@@ -22,6 +22,7 @@
   function mount(ctx) {
     var range = 'work';
     var stepFrames = 1;
+    var includeExpressions = false;
 
     var rangeCtl = ui.segmented([
       { value: 'work', label: 'Work area', title: 'Sample across the composition work area' },
@@ -40,12 +41,20 @@
       onChange: function (v) { stepFrames = v; }
     });
 
+    var exprToggle = ui.toggle({
+      label: 'Include expressions',
+      value: includeExpressions,
+      title: 'Also bake properties driven by a hand-written expression. The expression is disabled, not deleted, so you can re-enable it later.',
+      onChange: function (v) { includeExpressions = v; }
+    });
+
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Samples each selected property’s animation into clean keyframes, one every few frames. Works on expression-driven and keyframed properties alike.' }),
       el('div.rb-section-label', { text: 'Range' }),
       rangeCtl.el,
       el('div.rb-section-label', { text: 'Sample step' }),
-      stepField.el
+      stepField.el,
+      exprToggle.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -56,10 +65,14 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('bake.apply', { range: range, stepFrames: stepFrames })
+      ctx.invoke('bake.apply', { range: range, stepFrames: stepFrames, includeExpressions: includeExpressions })
         .then(function (res) {
-          ctx.toast('Baked ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') +
-            ' into ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's'), { kind: 'success' });
+          var msg = 'Baked ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') +
+            ' into ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's');
+          if (res.skipped) {
+            msg += '. Skipped ' + res.skipped + ' with a user expression';
+          }
+          ctx.toast(msg, { kind: 'success' });
           ctx.refreshSelection();
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not bake', { kind: 'error' }); });
