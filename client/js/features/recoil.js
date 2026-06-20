@@ -87,7 +87,32 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
+    function getState() {
+      return { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: eachKey };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.overshoot != null) { overshoot = s.overshoot; overshootSlider.set(s.overshoot); }
+      if (s.bounce != null) { bounce = s.bounce; bounceSlider.set(s.bounce); }
+      if (s.friction != null) { friction = s.friction; frictionSlider.set(s.friction); }
+      if (s.eachKey != null) { eachKey = s.eachKey; eachKeyToggle.set(s.eachKey); }
+      refreshChip();
+    }
+
     refreshChip();
-    return { destroy: function () { off(); preview.destroy(); } };
+    return {
+      presets: {
+        toolId: 'recoil',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Snappy', state: { overshoot: 80, bounce: 4, friction: 10, eachKey: true } },
+          { name: 'Soft Settle', state: { overshoot: 40, bounce: 1.5, friction: 5, eachKey: false } },
+          { name: 'Big Overshoot', state: { overshoot: 160, bounce: 3, friction: 4, eachKey: true } },
+          { name: 'Tight Recoil', state: { overshoot: 50, bounce: 6, friction: 14, eachKey: false } }
+        ]
+      },
+      destroy: function () { off(); preview.destroy(); }
+    };
   }
 })(window.Rebound = window.Rebound || {});

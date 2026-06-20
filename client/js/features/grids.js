@@ -88,7 +88,33 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not add grids', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { preset: preset, count: count, gutter: gutter, margin: margin, colorName: colorName };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.preset != null) { preset = s.preset; presetCtl.set(s.preset); }
+      if (s.count != null) { count = s.count; countField.set(s.count); }
+      if (s.gutter != null) { gutter = s.gutter; gutterField.set(s.gutter); }
+      if (s.margin != null) { margin = s.margin; marginField.set(s.margin); }
+      if (s.colorName != null) { colorName = s.colorName; colorCtl.set(s.colorName); }
+      syncColumns();
+    }
+
+    return {
+      presets: {
+        toolId: 'grids',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Thirds', state: { preset: 'thirds', count: 12, gutter: 20, margin: 0, colorName: 'cyan' } },
+          { name: '12-col', state: { preset: 'columns', count: 12, gutter: 20, margin: 60, colorName: 'magenta' } },
+          { name: 'Golden', state: { preset: 'golden', count: 12, gutter: 20, margin: 0, colorName: 'white' } },
+          { name: 'Title-safe', state: { preset: 'safe', count: 12, gutter: 20, margin: 0, colorName: 'white' } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

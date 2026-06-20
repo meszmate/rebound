@@ -71,7 +71,30 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not add gradient', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { type: type, startHex: startHex, endHex: endHex };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.type != null) { type = s.type; typeCtl.set(s.type); }
+      if (s.startHex != null) { startHex = s.startHex; startInput.value = s.startHex; }
+      if (s.endHex != null) { endHex = s.endHex; endInput.value = s.endHex; }
+    }
+
+    return {
+      presets: {
+        toolId: 'gradient',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Ocean', state: { type: 'linear', startHex: '#1e63ff', endHex: '#16e0c0' } },
+          { name: 'Sunset', state: { type: 'linear', startHex: '#ff5e3a', endHex: '#ffd166' } },
+          { name: 'Grape Radial', state: { type: 'radial', startHex: '#7b2ff7', endHex: '#f72fb0' } },
+          { name: 'Mono Fade', state: { type: 'linear', startHex: '#ffffff', endHex: '#222222' } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

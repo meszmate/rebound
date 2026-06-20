@@ -57,7 +57,29 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not add Trim Paths', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { direction: direction, durationFrames: durationFrames };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.direction != null) { direction = s.direction; directionCtl.set(s.direction); }
+      if (s.durationFrames != null) { durationFrames = s.durationFrames; durationField.set(s.durationFrames); }
+    }
+
+    return {
+      presets: {
+        toolId: 'trimpaths',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Quick Write-on', state: { direction: 'start-end', durationFrames: 12 } },
+          { name: 'Slow Draw', state: { direction: 'start-end', durationFrames: 48 } },
+          { name: 'Reverse', state: { direction: 'end-start', durationFrames: 24 } },
+          { name: 'Center Burst', state: { direction: 'center', durationFrames: 18 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

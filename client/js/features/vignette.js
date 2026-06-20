@@ -51,7 +51,30 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not add vignette', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { amount: amount, feather: feather, scale: scale };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.amount != null) { amount = s.amount; amountSlider.set(s.amount); }
+      if (s.feather != null) { feather = s.feather; featherSlider.set(s.feather); }
+      if (s.scale != null) { scale = s.scale; scaleSlider.set(s.scale); }
+    }
+
+    return {
+      presets: {
+        toolId: 'vignette',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Subtle', state: { amount: 35, feather: 200, scale: 120 } },
+          { name: 'Heavy', state: { amount: 85, feather: 100, scale: 80 } },
+          { name: 'Wide', state: { amount: 50, feather: 250, scale: 140 } },
+          { name: 'Tight', state: { amount: 70, feather: 80, scale: 70 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

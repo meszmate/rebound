@@ -81,7 +81,32 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
+    function getState() {
+      return { elasticity: elasticity, gravity: gravity, maxBounces: maxBounces, eachKey: eachKey };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.elasticity != null) { elasticity = s.elasticity; elasticitySlider.set(s.elasticity); }
+      if (s.gravity != null) { gravity = s.gravity; gravitySlider.set(s.gravity); }
+      if (s.maxBounces != null) { maxBounces = s.maxBounces; bouncesField.set(s.maxBounces); }
+      if (s.eachKey != null) { eachKey = s.eachKey; eachKeyToggle.set(s.eachKey); }
+      updateReadout();
+    }
+
     updateReadout();
-    return { destroy: function () { off(); preview.destroy(); } };
+    return {
+      presets: {
+        toolId: 'bounce',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Rubber Ball', state: { elasticity: 0.8, gravity: 6, maxBounces: 6, eachKey: false } },
+          { name: 'Heavy Drop', state: { elasticity: 0.4, gravity: 12, maxBounces: 3, eachKey: false } },
+          { name: 'Floaty', state: { elasticity: 0.9, gravity: 2, maxBounces: 8, eachKey: false } },
+          { name: 'Every Key', state: { elasticity: 0.6, gravity: 5, maxBounces: 4, eachKey: true } }
+        ]
+      },
+      destroy: function () { off(); preview.destroy(); }
+    };
   }
 })(window.Rebound = window.Rebound || {});
