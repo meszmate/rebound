@@ -1,5 +1,5 @@
 /*
- * Rebound host — Bounce (gravitational rebound on existing keyframes).
+ * Rebound host, Bounce (gravitational rebound on existing keyframes).
  *
  * After the last keyframe a property passes, the value rebounds off its target
  * like a ball, each bounce smaller. Driven by a generated expression backed by

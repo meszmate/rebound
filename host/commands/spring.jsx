@@ -1,5 +1,5 @@
 /*
- * Rebound host — spring / bake commands.
+ * Rebound host, spring / bake commands.
  *
  * Baking writes per-frame keyframes from a normalized factor table the panel
  * computes with the (unit-tested) spring engine, so the physics stays in JS and

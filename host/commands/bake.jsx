@@ -1,12 +1,12 @@
 /*
- * Rebound host — bake commands.
+ * Rebound host, bake commands.
  *
- * Bakes the live animation of each selected property — expression-driven or
- * keyframed — into clean, evenly spaced keyframes. We sample the property's
+ * Bakes the live animation of each selected property, expression-driven or
+ * keyframed, into clean, evenly spaced keyframes. We sample the property's
  * value across the chosen range FIRST (so the live curve is read intact), then
  * tear down the source (clear our/any expression, drop existing keys) and write
  * the captured samples back as plain keyframes. Sampling uses valueAtTime(t,
- * false) — post-expression, pre-other-influences — at a fixed frame step,
+ * false), post-expression, pre-other-influences, at a fixed frame step,
  * inclusive of the range end.
  */
 (function () {

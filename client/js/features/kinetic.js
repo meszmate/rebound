@@ -1,5 +1,5 @@
 /*
- * Rebound — Kinetic tool.
+ * Rebound, Kinetic tool.
  * Drives every selected layer except the first from the first layer's motion:
  * the faster the lead moves, the more the chosen transform property reacts,
  * via a marker-guarded expression backed by per-layer Slider Controls.

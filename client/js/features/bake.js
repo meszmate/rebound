@@ -1,7 +1,7 @@
 /*
- * Rebound — Bake tool.
- * Bakes each selected property's live animation — whether it is driven by an
- * expression or by keyframes — into clean, evenly spaced keyframes by sampling
+ * Rebound, Bake tool.
+ * Bakes each selected property's live animation, whether it is driven by an
+ * expression or by keyframes, into clean, evenly spaced keyframes by sampling
  * the value at a fixed frame step across a chosen time range.
  */
 ;(function (R) {

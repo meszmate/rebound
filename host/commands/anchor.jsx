@@ -1,5 +1,5 @@
 /*
- * Rebound host — anchor point commands.
+ * Rebound host, anchor point commands.
  *
  * Moves a layer's anchor to a point on its bounding box WITHOUT moving the
  * layer, by compensating Position. The exact relationship is:

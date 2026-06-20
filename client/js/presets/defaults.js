@@ -1,5 +1,5 @@
 /*
- * Rebound — built-in easing presets.
+ * Rebound, built-in easing presets.
  *
  * The classic Penner family expressed as resolution-independent cubic-bezier
  * tuples (the widely-published easings.net control points), so each preset

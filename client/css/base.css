@@ -1,5 +1,5 @@
 /*
- * Rebound — base layer: reset, root layout, typography, scrollbars.
+ * Rebound, base layer: reset, root layout, typography, scrollbars.
  * All colours come from CSS custom properties set by core/theme.js so a host
  * theme change is a one-line variable swap with no re-render.
  */

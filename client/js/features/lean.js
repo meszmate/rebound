@@ -1,5 +1,5 @@
 /*
- * Rebound — Lean tool.
+ * Rebound, Lean tool.
  * Tilts a layer into its motion: rotation reacts to the layer's own horizontal
  * velocity via a marker-guarded expression backed by Amount + Smoothing sliders.
  */
@@ -28,7 +28,7 @@
       format: function (v) { return Math.round(v) + 'f'; }, onInput: function (v) { smoothing = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Tilts each layer into its own motion — rotation reacts to horizontal velocity. Amount is degrees per 1000 px/s.' }),
+      el('div.rb-faint', { text: 'Tilts each layer into its own motion, rotation reacts to horizontal velocity. Amount is degrees per 1000 px/s.' }),
       amountSlider.el,
       smoothSlider.el
     ]));

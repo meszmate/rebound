@@ -1,5 +1,5 @@
 /*
- * Rebound host — Fade (opacity fade-in / fade-out keyframes).
+ * Rebound host, Fade (opacity fade-in / fade-out keyframes).
  *
  * For each selected AVLayer, keyframes the Opacity property: a fade-in ramps
  * 0 -> 100 over inFrames starting at the layer in point, and a fade-out ramps

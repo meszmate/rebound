@@ -1,5 +1,5 @@
 /*
- * Rebound — smart unit + time parsing, shared by every tool so the whole panel
+ * Rebound, smart unit + time parsing, shared by every tool so the whole panel
  * speaks one unit dialect.
  *
  * Time accepts a suffix: ms, s, f (frames), m (minutes), h (hours). A bare

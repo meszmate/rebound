@@ -1,5 +1,5 @@
 /*
- * Rebound host — Radial (duplicate each layer into a ring of copies).
+ * Rebound host, Radial (duplicate each layer into a ring of copies).
  *
  * For each selected AVLayer, captures its base position as the ring center,
  * then creates 'count' duplicates. Copy k (0..count-1) is placed at

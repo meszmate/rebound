@@ -1,5 +1,5 @@
 /*
- * Rebound — tiny synchronous event bus.
+ * Rebound, tiny synchronous event bus.
  * No dependencies; used for cross-module signalling inside one panel.
  */
 ;(function (R) {

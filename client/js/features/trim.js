@@ -1,5 +1,5 @@
 /*
- * Rebound — Trim tool.
+ * Rebound, Trim tool.
  * Trims each selected layer's in/out points to the span of its keyframes,
  * with optional frame padding on either end. Non-destructive to keyframes.
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound host — expression-rig helpers.
+ * Rebound host, expression-rig helpers.
  *
  * Shared by tools that drive properties with a generated, art-directable
  * expression backed by Slider Control effects on the layer. Controls are
@@ -55,7 +55,7 @@ $.__rebound.rig = (function () {
     var marked = MARKER + '\n' + body;
     var current = prop.expressionEnabled ? prop.expression : '';
     if (current && current !== '' && current.indexOf(MARKER) === -1) {
-      return false; // user expression present — don't touch
+      return false; // user expression present, don't touch
     }
     prop.expression = marked;
     return true;

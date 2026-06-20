@@ -1,5 +1,5 @@
 /*
- * Rebound host — Lean (tilt a layer into its motion).
+ * Rebound host, Lean (tilt a layer into its motion).
  *
  * For each selected layer, ensures Lean Amount + Lean Smooth Slider Controls
  * and drives its Rotation with a marker-guarded expression: it smooths the

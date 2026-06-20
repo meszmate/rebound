@@ -1,5 +1,5 @@
 /*
- * Rebound — tool demos.
+ * Rebound, tool demos.
  *
  * Each entry is a self-contained animated SVG (SMIL) that loops a small,
  * legible illustration of what the tool does, plus a one-or-two sentence
@@ -17,9 +17,9 @@
 
   var D = {};
 
-  // Anchor — the layer stays put while the anchor marker tours its 9 points.
+  // Anchor, the layer stays put while the anchor marker tours its 9 points.
   D.anchor = demo(
-    'Moves the layer’s <strong>anchor point</strong> to any of nine bounding-box points — the layer itself does not move (Position is compensated).',
+    'Moves the layer’s <strong>anchor point</strong> to any of nine bounding-box points, the layer itself does not move (Position is compensated).',
     '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
       '<rect x="34" y="18" width="52" height="36" rx="4" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>' +
       '<g fill="currentColor" opacity="0.25">' +
@@ -36,9 +36,9 @@
       '</svg>'
   );
 
-  // Align — three scattered boxes slide their left edges onto a shared guide.
+  // Align, three scattered boxes slide their left edges onto a shared guide.
   D.align = demo(
-    'Snaps the selected layers to a shared <strong>edge or center</strong> — relative to the composition or the selection bounds.',
+    'Snaps the selected layers to a shared <strong>edge or center</strong>, relative to the composition or the selection bounds.',
     '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
       '<line x1="30" y1="8" x2="30" y2="64" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>' +
       '<g style="fill:var(--rb-accent)">' +
@@ -48,9 +48,9 @@
       '</g></svg>'
   );
 
-  // Multiply — a base layer fans out into a progressively offset stack.
+  // Multiply, a base layer fans out into a progressively offset stack.
   D.multiply = demo(
-    'Duplicates a layer into a <strong>progressively offset stack</strong> — each copy stepped in position, rotation, scale, or time.',
+    'Duplicates a layer into a <strong>progressively offset stack</strong>, each copy stepped in position, rotation, scale, or time.',
     '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
       '<rect x="20" y="28" width="26" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6"/>' +
       '<g style="fill:var(--rb-accent)">' +

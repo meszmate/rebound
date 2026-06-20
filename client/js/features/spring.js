@@ -1,5 +1,5 @@
 /*
- * Rebound — Spring tool.
+ * Rebound, Spring tool.
  * Design a physical spring (bouncy / overshoot easing) and bake it onto the
  * selected keyframe pairs. The curve editor previews the spring; sliders drive
  * either friendly (Bounce + Settle) or physical (Mass / Stiffness / Damping)
@@ -45,7 +45,7 @@
       allowOvershoot: true
     });
 
-    // Live preview — springs read best on Scale (the overshoot pops).
+    // Live preview, springs read best on Scale (the overshoot pops).
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, {
       getCurve: curve,

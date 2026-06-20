@@ -1,5 +1,5 @@
 /*
- * Rebound — reusable UI controls.
+ * Rebound, reusable UI controls.
  * Small factory functions returning a DOM node plus a tiny imperative API.
  * Built on Rebound.dom; no framework.
  */

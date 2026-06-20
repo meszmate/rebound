@@ -1,5 +1,5 @@
 /*
- * Rebound — Stagger tool.
+ * Rebound, Stagger tool.
  * Offsets selected layers in time so they cascade by a fixed interval,
  * anchored at the playhead or the earliest layer, with an optional reverse.
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound host — Separate (toggle Separate Dimensions on Position).
+ * Rebound host, Separate (toggle Separate Dimensions on Position).
  *
  * For each selected AVLayer, sets dimensionsSeparated on its Position property to
  * the requested state. Some properties expose dimensionsSeparated as a read-only

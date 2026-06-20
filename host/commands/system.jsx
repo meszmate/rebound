@@ -1,5 +1,5 @@
 /*
- * Rebound host — system commands.
+ * Rebound host, system commands.
  * Connectivity, host environment, and a structured summary of the current
  * selection that the panel's reactive store reads from.
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound — Multiply tool.
+ * Rebound, Multiply tool.
  * Bulk-duplicates each selected layer into a stack of N copies, each copy
  * progressively offset in position, rotation, scale, opacity, and time.
  */

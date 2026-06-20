@@ -1,5 +1,5 @@
 /*
- * Rebound — Stroke tool.
+ * Rebound, Stroke tool.
  * Adds or updates a stroke on selected shape layers. Pick a width and a color
  * swatch and apply, or remove every stroke. Colors are sent as 0..1 RGB.
  */

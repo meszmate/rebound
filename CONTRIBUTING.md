@@ -9,7 +9,7 @@ unit-tested, so it's an easy codebase to jump into.
   cubic-bezier, the Penner equations, spring physics) and Adobe's documented
   APIs. Do not copy any other product's source, scripts, assets, preset names,
   or interface. The only vendored third-party file is Adobe's `CSInterface.js`.
-- **Name features by behavior**, not by other tools — in code, comments, and
+- **Name features by behavior**, not by other tools, in code, comments, and
   docs.
 - Be kind in issues and reviews.
 

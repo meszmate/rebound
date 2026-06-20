@@ -1,5 +1,5 @@
 /*
- * Rebound host — Reverse (mirror selected keyframes in time).
+ * Rebound host, Reverse (mirror selected keyframes in time).
  *
  * For each selected Property, takes its selected keyframes (or every keyframe
  * when none are selected) and mirrors them within their own span [t0, t1]: a

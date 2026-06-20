@@ -1,5 +1,5 @@
 /*
- * Rebound host — Flip (mirror selected layers).
+ * Rebound host, Flip (mirror selected layers).
  *
  * Mirrors by negating the layer's scale on the chosen axis. For pivot
  * 'selection', also reflects each layer's position across the selection's

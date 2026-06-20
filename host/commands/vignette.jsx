@@ -1,5 +1,5 @@
 /*
- * Rebound host — Vignette (edge-darkening adjustment layer).
+ * Rebound host, Vignette (edge-darkening adjustment layer).
  *
  * Creates a black adjustment layer named "Vignette" sized to the comp, then cuts
  * a feathered elliptical hole in it with a single subtractive mask so the center

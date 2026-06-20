@@ -1,5 +1,5 @@
 /*
- * Rebound — Vignette tool.
+ * Rebound, Vignette tool.
  * Drops a non-rendering-free black adjustment layer that darkens the edges of
  * the composition with a feathered elliptical hole. Amount drives the layer
  * opacity, Feather softens the falloff, and Scale sizes the clear center.

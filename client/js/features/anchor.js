@@ -1,5 +1,5 @@
 /*
- * Rebound — Anchor tool.
+ * Rebound, Anchor tool.
  * A 9-point grid moves the anchor to a bounding-box point without moving the
  * layer (Position is compensated by the host). Plus center-in-comp helpers.
  */

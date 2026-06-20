@@ -1,5 +1,5 @@
 /*
- * Rebound — Separate tool.
+ * Rebound, Separate tool.
  * Toggles Separate Dimensions on the selected layers' Position so each axis can
  * be keyed or expressed on its own. Separate splits Position into X/Y(/Z); Join
  * recombines them back into a single Position property.

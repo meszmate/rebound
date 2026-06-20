@@ -1,5 +1,5 @@
 /*
- * Rebound — host bridge.
+ * Rebound, host bridge.
  *
  * The ONLY module that touches CSInterface. Everything else calls
  * Rebound.bridge.invoke(method, args) and gets back a Promise of the host
@@ -13,7 +13,7 @@
   'use strict';
 
   // new CSInterface() dereferences window.__adobe_cep__, which only exists
-  // inside the host — guard it so the panel still loads in a plain browser.
+  // inside the host, guard it so the panel still loads in a plain browser.
   var cs = null;
   try {
     if (typeof CSInterface !== 'undefined') cs = new CSInterface();

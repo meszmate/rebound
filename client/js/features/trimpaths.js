@@ -1,5 +1,5 @@
 /*
- * Rebound — Trim Paths tool.
+ * Rebound, Trim Paths tool.
  * Adds an animated Trim Paths write-on to selected shape layers, sweeping the
  * stroke on (or off) over a chosen number of frames in the chosen direction.
  */

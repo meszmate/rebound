@@ -1,11 +1,11 @@
 /*
- * Rebound host — Kinetic (drive layers from a source layer's motion).
+ * Rebound host, Kinetic (drive layers from a source layer's motion).
  *
  * The first selected layer is the source. Every other selected AVLayer becomes
  * a target: it gets "Kinetic Sensitivity" and "Kinetic Max" Slider Controls and
  * a marker-guarded expression on the chosen transform property. The expression
- * samples the source layer's position speed and maps it onto the target — Scale
- * grows, Rotation spins, Opacity fades — clamped by Max. The marker guard means
+ * samples the source layer's position speed and maps it onto the target, Scale
+ * grows, Rotation spins, Opacity fades, clamped by Max. The marker guard means
  * we never clobber a user's own expression, and Remove clears only our own from
  * the three candidate target properties.
  */

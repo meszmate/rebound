@@ -1,5 +1,5 @@
 /*
- * Rebound — Flip tool.
+ * Rebound, Flip tool.
  * Mirrors selected layers across an axis by negating scale, optionally
  * reflecting each layer's position about the selection's bounding-box center.
  */

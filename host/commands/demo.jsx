@@ -1,9 +1,9 @@
 /*
- * Rebound host — Demo (build a practice composition to try the tools).
+ * Rebound host, Demo (build a practice composition to try the tools).
  *
  * Creates a fresh 1280x720 composition, drops in a single shape layer named
- * "Ball" with a centered anchor, and sets two Position keyframes — at the
- * left third at t=0 and the right third at t=1s — so there is a simple move to
+ * "Ball" with a centered anchor, and sets two Position keyframes, at the
+ * left third at t=0 and the right third at t=1s, so there is a simple move to
  * ease, spring, or otherwise experiment on. Opens the new comp in a viewer.
  */
 (function () {

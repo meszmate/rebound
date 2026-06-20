@@ -1,5 +1,5 @@
 /*
- * Rebound — settings / preferences panel (second extension).
+ * Rebound, settings / preferences panel (second extension).
  * Reads and writes the same versioned settings file the main panel uses, and
  * broadcasts changes over a CEP event so the main panel updates live.
  */
@@ -118,7 +118,7 @@
     body.appendChild(section('Data', [
       el('div.rb-faint', { text: R.disk.available
         ? 'Presets and settings are stored in your user data folder.'
-        : 'Running without file access — settings are kept in this session only.' })
+        : 'Running without file access, settings are kept in this session only.' })
     ]));
   }
 

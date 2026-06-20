@@ -1,5 +1,5 @@
 /*
- * Rebound — tool presentation metadata.
+ * Rebound, tool presentation metadata.
  *
  * Keeps the 45 feature files clean: this single file maps each tool id to a
  * goal-shaped section, a line icon, and a one-line description for the Home

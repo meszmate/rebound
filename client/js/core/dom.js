@@ -1,7 +1,7 @@
 /*
- * Rebound — minimal DOM helpers.
+ * Rebound, minimal DOM helpers.
  * A small, dependency-free toolkit so feature modules build UI declaratively
- * without a framework (each CEP panel is its own Chromium process — stay lean).
+ * without a framework (each CEP panel is its own Chromium process, stay lean).
  */
 ;(function (R) {
   'use strict';

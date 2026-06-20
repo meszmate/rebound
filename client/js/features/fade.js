@@ -1,5 +1,5 @@
 /*
- * Rebound — Fade tool.
+ * Rebound, Fade tool.
  * Adds opacity fade-in and/or fade-out keyframes to each selected layer,
  * with independent frame durations and toggles for each end.
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound — Align & Distribute tool.
+ * Rebound, Align & Distribute tool.
  * Per-direction align buttons (left / center / right and top / middle / bottom)
  * relative to the composition or the selection bounds; distribute spreads three
  * or more layers evenly or by a fixed gap.

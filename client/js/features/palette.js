@@ -1,5 +1,5 @@
 /*
- * Rebound — Palette tool.
+ * Rebound, Palette tool.
  * Curated and custom color palettes; click a swatch to recolor the selected
  * layers (reusing the Color command). Custom palettes persist as JSON.
  */

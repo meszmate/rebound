@@ -1,5 +1,5 @@
 /*
- * Rebound — Demo tool.
+ * Rebound, Demo tool.
  * Builds a small practice composition with a single animated layer so a new
  * user has something to ease, spring, or otherwise experiment on.
  */

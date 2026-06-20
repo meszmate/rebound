@@ -1,5 +1,5 @@
 /*
- * Rebound — Tags tool.
+ * Rebound, Tags tool.
  * Marks layers with reusable name tags and selects by them. A tag name plus an
  * optional label color is stamped into each selected layer's comment as a
  * #token; a separate action selects every layer in the comp carrying that

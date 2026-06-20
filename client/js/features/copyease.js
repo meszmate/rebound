@@ -1,8 +1,8 @@
 /*
- * Rebound — Copy Ease.
+ * Rebound, Copy Ease.
  * Copy the temporal ease (speed + influence) off one keyframe and paste it
  * onto others. The Mode picker chooses which part of the stored ease to write:
- * just the influence, just the speed, or both — the untouched part is kept from
+ * just the influence, just the speed, or both, the untouched part is kept from
  * each target key's current ease.
  */
 ;(function (R) {

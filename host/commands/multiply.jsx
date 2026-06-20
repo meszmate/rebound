@@ -1,5 +1,5 @@
 /*
- * Rebound host — Multiply (bulk-duplicate into a progressively offset stack).
+ * Rebound host, Multiply (bulk-duplicate into a progressively offset stack).
  *
  * For each selected layer, creates N duplicate copies. Copy k (1..N) receives
  * the original's transform plus k times each per-copy offset, and its start

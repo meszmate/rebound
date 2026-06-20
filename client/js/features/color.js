@@ -1,5 +1,5 @@
 /*
- * Rebound — Color tool.
+ * Rebound, Color tool.
  * Sets the fill color of selected layers from a swatch palette or from Hue and
  * Lightness sliders. Shape layers recolor every fill, solids recolor their
  * source, and any other layer gets a Fill effect. Colors are sent as 0..1 RGB.

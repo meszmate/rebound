@@ -1,5 +1,5 @@
 /*
- * Rebound — generated tool demos (animated SVG + caption per tool).
+ * Rebound, generated tool demos (animated SVG + caption per tool).
  * Built by the demo-generation workflow; loaded after tool-demos.js. Edit the
  * generator, not this file, to regenerate.
  */
@@ -9,22 +9,22 @@
   var D = [
     {
       "id": "arrange",
-      "caption": "<strong>Arrange</strong> packs layers into an even grid — scattered rects slide into a tidy 2x3 layout, then scatter again.",
+      "caption": "<strong>Arrange</strong> packs layers into an even grid, scattered rects slide into a tidy 2x3 layout, then scatter again.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><g style=\"fill:var(--rb-accent)\"><rect width=\"24\" height=\"15\" rx=\"3\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"6,4; 36,11; 36,11; 6,4\" keyTimes=\"0;0.3;0.8;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect width=\"24\" height=\"15\" rx=\"3\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"82,2; 66,11; 66,11; 82,2\" keyTimes=\"0;0.3;0.8;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect width=\"24\" height=\"15\" rx=\"3\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"50,52; 96,11; 96,11; 50,52\" keyTimes=\"0;0.3;0.8;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect width=\"24\" height=\"15\" rx=\"3\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"14,50; 36,32; 36,32; 14,50\" keyTimes=\"0;0.3;0.8;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect width=\"24\" height=\"15\" rx=\"3\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"88,46; 66,32; 66,32; 88,46\" keyTimes=\"0;0.3;0.8;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect width=\"24\" height=\"15\" rx=\"3\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"54,28; 96,32; 96,32; 54,28\" keyTimes=\"0;0.3;0.8;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect></g></svg>"
     },
     {
       "id": "bake",
-      "caption": "<strong>Bakes</strong> an animated curve into evenly-spaced keyframes — it samples the motion and drops <strong>diamond keys</strong> along the path one by one.",
+      "caption": "<strong>Bakes</strong> an animated curve into evenly-spaced keyframes, it samples the motion and drops <strong>diamond keys</strong> along the path one by one.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M14 54 C 38 54, 44 18, 60 18 S 82 54, 106 18\" fill=\"none\" stroke=\"currentColor\" stroke-opacity=\"0.4\" stroke-width=\"2\"/><g style=\"fill:var(--rb-accent)\"><path d=\"M14 54 l3 3 -3 3 -3 -3 z\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.05;0.12;0.95;1\" dur=\"4s\" repeatCount=\"indefinite\"/></path><path d=\"M37 31 l3 3 -3 3 -3 -3 z\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.18;0.25;0.95;1\" dur=\"4s\" repeatCount=\"indefinite\"/></path><path d=\"M60 18 l3 3 -3 3 -3 -3 z\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.32;0.39;0.95;1\" dur=\"4s\" repeatCount=\"indefinite\"/></path><path d=\"M81 39 l3 3 -3 3 -3 -3 z\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.46;0.53;0.95;1\" dur=\"4s\" repeatCount=\"indefinite\"/></path><path d=\"M106 18 l3 3 -3 3 -3 -3 z\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.60;0.67;0.95;1\" dur=\"4s\" repeatCount=\"indefinite\"/></path></g></svg>"
     },
     {
       "id": "break",
-      "caption": "Splits a <strong>multi-shape layer</strong> into separate layers — each contained shape becomes its own independent layer.",
+      "caption": "Splits a <strong>multi-shape layer</strong> into separate layers, each contained shape becomes its own independent layer.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><rect x=\"36\" y=\"22\" width=\"48\" height=\"28\" rx=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" opacity=\"0.5\"><animate attributeName=\"opacity\" values=\"0.5;0.5;0;0;0.5\" keyTimes=\"0;0.25;0.5;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><g style=\"fill:var(--rb-accent)\"><g><rect x=\"42\" y=\"29\" width=\"12\" height=\"14\" rx=\"2\"/><animateTransform attributeName=\"transform\" type=\"translate\" values=\"0,0; 0,0; -22,0; -22,0; 0,0\" keyTimes=\"0;0.25;0.5;0.85;1\" dur=\"5s\" calcMode=\"spline\" keySplines=\"0 0 1 1;0.3 0 0.2 1;0 0 1 1;0.3 0 0.2 1\" repeatCount=\"indefinite\"/></g><g><rect x=\"54\" y=\"29\" width=\"12\" height=\"14\" rx=\"2\"/></g><g><rect x=\"66\" y=\"29\" width=\"12\" height=\"14\" rx=\"2\"/><animateTransform attributeName=\"transform\" type=\"translate\" values=\"0,0; 0,0; 22,0; 22,0; 0,0\" keyTimes=\"0;0.25;0.5;0.85;1\" dur=\"5s\" calcMode=\"spline\" keySplines=\"0 0 1 1;0.3 0 0.2 1;0 0 1 1;0.3 0 0.2 1\" repeatCount=\"indefinite\"/></g></g><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\" opacity=\"0\"><rect x=\"16\" y=\"27\" width=\"18\" height=\"18\" rx=\"3\"/><rect x=\"86\" y=\"27\" width=\"18\" height=\"18\" rx=\"3\"/><animate attributeName=\"opacity\" values=\"0;0;0.45;0.45;0\" keyTimes=\"0;0.45;0.55;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\"/></g></svg>"
     },
     {
       "id": "color",
-      "caption": "Sets a layer's <strong>fill color</strong> — pick from the swatches or a custom value.",
+      "caption": "Sets a layer's <strong>fill color</strong>, pick from the swatches or a custom value.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><rect x=\"38\" y=\"18\" width=\"44\" height=\"36\" rx=\"5\" style=\"fill:var(--rb-accent)\"><animate attributeName=\"fill\" values=\"var(--rb-accent);var(--rb-success);var(--rb-warning);var(--rb-accent)\" keyTimes=\"0;0.33;0.66;1\" dur=\"4.5s\" calcMode=\"discrete\" repeatCount=\"indefinite\"/></rect><g opacity=\"0.6\"><circle cx=\"50\" cy=\"64\" r=\"3\" style=\"fill:var(--rb-accent)\"/><circle cx=\"60\" cy=\"64\" r=\"3\" style=\"fill:var(--rb-success)\"/><circle cx=\"70\" cy=\"64\" r=\"3\" style=\"fill:var(--rb-warning)\"/></g><circle cx=\"50\" cy=\"64\" r=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\"><animate attributeName=\"cx\" values=\"50;60;70;50\" keyTimes=\"0;0.33;0.66;1\" dur=\"4.5s\" calcMode=\"discrete\" repeatCount=\"indefinite\"/></circle></svg>"
     },
     {
@@ -39,17 +39,17 @@
     },
     {
       "id": "demo",
-      "caption": "<strong>Build a practice comp</strong> in one click — a fresh scene with a ball and two keyframes, ready to experiment on.",
+      "caption": "<strong>Build a practice comp</strong> in one click, a fresh scene with a ball and two keyframes, ready to experiment on.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"16\" y=\"10\" width=\"88\" height=\"52\" rx=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" opacity=\"0.5\" stroke-dasharray=\"280\"><animate attributeName=\"stroke-dashoffset\" values=\"280;0;0;0;280\" keyTimes=\"0;0.3;0.85;0.95;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><line x1=\"30\" y1=\"50\" x2=\"90\" y2=\"50\" stroke=\"currentColor\" stroke-width=\"1\" opacity=\"0.3\" stroke-dasharray=\"3 3\"/><g style=\"fill:var(--rb-accent)\"><path d=\"M30 50 l3 -3 3 3 -3 3 z\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.35;0.45;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\"/></path><path d=\"M90 50 l3 -3 3 3 -3 3 z\" transform=\"translate(-3,0)\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.45;0.55;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\"/></path></g><circle r=\"6\" style=\"fill:var(--rb-accent)\"><animate attributeName=\"opacity\" values=\"0;0;1;1;1\" keyTimes=\"0;0.5;0.6;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\"/><animateMotion path=\"M33 50 L87 50\" keyTimes=\"0;0.6;0.78;0.85;1\" keyPoints=\"0;0;1;1;0\" calcMode=\"spline\" keySplines=\"0 0 1 1;0.4 0 0.2 1;0.4 0 0.2 1;0 0 1 1\" dur=\"5s\" repeatCount=\"indefinite\"/></circle></svg>"
     },
     {
       "id": "drift",
-      "caption": "Adds <strong>organic random wiggle</strong> — the layer wanders along a gentle, ever-changing path so motion feels alive instead of mechanical.",
+      "caption": "Adds <strong>organic random wiggle</strong>, the layer wanders along a gentle, ever-changing path so motion feels alive instead of mechanical.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><path id=\"driftPath\" d=\"M20 40 C 34 22, 44 54, 58 36 S 80 20, 92 44 S 76 56, 64 40 S 40 30, 28 48 S 16 50, 20 40 Z\" fill=\"none\" stroke=\"currentColor\" stroke-opacity=\"0.25\" stroke-width=\"1\" stroke-dasharray=\"2 3\"/><circle r=\"5\" style=\"fill:var(--rb-accent)\"><animateMotion dur=\"6s\" repeatCount=\"indefinite\" calcMode=\"spline\" keyPoints=\"0;0.5;1\" keyTimes=\"0;0.5;1\" keySplines=\"0.4 0 0.6 1;0.4 0 0.6 1\"><mpath href=\"#driftPath\"/></animateMotion></circle></svg>"
     },
     {
       "id": "echo",
-      "caption": "Leaves an <strong>optical echo trail</strong> — a moving layer drops fading copies of itself behind it as it travels.",
+      "caption": "Leaves an <strong>optical echo trail</strong>, a moving layer drops fading copies of itself behind it as it travels.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><line x1=\"18\" y1=\"36\" x2=\"102\" y2=\"36\" stroke=\"currentColor\" stroke-width=\"1\" stroke-dasharray=\"2 3\" opacity=\"0.3\"/><g style=\"fill:var(--rb-accent)\"><circle cy=\"36\" r=\"5\" opacity=\"0.18\"><animate attributeName=\"cx\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.7;1\" values=\"18;102;102\" calcMode=\"spline\" keySplines=\"0.45 0 0.55 1;0 0 1 1\"/></circle><circle cy=\"36\" r=\"5\" opacity=\"0.32\"><animate attributeName=\"cx\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.05;0.75;1\" values=\"18;18;102;102\" calcMode=\"spline\" keySplines=\"0 0 1 1;0.45 0 0.55 1;0 0 1 1\"/></circle><circle cy=\"36\" r=\"5\" opacity=\"0.55\"><animate attributeName=\"cx\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.1;0.8;1\" values=\"18;18;102;102\" calcMode=\"spline\" keySplines=\"0 0 1 1;0.45 0 0.55 1;0 0 1 1\"/></circle><circle cy=\"36\" r=\"5\"><animate attributeName=\"cx\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.15;0.85;1\" values=\"18;18;102;102\" calcMode=\"spline\" keySplines=\"0 0 1 1;0.45 0 0.55 1;0 0 1 1\"/></circle></g></svg>"
     },
     {
@@ -59,37 +59,37 @@
     },
     {
       "id": "flip",
-      "caption": "<strong>Flip</strong> mirrors a layer across an axis — the rect (note the notch) flips horizontally about the dashed center line.",
+      "caption": "<strong>Flip</strong> mirrors a layer across an axis, the rect (note the notch) flips horizontally about the dashed center line.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"60\" y1=\"8\" x2=\"60\" y2=\"64\" stroke=\"currentColor\" stroke-width=\"1\" stroke-dasharray=\"2 3\" opacity=\"0.4\"/><g transform=\"translate(60,0)\"><g style=\"fill:var(--rb-accent)\" opacity=\"0.88\"><animateTransform attributeName=\"transform\" type=\"scale\" values=\"1,1; 1,1; -1,1; -1,1; 1,1\" keyTimes=\"0;0.3;0.55;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\"/><path d=\"M 4 22 L 34 22 L 34 33 L 26 36 L 34 39 L 34 50 L 4 50 Z\"/></g></g></svg>"
     },
     {
       "id": "follow",
-      "caption": "<strong>Follow-through</strong> — followers trail the lead layer with increasing delay, so the group settles in a natural, staggered cascade.",
+      "caption": "<strong>Follow-through</strong>, followers trail the lead layer with increasing delay, so the group settles in a natural, staggered cascade.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"-8\" y=\"14\" width=\"24\" height=\"12\" rx=\"2.5\" style=\"fill:var(--rb-accent)\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"24 0; 80 0; 24 0\" keyTimes=\"0;0.5;1\" dur=\"4s\" calcMode=\"spline\" keySplines=\"0.45 0 0.55 1;0.45 0 0.55 1\" repeatCount=\"indefinite\"/></rect><rect x=\"-8\" y=\"30\" width=\"24\" height=\"12\" rx=\"2.5\" fill=\"currentColor\" fill-opacity=\"0.5\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"24 0; 80 0; 24 0\" keyTimes=\"0;0.5;1\" dur=\"4s\" begin=\"0.35s\" calcMode=\"spline\" keySplines=\"0.45 0 0.55 1;0.45 0 0.55 1\" repeatCount=\"indefinite\"/></rect><rect x=\"-8\" y=\"46\" width=\"24\" height=\"12\" rx=\"2.5\" fill=\"currentColor\" fill-opacity=\"0.3\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"24 0; 80 0; 24 0\" keyTimes=\"0;0.5;1\" dur=\"4s\" begin=\"0.7s\" calcMode=\"spline\" keySplines=\"0.45 0 0.55 1;0.45 0 0.55 1\" repeatCount=\"indefinite\"/></rect></svg>"
     },
     {
       "id": "gradient",
-      "caption": "Fills a shape with a <strong>gradient</strong> — set the colors and the gradient's angle.",
+      "caption": "Fills a shape with a <strong>gradient</strong>, set the colors and the gradient's angle.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><defs><linearGradient id=\"rbGradDemo\" x1=\"0\" y1=\"0\" x2=\"1\" y2=\"0\"><stop offset=\"0\" style=\"stop-color:var(--rb-accent)\"/><stop offset=\"1\" stop-color=\"currentColor\" stop-opacity=\"0.15\"/><animateTransform attributeName=\"gradientTransform\" type=\"rotate\" values=\"0 0.5 0.5; 360 0.5 0.5\" dur=\"6s\" calcMode=\"linear\" repeatCount=\"indefinite\"/></linearGradient></defs><rect x=\"38\" y=\"18\" width=\"44\" height=\"36\" rx=\"5\" fill=\"url(#rbGradDemo)\"/></svg>"
     },
     {
       "id": "grids",
-      "caption": "<strong>Grids</strong> adds composition guides — rule-of-thirds lines fade onto the comp frame to help you place layers.",
+      "caption": "<strong>Grids</strong> adds composition guides, rule-of-thirds lines fade onto the comp frame to help you place layers.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"18\" y=\"10\" width=\"84\" height=\"52\" rx=\"2\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.2\" opacity=\"0.5\"/><g style=\"stroke:var(--rb-accent)\" stroke-width=\"1\" stroke-dasharray=\"3 3\"><line x1=\"46\" y1=\"10\" x2=\"46\" y2=\"62\"><animate attributeName=\"opacity\" values=\"0;0;0.9;0.9;0\" keyTimes=\"0;0.15;0.4;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"74\" y1=\"10\" x2=\"74\" y2=\"62\"><animate attributeName=\"opacity\" values=\"0;0;0.9;0.9;0\" keyTimes=\"0;0.22;0.47;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"18\" y1=\"27\" x2=\"102\" y2=\"27\"><animate attributeName=\"opacity\" values=\"0;0;0.9;0.9;0\" keyTimes=\"0;0.3;0.55;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"18\" y1=\"45\" x2=\"102\" y2=\"45\"><animate attributeName=\"opacity\" values=\"0;0;0.9;0.9;0\" keyTimes=\"0;0.37;0.62;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line></g></svg>"
     },
     {
       "id": "keys",
-      "caption": "Sets <strong>keyframe interpolation</strong> — the segment between two keys morphs from <strong>linear</strong> to an <strong>eased</strong> curve to a <strong>stepped</strong> hold.",
+      "caption": "Sets <strong>keyframe interpolation</strong>, the segment between two keys morphs from <strong>linear</strong> to an <strong>eased</strong> curve to a <strong>stepped</strong> hold.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><g fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" opacity=\"0.75\"><path d=\"M30,48 L90,24\"><animate attributeName=\"opacity\" dur=\"6s\" repeatCount=\"indefinite\" keyTimes=\"0;0.06;0.28;0.33;1\" values=\"0.75;0.75;0;0;0.75\"/></path><path d=\"M30,48 C50,48 70,24 90,24\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"6s\" repeatCount=\"indefinite\" keyTimes=\"0;0.33;0.39;0.61;0.67;1\" values=\"0;0;0.75;0.75;0;0\"/></path><path d=\"M30,48 L60,48 L60,24 L90,24\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"6s\" repeatCount=\"indefinite\" keyTimes=\"0;0.67;0.72;0.94;1;1\" values=\"0;0;0.75;0.75;0;0\"/></path></g><g style=\"fill:var(--rb-accent)\"><rect x=\"-4\" y=\"-4\" width=\"8\" height=\"8\" rx=\"1.5\" transform=\"translate(30 48) rotate(45)\"/><rect x=\"-4\" y=\"-4\" width=\"8\" height=\"8\" rx=\"1.5\" transform=\"translate(90 24) rotate(45)\"/></g></svg>"
     },
     {
       "id": "kinetic",
-      "caption": "<strong>Reacts to another layer's velocity</strong> — when the driver moves fast the follower scales up, then settles as the driver slows.",
+      "caption": "<strong>Reacts to another layer's velocity</strong>, when the driver moves fast the follower scales up, then settles as the driver slows.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"-9\" y=\"12\" width=\"18\" height=\"14\" rx=\"2.5\" fill=\"currentColor\" fill-opacity=\"0.5\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"30 0; 30 0; 90 0; 90 0; 30 0\" keyTimes=\"0;0.1;0.35;0.6;1\" dur=\"4s\" calcMode=\"spline\" keySplines=\"0.9 0 1 0.5;0.9 0 1 0.5;0.5 0 0.5 1;0.5 0 0.5 1\" repeatCount=\"indefinite\"/></rect><line x1=\"30\" y1=\"32\" x2=\"30\" y2=\"42\" stroke=\"currentColor\" stroke-opacity=\"0.25\" stroke-width=\"1\" stroke-dasharray=\"2 2\"/><line x1=\"90\" y1=\"32\" x2=\"90\" y2=\"42\" stroke=\"currentColor\" stroke-opacity=\"0.25\" stroke-width=\"1\" stroke-dasharray=\"2 2\"/><g transform=\"translate(60 52)\"><rect x=\"-11\" y=\"-11\" width=\"22\" height=\"22\" rx=\"3\" style=\"fill:var(--rb-accent)\"><animateTransform attributeName=\"transform\" type=\"scale\" values=\"1;1;1.7;1;1\" keyTimes=\"0;0.1;0.38;0.7;1\" dur=\"4s\" calcMode=\"spline\" keySplines=\"0.5 0 0.5 1;0.3 0 0.4 1;0.4 0 0.5 1;0.5 0 0.5 1\" repeatCount=\"indefinite\"/></rect></g></svg>"
     },
     {
       "id": "lean",
-      "caption": "<strong>Tilts into motion</strong> — the layer leans toward its travel direction as it slides, banking like it has real momentum.",
+      "caption": "<strong>Tilts into motion</strong>, the layer leans toward its travel direction as it slides, banking like it has real momentum.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"24\" y1=\"50\" x2=\"96\" y2=\"50\" stroke=\"currentColor\" stroke-opacity=\"0.25\" stroke-width=\"1\" stroke-dasharray=\"2 3\"/><g><animateTransform attributeName=\"transform\" type=\"translate\" values=\"24 0; 72 0; 24 0\" keyTimes=\"0;0.5;1\" dur=\"4s\" calcMode=\"spline\" keySplines=\"0.42 0 0.58 1;0.42 0 0.58 1\" repeatCount=\"indefinite\" additive=\"sum\"/><rect x=\"-11\" y=\"-8\" width=\"22\" height=\"16\" rx=\"2.5\" y2=\"0\" transform=\"translate(0 42)\" style=\"fill:var(--rb-accent)\"><animateTransform attributeName=\"transform\" type=\"rotate\" values=\"-16;0;16;0;-16\" keyTimes=\"0;0.25;0.5;0.75;1\" dur=\"4s\" calcMode=\"spline\" keySplines=\"0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1;0.42 0 0.58 1\" repeatCount=\"indefinite\" additive=\"sum\"/></rect></g></svg>"
     },
     {
@@ -99,22 +99,22 @@
     },
     {
       "id": "link",
-      "caption": "<strong>Link</strong> parents layers to one lead — the lead rect moves and the children follow it through thin connectors, with a slight delay.",
+      "caption": "<strong>Link</strong> parents layers to one lead, the lead rect moves and the children follow it through thin connectors, with a slight delay.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"60\" y1=\"20\" x2=\"40\" y2=\"52\" stroke=\"currentColor\" stroke-width=\"1\" opacity=\"0.4\"><animate attributeName=\"x1\" values=\"40;80;40\" keyTimes=\"0;0.5;1\" dur=\"5s\" repeatCount=\"indefinite\"/><animate attributeName=\"x2\" values=\"32;72;32\" keyTimes=\"0.08;0.58;1.08\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"60\" y1=\"20\" x2=\"80\" y2=\"52\" stroke=\"currentColor\" stroke-width=\"1\" opacity=\"0.4\"><animate attributeName=\"x1\" values=\"40;80;40\" keyTimes=\"0;0.5;1\" dur=\"5s\" repeatCount=\"indefinite\"/><animate attributeName=\"x2\" values=\"72;32;72\" keyTimes=\"0.08;0.58;1.08\" dur=\"5s\" repeatCount=\"indefinite\"/></line><rect x=\"-13\" y=\"12\" width=\"26\" height=\"16\" rx=\"3\" style=\"fill:var(--rb-accent)\" opacity=\"0.9\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"40,0;80,0;40,0\" keyTimes=\"0;0.5;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect x=\"-11\" y=\"44\" width=\"22\" height=\"14\" rx=\"3\" fill=\"currentColor\" opacity=\"0.45\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"32,0;72,0;32,0\" keyTimes=\"0.08;0.58;1.08\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect x=\"-11\" y=\"44\" width=\"22\" height=\"14\" rx=\"3\" fill=\"currentColor\" opacity=\"0.45\"><animateTransform attributeName=\"transform\" type=\"translate\" values=\"72,0;32,0;72,0\" keyTimes=\"0.08;0.58;1.08\" dur=\"5s\" repeatCount=\"indefinite\"/></rect></svg>"
     },
     {
       "id": "motion",
-      "caption": "<strong>Orbit, spin, or look-at</strong> — drives a layer around a center point so it circles, rotates, or always faces its target.",
+      "caption": "<strong>Orbit, spin, or look-at</strong>, drives a layer around a center point so it circles, rotates, or always faces its target.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"60\" cy=\"36\" r=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-opacity=\"0.25\" stroke-width=\"1\" stroke-dasharray=\"2 3\"/><rect x=\"56\" y=\"32\" width=\"8\" height=\"8\" rx=\"1.5\" fill=\"currentColor\" fill-opacity=\"0.5\"/><circle r=\"5\" style=\"fill:var(--rb-accent)\"><animateMotion dur=\"4.5s\" repeatCount=\"indefinite\" path=\"M60 14 A 22 22 0 1 1 59.99 14 Z\"/></circle></svg>"
     },
     {
       "id": "nullify",
-      "caption": "<strong>Nullify</strong> drops a control null and parents your layers to it — a null marker appears and thin lines link each layer to it.",
+      "caption": "<strong>Nullify</strong> drops a control null and parents your layers to it, a null marker appears and thin lines link each layer to it.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"28\" y1=\"20\" x2=\"60\" y2=\"36\" stroke=\"currentColor\" stroke-width=\"1\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.5;0.5;0\" keyTimes=\"0;0.45;0.6;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"92\" y1=\"22\" x2=\"60\" y2=\"36\" stroke=\"currentColor\" stroke-width=\"1\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.5;0.5;0\" keyTimes=\"0;0.45;0.6;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"40\" y1=\"56\" x2=\"60\" y2=\"36\" stroke=\"currentColor\" stroke-width=\"1\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.5;0.5;0\" keyTimes=\"0;0.45;0.6;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><rect x=\"14\" y=\"12\" width=\"28\" height=\"16\" rx=\"3\" fill=\"currentColor\" opacity=\"0.45\"/><rect x=\"78\" y=\"14\" width=\"28\" height=\"16\" rx=\"3\" fill=\"currentColor\" opacity=\"0.45\"/><rect x=\"26\" y=\"48\" width=\"28\" height=\"16\" rx=\"3\" fill=\"currentColor\" opacity=\"0.45\"/><g opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;1;1;0\" keyTimes=\"0;0.35;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/><rect x=\"52\" y=\"28\" width=\"16\" height=\"16\" rx=\"2\" fill=\"none\" style=\"stroke:var(--rb-accent)\" stroke-width=\"1.5\"/><line x1=\"60\" y1=\"30\" x2=\"60\" y2=\"42\" style=\"stroke:var(--rb-accent)\" stroke-width=\"1.5\"/><line x1=\"54\" y1=\"36\" x2=\"66\" y2=\"36\" style=\"stroke:var(--rb-accent)\" stroke-width=\"1.5\"/></g></svg>"
     },
     {
       "id": "palette",
-      "caption": "Applies a whole <strong>color scheme</strong> at once — selected layers adopt the palette's colors.",
+      "caption": "Applies a whole <strong>color scheme</strong> at once, selected layers adopt the palette's colors.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><g><rect x=\"34\" y=\"10\" width=\"16\" height=\"12\" rx=\"2\" style=\"fill:var(--rb-accent)\"/><rect x=\"52\" y=\"10\" width=\"16\" height=\"12\" rx=\"2\" style=\"fill:var(--rb-success)\"/><rect x=\"70\" y=\"10\" width=\"16\" height=\"12\" rx=\"2\" style=\"fill:var(--rb-warning)\"/></g><g><rect x=\"34\" y=\"40\" width=\"16\" height=\"22\" rx=\"3\" fill=\"currentColor\" opacity=\"0.18\"/><rect x=\"34\" y=\"40\" width=\"16\" height=\"22\" rx=\"3\" style=\"fill:var(--rb-accent)\"><animate attributeName=\"opacity\" values=\"0;0;1;1;0\" keyTimes=\"0;0.15;0.3;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect x=\"52\" y=\"40\" width=\"16\" height=\"22\" rx=\"3\" fill=\"currentColor\" opacity=\"0.18\"/><rect x=\"52\" y=\"40\" width=\"16\" height=\"22\" rx=\"3\" style=\"fill:var(--rb-success)\"><animate attributeName=\"opacity\" values=\"0;0;1;1;0\" keyTimes=\"0;0.25;0.4;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><rect x=\"70\" y=\"40\" width=\"16\" height=\"22\" rx=\"3\" fill=\"currentColor\" opacity=\"0.18\"/><rect x=\"70\" y=\"40\" width=\"16\" height=\"22\" rx=\"3\" style=\"fill:var(--rb-warning)\"><animate attributeName=\"opacity\" values=\"0;0;1;1;0\" keyTimes=\"0;0.35;0.5;0.9;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect></g></svg>"
     },
     {
@@ -124,12 +124,12 @@
     },
     {
       "id": "radial",
-      "caption": "Duplicates a layer into a <strong>radial ring</strong> — copies are evenly spaced around a circle and offset around its center.",
+      "caption": "Duplicates a layer into a <strong>radial ring</strong>, copies are evenly spaced around a circle and offset around its center.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><circle cx=\"60\" cy=\"36\" r=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1\" stroke-dasharray=\"2 3\" opacity=\"0.35\"/><g style=\"fill:var(--rb-accent)\"><circle cx=\"60\" cy=\"36\" r=\"4.5\"/><circle cx=\"60\" cy=\"16\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.1;0.2;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"74.1\" cy=\"21.9\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.18;0.28;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"80\" cy=\"36\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.26;0.36;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"74.1\" cy=\"50.1\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.34;0.44;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"60\" cy=\"56\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.42;0.52;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"45.9\" cy=\"50.1\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.5;0.6;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"40\" cy=\"36\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.58;0.68;0.85;1\" values=\"0;0;1;1;0\"/></circle><circle cx=\"45.9\" cy=\"21.9\" r=\"3.5\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"4s\" repeatCount=\"indefinite\" keyTimes=\"0;0.66;0.76;0.85;1\" values=\"0;0;1;1;0\"/></circle></g></svg>"
     },
     {
       "id": "reset",
-      "caption": "<strong>Reset</strong> clears a layer's transform — a rotated, scaled, offset rect snaps back to centered, upright, and 100%.",
+      "caption": "<strong>Reset</strong> clears a layer's transform, a rotated, scaled, offset rect snaps back to centered, upright, and 100%.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><line x1=\"60\" y1=\"8\" x2=\"60\" y2=\"64\" stroke=\"currentColor\" stroke-width=\"1\" stroke-dasharray=\"2 3\" opacity=\"0.35\"/><line x1=\"24\" y1=\"36\" x2=\"96\" y2=\"36\" stroke=\"currentColor\" stroke-width=\"1\" stroke-dasharray=\"2 3\" opacity=\"0.35\"/><g><rect x=\"-20\" y=\"-13\" width=\"40\" height=\"26\" rx=\"4\" style=\"fill:var(--rb-accent)\" opacity=\"0.85\"><animateTransform attributeName=\"transform\" type=\"rotate\" values=\"0;0;0\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><animateTransform attributeName=\"transform\" type=\"translate\" values=\"78,24; 78,24; 60,36; 60,36; 78,24\" keyTimes=\"0;0.35;0.5;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\" additive=\"sum\"/><animateTransform attributeName=\"transform\" type=\"rotate\" values=\"-22;-22;0;0;-22\" keyTimes=\"0;0.35;0.5;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\" additive=\"sum\"/><animateTransform attributeName=\"transform\" type=\"scale\" values=\"0.62;0.62;1;1;0.62\" keyTimes=\"0;0.35;0.5;0.85;1\" dur=\"5s\" repeatCount=\"indefinite\" additive=\"sum\"/></g></svg>"
     },
     {
@@ -139,7 +139,7 @@
     },
     {
       "id": "separate",
-      "caption": "<strong>Separate</strong> splits Position into independent X and Y — one pill divides into two that slide apart.",
+      "caption": "<strong>Separate</strong> splits Position into independent X and Y, one pill divides into two that slide apart.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"36\" y=\"28\" width=\"48\" height=\"16\" rx=\"8\" style=\"fill:var(--rb-accent)\" opacity=\"0.9\"><animate attributeName=\"opacity\" values=\"0.9;0.9;0;0;0.9\" keyTimes=\"0;0.3;0.42;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><g><rect x=\"36\" y=\"28\" width=\"22\" height=\"16\" rx=\"8\" style=\"fill:var(--rb-accent)\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.9;0.9;0\" keyTimes=\"0;0.38;0.46;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><circle cx=\"47\" cy=\"36\" r=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.85;0.85;0\" keyTimes=\"0;0.4;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></circle><line x1=\"44.5\" y1=\"33.5\" x2=\"49.5\" y2=\"38.5\" stroke=\"currentColor\" stroke-width=\"1.4\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.85;0.85;0\" keyTimes=\"0;0.4;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"49.5\" y1=\"33.5\" x2=\"44.5\" y2=\"38.5\" stroke=\"currentColor\" stroke-width=\"1.4\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.85;0.85;0\" keyTimes=\"0;0.4;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><animateTransform attributeName=\"transform\" type=\"translate\" values=\"0,0;0,0;-14,0;-14,0;0,0\" keyTimes=\"0;0.42;0.6;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></g><g><rect x=\"62\" y=\"28\" width=\"22\" height=\"16\" rx=\"8\" style=\"fill:var(--rb-accent)\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.9;0.9;0\" keyTimes=\"0;0.38;0.46;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></rect><circle cx=\"73\" cy=\"36\" r=\"5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.85;0.85;0\" keyTimes=\"0;0.4;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></circle><line x1=\"73\" y1=\"31\" x2=\"73\" y2=\"41\" stroke=\"currentColor\" stroke-width=\"1.4\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.85;0.85;0\" keyTimes=\"0;0.4;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><line x1=\"68\" y1=\"36\" x2=\"78\" y2=\"36\" stroke=\"currentColor\" stroke-width=\"1.4\" opacity=\"0\"><animate attributeName=\"opacity\" values=\"0;0;0.85;0.85;0\" keyTimes=\"0;0.4;0.5;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></line><animateTransform attributeName=\"transform\" type=\"translate\" values=\"0,0;0,0;14,0;14,0;0,0\" keyTimes=\"0;0.42;0.6;0.92;1\" dur=\"5s\" repeatCount=\"indefinite\"/></g></svg>"
     },
     {
@@ -149,7 +149,7 @@
     },
     {
       "id": "shapes",
-      "caption": "Inserts <strong>shape primitives</strong> — drops in a ready-made rectangle, ellipse, or star, cycling through the available shapes.",
+      "caption": "Inserts <strong>shape primitives</strong>, drops in a ready-made rectangle, ellipse, or star, cycling through the available shapes.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><g style=\"fill:var(--rb-accent)\"><rect x=\"42\" y=\"18\" width=\"36\" height=\"36\" rx=\"4\"><animate attributeName=\"opacity\" dur=\"6s\" repeatCount=\"indefinite\" keyTimes=\"0;0.28;0.36;0.94;1\" values=\"1;1;0;0;1\"/></rect><ellipse cx=\"60\" cy=\"36\" rx=\"20\" ry=\"16\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"6s\" repeatCount=\"indefinite\" keyTimes=\"0;0.28;0.36;0.61;0.69;1\" values=\"0;0;1;1;0;0\"/></ellipse><path d=\"M60,18 L64.2,30.2 L77.1,30.4 L66.8,38.2 L70.6,50.6 L60,43.2 L49.4,50.6 L53.2,38.2 L42.9,30.4 L55.8,30.2 Z\" opacity=\"0\"><animate attributeName=\"opacity\" dur=\"6s\" repeatCount=\"indefinite\" keyTimes=\"0;0.61;0.69;0.94;1;1\" values=\"0;0;1;1;0;0\"/></path></g></svg>"
     },
     {
@@ -164,7 +164,7 @@
     },
     {
       "id": "stroke",
-      "caption": "Adds or updates a shape's <strong>stroke</strong> — set its color and animate the width.",
+      "caption": "Adds or updates a shape's <strong>stroke</strong>, set its color and animate the width.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><rect x=\"40\" y=\"20\" width=\"40\" height=\"32\" rx=\"4\" fill=\"currentColor\" opacity=\"0.18\"/><rect x=\"40\" y=\"20\" width=\"40\" height=\"32\" rx=\"4\" fill=\"none\" style=\"stroke:var(--rb-accent)\" stroke-width=\"0\"><animate attributeName=\"stroke-width\" values=\"0;5;5;0\" keyTimes=\"0;0.4;0.65;1\" dur=\"4s\" calcMode=\"spline\" keySplines=\"0.3 0 0.2 1;0 0 1 1;0.3 0 0.2 1\" repeatCount=\"indefinite\"/></rect></svg>"
     },
     {
@@ -184,7 +184,7 @@
     },
     {
       "id": "trimpaths",
-      "caption": "Animates a path <strong>drawing on</strong> — the stroke grows from nothing to the full outline using an animated trim.",
+      "caption": "Animates a path <strong>drawing on</strong>, the stroke grows from nothing to the full outline using an animated trim.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><rect x=\"20\" y=\"14\" width=\"80\" height=\"44\" rx=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" opacity=\"0.2\"/><rect x=\"20\" y=\"14\" width=\"80\" height=\"44\" rx=\"6\" fill=\"none\" style=\"stroke:var(--rb-accent)\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-dasharray=\"260\" stroke-dashoffset=\"260\"><animate attributeName=\"stroke-dashoffset\" dur=\"5s\" repeatCount=\"indefinite\" keyTimes=\"0;0.7;0.9;1\" values=\"260;0;0;260\" calcMode=\"spline\" keySplines=\"0.45 0 0.55 1;0 0 1 1;0 0 1 1\"/></rect></svg>"
     },
     {
@@ -194,7 +194,7 @@
     },
     {
       "id": "vignette",
-      "caption": "Darkens the <strong>frame edges</strong> — a soft dark border fades in over the composition to draw the eye toward the center.",
+      "caption": "Darkens the <strong>frame edges</strong>, a soft dark border fades in over the composition to draw the eye toward the center.",
       "svg": "<svg viewBox=\"0 0 120 72\" preserveAspectRatio=\"xMidYMid meet\"><defs><radialGradient id=\"rbVig\" cx=\"50%\" cy=\"50%\" r=\"62%\"><stop offset=\"55%\" stop-color=\"currentColor\" stop-opacity=\"0\"/><stop offset=\"100%\" stop-color=\"currentColor\" stop-opacity=\"0.85\"/></radialGradient></defs><rect x=\"18\" y=\"8\" width=\"84\" height=\"56\" rx=\"3\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" opacity=\"0.5\"/><g style=\"fill:var(--rb-accent)\" opacity=\"0.5\"><circle cx=\"42\" cy=\"30\" r=\"6\"/><rect x=\"60\" y=\"38\" width=\"22\" height=\"16\" rx=\"2\"/></g><rect x=\"18\" y=\"8\" width=\"84\" height=\"56\" rx=\"3\" fill=\"url(#rbVig)\"><animate attributeName=\"opacity\" dur=\"5s\" repeatCount=\"indefinite\" keyTimes=\"0;0.5;1\" values=\"0;1;0\"/></rect></svg>"
     }
   ];

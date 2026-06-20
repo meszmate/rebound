@@ -1,5 +1,5 @@
 /*
- * Rebound — Motion tool.
+ * Rebound, Motion tool.
  * Auto-motion rig with three modes (Orbit / Spin / Look At) applied as
  * marker-guarded, art-directable expressions backed by Slider Controls.
  */

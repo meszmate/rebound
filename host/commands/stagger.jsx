@@ -1,5 +1,5 @@
 /*
- * Rebound host — Stagger (cascade selected layers in time).
+ * Rebound host, Stagger (cascade selected layers in time).
  *
  * Orders the selected layers by their timeline index (optionally reversed),
  * then shifts each whole layer so its in-point lands one interval after the

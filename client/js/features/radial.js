@@ -1,5 +1,5 @@
 /*
- * Rebound — Radial tool.
+ * Rebound, Radial tool.
  * Duplicates each selected layer into a ring of copies arranged around the
  * layer's own position, optionally rotating each copy to face outward.
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound host — easing commands.
+ * Rebound host, easing commands.
  *
  * Applies a normalized cubic-bezier ease to the live selection, iterating
  * entirely inside ExtendScript (one round trip, one undo group). The

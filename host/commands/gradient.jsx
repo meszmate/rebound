@@ -1,11 +1,11 @@
 /*
- * Rebound host — Gradient (add a gradient fill to selected shape layers).
+ * Rebound host, Gradient (add a gradient fill to selected shape layers).
  *
  * For each selected shape layer (one that carries a Root Vectors Group), we
  * recurse the vectors tree and add a Gradient Fill operator to every shape
  * group's contents collection. The ramp type is set to linear (1) or radial
  * (2), and the start/end points are spread horizontally so the ramp is
- * visible. AE's default black-to-white stops are left untouched — setting the
+ * visible. AE's default black-to-white stops are left untouched, setting the
  * gradient color stops via script is unreliable. Non-shape layers are skipped.
  */
 (function () {

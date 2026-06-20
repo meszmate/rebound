@@ -1,5 +1,5 @@
 /*
- * Rebound — Preview Stage.
+ * Rebound, Preview Stage.
  *
  * A live, looping sample that shows what an easing/spring curve actually feels
  * like. It is driven by the SAME Rebound.easing.sampler.toFunction(curve) the

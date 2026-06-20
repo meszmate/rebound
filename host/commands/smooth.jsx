@@ -1,5 +1,5 @@
 /*
- * Rebound host — Smooth (ease selected keyframes into a flowing curve).
+ * Rebound host, Smooth (ease selected keyframes into a flowing curve).
  *
  * For every selected keyframe on the selected properties: switch to bezier
  * interpolation, optionally apply auto-bezier shaping (temporal everywhere,

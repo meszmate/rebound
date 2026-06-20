@@ -1,5 +1,5 @@
 /*
- * Rebound — Shapes tool.
+ * Rebound, Shapes tool.
  * Inserts parametric shape primitives (rectangle, rounded rectangle, ellipse,
  * polygon, star, line) as centered shape layers with a default fill.
  */

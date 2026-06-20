@@ -42,14 +42,14 @@ npm run debug:off    # disable later
 <details>
 <summary>What this changes (manual equivalent)</summary>
 
-**Windows** — sets a registry string value for each CSXS version:
+**Windows**, sets a registry string value for each CSXS version:
 
 ```
 HKEY_CURRENT_USER\Software\Adobe\CSXS.11  PlayerDebugMode = "1"
 HKEY_CURRENT_USER\Software\Adobe\CSXS.12  PlayerDebugMode = "1"
 ```
 
-**macOS** — writes a preference for each CSXS version and flushes the cache:
+**macOS**, writes a preference for each CSXS version and flushes the cache:
 
 ```bash
 defaults write com.adobe.CSXS.11 PlayerDebugMode 1
@@ -88,7 +88,7 @@ Restart After Effects and open **Window ▸ Extensions ▸ Rebound**.
 
 ## 3. Building a `.zxp` yourself
 
-Packaging needs Adobe's **ZXPSignCmd** (not redistributable here — download it
+Packaging needs Adobe's **ZXPSignCmd** (not redistributable here, download it
 from [Adobe-CEP/CEP-Resources](https://github.com/Adobe-CEP/CEP-Resources)).
 Put it on your PATH or set `REBOUND_ZXPSIGN` to its full path.
 
@@ -105,7 +105,7 @@ npm run pack     # produces dist/rebound_x.y.z.zxp (timestamped signature)
 | --- | --- |
 | Panel missing from the Extensions menu | Confirm PlayerDebugMode is on for your AE's CSXS version, then fully restart AE. |
 | Panel is blank / white | Open the remote debugger (below) and check the console for errors. |
-| "Rebound" loads but does nothing | The ExtendScript host failed to load — use the **⟳** (reload host) button in the header, or check the debugger console. |
+| "Rebound" loads but does nothing | The ExtendScript host failed to load, use the **⟳** (reload host) button in the header, or check the debugger console. |
 | Link step fails with `EPERM` (Windows) | Run the terminal as Administrator, or `npm run install:dev -- --copy`. |
 | Changes don't show up | If you used `--copy`, re-run install; if you linked, just reload the panel (right-click ▸ Reload, or the ⟳ button). |
 
@@ -114,8 +114,8 @@ npm run pack     # produces dist/rebound_x.y.z.zxp (timestamped signature)
 With PlayerDebugMode enabled and the panel open in AE, open a Chromium-based
 browser at:
 
-- `http://localhost:8718` — main Rebound panel
-- `http://localhost:8719` — settings panel
+- `http://localhost:8718`, main Rebound panel
+- `http://localhost:8719`, settings panel
 
 These ports come from the `.debug` file. You get full DevTools (console,
 elements, network) against the live panel.

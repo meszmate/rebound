@@ -1,5 +1,5 @@
 /*
- * Rebound — Precompose tool.
+ * Rebound, Precompose tool.
  * Nests the selected layers into a brand-new composition. Optionally moves all
  * attributes into the new comp and opens it once created.
  */

@@ -1,10 +1,10 @@
 /*
- * Rebound host — Color (set the fill color of selected layers).
+ * Rebound host, Color (set the fill color of selected layers).
  *
  * For each selected layer we pick a strategy by layer kind:
- *   shape  — recurse the root vectors tree and recolor every Fill operator.
- *   solid  — recolor the layer's SolidSource directly.
- *   other  — add a Fill effect and set its color.
+ *   shape , recurse the root vectors tree and recolor every Fill operator.
+ *   solid , recolor the layer's SolidSource directly.
+ *   other , add a Fill effect and set its color.
  * Layers we cannot color (e.g. a null with no source) are reported as skipped.
  * Colors arrive as a 0..1 RGB triplet; AE color properties take [r, g, b].
  */

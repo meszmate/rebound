@@ -1,5 +1,5 @@
 /*
- * Rebound — Reverse tool.
+ * Rebound, Reverse tool.
  * Reverses the selected keyframes in time, mirroring them within their own
  * span: a key originally at one end of the range lands at the other, with its
  * value preserved and its ease and interpolation direction swapped.

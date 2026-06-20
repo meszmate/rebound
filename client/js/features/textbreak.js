@@ -1,5 +1,5 @@
 /*
- * Rebound — Text Break tool.
+ * Rebound, Text Break tool.
  * Splits a text layer into separate text layers per line, word, or character,
  * leaving the pieces stacked at the source position for the user to reposition.
  */

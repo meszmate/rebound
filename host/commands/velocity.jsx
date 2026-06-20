@@ -1,10 +1,10 @@
 /*
- * Rebound host — velocity commands.
+ * Rebound host, velocity commands.
  *
  * Numeric speed + influence editor for the selected keyframes. For each selected
  * Property and each of its selected keys we build per-dimension KeyframeEase
- * arrays — taking the supplied influence/speed where requested, otherwise the
- * key's current values — then set BEZIER interpolation and write the eases back.
+ * arrays, taking the supplied influence/speed where requested, otherwise the
+ * key's current values, then set BEZIER interpolation and write the eases back.
  */
 (function () {
   var R = $.__rebound;

@@ -1,5 +1,5 @@
 /*
- * Rebound — Link tool.
+ * Rebound, Link tool.
  * A quick pick-whip: parents the selected layers to one chosen layer (either the
  * last or first in the selection). Unlink clears parenting on the selection.
  */

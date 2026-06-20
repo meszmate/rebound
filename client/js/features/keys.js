@@ -1,5 +1,5 @@
 /*
- * Rebound — Keyframe utilities.
+ * Rebound, Keyframe utilities.
  * Quick interpolation-type setters for the selected keyframes.
  */
 ;(function (R) {

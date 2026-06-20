@@ -1,5 +1,5 @@
 /*
- * Rebound — Bounce tool.
+ * Rebound, Bounce tool.
  * Gravitational rebound on keyframed properties: after the last keyframe a
  * property passes, its value rebounds off the target like a ball, each bounce
  * smaller, driven by a live, art-directable expression rig.
@@ -47,7 +47,7 @@
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
-      el('div.rb-faint', { text: 'Rebounds the value off its target after the last keyframe, each bounce smaller. Non-destructive — your keyframes stay.' }),
+      el('div.rb-faint', { text: 'Rebounds the value off its target after the last keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
       elasticitySlider.el,
       gravitySlider.el,
       ui.row('Max bounces', bouncesField.el)

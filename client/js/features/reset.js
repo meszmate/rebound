@@ -1,5 +1,5 @@
 /*
- * Rebound — Reset tool.
+ * Rebound, Reset tool.
  * Restores selected layers' transform properties to their defaults: position to
  * the composition center, scale to 100%, rotation to 0, opacity to 100%, and
  * anchor to the layer's bounding-box center. Each axis has its own toggle, and

@@ -1,5 +1,5 @@
 /*
- * Rebound — Library tool.
+ * Rebound, Library tool.
  * Browse the built-in Penner presets and any custom presets, search them, mark
  * favorites, and apply a preset to the selection. Custom presets and favorites
  * persist as versioned JSON in user data.

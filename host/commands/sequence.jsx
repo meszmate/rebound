@@ -1,5 +1,5 @@
 /*
- * Rebound host — Sequence (line selected layers up end-to-end in time).
+ * Rebound host, Sequence (line selected layers up end-to-end in time).
  *
  * Orders the selected layers (by selection order, stacking order, or reversed),
  * then walks them placing each so it starts where the previous ends minus the

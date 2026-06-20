@@ -50,16 +50,16 @@ envelope. Errors become structured JSON instead of the opaque
 
 ES3 ExtendScript, loaded in order by `host/index.jsx`:
 
-1. `lib/json.jsx` — a small original JSON parser/stringifier (the legacy engine
+1. `lib/json.jsx`, a small original JSON parser/stringifier (the legacy engine
    has no native JSON).
-2. `lib/core.jsx` — the RPC dispatcher + command registry.
-3. `lib/util.jsx` — matchName constants and shared helpers (active comp,
+2. `lib/core.jsx`, the RPC dispatcher + command registry.
+3. `lib/util.jsx`, matchName constants and shared helpers (active comp,
    property resolution, dimensionality).
-4. `commands/*.jsx` — feature commands; each calls `$.__rebound.register(...)`.
+4. `commands/*.jsx`, feature commands; each calls `$.__rebound.register(...)`.
 
 Design rules: **iterate inside ExtendScript** (pass everything once, loop in
-JSX, return one payload — never `evalScript` per item); **one undo group** per
-action; **matchName** addressing for locale safety; keep the host **thin** —
+JSX, return one payload, never `evalScript` per item); **one undo group** per
+action; **matchName** addressing for locale safety; keep the host **thin** -
 heavy math is done in the tested JS core and only resolved values are written.
 
 ## The panel
@@ -69,7 +69,7 @@ heavy math is done in the tested JS core and only resolved values are written.
 | Module | Role |
 | --- | --- |
 | `bridge.js` | the CSInterface seam (above) |
-| `registry.js` | the tool registry — features self-register; the shell reads it |
+| `registry.js` | the tool registry, features self-register; the shell reads it |
 | `store.js` | a tiny reactive store + versioned JSON persistence (Node FS) |
 | `theme.js` | reads the host skin → CSS custom properties (light/dark/accent) |
 | `events.js` | a synchronous event bus |
@@ -82,14 +82,14 @@ heavy math is done in the tested JS core and only resolved values are written.
 Pure, host-agnostic, UMD-wrapped so it runs in the panel and imports into
 Vitest.
 
-- `bezier.js` — cubic-bezier solver (Newton-Raphson) and the curve ⇄ AE
+- `bezier.js`, cubic-bezier solver (Newton-Raphson) and the curve ⇄ AE
   temporal-ease (`speed`, `influence`) conversion, both directions.
-- `penner.js` — the closed-form Penner set + a monotonic/non-monotonic flag.
-- `spring.js` — the damped harmonic oscillator with physical and perceptual
+- `penner.js`, the closed-form Penner set + a monotonic/non-monotonic flag.
+- `spring.js`, the damped harmonic oscillator with physical and perceptual
   (response + bounce / response + dampingFraction) parameterizations and a
   settle-time estimate, with correct underdamped / critical / overdamped
   branches.
-- `sampler.js` — decides the application strategy (native temporal ease vs.
+- `sampler.js`, decides the application strategy (native temporal ease vs.
   bake), samples points for the editor, bakes interpolation factors, and fits a
   monotonic curve to a single bezier.
 
@@ -113,18 +113,18 @@ One file per tool. Each registers a spec with a `mount(ctx)` that builds UI into
 `bus`, `toast`, `units`, and selection helpers. See `features/ease.js` as the
 reference implementation.
 
-## Applying an ease — worked example
+## Applying an ease, worked example
 
 1. The user shapes a curve in the editor → `{ type:'bezier', x1,y1,x2,y2 }`.
 2. **Ease** calls `invoke('ease.apply', { curve, scope, applyToAll })`.
 3. The host iterates the selected keyframes, and per segment per dimension
    computes `influence`/`speed` from the curve and the segment's signed average
-   speed (`dv/dt`) — mirroring the unit-tested formula in `bezier.js` — then
+   speed (`dv/dt`), mirroring the unit-tested formula in `bezier.js`, then
    `setTemporalEaseAtKey`, all in one undo group.
 4. It returns `{ segments, properties }`; the panel shows a confirmation toast.
 
 Overshooting curves (springs, bounce) can't be a single temporal ease, so the
-sampler routes them to a **bake** (dense sampled keyframes) or an expression —
+sampler routes them to a **bake** (dense sampled keyframes) or an expression -
 and the UI says which mode was used.
 
 ## Why buildless

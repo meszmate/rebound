@@ -1,5 +1,5 @@
 /*
- * Rebound — minimal JSON for the ExtendScript host.
+ * Rebound, minimal JSON for the ExtendScript host.
  *
  * The legacy ExtendScript engine has no native JSON object, and Rebound's
  * panel <-> host bridge exchanges JSON strings. This is an original, compact

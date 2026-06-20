@@ -1,5 +1,5 @@
 /*
- * Rebound — logging + a small in-memory ring buffer.
+ * Rebound, logging + a small in-memory ring buffer.
  * Failures surface to the user as toasts (see ui/toast.js); the ring buffer
  * backs a "copy log" affordance so users can paste diagnostics into an issue.
  */

@@ -1,5 +1,5 @@
 /**
- * Rebound — cubic bezier easing.
+ * Rebound, cubic bezier easing.
  *
  * A normalized cubic bezier easing curve is defined by two control points
  * P1 = (x1, y1) and P2 = (x2, y2) on the unit square; the endpoints are fixed
@@ -7,7 +7,7 @@
  * `cubic-bezier(x1, y1, x2, y2)`.
  *
  * The solver maps an input x (normalized time) to output y (normalized value)
- * using Newton-Raphson with a bisection fallback — the classic WebKit
+ * using Newton-Raphson with a bisection fallback, the classic WebKit
  * UnitBezier algorithm.
  *
  * It also converts a bezier curve into After Effects temporal-ease values

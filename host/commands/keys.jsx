@@ -1,5 +1,5 @@
 /*
- * Rebound host — keyframe utilities.
+ * Rebound host, keyframe utilities.
  * Quick interpolation-type setters for the selected keyframes (Linear, Easy
  * Ease, Hold, Bezier), iterated in one undo group.
  */

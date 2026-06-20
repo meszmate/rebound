@@ -1,5 +1,5 @@
 /*
- * Rebound host — Recoil (velocity-driven overshoot on existing keyframes).
+ * Rebound host, Recoil (velocity-driven overshoot on existing keyframes).
  *
  * Adds elastic overshoot AFTER the last keyframe a property passes, scaled by
  * the velocity arriving at that keyframe, via a generated expression backed by

@@ -1,5 +1,5 @@
 /*
- * Rebound host — Link (quick pick-whip parenting for the selection).
+ * Rebound host, Link (quick pick-whip parenting for the selection).
  *
  * apply: requires two or more selected layers; chooses the parent as either the
  * first or last layer in the selection and sets every other selected layer's

@@ -1,5 +1,5 @@
 /*
- * Rebound — Break tool.
+ * Rebound, Break tool.
  * Splits a multi-group shape layer into one shape layer per top-level group,
  * so each group can be animated and ordered on its own. Optionally removes the
  * original after the split.

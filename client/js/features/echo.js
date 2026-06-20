@@ -1,5 +1,5 @@
 /*
- * Rebound — Echo tool.
+ * Rebound, Echo tool.
  * Adds an optical echo/trail to selected layers via the built-in Echo effect,
  * blending a number of time-shifted copies of the frame with a decay falloff.
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound — Composition tool.
+ * Rebound, Composition tool.
  * Edits the active composition's settings in place: frame rate, duration,
  * width, and height. Fields are pre-filled from the current comp on mount.
  */
@@ -57,7 +57,7 @@
           width = info.width; widthField.set(width);
           height = info.height; heightField.set(height);
         })
-        .catch(function () { /* no comp open — leave fields at zero */ });
+        .catch(function () { /* no comp open, leave fields at zero */ });
     }
     prefill();
 

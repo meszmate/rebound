@@ -1,5 +1,5 @@
 /*
- * Rebound host — Reset (restore transform properties to defaults).
+ * Rebound host, Reset (restore transform properties to defaults).
  *
  * For each selected AVLayer and each enabled axis, restores the matching
  * transform property to its default, but only when that property is neither
@@ -7,7 +7,7 @@
  * the composition center (z preserved for 3D layers); scale to 100% across all
  * its dimensions; rotation to 0; opacity to 100; anchor to the bounding-box
  * center via sourceRectAtTime. The anchor reset is deliberate and does NOT
- * compensate Position — the layer is expected to move.
+ * compensate Position, the layer is expected to move.
  */
 (function () {
   var R = $.__rebound;

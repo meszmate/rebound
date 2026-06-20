@@ -4,7 +4,7 @@
 
 - Node.js 20+ and npm
 - After Effects 2019+ (for host testing)
-- Adobe ZXPSignCmd (only for packaging) — see [INSTALL.md](INSTALL.md)
+- Adobe ZXPSignCmd (only for packaging), see [INSTALL.md](INSTALL.md)
 
 ## Setup
 
@@ -27,7 +27,7 @@ node tools/serve.mjs            # serves client/ at http://localhost:8099
 ```
 
 Outside the host, `Rebound.bridge.available` is `false`, host calls reject
-gracefully, and selection polling is disabled — so the shell, curve editor,
+gracefully, and selection polling is disabled, so the shell, curve editor,
 controls, and presets all render and are fully interactive. Use this for fast
 visual iteration.
 
@@ -36,7 +36,7 @@ INSTALL.md) for the real thing, including host round-trips.
 
 ### Iterating on the host
 
-The host is reloaded by the panel on demand — click the **⟳** button in the
+The host is reloaded by the panel on demand, click the **⟳** button in the
 header (visible only inside AE) after editing any `host/*.jsx` file. No AE
 restart needed. The bridge bootstraps `host/index.jsx`, which re-evaluates every
 module idempotently.
@@ -59,7 +59,7 @@ Tests import the runtime modules directly (they're UMD), so the *exact* code
 that ships in the panel is what's tested. New pure logic should live in
 `client/js/easing/` (or a sibling pure module) and get tests in `test/`.
 
-The ExtendScript host can't run under Node, so host logic is kept thin — it
+The ExtendScript host can't run under Node, so host logic is kept thin, it
 receives already-resolved values from the tested JS core and writes them to AE.
 The host JSON helper's algorithm is validated separately (see
 `tools/_json-check.mjs`).

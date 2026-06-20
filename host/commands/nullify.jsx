@@ -1,5 +1,5 @@
 /*
- * Rebound host — Nullify (drop a control null at the selection).
+ * Rebound host, Nullify (drop a control null at the selection).
  *
  * Builds a null over the selected layers: its position is the average of the
  * selected layers' positions (selection center) or the first layer's position

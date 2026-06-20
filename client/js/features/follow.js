@@ -1,5 +1,5 @@
 /*
- * Rebound — Follow tool.
+ * Rebound, Follow tool.
  * Makes every selected layer except the first trail the first layer's position
  * by a fixed delay, driven by a marker-guarded expression backed by a per-layer
  * Slider Control. Cascade adds another delay step to each successive follower.

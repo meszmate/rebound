@@ -1,5 +1,5 @@
 /*
- * Rebound — Arrange tool.
+ * Rebound, Arrange tool.
  * Packs the selected layers into a tidy grid. Choose a column count (or let it
  * pick a near-square layout), plus the horizontal and vertical gaps between cells.
  */

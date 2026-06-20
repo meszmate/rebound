@@ -1,5 +1,5 @@
 /*
- * Rebound host — align + distribute commands.
+ * Rebound host, align + distribute commands.
  *
  * Bounds-based (like the comp viewer), using each layer's sourceRectAtTime
  * transformed to composition space. Rotation is not factored into the bounding

@@ -1,5 +1,5 @@
 /**
- * Rebound — physical spring (damped harmonic oscillator).
+ * Rebound, physical spring (damped harmonic oscillator).
  *
  * This drives Rebound's signature "bouncy / overshoot" easing, modelled the
  * same way SwiftUI / iOS springs are: a mass on a spring with damping, released

@@ -1,4 +1,4 @@
-# Rebound — contributor & agent guide
+# Rebound, contributor & agent guide
 
 Rebound is a free **After Effects panel** for easing, springs, and
 motion-design workflow tools. It is a buildless Adobe **CEP** extension: an
@@ -12,7 +12,7 @@ symlink to it.
 ## Principles
 
 1. **Original, clean-room code.** Everything is implemented from first
-   principles against *public* specifications — CSS cubic-bezier timing, the
+   principles against *public* specifications, CSS cubic-bezier timing, the
    Penner easing equations, spring physics (a damped harmonic oscillator), and
    Adobe's documented ExtendScript / CEP APIs. We do **not** copy any other
    product's source, scripts, assets, preset names, or interface. The only
@@ -32,7 +32,7 @@ symlink to it.
 ## Repository layout
 
 ```
-CSXS/manifest.xml        CEP manifest — declares the panel + settings extensions
+CSXS/manifest.xml        CEP manifest, declares the panel + settings extensions
 .debug                   CEP remote-debug ports (panel 8718, settings 8719)
 
 client/                  the panel (HTML/CSS/JS), runs in CEP's Chromium
@@ -62,20 +62,20 @@ tools/                   Node dev tooling (icons, cert, pack, install, debug)
 
 ## Architecture in one screen
 
-- **Bridge (`client/js/core/bridge.js`)** — the only module that touches
+- **Bridge (`client/js/core/bridge.js`)**, the only module that touches
   CSInterface. `Rebound.bridge.invoke(method, args)` returns a Promise of a host
   command's result. evalScript is async on Windows, sync on macOS, and always
   returns a string, so every call goes through a JSON envelope.
-- **Host RPC (`host/lib/core.jsx`)** — `$.__rebound.dispatch(method, argsJson)`
+- **Host RPC (`host/lib/core.jsx`)**, `$.__rebound.dispatch(method, argsJson)`
   returns `{"ok":true,"data":…}` or `{"ok":false,"error":…}`. Commands
   registered with an undo label run inside one `beginUndoGroup`/`endUndoGroup`.
-- **Tool registry (`client/js/core/registry.js`)** — each feature calls
+- **Tool registry (`client/js/core/registry.js`)**, each feature calls
   `Rebound.tools.register({ id, title, group, mount })`. The shell builds
   navigation from the registry and mounts a tool on demand.
-- **Easing engine (`client/js/easing/*`)** — pure, host-agnostic, UMD-wrapped
+- **Easing engine (`client/js/easing/*`)**, pure, host-agnostic, UMD-wrapped
   so it runs in the panel and imports into Vitest. New physics belongs here so
   it stays unit-testable; the host only receives resolved values/eases to write.
-- **Reactive store + theme** — a tiny framework-free store drives all views;
+- **Reactive store + theme**, a tiny framework-free store drives all views;
   theme reads the host skin and sets CSS custom properties.
 
 ### Module pattern (panel)
@@ -106,7 +106,7 @@ fall back to `require()`.
 })();
 ```
 
-Always address properties by **matchName** (locale-safe), never display name —
+Always address properties by **matchName** (locale-safe), never display name -
 see `host/lib/util.jsx`.
 
 ---
@@ -130,7 +130,7 @@ see `host/lib/util.jsx`.
 
 ```bash
 npm install
-npm test            # Vitest — the math + units core
+npm test            # Vitest, the math + units core
 npm run lint        # ESLint (browser / ExtendScript / Node scopes)
 npm run check       # lint + test
 
@@ -154,10 +154,10 @@ browser (no host) with the static server in `tools/serve.mjs`.
 ## Conventions
 
 - ES5-compatible JS in `client/` (CEF is modern, but stay conservative and
-  buildless). ES3 only in `host/` (no `let`/`const`/arrow/`JSON` assumptions —
+  buildless). ES3 only in `host/` (no `let`/`const`/arrow/`JSON` assumptions -
   `host/lib/json.jsx` provides JSON).
 - Indent 2 spaces (`.editorconfig`). Run `npm run lint` before committing.
-- Keep all host calls behind `Rebound.bridge` — it's the seam for a future UXP
+- Keep all host calls behind `Rebound.bridge`, it's the seam for a future UXP
   port.
 - Every mutating host action is one undo group and reports what it changed.
 - Tests live in `test/*.test.mjs` and import via `test/helpers/easing.mjs`.

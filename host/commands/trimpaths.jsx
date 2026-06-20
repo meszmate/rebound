@@ -1,5 +1,5 @@
 /*
- * Rebound host — Trim Paths (animated write-on for shape layers).
+ * Rebound host, Trim Paths (animated write-on for shape layers).
  *
  * For each selected shape layer, adds a Trim Paths operator to its root vectors
  * group and keyframes it over durationFrames starting at the playhead:

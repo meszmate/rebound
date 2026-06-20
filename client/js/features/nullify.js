@@ -1,5 +1,5 @@
 /*
- * Rebound — Nullify tool.
+ * Rebound, Nullify tool.
  * Drops a control null at the selection and (optionally) parents the selected
  * layers to it, so one handle drives the whole group. The null lands at the
  * selection's center or at the first layer's anchor.

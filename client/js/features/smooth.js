@@ -1,5 +1,5 @@
 /*
- * Rebound — Smooth tool.
+ * Rebound, Smooth tool.
  * Smooths the selected keyframes into a flowing curve by switching them to
  * bezier interpolation, with optional auto-bezier shaping and roving of the
  * interior keys so they redistribute by velocity.

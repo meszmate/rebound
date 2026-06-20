@@ -1,5 +1,5 @@
 /*
- * Rebound host — Drift (organic wiggle / randomizer).
+ * Rebound host, Drift (organic wiggle / randomizer).
  *
  * Adds living, random motion to any selected property via a wiggle expression
  * backed by Amount + Frequency sliders, with a per-layer random seed and an

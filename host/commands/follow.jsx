@@ -1,5 +1,5 @@
 /*
- * Rebound host — Follow (follow-through: trail the lead layer's position).
+ * Rebound host, Follow (follow-through: trail the lead layer's position).
  *
  * The first selected layer is the lead. Every other selected layer becomes a
  * follower: it gets a "Follow Delay" Slider Control and a marker-guarded

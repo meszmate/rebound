@@ -1,5 +1,5 @@
 /*
- * Rebound host — Composition (edit the active comp's settings in place).
+ * Rebound host, Composition (edit the active comp's settings in place).
  *
  * Reads the active composition's frame rate, duration, width, and height
  * (comp.info), and writes any of them back (comp.apply) when provided and

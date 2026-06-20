@@ -1,5 +1,5 @@
 /*
- * Rebound host — Precompose (nest the selected layers into a new comp).
+ * Rebound host, Precompose (nest the selected layers into a new comp).
  *
  * Collects the 1-based indices of the selected layers and hands them to
  * comp.layers.precompose with the requested name and "move all attributes"

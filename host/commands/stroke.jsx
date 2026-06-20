@@ -1,5 +1,5 @@
 /*
- * Rebound host — Stroke (add, update, or remove a stroke on shape layers).
+ * Rebound host, Stroke (add, update, or remove a stroke on shape layers).
  *
  * Apply: for each selected shape layer (one carrying a Root Vectors Group),
  * recurse its vector groups to reach every shape group, then add (or reuse) a

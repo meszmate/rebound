@@ -1,5 +1,5 @@
 /*
- * Rebound — Gradient tool.
+ * Rebound, Gradient tool.
  * Adds a gradient fill to selected shape layers. Choose a linear or radial
  * ramp; each shape group in the selection gets a gradient fill with a visible
  * horizontal ramp. AE's default black-to-white stops are left in place.

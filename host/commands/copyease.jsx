@@ -1,11 +1,11 @@
 /*
- * Rebound host — Copy Ease.
+ * Rebound host, Copy Ease.
  *
  * copyease.copy reads the temporal ease (speed + influence) off the first
  * selected keyframe at dimension 0 and hands it back to the panel, which holds
  * it. copyease.paste writes that stored ease onto every selected key across
- * every dimension. The Mode picks which part to write — influence, speed, or
- * both — and the untouched part is read back from each target key's current
+ * every dimension. The Mode picks which part to write, influence, speed, or
+ * both, and the untouched part is read back from each target key's current
  * ease so a "speed only" paste leaves influence alone (and vice versa).
  */
 (function () {

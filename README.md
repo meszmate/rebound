@@ -5,7 +5,7 @@
 **A free easing & motion-design panel for After Effects.**
 
 Shape easing curves, design physical springs with real overshoot, fix anchor
-points, align and array layers, and rig follow-through — from one cohesive
+points, align and array layers, and rig follow-through, from one cohesive
 panel. Clean-room, original, and built on public, non-proprietary techniques.
 
 </div>
@@ -17,14 +17,14 @@ panel. Clean-room, original, and built on public, non-proprietary techniques.
 Motion designers stitch together a pile of small operations all day: easing
 keyframes, nudging anchor points, aligning layers, building bouncy overshoot.
 Rebound brings those into a single, keyboard-friendly panel with one consistent
-curve editor at its heart — so you learn one surface, not fifty dialogs.
+curve editor at its heart, so you learn one surface, not fifty dialogs.
 
 - **One curve editor** for easing, springs, and overshoot. Drag handles, type
-  `cubic-bezier()`, or pick a preset — and *feel* it before you apply.
+  `cubic-bezier()`, or pick a preset, and *feel* it before you apply.
 - **Physical springs.** A real damped-harmonic-oscillator engine (mass /
   stiffness / damping, or friendly Bounciness + Settle Time) with correct
   overshoot, baked to clean keyframes or a live expression.
-- **Anchor, align, distribute, array, follow-through** and more — batch-aware
+- **Anchor, align, distribute, array, follow-through** and more, batch-aware
   and each a single undo step.
 - **Non-destructive by default.** Prefer native temporal ease and live
   expressions; one click bakes anything to keyframes for render farms or Lottie.
@@ -37,7 +37,7 @@ See the full roadmap in [docs/FEATURES.md](docs/FEATURES.md).
 Active early development, but already broad: **45 tools** ship today, reached
 through a searchable, keyboard-first **Home launcher** (grouped into goal-shaped
 sections with favorites + recents), and a **live Preview Stage** that loops the
-easing/spring motion on a sample shape or text — so you see what a curve does
+easing/spring motion on a sample shape or text, so you see what a curve does
 before you apply it. Built on a fully unit-tested easing/spring engine and a
 clean panel↔host bridge.
 
@@ -93,7 +93,7 @@ npm run lint        # ESLint
 npm run check       # lint + test
 ```
 
-You can preview the panel UI in a normal browser (without After Effects) — see
+You can preview the panel UI in a normal browser (without After Effects), see
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Architecture is documented in
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and how to add a tool is in
 [AGENTS.md](AGENTS.md).
@@ -105,7 +105,7 @@ extension (CEP 9+).
 
 ## Contributing
 
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 The codebase is buildless and the math core is fully unit-tested, so it's easy
 to dive into.
 

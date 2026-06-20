@@ -1,5 +1,5 @@
 /*
- * Rebound — curve editor widget.
+ * Rebound, curve editor widget.
  *
  * An SVG editor for a normalized easing curve. For bezier curves the two
  * interior control points are draggable; for spring / penner curves the

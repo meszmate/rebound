@@ -1,10 +1,10 @@
 /*
- * Rebound — tool registry (the plug-in contract).
+ * Rebound, tool registry (the plug-in contract).
  *
  * Each feature module calls Rebound.tools.register({ id, title, group, ... })
  * at load time. The shell reads the registry to build navigation and mounts a
  * tool's UI on demand. Adding a feature is: create its file + list it in
- * index.html — no shell edits.
+ * index.html, no shell edits.
  *
  * Tool spec:
  *   id        unique string id (kebab-case)
@@ -70,7 +70,7 @@
     list().forEach(function (t) {
       out.push({ id: 'open:' + t.id, title: t.title, kind: 'tool', tool: t, keywords: t.keywords || [] });
       (t.commands || []).forEach(function (c) {
-        out.push({ id: t.id + ':' + c.id, title: t.title + ' — ' + c.title, kind: 'command', tool: t, command: c });
+        out.push({ id: t.id + ':' + c.id, title: t.title + ', ' + c.title, kind: 'command', tool: t, command: c });
       });
     });
     return out;

@@ -1,5 +1,5 @@
 /**
- * Rebound — Penner easing equations.
+ * Rebound, Penner easing equations.
  *
  * Robert Penner's classic easing set, normalized to take a progress value
  * t in [0, 1] and return an eased value (also roughly [0, 1], though `back`
@@ -8,7 +8,7 @@
  * These functions describe the *shape* of a curve. Monotonic shapes can be
  * applied to AE keyframes as a fitted bezier ease; overshooting / oscillating
  * shapes (back, elastic, bounce) are applied by baking samples or via an
- * expression — see sampler.js.
+ * expression, see sampler.js.
  */
 ;(function (root, factory) {
   var mod = factory();

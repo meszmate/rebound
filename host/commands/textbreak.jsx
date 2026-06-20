@@ -1,5 +1,5 @@
 /*
- * Rebound host — Text Break (split a text layer into per-piece text layers).
+ * Rebound host, Text Break (split a text layer into per-piece text layers).
  *
  * For every selected TextLayer we read its source string from the Text Document,
  * split it into pieces by mode (lines on carriage returns and newlines, words on
@@ -39,7 +39,7 @@
       }
       return out;
     }
-    // words — split on spaces, keep non-empty pieces.
+    // words, split on spaces, keep non-empty pieces.
     var parts = text.split(' ');
     for (i = 0; i < parts.length; i++) {
       if (parts[i] !== '') out.push(parts[i]);

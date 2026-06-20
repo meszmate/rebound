@@ -1,5 +1,5 @@
 /**
- * Rebound — curve sampling and application strategy.
+ * Rebound, curve sampling and application strategy.
  *
  * Bridges the pure math (bezier / penner / spring) and the host. Given an
  * easing definition it can:
@@ -64,8 +64,8 @@
 
   /**
    * Decide how a curve should be applied to keyframes.
-   *   'temporal-ease' — exact, native, editable AE ease (monotonic only).
-   *   'bake'          — sampled keyframes (overshoot / oscillation).
+   *   'temporal-ease', exact, native, editable AE ease (monotonic only).
+   *   'bake'         , sampled keyframes (overshoot / oscillation).
    * Springs and non-monotonic penner shapes always bake.
    */
   function strategy(curve) {

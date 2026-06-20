@@ -1,5 +1,5 @@
 /*
- * Rebound host — Grids (composition guide-overlay shape layer).
+ * Rebound host, Grids (composition guide-overlay shape layer).
  *
  * Creates a non-rendering shape layer named "Guides" filled with thin rectangles
  * standing in for grid lines. Thirds draws lines at 1/3 and 2/3 of each axis,

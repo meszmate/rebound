@@ -1,5 +1,5 @@
 /*
- * Rebound — reactive store + JSON persistence.
+ * Rebound, reactive store + JSON persistence.
  *
  * createStore() is a tiny framework-free observable: get / set / update /
  * subscribe / select. Every view renders from one store so the multi-space

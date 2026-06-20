@@ -1,5 +1,5 @@
 /*
- * Rebound — Grids tool.
+ * Rebound, Grids tool.
  * Drops a non-rendering guide-overlay shape layer of composition grid lines:
  * rule-of-thirds, golden-ratio, or an N-column layout with a gutter.
  */

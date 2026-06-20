@@ -1,5 +1,5 @@
 /*
- * Rebound — main panel bootstrap.
+ * Rebound, main panel bootstrap.
  *
  * Shell: a left icon rail of categories, and a main area that either browses a
  * category's tools as cards (each card plays the tool's demo so you see what it
@@ -68,7 +68,7 @@
       pollSelection();
       setInterval(pollSelection, 800);
     } else {
-      R.log.info('Running outside the host — selection polling disabled.');
+      R.log.info('Running outside the host, selection polling disabled.');
     }
 
     // Land directly in the default tool, ready to use.

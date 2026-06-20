@@ -1,5 +1,5 @@
 /*
- * Rebound host — Shapes (insert parametric shape primitives).
+ * Rebound host, Shapes (insert parametric shape primitives).
  *
  * Creates a shape layer, builds a single shape group inside its Root Vectors
  * Group, adds the requested primitive addressed by matchName, and adds a Fill.
@@ -46,7 +46,7 @@
       star.property(STAR_TYPE).setValue(kind === 'polygon' ? 2 : 1);
       return;
     }
-    // rectangle, rounded, line — all rectangles.
+    // rectangle, rounded, line, all rectangles.
     var rect = contents.addProperty(RECT);
     if (kind === 'line') {
       rect.property(RECT_SIZE).setValue([200, 6]);

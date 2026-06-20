@@ -1,5 +1,5 @@
 /*
- * Rebound — Ease tool.
+ * Rebound, Ease tool.
  * The reference feature: shape a normalized cubic-bezier on the curve editor,
  * then apply it to the selected keyframes (or read the selection's ease back).
  */

@@ -1,5 +1,5 @@
 /*
- * Rebound — host theme sync.
+ * Rebound, host theme sync.
  *
  * Reads After Effects' panel skin once at boot and again whenever the host
  * theme changes, then drives CSS custom properties on :root. Only the reliably

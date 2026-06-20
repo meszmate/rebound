@@ -1,5 +1,5 @@
 /*
- * Rebound host — Echo (optical echo/trail via the built-in Echo effect).
+ * Rebound host, Echo (optical echo/trail via the built-in Echo effect).
  *
  * For each selected AV layer, adds (or reuses) an Echo effect on its Effect
  * Parade and sets Echo Time, Number Of Echoes, and Decay. Effect and its

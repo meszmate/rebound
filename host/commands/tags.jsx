@@ -1,5 +1,5 @@
 /*
- * Rebound host — Tags (mark layers with reusable name tags and select by them).
+ * Rebound host, Tags (mark layers with reusable name tags and select by them).
  *
  * Tags live in each layer's .comment as space-separated #tokens, so they ride
  * inside the saved project and survive round-trips. A tag name normalizes to a

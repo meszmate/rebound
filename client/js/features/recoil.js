@@ -1,5 +1,5 @@
 /*
- * Rebound — Recoil tool.
+ * Rebound, Recoil tool.
  * Adds velocity-driven elastic overshoot to keyframed properties via a live,
  * art-directable expression rig (Overshoot / Bounce / Friction sliders).
  */
@@ -52,7 +52,7 @@
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
-      el('div.rb-faint', { text: 'Adds elastic overshoot after each keyframe, scaled by the incoming velocity. Non-destructive — your keyframes stay.' }),
+      el('div.rb-faint', { text: 'Adds elastic overshoot after each keyframe, scaled by the incoming velocity. Non-destructive, your keyframes stay.' }),
       overshootSlider.el,
       bounceSlider.el,
       frictionSlider.el,

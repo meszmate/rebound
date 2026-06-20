@@ -1,5 +1,5 @@
 /*
- * Rebound host — Break (split a multi-group shape layer).
+ * Rebound host, Break (split a multi-group shape layer).
  *
  * For every selected shape layer (one that owns an 'ADBE Root Vectors Group'),
  * we read how many top-level 'ADBE Vector Group' children it has, then make one

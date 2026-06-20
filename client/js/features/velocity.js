@@ -1,5 +1,5 @@
 /*
- * Rebound — Velocity tool.
+ * Rebound, Velocity tool.
  * Numeric speed + influence editor for the selected keyframes. Set the incoming
  * and outgoing influence (and optionally the speed) directly, or read the first
  * selected keyframe's ease back into the fields.

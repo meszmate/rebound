@@ -1,5 +1,5 @@
 /*
- * Rebound — Drift tool.
+ * Rebound, Drift tool.
  * Adds organic random motion (smooth or stepped) to any property via a wiggle
  * expression rig with a per-layer seed.
  */

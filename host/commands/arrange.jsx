@@ -1,5 +1,5 @@
 /*
- * Rebound host — Arrange (pack selected layers into a grid).
+ * Rebound host, Arrange (pack selected layers into a grid).
  *
  * Bounds-based, like align.jsx: each layer's sourceRectAtTime is transformed to
  * composition space (pos + scale * (rect - anchor)) to get an axis-aligned box.

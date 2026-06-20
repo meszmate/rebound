@@ -1,5 +1,5 @@
 /*
- * Rebound host — Motion (auto-motion rig: Orbit / Spin / Look At).
+ * Rebound host, Motion (auto-motion rig: Orbit / Spin / Look At).
  *
  * For each selected layer, picks a target transform property by mode, ensures
  * the matching Slider Controls, and drives the property with a marker-guarded

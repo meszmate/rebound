@@ -1,5 +1,5 @@
 /*
- * Rebound — Sequence tool.
+ * Rebound, Sequence tool.
  * Lines the selected layers up end-to-end in time so each one begins when the
  * previous ends, with an overlap control (negative leaves gaps, positive
  * overlaps) and an optional trim-to-fit that clips each layer to its slot.

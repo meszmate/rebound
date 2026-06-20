@@ -1,5 +1,5 @@
 /*
- * Rebound host — Trim (fit layer in/out points to its keyframe span).
+ * Rebound host, Trim (fit layer in/out points to its keyframe span).
  *
  * For each selected AVLayer, finds the earliest first keyframe and latest last
  * keyframe across its animated transform properties (and any of its selected
