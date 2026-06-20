@@ -43,6 +43,113 @@
   width: 100%;
   min-width: 40px;
 }
+.rb-search-icon {
+  display: inline-flex;
+  width: 13px;
+  height: 13px;
+  color: var(--rb-text-faint);
+  flex: none;
+}
+.rb-search-icon svg { width: 13px; height: 13px; }
+.rb-search .rb-kbd {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 2px);
+  flex: none;
+}
+.rb-icon { display: inline-flex; width: 16px; height: 16px; }
+.rb-icon svg { width: 16px; height: 16px; }
+
+/* ---- Home launcher ------------------------------------------------------- */
+.rb-home {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--rb-gap-2) var(--rb-gap-3) var(--rb-gap-5);
+}
+.rb-launch-section {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-4) var(--rb-gap-2) var(--rb-gap-2);
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.rb-launch-section-icon { display: inline-flex; width: 13px; height: 13px; }
+.rb-launch-section-icon svg { width: 13px; height: 13px; }
+.rb-launch-list { display: flex; flex-direction: column; gap: 1px; }
+.rb-launch-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--rb-gap-2);
+  border: 0;
+  border-radius: var(--rb-radius-2);
+  background: transparent;
+  color: var(--rb-text);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--rb-transition);
+}
+.rb-launch-row:hover { background: var(--rb-control); }
+.rb-launch-row.is-active {
+  background: var(--rb-control);
+  box-shadow: inset 0 0 0 1px var(--rb-accent);
+}
+.rb-launch-row-icon {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+  color: var(--rb-text-muted);
+  transition: color var(--rb-transition);
+}
+.rb-launch-row-icon svg { width: 17px; height: 17px; }
+.rb-launch-row:hover .rb-launch-row-icon,
+.rb-launch-row.is-active .rb-launch-row-icon { color: var(--rb-accent); }
+.rb-launch-row-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.rb-launch-row-title { font-size: var(--rb-font-size); line-height: 1.2; }
+.rb-launch-row-desc {
+  font-size: calc(var(--rb-font-size) - 2px);
+  color: var(--rb-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Detail view --------------------------------------------------------- */
+.rb-detail {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rb-detail-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-2) var(--rb-gap-2);
+  border-bottom: 1px solid var(--rb-border);
+  flex: none;
+}
+.rb-crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  font-size: calc(var(--rb-font-size) - 1px);
+  min-width: 0;
+}
+.rb-crumb-section, .rb-crumb-sep { color: var(--rb-text-faint); }
+.rb-crumb-tool { color: var(--rb-text); font-weight: 600; }
 
 .rb-body {
   flex: 1 1 auto;
