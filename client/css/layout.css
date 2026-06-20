@@ -325,6 +325,19 @@
   }
 }
 
+/* Wide panel: keep a focused tool's controls readable and centered instead of
+   stretching them across the whole dock, and give the browse grid roomier
+   cards. Everything still fits; it just stops looking sparse. */
+@media (min-width: 700px) {
+  .rb-tool-host { align-items: center; }
+  .rb-tool-host > * { width: 100%; max-width: 660px; }
+  .rb-card-demo { height: 116px; }
+}
+@media (min-width: 920px) {
+  .rb-card-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); max-width: 1180px; }
+  .rb-cat-head { max-width: 1180px; }
+}
+
 /* Command palette overlay. */
 #rb-palette {
   position: fixed;
