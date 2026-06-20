@@ -27,5 +27,8 @@ All notable changes to Rebound are documented here. The format follows
   (time cascade), **Bounce** (gravitational rebound), **Trim** (fit in/out to
   keyframes), **Arrange** (grid), and **Keyframes** (interpolation setters).
   14 tools across 7 groups in total.
+- **Motion** (Orbit/Spin/Look-At rig), **Composition** (edit comp settings),
+  **Fade** (opacity in/out), **Trim Paths** (shape write-on), **Shapes**
+  (primitive gallery), **Grids** (guide overlays). 20 tools across 8 groups.
 
 [Unreleased]: https://github.com/meszmate/rebound/commits/main

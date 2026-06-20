@@ -52,6 +52,12 @@
   load('commands/trim.jsx');
   load('commands/arrange.jsx');
   load('commands/keys.jsx');
+  load('commands/motion.jsx');
+  load('commands/comp.jsx');
+  load('commands/fade.jsx');
+  load('commands/trimpaths.jsx');
+  load('commands/shapes.jsx');
+  load('commands/grids.jsx');
 
   $.__rebound.loaded = true;
 })();
