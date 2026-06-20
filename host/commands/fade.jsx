@@ -4,7 +4,8 @@
  * For each selected AVLayer, keyframes the Opacity property: a fade-in ramps
  * 0 -> 100 over inFrames starting at the layer in point, and a fade-out ramps
  * 100 -> 0 over outFrames ending at the layer out point. Properties carrying an
- * expression are skipped. New keyframes get Easy-Ease-style bezier smoothing.
+ * expression are skipped. New keyframes get Easy-Ease bezier smoothing by
+ * default, or plain Linear interpolation when the Linear ease is chosen.
  */
 (function () {
   var R = $.__rebound;
@@ -19,13 +20,18 @@
     return prop.expressionEnabled && prop.expression !== '';
   }
 
-  // Set an opacity keyframe at time t, then apply Easy-Ease bezier smoothing.
-  function setKey(prop, t, value) {
+  // Set an opacity keyframe at time t. When smooth, apply Easy-Ease bezier
+  // shaping; otherwise leave it Linear for a constant-rate fade.
+  function setKey(prop, t, value, smooth) {
     prop.setValueAtTime(t, value);
     var ki = prop.nearestKeyIndex(t);
-    prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
-    var ease = [new KeyframeEase(0, 33.33)];
-    prop.setTemporalEaseAtKey(ki, ease, ease);
+    if (smooth) {
+      prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
+      var ease = [new KeyframeEase(0, 33.33)];
+      prop.setTemporalEaseAtKey(ki, ease, ease);
+    } else {
+      prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR);
+    }
   }
 
   function fade(args) {
@@ -44,6 +50,7 @@
 
     var inSeconds = inFrames / comp.frameRate;
     var outSeconds = outFrames / comp.frameRate;
+    var smooth = args.ease !== 'linear';
 
     var faded = 0;
     var skipped = [];
@@ -59,13 +66,13 @@
       var touched = false;
 
       if (doIn) {
-        setKey(op, layer.inPoint, 0);
-        setKey(op, layer.inPoint + inSeconds, 100);
+        setKey(op, layer.inPoint, 0, smooth);
+        setKey(op, layer.inPoint + inSeconds, 100, smooth);
         touched = true;
       }
       if (doOut) {
-        setKey(op, layer.outPoint - outSeconds, 100);
-        setKey(op, layer.outPoint, 0);
+        setKey(op, layer.outPoint - outSeconds, 100, smooth);
+        setKey(op, layer.outPoint, 0, smooth);
         touched = true;
       }
 

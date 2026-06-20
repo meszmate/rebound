@@ -23,6 +23,7 @@
     var doOut = true;
     var inFrames = 12;
     var outFrames = 12;
+    var ease = 'smooth';
 
     var inToggle = ui.toggle({ label: 'Fade in', value: doIn,
       onChange: function (v) { doIn = v; } });
@@ -32,13 +33,18 @@
       onChange: function (v) { doOut = v; } });
     var outField = ui.numberField({ label: 'Fade out', value: outFrames, min: 0, step: 1, decimals: 0,
       suffix: 'fr', width: '110px', onChange: function (v) { outFrames = v; } });
+    var easeCtl = ui.segmented([
+      { value: 'linear', label: 'Linear', title: 'Constant-rate fade' },
+      { value: 'smooth', label: 'Smooth', title: 'Ease the fade in and out' }
+    ], { value: ease, onChange: function (v) { ease = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Keyframes opacity from transparent up at the layer in point and back down at the out point. Layers with an opacity expression are skipped.' }),
       inToggle.el,
       ui.row('Fade in', inField.el),
       outToggle.el,
-      ui.row('Fade out', outField.el)
+      ui.row('Fade out', outField.el),
+      ui.row('Ease', easeCtl.el)
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -53,7 +59,7 @@
         ctx.toast('Enable a fade in or fade out', { kind: 'info' });
         return;
       }
-      ctx.invoke('fade.apply', { inFrames: inFrames, outFrames: outFrames, doIn: doIn, doOut: doOut })
+      ctx.invoke('fade.apply', { inFrames: inFrames, outFrames: outFrames, doIn: doIn, doOut: doOut, ease: ease })
         .then(function (res) {
           ctx.toast('Faded ' + res.faded + ' layer' + (res.faded === 1 ? '' : 's'),
             { kind: res.faded ? 'success' : 'info' });
@@ -63,7 +69,7 @@
     }
 
     function getState() {
-      return { doIn: doIn, doOut: doOut, inFrames: inFrames, outFrames: outFrames };
+      return { doIn: doIn, doOut: doOut, inFrames: inFrames, outFrames: outFrames, ease: ease };
     }
     function applyState(s) {
       if (!s) return;
@@ -71,6 +77,7 @@
       if (s.doOut != null) { doOut = s.doOut; outToggle.set(s.doOut); }
       if (s.inFrames != null) { inFrames = s.inFrames; inField.set(s.inFrames); }
       if (s.outFrames != null) { outFrames = s.outFrames; outField.set(s.outFrames); }
+      if (s.ease != null) { ease = s.ease; easeCtl.set(s.ease); }
     }
 
     return {
@@ -79,10 +86,11 @@
         get: getState,
         set: applyState,
         defaults: [
-          { name: 'Quick', state: { doIn: true, doOut: true, inFrames: 6, outFrames: 6 } },
-          { name: 'Smooth', state: { doIn: true, doOut: true, inFrames: 12, outFrames: 12 } },
-          { name: 'Slow', state: { doIn: true, doOut: true, inFrames: 24, outFrames: 24 } },
-          { name: 'Fade in only', state: { doIn: true, doOut: false, inFrames: 16, outFrames: 12 } }
+          { name: 'Quick', state: { doIn: true, doOut: true, inFrames: 6, outFrames: 6, ease: 'smooth' } },
+          { name: 'Smooth', state: { doIn: true, doOut: true, inFrames: 12, outFrames: 12, ease: 'smooth' } },
+          { name: 'Slow', state: { doIn: true, doOut: true, inFrames: 24, outFrames: 24, ease: 'smooth' } },
+          { name: 'Linear cut', state: { doIn: true, doOut: true, inFrames: 8, outFrames: 8, ease: 'linear' } },
+          { name: 'Fade in only', state: { doIn: true, doOut: false, inFrames: 16, outFrames: 12, ease: 'smooth' } }
         ]
       },
       destroy: off
