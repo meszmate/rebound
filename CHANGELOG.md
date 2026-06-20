@@ -21,5 +21,11 @@ All notable changes to Rebound are documented here. The format follows
   built-in Penner preset library.
 - Cross-platform dev tooling: PlayerDebugMode toggle, dev install (link/copy),
   icon generator, self-signed cert + ZXP packaging.
+- **Spring**, **Library**, **Anchor**, **Align/Distribute**, **Recoil**, **Drift**
+  tools.
+- **Multiply** (progressive duplicate stack), **Flip** (mirror), **Stagger**
+  (time cascade), **Bounce** (gravitational rebound), **Trim** (fit in/out to
+  keyframes), **Arrange** (grid), and **Keyframes** (interpolation setters).
+  14 tools across 7 groups in total.
 
 [Unreleased]: https://github.com/meszmate/rebound/commits/main

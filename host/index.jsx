@@ -45,6 +45,13 @@
   load('commands/align.jsx');
   load('commands/recoil.jsx');
   load('commands/drift.jsx');
+  load('commands/bounce.jsx');
+  load('commands/multiply.jsx');
+  load('commands/flip.jsx');
+  load('commands/stagger.jsx');
+  load('commands/trim.jsx');
+  load('commands/arrange.jsx');
+  load('commands/keys.jsx');
 
   $.__rebound.loaded = true;
 })();
