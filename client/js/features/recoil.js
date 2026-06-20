@@ -18,24 +18,39 @@
     mount: mount
   });
 
+  // The recoil shape: a smooth move to the mark, then a decaying sine wobble
+  // around it (freq full oscillations, amplitude amp, decaying at dec). This is
+  // distinct from Spring's single smooth overshoot. The card demo replays the
+  // same shape (duplicated there, since demos load before features).
+  function makeRecoil(amp, freq, dec) {
+    return function (t) {
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      var riseT = 0.18;
+      if (t < riseT) { var u = t / riseT; return u * u * (3 - 2 * u); }
+      var sn = (t - riseT) / (1 - riseT);
+      return 1 + amp * Math.sin(freq * sn * 2 * Math.PI) / Math.exp(dec * sn);
+    };
+  }
+
   function mount(ctx) {
     var overshoot = 60;
     var bounce = 2;
     var friction = 6;
     var eachKey = true;
 
-    // Preview: synthesize a representative overshoot spring from the sliders so
-    // the motion is visible before applying (scale pops the overshoot best).
+    // Preview the REAL recoil motion: a quick move to the mark, then a
+    // velocity-driven damped OSCILLATION around it (several wobbles that decay),
+    // which is what the rig's sin/exp expression produces. This is distinct from
+    // Spring's single smooth overshoot. Driven live by the sliders.
     function previewCurve() {
-      return {
-        type: 'spring',
-        response: R.units.clamp(2 / bounce, 0.2, 1.3),
-        bounce: R.units.clamp(overshoot / 150, 0, 0.75),
-        velocity: 0
-      };
+      var amp = R.units.clamp(overshoot / 150, 0.08, 0.5);
+      var freq = R.units.clamp(bounce, 1.2, 4);
+      var dec = R.units.clamp(friction / 3, 0.8, 4);
+      return { type: 'fn', fn: makeRecoil(amp, freq, dec) };
     }
     var previewHost = el('div');
-    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1100 });
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1300 });
 
     var halfLife = el('span.rb-chip', { text: '' });
     function refreshChip() {

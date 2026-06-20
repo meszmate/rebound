@@ -65,11 +65,12 @@
         '<rect x="14" y="25" width="22" height="22" rx="6" style="fill:var(--rb-accent)">' + moving(sp) + '</rect>' +
         '</svg>');
 
-    // Recoil: the same horizontal slide-and-overshoot (velocity-driven).
-    var recoilFn = sampler.toFunction({ type: 'spring', response: 0.42, bounce: 0.42 });
-    var rc = sampleSMIL(recoilFn, 32, function (v) { return r(v * 64) + ',0'; }, '0,0');
+    // Recoil: a quick move to the mark, then a decaying wobble around it (the
+    // velocity-driven oscillation the rig produces), distinct from Spring's
+    // single overshoot. Same makeRecoil shape the Recoil preview plays.
+    var rc = sampleSMIL(makeRecoil(0.4, 2.5, 2.4), 52, function (v) { return r(v * 64) + ',0'; }, '0,0');
     R.registerToolDemo('recoil',
-      '<strong>Recoil.</strong> Velocity-driven overshoot past the mark, then a quick settle.',
+      '<strong>Recoil.</strong> Velocity-driven wobble around the mark, settling.',
       '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
         '<line x1="89" y1="16" x2="89" y2="56" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.3"/>' +
         '<rect x="14" y="25" width="22" height="22" rx="6" style="fill:var(--rb-accent)">' + moving(rc) + '</rect>' +
@@ -86,6 +87,19 @@
         '<line x1="40" y1="58" x2="80" y2="58" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>' +
         '<rect x="50" y="6" width="20" height="20" rx="6" style="fill:var(--rb-accent)">' + moving(bc) + '</rect>' +
         '</svg>');
+  }
+
+  // The recoil shape from features/recoil.js, so the card matches the tool: a
+  // smooth move to the mark, then a decaying sine wobble around it.
+  function makeRecoil(amp, freq, dec) {
+    return function (t) {
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      var riseT = 0.18;
+      if (t < riseT) { var u = t / riseT; return u * u * (3 - 2 * u); }
+      var sn = (t - riseT) / (1 - riseT);
+      return 1 + amp * Math.sin(freq * sn * 2 * Math.PI) / Math.exp(dec * sn);
+    };
   }
 
   // The exact bounce model from features/bounce.js, so the card matches the tool.
