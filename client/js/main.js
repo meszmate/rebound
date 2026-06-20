@@ -1,58 +1,35 @@
 /*
  * Rebound — main panel bootstrap.
  *
- * Navigation model: a single primary zone at a time, sized for a narrow dock.
- *   Home  — a searchable, keyboard-navigable launcher of all tools, grouped by
- *           goal-shaped sections (see ui/tool-meta.js).
- *   Detail — the focused tool, with a back arrow + breadcrumb above it.
- *
- * Keyboard: type in the always-present search to filter; Up/Down move the
- * highlighted row; Enter opens it; Esc clears the search or returns from a tool;
- * Ctrl/Cmd-K focuses search; "/" focuses search from anywhere.
+ * Shell: a left icon rail of categories, and a main area that either browses a
+ * category's tools as cards (each card plays the tool's demo so you see what it
+ * does), or shows a focused tool. Opening the panel drops you straight into the
+ * default tool (Ease) so you can work without navigating first.
  */
 ;(function (R) {
   'use strict';
 
   var el = R.dom.el;
 
+  var DEFAULT_TOOL = 'ease';
+  var PREVIEW_TOOLS = { ease: 1, spring: 1, recoil: 1, bounce: 1 };
+  var STAR_ICON = '<path d="M12 3l2.6 6.3L21 10l-4.8 4.2L17.5 21 12 17.3 6.5 21l1.3-6.8L3 10l6.4-.7z"/>';
+
   var appStore = R.createStore({
     selection: { hasComp: false, totalSelectedKeys: 0, properties: [] },
     activeTool: null
   });
 
-  var mounted = {};        // toolId -> { wrap, api }
+  var mounted = {};
   var ctx = null;
-  var view = 'home';       // 'home' | 'detail'
-  var homeQuery = '';
-  var homeScroll = 0;
-  var rows = [];           // [{ tool, el }] currently shown in the launcher
+  var view = 'detail';        // 'browse' | 'detail'
+  var lastCategory = 'ease';
+  var searchQuery = '';
+  var cards = [];             // [{ tool, el }] currently shown
   var activeIndex = -1;
 
-  var homeEl, detailEl, mountsEl, breadcrumbEl, searchInput;
-
-  var STAR_ICON = '<path d="M12 3l2.6 6.3L21 10l-4.8 4.2L17.5 21 12 17.3 6.5 21l1.3-6.8L3 10l6.4-.7z"/>';
-  var POPULAR = ['ease', 'spring', 'drift', 'align', 'stagger'];
-
-  // Favorites + recents persist as small id arrays (separate keys from the
-  // Library's preset favorites).
-  function loadFavTools() { return R.disk.read('fav-tools', []) || []; }
-  function saveFavTools(list) { R.disk.write('fav-tools', list); }
-  function isFav(id) { return loadFavTools().indexOf(id) !== -1; }
-  function toggleFav(id) {
-    var f = loadFavTools();
-    var i = f.indexOf(id);
-    if (i === -1) f.push(id); else f.splice(i, 1);
-    saveFavTools(f);
-  }
-  function loadRecents() { return R.disk.read('recent-tools', []) || []; }
-  function pushRecent(id) {
-    var r = loadRecents().filter(function (x) { return x !== id; });
-    r.unshift(id);
-    R.disk.write('recent-tools', r.slice(0, 8));
-  }
-  function toolsByIds(ids) {
-    return ids.map(function (id) { return R.tools.get(id); }).filter(Boolean);
-  }
+  var railEl, browseEl, detailEl, mountsEl, breadcrumbEl, searchInput;
+  var railButtons = {};
 
   // ---- Boot ----------------------------------------------------------------
 
@@ -63,23 +40,28 @@
 
     var app = document.getElementById('rb-app');
     R.dom.clear(app);
-    app.appendChild(buildHeader());
-    app.appendChild(buildSelStrip());
 
-    homeEl = el('div#rb-home.rb-home');
+    railEl = buildRail();
+    app.appendChild(railEl);
+
+    browseEl = el('div.rb-browse');
     mountsEl = el('div#rb-mounts.rb-grow');
     breadcrumbEl = el('span.rb-crumb');
     var backBtn = el('button.rb-btn.is-ghost.is-icon', {
-      'aria-label': 'Back to all tools', title: 'Back (Esc)', onclick: goHome
+      'aria-label': 'Back to category', title: 'Back (Esc)', onclick: back
     }, [icon('<path d="M15 6l-6 6 6 6"/>')]);
-    detailEl = el('div#rb-detail.rb-detail.rb-hidden', null, [
+    detailEl = el('div.rb-detail.rb-hidden', null, [
       el('div.rb-detail-bar', null, [backBtn, breadcrumbEl]),
       mountsEl
     ]);
-    app.appendChild(el('div.rb-body', null, [homeEl, detailEl]));
+
+    var main = el('div.rb-main', null, [
+      buildTopbar(),
+      el('div.rb-content', null, [browseEl, detailEl])
+    ]);
+    app.appendChild(main);
 
     ctx = makeContext();
-    renderHome();
     setupKeyboard();
 
     if (R.bridge.available) {
@@ -89,7 +71,11 @@
       R.log.info('Running outside the host — selection polling disabled.');
     }
 
-    R.ui.toast('Rebound ready', { kind: 'info', duration: 1500 });
+    // Land directly in the default tool, ready to use.
+    var def = R.tools.get(DEFAULT_TOOL);
+    if (def) openTool(def); else showCategory(R.toolMeta.SECTIONS[0].id);
+
+    R.ui.toast('Rebound ready', { kind: 'info', duration: 1400 });
   }
 
   function icon(inner) {
@@ -106,13 +92,137 @@
     return el('div.rb-demo', null, [stage, caption]);
   }
 
-  // ---- Home launcher -------------------------------------------------------
+  // ---- Left rail ------------------------------------------------------------
+
+  function buildRail() {
+    var children = [el('div.rb-rail-logo', { text: '◗', title: 'Rebound' })];
+    R.toolMeta.SECTIONS.forEach(function (section) {
+      var btn = el('button.rb-rail-btn', {
+        title: section.name, 'aria-label': section.name,
+        onclick: function () { showCategory(section.id); }
+      });
+      btn.innerHTML = R.toolMeta.svg(section.icon);
+      railButtons[section.id] = btn;
+      children.push(btn);
+    });
+    children.push(el('div.rb-rail-spacer'));
+    children.push(el('button.rb-rail-btn', {
+      title: 'Settings', 'aria-label': 'Settings', onclick: openSettings
+    }, [icon('<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6c.1-.3.1-.7.1-1z"/>')]));
+    return el('div.rb-rail', null, children);
+  }
+
+  function highlightRail(catId) {
+    for (var id in railButtons) {
+      if (railButtons.hasOwnProperty(id)) railButtons[id].classList.toggle('is-active', id === catId);
+    }
+  }
+
+  // ---- Topbar / search ------------------------------------------------------
+
+  function buildTopbar() {
+    searchInput = el('input', {
+      type: 'text', placeholder: 'Search tools…', 'aria-label': 'Search tools', spellcheck: 'false'
+    });
+    R.dom.on(searchInput, 'input', function () {
+      searchQuery = searchInput.value;
+      if (searchQuery.trim()) renderSearch();
+      else showCategory(lastCategory);
+    });
+    R.dom.on(searchInput, 'keydown', onListKeydown);
+
+    var search = el('div.rb-search.rb-grow', null, [
+      svgSpan('rb-search-icon', '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'),
+      searchInput,
+      el('span.rb-kbd', { text: '⌘K' })
+    ]);
+
+    var selDot = el('span.rb-dot');
+    var selText = el('span.rb-seltext', { text: '' });
+    appStore.select(function (s) { return s.selection; }, function (sel) {
+      var ok = sel && sel.hasComp;
+      selDot.classList.toggle('is-live', !!ok);
+      selText.textContent = !ok ? 'No comp'
+        : (sel.totalSelectedKeys + ' key' + (sel.totalSelectedKeys === 1 ? '' : 's') +
+           ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
+    });
+
+    var children = [search, el('span.rb-selchip', null, [selDot, selText])];
+    if (R.bridge.available) {
+      children.push(el('button.rb-btn.is-ghost.is-icon', {
+        title: 'Reload host (dev)', 'aria-label': 'Reload host',
+        onclick: function () {
+          R.bridge.reloadHost()
+            .then(function (v) { R.ui.toast('Host reloaded (v' + v + ')', { kind: 'success' }); })
+            .catch(function (e) { R.ui.toast('Host reload failed: ' + e.message, { kind: 'error' }); });
+        }
+      }, [icon('<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/>')]));
+    }
+    return el('div.rb-topbar', null, children);
+  }
+
+  function svgSpan(cls, inner) {
+    var s = el('span.' + cls);
+    s.innerHTML = R.toolMeta.svg(inner);
+    return s;
+  }
+
+  // ---- Browse (category / search) ------------------------------------------
 
   function toolsInSection(sid) {
     return R.tools.list().filter(function (t) {
       var m = R.toolMeta.forTool(t.id);
       return m && m.section === sid;
     });
+  }
+
+  function showBrowse() {
+    view = 'browse';
+    detailEl.classList.add('rb-hidden');
+    browseEl.classList.remove('rb-hidden');
+  }
+
+  function showCategory(catId) {
+    lastCategory = catId;
+    highlightRail(catId);
+    showBrowse();
+    R.dom.clear(browseEl);
+    cards = [];
+
+    var section = sectionMeta(catId);
+    var tools = toolsInSection(catId);
+    browseEl.appendChild(el('div.rb-cat-head', null, [
+      el('span.rb-cat-title', { text: section ? section.name : catId }),
+      el('span.rb-cat-count', { text: tools.length + ' tool' + (tools.length === 1 ? '' : 's') })
+    ]));
+    var grid = el('div.rb-card-grid');
+    tools.forEach(function (t) { grid.appendChild(makeCard(t)); });
+    browseEl.appendChild(grid);
+    setActiveCard(cards.length ? 0 : -1);
+  }
+
+  function renderSearch() {
+    view = 'browse';
+    highlightRail(null);
+    showBrowse();
+    R.dom.clear(browseEl);
+    cards = [];
+    var results = searchTools(searchQuery.trim().toLowerCase());
+    browseEl.appendChild(el('div.rb-cat-head', null, [
+      el('span.rb-cat-title', { text: 'Search' }),
+      el('span.rb-cat-count', { text: results.length + ' match' + (results.length === 1 ? '' : 'es') })
+    ]));
+    if (!results.length) {
+      browseEl.appendChild(el('div.rb-empty', null, [
+        el('div', { text: 'No tool matches “' + searchQuery + '”' }),
+        el('button.rb-btn', { onclick: function () { searchInput.value = ''; searchQuery = ''; showCategory('ease'); } }, ['Browse all'])
+      ]));
+      return;
+    }
+    var grid = el('div.rb-card-grid');
+    results.forEach(function (t) { grid.appendChild(makeCard(t)); });
+    browseEl.appendChild(grid);
+    setActiveCard(0);
   }
 
   function searchTools(q) {
@@ -132,115 +242,46 @@
     return scored.map(function (s) { return s.t; });
   }
 
-  function makeRow(tool) {
+  function makeCard(tool) {
     var m = R.toolMeta.forTool(tool.id) || {};
-    var iconEl = el('span.rb-launch-row-icon');
+    var demoWrap = el('div.rb-card-demo');
+    var d = R.toolDemos && R.toolDemos[tool.id];
+    if (d) demoWrap.innerHTML = d.svg;
+
+    var iconEl = el('span.rb-card-icon');
     iconEl.innerHTML = R.toolMeta.svg(m.icon || R.toolMeta.ICONS.curve);
 
     var fav = isFav(tool.id);
-    var star = el('button.rb-launch-row-star' + (fav ? '.is-on' : ''), {
-      type: 'button', title: fav ? 'Unfavorite' : 'Add to favorites',
-      'aria-label': fav ? 'Remove from favorites' : 'Add to favorites',
-      onclick: function (e) { e.stopPropagation(); toggleFav(tool.id); renderHome(); }
+    var star = el('button.rb-card-star' + (fav ? '.is-on' : ''), {
+      type: 'button', 'aria-label': fav ? 'Unfavorite' : 'Favorite', title: 'Favorite',
+      onclick: function (e) { e.stopPropagation(); toggleFav(tool.id); star.classList.toggle('is-on'); }
     });
     star.innerHTML = R.toolMeta.svg(STAR_ICON);
 
-    var row = el('button.rb-launch-row', {
+    var card = el('button.rb-card', {
       type: 'button', 'data-tool': tool.id, onclick: function () { openTool(tool); }
     }, [
-      iconEl,
-      el('span.rb-launch-row-text.rb-grow', null, [
-        el('span.rb-launch-row-title', { text: tool.title }),
-        el('span.rb-launch-row-desc', { text: m.desc || '' })
-      ]),
-      star
+      demoWrap,
+      star,
+      el('div.rb-card-foot', null, [
+        el('div.rb-card-titlerow', null, [iconEl, el('span.rb-card-title', { text: tool.title })]),
+        el('div.rb-card-desc', { text: m.desc || '' })
+      ])
     ]);
-    rows.push({ tool: tool, el: row });
-    return row;
+    cards.push({ tool: tool, el: card });
+    return card;
   }
 
-  function appendToolSection(name, iconInner, toolList) {
-    if (!toolList.length) return;
-    var head = el('div.rb-launch-section');
-    head.appendChild(svgSpan('rb-launch-section-icon', iconInner));
-    head.appendChild(el('span', { text: name }));
-    homeEl.appendChild(head);
-    var list = el('div.rb-launch-list');
-    toolList.forEach(function (t) { list.appendChild(makeRow(t)); });
-    homeEl.appendChild(list);
-  }
-
-  function renderHome() {
-    R.dom.clear(homeEl);
-    rows = [];
-    var q = homeQuery.trim().toLowerCase();
-
-    if (q) {
-      var results = searchTools(q);
-      if (!results.length) {
-        homeEl.appendChild(el('div.rb-empty', null, [
-          el('div', { text: 'No tool matches “' + homeQuery + '”' }),
-          el('button.rb-btn', { onclick: clearSearch }, ['Browse all tools'])
-        ]));
-        return;
-      }
-      var flat = el('div.rb-launch-list');
-      results.forEach(function (t) { flat.appendChild(makeRow(t)); });
-      homeEl.appendChild(flat);
-    } else {
-      var favTools = toolsByIds(loadFavTools());
-      var recentTools = toolsByIds(loadRecents());
-
-      if (!favTools.length && !recentTools.length) {
-        // First run: a short welcome and a few popular tools to start from.
-        homeEl.appendChild(el('div.rb-home-intro', null, [
-          el('div.rb-home-intro-title', { text: 'Welcome to Rebound' }),
-          el('div.rb-home-intro-sub', {
-            text: 'Search above, or pick a tool. Star ★ the ones you use — favorites and recents pin here.'
-          })
-        ]));
-        appendToolSection('Popular', R.toolMeta.ICONS.spring, toolsByIds(POPULAR));
-      } else {
-        appendToolSection('Favorites', STAR_ICON, favTools);
-        appendToolSection('Recent', R.toolMeta.ICONS.clock, recentTools);
-      }
-
-      R.toolMeta.SECTIONS.forEach(function (section) {
-        appendToolSection(section.name, section.icon, toolsInSection(section.id));
-      });
-    }
-    setActiveRow(rows.length ? 0 : -1);
-  }
-
-  function svgSpan(cls, inner) {
-    var s = el('span.' + cls);
-    s.innerHTML = R.toolMeta.svg(inner);
-    return s;
-  }
-
-  function setActiveRow(i) {
+  function setActiveCard(i) {
     activeIndex = i;
-    for (var r = 0; r < rows.length; r++) {
-      rows[r].el.classList.toggle('is-active', r === i);
-    }
-    if (i >= 0 && rows[i] && rows[i].el.scrollIntoView) {
-      rows[i].el.scrollIntoView({ block: 'nearest' });
-    }
+    for (var c = 0; c < cards.length; c++) cards[c].el.classList.toggle('is-active', c === i);
+    if (i >= 0 && cards[i] && cards[i].el.scrollIntoView) cards[i].el.scrollIntoView({ block: 'nearest' });
   }
 
-  function clearSearch() {
-    homeQuery = '';
-    if (searchInput) searchInput.value = '';
-    renderHome();
-    if (searchInput) searchInput.focus();
-  }
-
-  // ---- Detail view ---------------------------------------------------------
+  // ---- Detail ---------------------------------------------------------------
 
   function openTool(tool) {
-    homeScroll = homeEl.scrollTop;
     pushRecent(tool.id);
-
     if (!mounted[tool.id]) {
       var host = el('div.rb-tool-host');
       var footer = el('div.rb-action-bar');
@@ -256,9 +297,7 @@
         R.log.error('Tool "' + tool.id + '" failed to mount', err);
         host.appendChild(el('div.rb-empty', null, ['This tool failed to load: ' + (err.message || err)]));
       }
-      // A "what it does" demo above the controls, for tools without a live
-      // Preview Stage of their own.
-      if (R.toolDemos && R.toolDemos[tool.id]) {
+      if (R.toolDemos && R.toolDemos[tool.id] && !PREVIEW_TOOLS[tool.id]) {
         host.insertBefore(buildDemo(R.toolDemos[tool.id]), host.firstChild);
       }
       mounted[tool.id] = { wrap: wrap, api: api };
@@ -268,24 +307,20 @@
     }
 
     var m = R.toolMeta.forTool(tool.id);
+    if (m) { lastCategory = m.section; highlightRail(m.section); }
     R.dom.clear(breadcrumbEl);
     breadcrumbEl.appendChild(el('span.rb-crumb-section', { text: m ? sectionName(m.section) : (tool.group || '') }));
     breadcrumbEl.appendChild(el('span.rb-crumb-sep', { text: '›' }));
     breadcrumbEl.appendChild(el('span.rb-crumb-tool', { text: tool.title }));
 
     view = 'detail';
-    homeEl.classList.add('rb-hidden');
+    browseEl.classList.add('rb-hidden');
     detailEl.classList.remove('rb-hidden');
     appStore.update({ activeTool: tool.id });
   }
 
-  function goHome() {
-    view = 'home';
-    detailEl.classList.add('rb-hidden');
-    homeEl.classList.remove('rb-hidden');
-    renderHome(); // reflect any new recents / favorites from this session
-    homeEl.scrollTop = homeScroll || 0;
-    if (searchInput) searchInput.focus();
+  function back() {
+    showCategory(lastCategory || 'ease');
   }
 
   function openToolById(id) {
@@ -293,19 +328,39 @@
     if (tool) openTool(tool);
   }
 
-  function sectionName(sid) {
+  function sectionMeta(sid) {
     var list = R.toolMeta.SECTIONS;
-    for (var i = 0; i < list.length; i++) if (list[i].id === sid) return list[i].name;
-    return sid;
+    for (var i = 0; i < list.length; i++) if (list[i].id === sid) return list[i];
+    return null;
+  }
+  function sectionName(sid) {
+    var s = sectionMeta(sid);
+    return s ? s.name : sid;
   }
 
-  // ---- Keyboard ------------------------------------------------------------
+  // ---- Favorites / recents --------------------------------------------------
 
-  function onSearchKeydown(e) {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveRow(Math.min(activeIndex + 1, rows.length - 1)); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveRow(Math.max(activeIndex - 1, 0)); }
-    else if (e.key === 'Enter') { if (rows[activeIndex]) { e.preventDefault(); openTool(rows[activeIndex].tool); } }
-    else if (e.key === 'Escape') { if (homeQuery) { e.preventDefault(); clearSearch(); } }
+  function loadFavTools() { return R.disk.read('fav-tools', []) || []; }
+  function isFav(id) { return loadFavTools().indexOf(id) !== -1; }
+  function toggleFav(id) {
+    var f = loadFavTools();
+    var i = f.indexOf(id);
+    if (i === -1) f.push(id); else f.splice(i, 1);
+    R.disk.write('fav-tools', f);
+  }
+  function pushRecent(id) {
+    var r = (R.disk.read('recent-tools', []) || []).filter(function (x) { return x !== id; });
+    r.unshift(id);
+    R.disk.write('recent-tools', r.slice(0, 8));
+  }
+
+  // ---- Keyboard -------------------------------------------------------------
+
+  function onListKeydown(e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); setActiveCard(Math.min(activeIndex + 1, cards.length - 1)); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); setActiveCard(Math.max(activeIndex - 1, 0)); }
+    else if (e.key === 'Enter') { if (cards[activeIndex]) { e.preventDefault(); openTool(cards[activeIndex].tool); } }
+    else if (e.key === 'Escape') { if (searchQuery) { searchInput.value = ''; searchQuery = ''; showCategory('ease'); } }
   }
 
   function setupKeyboard() {
@@ -315,89 +370,20 @@
 
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
-        if (view === 'detail') goHome();
         if (searchInput) searchInput.select();
         return;
       }
       if (e.key === '/' && !inInput) { e.preventDefault(); if (searchInput) searchInput.focus(); return; }
 
       if (view === 'detail') {
-        if (e.key === 'Escape' && !inInput) { e.preventDefault(); goHome(); }
+        if (e.key === 'Escape' && !inInput) { e.preventDefault(); back(); }
         return;
       }
-      if (!inInput) {
-        if (e.key === 'ArrowDown') { e.preventDefault(); setActiveRow(Math.min(activeIndex + 1, rows.length - 1)); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveRow(Math.max(activeIndex - 1, 0)); }
-        else if (e.key === 'Enter' && rows[activeIndex]) { e.preventDefault(); openTool(rows[activeIndex].tool); }
-        else if (e.key === 'Escape' && homeQuery) { e.preventDefault(); clearSearch(); }
-      }
+      if (!inInput) onListKeydown(e);
     });
   }
 
-  // ---- Shell pieces --------------------------------------------------------
-
-  function buildHeader() {
-    searchInput = el('input', {
-      type: 'text', placeholder: 'Search tools…', 'aria-label': 'Search tools', spellcheck: 'false'
-    });
-    R.dom.on(searchInput, 'input', function () {
-      homeQuery = searchInput.value;
-      if (view !== 'home') {
-        view = 'home';
-        detailEl.classList.add('rb-hidden');
-        homeEl.classList.remove('rb-hidden');
-      }
-      renderHome();
-    });
-    R.dom.on(searchInput, 'keydown', onSearchKeydown);
-
-    var search = el('div.rb-search.rb-grow', null, [
-      svgSpan('rb-search-icon', '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>'),
-      searchInput,
-      el('span.rb-kbd', { text: '⌘K' })
-    ]);
-
-    var settingsBtn = el('button.rb-btn.is-ghost.is-icon', {
-      title: 'Settings', 'aria-label': 'Settings', onclick: openSettings
-    }, [icon('<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6c.1-.3.1-.7.1-1z"/>')]);
-
-    var children = [
-      el('div.rb-logo', null, [el('span.rb-logo-mark', { text: '◗' }), 'Rebound']),
-      search,
-      settingsBtn
-    ];
-
-    if (R.bridge.available) {
-      children.push(el('button.rb-btn.is-ghost.is-icon', {
-        title: 'Reload host script (dev)', 'aria-label': 'Reload host',
-        onclick: function () {
-          R.bridge.reloadHost()
-            .then(function (v) { R.ui.toast('Host reloaded (v' + v + ')', { kind: 'success' }); })
-            .catch(function (e) { R.ui.toast('Host reload failed: ' + e.message, { kind: 'error' }); });
-        }
-      }, [icon('<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4h-4"/>')]));
-    }
-    return el('div.rb-header', null, children);
-  }
-
-  function buildSelStrip() {
-    var strip = el('div.rb-selstrip', null, [el('span.rb-dot'), el('span', { text: 'No composition' })]);
-    var label = strip.querySelector('span:last-child');
-    appStore.select(function (s) { return s.selection; }, function (sel) {
-      if (!sel || !sel.hasComp) {
-        strip.classList.remove('is-live');
-        label.textContent = 'No composition';
-        return;
-      }
-      strip.classList.add('is-live');
-      label.textContent = sel.compName + '  ·  ' + sel.selectedLayerCount + ' layer' +
-        (sel.selectedLayerCount === 1 ? '' : 's') + '  ·  ' + sel.totalSelectedKeys + ' key' +
-        (sel.totalSelectedKeys === 1 ? '' : 's');
-    });
-    return strip;
-  }
-
-  // ---- Settings / selection / context -------------------------------------
+  // ---- Settings / selection / context --------------------------------------
 
   function hexToRgb(hex) {
     var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
@@ -456,7 +442,7 @@
       theme: R.theme,
       units: R.units,
       openTool: openToolById,
-      goHome: goHome,
+      goBack: back,
       getSelection: function () { return appStore.get().selection; },
       onSelection: function (fn) { return appStore.select(function (s) { return s.selection; }, fn); },
       refreshSelection: pollSelection

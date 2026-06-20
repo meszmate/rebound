@@ -1,0 +1,193 @@
+/*
+ * Rebound — shell navigation: a left icon rail of categories + a main area that
+ * shows a category's tools as cards (with their demo animating) or a focused
+ * tool. Opening the panel drops you straight into the default tool (Ease), so
+ * you can work without navigating first.
+ */
+#rb-app { flex-direction: row; }
+
+/* Left icon rail ----------------------------------------------------------- */
+.rb-rail {
+  flex: none;
+  width: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--rb-gap-2) 0;
+  background: var(--rb-bg-raised);
+  border-right: 1px solid var(--rb-border);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.rb-rail::-webkit-scrollbar { width: 0; height: 0; }
+.rb-rail-logo {
+  color: var(--rb-accent);
+  font-size: 18px;
+  line-height: 1;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--rb-gap-1);
+}
+.rb-rail-btn {
+  position: relative;
+  width: 40px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--rb-text-muted);
+  border-radius: var(--rb-radius-2);
+  cursor: pointer;
+  transition: background var(--rb-transition), color var(--rb-transition);
+}
+.rb-rail-btn svg { width: 20px; height: 20px; }
+.rb-rail-btn:hover { background: var(--rb-control); color: var(--rb-text); }
+.rb-rail-btn.is-active { color: var(--rb-accent); background: var(--rb-control); }
+.rb-rail-btn.is-active::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--rb-accent);
+}
+.rb-rail-spacer { flex: 1 1 auto; }
+
+/* Main area ---------------------------------------------------------------- */
+.rb-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rb-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-2) var(--rb-gap-3);
+  border-bottom: 1px solid var(--rb-border);
+  flex: none;
+}
+.rb-selchip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  white-space: nowrap;
+}
+.rb-selchip .rb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--rb-text-faint);
+  flex: none;
+}
+.rb-selchip .rb-dot.is-live { background: var(--rb-success); }
+.rb-seltext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.rb-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rb-browse {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.rb-browse.rb-hidden, .rb-detail.rb-hidden { display: none; }
+
+/* Category header ---------------------------------------------------------- */
+.rb-cat-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-4) var(--rb-gap-3) var(--rb-gap-1);
+}
+.rb-cat-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 600; }
+.rb-cat-count { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); }
+
+/* Tool cards --------------------------------------------------------------- */
+.rb-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-3);
+  align-content: start;
+}
+.rb-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-3);
+  background: var(--rb-bg-raised);
+  color: var(--rb-text);
+  cursor: pointer;
+  overflow: hidden;
+  padding: 0;
+  font-family: inherit;
+  transition: border-color var(--rb-transition), background var(--rb-transition);
+}
+.rb-card:hover { border-color: var(--rb-border-strong); }
+.rb-card.is-active { border-color: var(--rb-accent); box-shadow: inset 0 0 0 1px var(--rb-accent); }
+.rb-card-demo {
+  height: 78px;
+  background: var(--rb-bg-sunken);
+  color: var(--rb-text-muted);
+  border-bottom: 1px solid var(--rb-border);
+}
+.rb-card-demo svg { width: 100%; height: 100%; display: block; }
+.rb-card-foot {
+  padding: var(--rb-gap-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rb-card-titlerow { display: flex; align-items: center; gap: var(--rb-gap-2); }
+.rb-card-icon { display: inline-flex; width: 15px; height: 15px; color: var(--rb-accent); flex: none; }
+.rb-card-icon svg { width: 15px; height: 15px; }
+.rb-card-title { font-weight: 600; font-size: var(--rb-font-size); }
+.rb-card-desc {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 2px);
+  line-height: 1.35;
+}
+.rb-card-star {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--rb-transition);
+}
+.rb-card:hover .rb-card-star { opacity: 0.85; }
+.rb-card-star:hover { opacity: 1; }
+.rb-card-star.is-on { opacity: 1; color: var(--rb-warning); }
+.rb-card-star svg { width: 13px; height: 13px; }
+.rb-card-star.is-on svg { fill: currentColor; }
+
+/* Wider docks get bigger demos and roomier cards. */
+@media (min-width: 520px) {
+  .rb-card-demo { height: 100px; }
+  .rb-card-grid { grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); }
+}

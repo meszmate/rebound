@@ -60,6 +60,28 @@
       '</g></svg>'
   );
 
+  // Card visuals for the four tools that use the interactive Preview Stage on
+  // their page (these captions are not shown on the page, only the SVG in cards).
+  D.ease = demo(
+    'Shape a cubic-bezier and apply it to your keyframes.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<path d="M16 54 C 44 54, 60 18, 104 18" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"/>' +
+      '<circle r="5" style="fill:var(--rb-accent)">' +
+      '<animateMotion dur="2.8s" repeatCount="indefinite" keyPoints="0;1;1;0" keyTimes="0;0.45;0.55;1" calcMode="linear" ' +
+      'path="M16 54 C 44 54, 60 18, 104 18"/></circle></svg>'
+  );
+  D.spring = demo('Physical spring with real overshoot.', springCardSvg(1.2));
+  D.recoil = demo('Velocity-driven overshoot.', springCardSvg(1.28));
+  D.bounce = demo('Gravitational rebound.', springCardSvg(1.14));
+
+  function springCardSvg(peak) {
+    return '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<g transform="translate(60,38)"><rect x="-17" y="-13" width="34" height="26" rx="5" style="fill:var(--rb-accent)">' +
+      '<animateTransform attributeName="transform" type="scale" ' +
+      'values="0.2;' + peak + ';0.9;1.06;0.98;1;0.2" ' +
+      'keyTimes="0;0.42;0.58;0.72;0.84;0.92;1" dur="3.2s" repeatCount="indefinite"/></rect></g></svg>';
+  }
+
   R.toolDemos = D;
   R.registerToolDemo = function (id, caption, svg) { D[id] = demo(caption, svg); };
 })(window.Rebound = window.Rebound || {});
