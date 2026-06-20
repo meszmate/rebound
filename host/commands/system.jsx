@@ -7,6 +7,159 @@
   var R = $.__rebound;
   var util = R.util;
 
+  // ---- Selection classification helpers (cheap, poll-safe) -----------------
+
+  // A short, stable kind string for a layer, most specific first.
+  function layerKind(layer) {
+    if (layer instanceof TextLayer) return 'text';
+    if (layer instanceof CameraLayer) return 'camera';
+    if (layer instanceof LightLayer) return 'light';
+    if (layer.nullLayer) return 'null';
+    if (layer.adjustmentLayer) return 'adjustment';
+    if (layer.property('ADBE Root Vectors Group')) return 'shape';
+    var src = layer.source;
+    if (src instanceof CompItem) return 'precomp';
+    if (src && src.mainSource) {
+      var ms = src.mainSource;
+      if (ms instanceof SolidSource) return 'solid';
+      if (ms instanceof FileSource) {
+        if (src.hasVideo && !src.hasAudio && src.duration === 0) return 'still';
+        if (!src.hasVideo && src.hasAudio) return 'audio';
+        return 'footage';
+      }
+    }
+    return 'av';
+  }
+
+  function lightTypeName(t) {
+    if (t === LightType.PARALLEL) return 'Parallel';
+    if (t === LightType.SPOT) return 'Spot';
+    if (t === LightType.POINT) return 'Point';
+    if (t === LightType.AMBIENT) return 'Ambient';
+    return 'Light';
+  }
+
+  // Shallow, depth-limited scan for whether a shape layer has any fill/stroke.
+  function scanShape(group, out, depth) {
+    if (depth > 3 || (out.hasFill && out.hasStroke)) return;
+    for (var i = 1; i <= group.numProperties; i++) {
+      var ch = group.property(i);
+      var mn = ch.matchName;
+      if (mn === 'ADBE Vector Graphic - Fill') out.hasFill = true;
+      else if (mn === 'ADBE Vector Graphic - Stroke') out.hasStroke = true;
+      else if (mn === 'ADBE Vector Group') {
+        var contents = ch.property('ADBE Vectors Group');
+        if (contents) scanShape(contents, out, depth + 1);
+      } else if (mn === 'ADBE Vectors Group') {
+        scanShape(ch, out, depth + 1);
+      }
+      if (out.hasFill && out.hasStroke) return;
+    }
+  }
+
+  function textAnimated(layer) {
+    try {
+      var anim = layer.property('ADBE Text Properties').property('ADBE Text Animators');
+      return !!(anim && anim.numProperties > 0);
+    } catch (e) { return false; }
+  }
+
+  function transformHasExpression(layer) {
+    try {
+      var tg = layer.property('ADBE Transform Group');
+      if (!tg) return false;
+      for (var i = 1; i <= tg.numProperties; i++) {
+        var p = tg.property(i);
+        if (p && p.canSetExpression && p.expressionEnabled && p.expression !== '') return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  // Per-kind extra state, kept cheap and stable enough for the 800ms poll.
+  function kindState(layer, kind) {
+    var st = {};
+    try {
+      if (kind === 'solid') {
+        st.color = layer.source.mainSource.color;
+      } else if (kind === 'shape') {
+        var sh = { hasFill: false, hasStroke: false };
+        var root = layer.property('ADBE Root Vectors Group');
+        if (root) scanShape(root, sh, 0);
+        st.hasFill = sh.hasFill; st.hasStroke = sh.hasStroke;
+      } else if (kind === 'light') {
+        st.lightType = lightTypeName(layer.lightType);
+      } else if (kind === 'precomp') {
+        st.sourceName = layer.source.name;
+      } else if (kind === 'footage' || kind === 'still' || kind === 'audio') {
+        st.hasVideo = layer.source.hasVideo; st.hasAudio = layer.source.hasAudio;
+      } else if (kind === 'text') {
+        st.animated = textAnimated(layer);
+      }
+    } catch (e) {}
+    return st;
+  }
+
+  function layerInfo(layer) {
+    var kind = layerKind(layer);
+    var info = {
+      index: layer.index,
+      name: layer.name,
+      kind: kind,
+      enabled: layer.enabled === true,
+      threeD: false,
+      isGuide: false,
+      hasParent: !!layer.parent,
+      parentIndex: layer.parent ? layer.parent.index : 0,
+      parentName: layer.parent ? layer.parent.name : null,
+      effectCount: 0,
+      transformHasExpression: transformHasExpression(layer),
+      kindState: kindState(layer, kind)
+    };
+    try { info.threeD = layer.threeDLayer === true; } catch (e1) {}
+    try { info.isGuide = layer.guideLayer === true; } catch (e2) {}
+    try { var fx = layer.property('ADBE Effect Parade'); info.effectCount = fx ? fx.numProperties : 0; } catch (e3) {}
+    return info;
+  }
+
+  function interpName(t) {
+    if (t === KeyframeInterpolationType.HOLD) return 'HOLD';
+    if (t === KeyframeInterpolationType.LINEAR) return 'LINEAR';
+    return 'BEZIER';
+  }
+
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function r2(v) { return Math.round(v * 100) / 100; }
+  function r4(v) { return Math.round(v * 10000) / 10000; }
+  function keyVals(p, i) { var v = p.keyValue(i); return v instanceof Array ? v : [v]; }
+  function mag(a, b) { var s = 0; for (var i = 0; i < a.length; i++) { var d = (b[i] || 0) - (a[i] || 0); s += d * d; } return Math.sqrt(s); }
+
+  // The current temporal ease of the segment between two keys, as a normalized
+  // cubic-bezier plus in/out influence/speed. Same formula as ease.read, but
+  // read-only and rounded so identical eases never churn the poll diff. Returns
+  // null when the segment is degenerate.
+  function segmentEase(p, a, b) {
+    var dt = p.keyTime(b) - p.keyTime(a);
+    if (dt <= 0) return null;
+    var aVals = keyVals(p, a);
+    var bVals = keyVals(p, b);
+    var dv = util.isSpatial(p) ? mag(aVals, bVals) : ((bVals[0] || 0) - (aVals[0] || 0));
+    var avg = dv / dt;
+    var outE = p.keyOutTemporalEase(a)[0];
+    var inE = p.keyInTemporalEase(b)[0];
+    var x1 = clamp01(outE.influence / 100);
+    var x2 = 1 - clamp01(inE.influence / 100);
+    var y1 = avg === 0 ? x1 : (outE.speed / avg) * x1;
+    var y2 = avg === 0 ? x2 : 1 - (inE.speed / avg) * (1 - x2);
+    return {
+      inInfluence: r2(inE.influence),
+      outInfluence: r2(outE.influence),
+      inSpeed: r2(inE.speed),
+      outSpeed: r2(outE.speed),
+      curve: { type: 'bezier', x1: r4(x1), y1: r4(y1), x2: r4(x2), y2: r4(y2) }
+    };
+  }
+
   R.register('system.ping', function () {
     return { pong: true, version: R.version, time: (new Date()).getTime() };
   });
@@ -47,6 +200,17 @@
     out.time = item.time;
     out.selectedLayerCount = item.selectedLayers.length;
 
+    // Per-layer kind + cheap state so the panel can react to WHAT is selected.
+    out.layers = [];
+    out.layerKinds = [];
+    var selLayers = item.selectedLayers;
+    for (var sl = 0; sl < selLayers.length; sl++) {
+      var info = layerInfo(selLayers[sl]);
+      out.layers.push(info);
+      out.layerKinds.push(info.kind);
+    }
+    out.layerKind = out.layers.length ? out.layers[0].kind : null;
+
     var props = item.selectedProperties;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
@@ -62,7 +226,7 @@
       var selKeys = p.selectedKeys; // array of 1-based key indices
       out.totalSelectedKeys += selKeys.length;
 
-      out.properties.push({
+      var entry = {
         layerIndex: layer.index,
         layerName: layer.name,
         matchName: p.matchName,
@@ -74,8 +238,23 @@
         dimensions: util.dimensionsOf(p),
         isSpatial: util.isSpatial(p),
         hasExpression: p.canSetExpression ? p.expressionEnabled : false,
-        dimensionsSeparated: p.dimensionsSeparated === true
-      });
+        dimensionsSeparated: p.dimensionsSeparated === true,
+        interpInType: null,
+        interpOutType: null,
+        currentEase: null
+      };
+
+      // When a usable segment is selected, capture its current ease so the panel
+      // can draw the live curve with no extra round trip.
+      if (selKeys.length >= 2) {
+        var ka = selKeys[0];
+        var kb = selKeys[1];
+        try { entry.interpOutType = interpName(p.keyOutInterpolationType(ka)); } catch (eo) {}
+        try { entry.interpInType = interpName(p.keyInInterpolationType(kb)); } catch (ei) {}
+        try { entry.currentEase = segmentEase(p, ka, kb); } catch (es) {}
+      }
+
+      out.properties.push(entry);
     }
 
     return out;
