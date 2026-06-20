@@ -66,7 +66,32 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not build ring', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { count: count, radius: radius, startAngle: startAngle, arc: arc, orient: orient };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.count != null) { count = s.count; countField.set(s.count); }
+      if (s.radius != null) { radius = s.radius; radiusSlider.set(s.radius); }
+      if (s.startAngle != null) { startAngle = s.startAngle; startSlider.set(s.startAngle); }
+      if (s.arc != null) { arc = s.arc; arcSlider.set(s.arc); }
+      if (s.orient != null) { orient = s.orient; orientToggle.set(s.orient); }
+    }
+
+    return {
+      presets: {
+        toolId: 'radial',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Full ring', state: { count: 8, radius: 200, startAngle: 0, arc: 360, orient: false } },
+          { name: 'Dense circle', state: { count: 24, radius: 300, startAngle: 0, arc: 360, orient: true } },
+          { name: 'Half arc', state: { count: 6, radius: 250, startAngle: 0, arc: 180, orient: true } },
+          { name: 'Tight orbit', state: { count: 12, radius: 80, startAngle: -90, arc: 360, orient: false } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

@@ -62,7 +62,31 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not fade', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { doIn: doIn, doOut: doOut, inFrames: inFrames, outFrames: outFrames };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.doIn != null) { doIn = s.doIn; inToggle.set(s.doIn); }
+      if (s.doOut != null) { doOut = s.doOut; outToggle.set(s.doOut); }
+      if (s.inFrames != null) { inFrames = s.inFrames; inField.set(s.inFrames); }
+      if (s.outFrames != null) { outFrames = s.outFrames; outField.set(s.outFrames); }
+    }
+
+    return {
+      presets: {
+        toolId: 'fade',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Quick', state: { doIn: true, doOut: true, inFrames: 6, outFrames: 6 } },
+          { name: 'Smooth', state: { doIn: true, doOut: true, inFrames: 12, outFrames: 12 } },
+          { name: 'Slow', state: { doIn: true, doOut: true, inFrames: 24, outFrames: 24 } },
+          { name: 'Fade in only', state: { doIn: true, doOut: false, inFrames: 16, outFrames: 12 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

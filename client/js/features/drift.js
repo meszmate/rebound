@@ -62,6 +62,29 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { type: type, amount: amount, frequency: frequency };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.type != null) { type = s.type; typeCtl.set(s.type); }
+      if (s.amount != null) { amount = s.amount; amountSlider.set(s.amount); }
+      if (s.frequency != null) { frequency = s.frequency; freqSlider.set(s.frequency); }
+    }
+
+    return {
+      presets: {
+        toolId: 'drift',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Subtle', state: { type: 'smooth', amount: 8, frequency: 1 } },
+          { name: 'Organic', state: { type: 'smooth', amount: 20, frequency: 2 } },
+          { name: 'Lively', state: { type: 'smooth', amount: 60, frequency: 4 } },
+          { name: 'Stepped', state: { type: 'hold', amount: 40, frequency: 6 } }
+        ]
+      },
+      destroy: off
+    };
   }
 })(window.Rebound = window.Rebound || {});
