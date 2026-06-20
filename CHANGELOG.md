@@ -30,5 +30,8 @@ All notable changes to Rebound are documented here. The format follows
 - **Motion** (Orbit/Spin/Look-At rig), **Composition** (edit comp settings),
   **Fade** (opacity in/out), **Trim Paths** (shape write-on), **Shapes**
   (primitive gallery), **Grids** (guide overlays). 20 tools across 8 groups.
+- **Radial** (ring array), **Color** (fill/solid/effect recolor), **Vignette**
+  (edge-darkening adjustment layer), **Reset** (transform reset), **Follow**
+  (follow-through trail), **Echo** (optical trail). 26 tools across 9 groups.
 
 [Unreleased]: https://github.com/meszmate/rebound/commits/main

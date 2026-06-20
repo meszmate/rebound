@@ -47,17 +47,23 @@
   load('commands/drift.jsx');
   load('commands/bounce.jsx');
   load('commands/multiply.jsx');
+  load('commands/radial.jsx');
   load('commands/flip.jsx');
   load('commands/stagger.jsx');
   load('commands/trim.jsx');
   load('commands/arrange.jsx');
   load('commands/keys.jsx');
   load('commands/motion.jsx');
+  load('commands/follow.jsx');
   load('commands/comp.jsx');
   load('commands/fade.jsx');
   load('commands/trimpaths.jsx');
   load('commands/shapes.jsx');
   load('commands/grids.jsx');
+  load('commands/color.jsx');
+  load('commands/vignette.jsx');
+  load('commands/reset.jsx');
+  load('commands/echo.jsx');
 
   $.__rebound.loaded = true;
 })();
