@@ -61,7 +61,7 @@
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
-  will-change: transform;
+  will-change: transform, opacity;
 }
 .rb-preview-dot.is-text {
   width: auto;

@@ -94,7 +94,38 @@
     var phase = 0;
     var paused = reduced; // reduced-motion starts paused on a static frame
 
-    function totalCycle() { return (duration / 1000) * slowmo + holdMs / 1000; }
+    var fadeMs = 220; // cross-fade that masks the loop seam so the reset never shows
+    function totalCycle() { return (duration / 1000) * slowmo + holdMs / 1000 + 2 * (fadeMs / 1000); }
+
+    // Cached sampler fn, rebuilt only when the curve actually changes, so the
+    // per-frame path is a single fn(p) call.
+    var cachedFn = null;
+    var cachedSig = null;
+    function curveFn() {
+      var c = getCurve();
+      var sig = JSON.stringify(c);
+      if (sig !== cachedSig) { cachedSig = sig; cachedFn = sampler.toFunction(c); }
+      return cachedFn;
+    }
+
+    // Map a phase in [0,1) to eased progress p and a loop-seam opacity envelope.
+    // Bands: play (p 0->1), hold (p=1), fade-out (p=1, alpha 1->0), fade-in
+    // (p=0, alpha 0->1). The fn(1)->fn(0) reset happens at alpha ~0, never seen,
+    // and the cosine fade has zero velocity at both ends.
+    function computeState(ph) {
+      var play = (duration / 1000) * slowmo;
+      var hold = holdMs / 1000;
+      var fade = fadeMs / 1000;
+      var t = ph * totalCycle();
+      if (t < play) return { p: play > 0 ? t / play : 1, alpha: 1 };
+      t -= play;
+      if (t < hold) return { p: 1, alpha: 1 };
+      t -= hold;
+      if (t < fade) return { p: 1, alpha: 0.5 + 0.5 * Math.cos(Math.PI * (t / fade)) };
+      t -= fade;
+      var b = fade > 0 ? Math.min(1, t / fade) : 1;
+      return { p: 0, alpha: 0.5 - 0.5 * Math.cos(Math.PI * b) };
+    }
 
     function hrange() { return Math.max(0, stage.clientWidth - 32); }
     function vrange() { return Math.max(0, stage.clientHeight - 50); }
@@ -103,7 +134,7 @@
     // Apply the eased value e (may overshoot) to the sample for the active
     // property. Horizontal slides along the track; vertical drops onto the floor
     // (value 1 = resting on the floor, dips above it = bounces).
-    function applyTo(node, e, isGhost) {
+    function applyTo(node, e, isGhost, alpha) {
       var baseX = axis === 'vertical' ? centerX() : hrange() / 2;
       var tx = baseX;
       var ty = 0;
@@ -122,15 +153,16 @@
       if (scale !== 1) t += ' scale(' + scale + ')';
       if (rot) t += ' rotate(' + rot + 'deg)';
       node.style.transform = t;
-      node.style.opacity = isGhost ? opacity * 0.5 : opacity;
+      var a = alpha == null ? 1 : alpha;
+      node.style.opacity = (isGhost ? opacity * 0.5 : opacity) * a;
     }
 
-    function renderAt(p) {
-      var fn = sampler.toFunction(getCurve());
-      applyTo(dot, fn(p), false);
+    function renderAt(p, alpha) {
+      var fn = curveFn();
+      applyTo(dot, fn(p), false, alpha);
       // The vs-linear ghost only makes sense along the horizontal track.
       var ghostOn = showLinearGhost && axis !== 'vertical';
-      if (ghostOn) applyTo(ghost, p, true);
+      if (ghostOn) applyTo(ghost, p, true, alpha);
       ghost.style.display = ghostOn ? '' : 'none';
       ghostTrack.style.display = ghostOn ? '' : 'none';
     }
@@ -141,10 +173,9 @@
       var dt = Math.min((ts - last) / 1000, 1 / 30);
       last = ts;
       phase += dt / totalCycle();
-      if (phase >= 1) phase = 0;
-      var playFrac = ((duration / 1000) * slowmo) / totalCycle();
-      var p = playFrac > 0 && phase < playFrac ? phase / playFrac : 1;
-      renderAt(p);
+      if (phase >= 1) phase -= 1; // keep the sub-frame remainder, never snap to 0
+      var st = computeState(phase);
+      renderAt(st.p, st.alpha);
       rafId = requestAnimationFrame(frame);
     }
 
@@ -227,10 +258,7 @@
       }
     };
 
-    function phaseToP() {
-      var playFrac = ((duration / 1000) * slowmo) / totalCycle();
-      return playFrac > 0 && phase < playFrac ? phase / playFrac : 1;
-    }
+    function phaseToP() { return computeState(phase).p; }
   }
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
