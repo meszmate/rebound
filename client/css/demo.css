@@ -12,6 +12,30 @@
   border: 1px solid var(--rb-border);
   border-radius: var(--rb-radius-3);
 }
+
+/* "What Rebound does differently" callout for AE-overlapping tools. */
+.rb-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--rb-gap-2) var(--rb-gap-3);
+  margin-bottom: var(--rb-gap-2);
+  background: var(--rb-bg-sunken);
+  border-left: 2px solid var(--rb-accent);
+  border-radius: var(--rb-radius-2);
+}
+.rb-diff-badge {
+  font-size: calc(var(--rb-font-size) - 3px);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--rb-accent);
+  font-weight: 600;
+}
+.rb-diff-text {
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-muted);
+  line-height: 1.45;
+}
 .rb-demo-stage {
   width: 100%;
   height: 88px;

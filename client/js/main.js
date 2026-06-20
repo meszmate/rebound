@@ -123,6 +123,15 @@
     return el('div.rb-demo', null, [stage, caption]);
   }
 
+  // A subtle "what Rebound does differently" callout for tools that overlap a
+  // built-in After Effects feature.
+  function buildDiffNote(text) {
+    return el('div.rb-diff', null, [
+      el('span.rb-diff-badge', { text: 'vs After Effects' }),
+      el('span.rb-diff-text', { text: text })
+    ]);
+  }
+
   // ---- Left rail ------------------------------------------------------------
 
   function buildRail() {
@@ -396,6 +405,11 @@
         var bar = R.ui.presetBar(api.presets);
         if (demoNode) host.insertBefore(bar, demoNode.nextSibling);
         else host.insertBefore(bar, host.firstChild);
+      }
+      // A "what we do differently" note, pinned above everything else.
+      var meta = R.toolMeta.forTool(tool.id);
+      if (meta && meta.diff) {
+        host.insertBefore(buildDiffNote(meta.diff), host.firstChild);
       }
       mounted[tool.id] = { wrap: wrap, api: api };
     }

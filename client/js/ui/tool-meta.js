@@ -48,8 +48,10 @@
     { id: 'organize', name: 'Organize & help', icon: ICONS.tag }
   ];
 
-  function t(section, icon, desc) {
-    return { section: section, icon: icon, desc: desc };
+  // `diff` (optional) is a short "what Rebound does differently" note, shown only
+  // for tools that overlap a built-in After Effects feature.
+  function t(section, icon, desc, diff) {
+    return { section: section, icon: icon, desc: desc, diff: diff || null };
   }
 
   var TOOLS = {
@@ -58,8 +60,10 @@
     library: t('ease', ICONS.grid, 'Browse and apply easing presets'),
     velocity: t('ease', ICONS.gauge, 'Set keyframe speed and influence numerically'),
     copyease: t('ease', ICONS.copy, "Copy a keyframe's ease and paste it"),
-    smooth: t('ease', ICONS.wave, 'Smooth keyframes into a flowing curve'),
-    bake: t('ease', ICONS.bake, 'Bake expressions into clean keyframes'),
+    smooth: t('ease', ICONS.wave, 'Smooth keyframes into a flowing curve',
+      'After Effects has a Smoother and roving keyframes. Rebound rolls bezier, auto-bezier, and roving into one pass and reports only the keys it actually changed.'),
+    bake: t('ease', ICONS.bake, 'Bake expressions into clean keyframes',
+      'Like Convert Expression to Keyframes, but it preserves keyframes outside the baked range and never deletes a hand-written expression, it just disables it.'),
 
     // Springs & physics
     spring: t('physics', ICONS.spring, 'Physical spring easing with real overshoot'),
@@ -74,24 +78,35 @@
     // Timing
     stagger: t('timing', ICONS.clock, 'Cascade layers in time'),
     sequence: t('timing', ICONS.clock, 'Line layers up end-to-end'),
-    trim: t('timing', ICONS.scissors, 'Fit in/out points to keyframes'),
-    reverse: t('timing', ICONS.clock, 'Mirror keyframes in time'),
+    trim: t('timing', ICONS.scissors, 'Fit in/out points to keyframes',
+      'Alt+[ and Alt+] trim to the playhead. Rebound trims each layer to its own first and last keyframe instead, with separate in and out padding.'),
+    reverse: t('timing', ICONS.clock, 'Mirror keyframes in time',
+      'Like Time-Reverse Keyframes, but it runs across every selected property at once and keeps your selection afterward.'),
     fade: t('timing', ICONS.clock, 'Add opacity fade in / out'),
-    keys: t('timing', ICONS.clock, 'Set keyframe interpolation'),
+    keys: t('timing', ICONS.clock, 'Set keyframe interpolation',
+      'Beyond F9 Easy Ease: set Linear, Hold, Bezier, or Easy Ease across every selected key, with the correct single ease for spatial properties, and it never aborts on an edge key.'),
 
     // Transform & rig
-    anchor: t('transform', ICONS.target, 'Move the anchor without moving the layer'),
+    anchor: t('transform', ICONS.target, 'Move the anchor without moving the layer',
+      'The Pan-Behind tool moves the anchor by eye. Rebound snaps it to a chosen point of the layer bounds and compensates position so nothing shifts on screen.'),
     reset: t('transform', ICONS.target, 'Restore transforms to defaults'),
-    nullify: t('transform', ICONS.link, 'Drop a control null and parent to it'),
-    separate: t('transform', ICONS.target, 'Separate position dimensions'),
+    nullify: t('transform', ICONS.link, 'Drop a control null and parent to it',
+      'Does the create-null-then-parent dance for you, centered on the selection, in one undoable step.'),
+    separate: t('transform', ICONS.target, 'Separate position dimensions',
+      'Same as right-click Separate Dimensions, but applied to every selected layer at once.'),
     link: t('transform', ICONS.link, 'Parent layers to one target'),
 
     // Layout & align
-    align: t('layout', ICONS.align, 'Align layers to the comp or selection'),
-    arrange: t('layout', ICONS.layout, 'Pack layers into a grid'),
-    flip: t('layout', ICONS.align, 'Mirror layers across an axis'),
-    grids: t('layout', ICONS.layout, 'Add guide grids and overlays'),
-    comp: t('layout', ICONS.layout, 'Edit the composition settings'),
+    align: t('layout', ICONS.align, 'Align layers to the comp or selection',
+      'The Align panel only aligns to the selection or the comp. Rebound does both, distributes by real gaps, and moves the whole selection as a group when you want.'),
+    arrange: t('layout', ICONS.layout, 'Pack layers into a grid',
+      'The Align panel can only distribute along one axis. Rebound packs the selection into a true rows-and-columns grid.'),
+    flip: t('layout', ICONS.align, 'Mirror layers across an axis',
+      'Scaling to -100% flips around the anchor and shifts the layer. Rebound mirrors across the layer or comp axis and compensates so it stays put.'),
+    grids: t('layout', ICONS.layout, 'Add guide grids and overlays',
+      'AE guides are single draggable lines. Rebound drops a full thirds, golden, column, or safe-area overlay as one non-rendering guide layer.'),
+    comp: t('layout', ICONS.layout, 'Edit the composition settings',
+      'Like Composition Settings, but changing the resolution keeps your content centered instead of shifting it toward a corner.'),
     precompose: t('layout', ICONS.stack, 'Nest layers into a new comp'),
 
     // Generators
