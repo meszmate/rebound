@@ -90,7 +90,32 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { mode: mode, spinSpeed: spinSpeed, orbitRadius: orbitRadius, orbitSpeed: orbitSpeed };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.mode != null) { mode = s.mode; modeSeg.set(s.mode); }
+      if (s.spinSpeed != null) { spinSpeed = s.spinSpeed; spinSpeedSlider.set(s.spinSpeed); }
+      if (s.orbitRadius != null) { orbitRadius = s.orbitRadius; orbitRadiusSlider.set(s.orbitRadius); }
+      if (s.orbitSpeed != null) { orbitSpeed = s.orbitSpeed; orbitSpeedSlider.set(s.orbitSpeed); }
+      refreshControls();
+    }
+
+    return {
+      presets: {
+        toolId: 'motion',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Slow Spin', state: { mode: 'spin', spinSpeed: 45, orbitRadius: 150, orbitSpeed: 60 } },
+          { name: 'Fast Spin', state: { mode: 'spin', spinSpeed: 360, orbitRadius: 150, orbitSpeed: 60 } },
+          { name: 'Wide Orbit', state: { mode: 'orbit', spinSpeed: 90, orbitRadius: 400, orbitSpeed: 45 } },
+          { name: 'Tight Orbit', state: { mode: 'orbit', spinSpeed: 90, orbitRadius: 80, orbitSpeed: 180 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

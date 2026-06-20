@@ -52,7 +52,29 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { amount: amount, smoothing: smoothing };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.amount != null) { amount = s.amount; amountSlider.set(s.amount); }
+      if (s.smoothing != null) { smoothing = s.smoothing; smoothSlider.set(s.smoothing); }
+    }
+
+    return {
+      presets: {
+        toolId: 'lean',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Subtle', state: { amount: 4, smoothing: 6 } },
+          { name: 'Natural', state: { amount: 8, smoothing: 4 } },
+          { name: 'Aggressive', state: { amount: 20, smoothing: 2 } },
+          { name: 'Smooth Bank', state: { amount: 12, smoothing: 12 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

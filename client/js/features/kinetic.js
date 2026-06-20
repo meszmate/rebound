@@ -61,7 +61,30 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { target: target, sensitivity: sensitivity, max: max };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.target != null) { target = s.target; targetCtl.set(s.target); }
+      if (s.sensitivity != null) { sensitivity = s.sensitivity; sensSlider.set(s.sensitivity); }
+      if (s.max != null) { max = s.max; maxSlider.set(s.max); }
+    }
+
+    return {
+      presets: {
+        toolId: 'kinetic',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Scale Pulse', state: { target: 'scale', sensitivity: 50, max: 50 } },
+          { name: 'Big Scale', state: { target: 'scale', sensitivity: 120, max: 100 } },
+          { name: 'Spin React', state: { target: 'rotation', sensitivity: 80, max: 90 } },
+          { name: 'Speed Fade', state: { target: 'opacity', sensitivity: 60, max: 70 } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {

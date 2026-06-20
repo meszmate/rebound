@@ -53,7 +53,29 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    function getState() {
+      return { delayFrames: delayFrames, cascade: cascade };
+    }
+    function applyState(s) {
+      if (!s) return;
+      if (s.delayFrames != null) { delayFrames = s.delayFrames; delaySlider.set(s.delayFrames); }
+      if (s.cascade != null) { cascade = s.cascade; cascadeToggle.set(s.cascade); }
+    }
+
+    return {
+      presets: {
+        toolId: 'follow',
+        get: getState,
+        set: applyState,
+        defaults: [
+          { name: 'Tight Trail', state: { delayFrames: 2, cascade: false } },
+          { name: 'Loose Trail', state: { delayFrames: 8, cascade: false } },
+          { name: 'Cascade', state: { delayFrames: 3, cascade: true } },
+          { name: 'Long Cascade', state: { delayFrames: 6, cascade: true } }
+        ]
+      },
+      destroy: off
+    };
   }
 
   function describe(sel) {
