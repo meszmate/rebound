@@ -35,7 +35,21 @@
   --rb-radius-3: 8px;
   --rb-radius-pill: 999px;
   --rb-control-h: 24px;
-  --rb-transition: 120ms ease;
+
+  /* Motion tokens: one buttery scale used everywhere. Durations by weight,
+     easings by intent (Material-standard for moves, decel for arrivals, accel
+     for exits, emphasized for view swaps). */
+  --rb-dur-instant: 90ms;
+  --rb-dur-fast: 160ms;
+  --rb-dur-medium: 240ms;
+  --rb-dur-slow: 320ms;
+  --rb-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --rb-ease-decel: cubic-bezier(0, 0, 0.2, 1);
+  --rb-ease-accel: cubic-bezier(0.4, 0, 1, 1);
+  --rb-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --rb-ease-spring: cubic-bezier(0.34, 1.45, 0.64, 1);
+  /* Back-compat alias for existing hover/state rules. */
+  --rb-transition: var(--rb-dur-fast) var(--rb-ease-standard);
 }
 
 * {
