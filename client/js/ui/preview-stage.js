@@ -60,7 +60,7 @@
 
     // Named setters so both the in-stage controls and the public API drive them.
     function setProperty(p) { property = p; if (propSeg) propSeg.set(p); renderAt(phaseToP()); }
-    function setSample(s) { sample = s; setSampleNode(); if (sampleSeg) sampleSeg.set(s); }
+    function setSample(s) { sample = s; setSampleNode(); }
     function setSlowmo(f) { slowmo = f; if (speedBtn) speedBtn.textContent = f === 1 ? '1×' : '¼×'; }
     function setGhost(on) { showLinearGhost = on; renderAt(phaseToP()); }
 
@@ -76,13 +76,6 @@
       { value: 'opacity', label: 'Fade', title: 'Opacity' }
     ], { value: property, onChange: function (v) { setProperty(v); } });
 
-    // A clear, labeled sample switcher so it is obvious you can preview the
-    // motion on a shape or on text (and pick whichever you are animating).
-    var sampleSeg = R.ui.segmented([
-      { value: 'shape', label: 'Shape', title: 'Preview the motion on a shape' },
-      { value: 'text', label: 'Text', title: 'Preview the motion on text' }
-    ], { value: sample, onChange: function (v) { setSample(v); } });
-
     var speedBtn = el('button.rb-btn.is-ghost.is-icon', {
       title: 'Slow motion', 'aria-label': 'Toggle slow motion',
       onclick: function () { setSlowmo(slowmo === 1 ? 4 : 1); }
@@ -92,7 +85,7 @@
 
     container.appendChild(stage);
     if (opts.controls !== false) {
-      container.appendChild(el('div.rb-preview-controls.rb-preview-opts', null, [playBtn, propSeg.el, sampleSeg.el, speedBtn]));
+      container.appendChild(el('div.rb-preview-controls.rb-preview-opts', null, [playBtn, propSeg.el, speedBtn]));
     }
     container.appendChild(el('div.rb-preview-controls', null, [readout]));
 

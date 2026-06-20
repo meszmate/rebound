@@ -54,7 +54,7 @@
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, {
       getCurve: curve,
-      property: 'scale',
+      property: 'position',
       sample: 'shape'
     });
 

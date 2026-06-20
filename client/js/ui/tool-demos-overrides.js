@@ -34,16 +34,19 @@
 
   // ---- Spring / Recoil / Bounce: exact engine motion ----------------------
   if (sampler) {
-    // Spring: a square pops in with the engine's real overshoot (scale).
+    // Spring: a square springs to its mark and overshoots past it, then settles
+    // (the engine's real motion, mapped to horizontal travel to match the
+    // tool's position preview).
     var springFn = sampler.toFunction({ type: 'spring', response: 0.5, bounce: 0.35 });
-    var sp = sampleSMIL(springFn, 32, 0.6, function (v) { return r(v); }, '0');
+    var sp = sampleSMIL(springFn, 32, 0.6, function (v) { return r((v - 1) * 46) + ',0'; }, '-46,0');
     R.registerToolDemo('spring',
       '<strong>Spring.</strong> The engine’s real physical overshoot, settling onto the target.',
-      '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet"><g transform="translate(60,38)">' +
-        '<rect x="-17" y="-13" width="34" height="26" rx="5" style="fill:var(--rb-accent)">' +
-        '<animateTransform attributeName="transform" type="scale" values="' + sp.values + '" ' +
+      '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+        '<line x1="60" y1="16" x2="60" y2="56" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.3"/>' +
+        '<rect x="45" y="22" width="30" height="28" rx="6" style="fill:var(--rb-accent)">' +
+        '<animateTransform attributeName="transform" type="translate" values="' + sp.values + '" ' +
         'keyTimes="' + sp.keyTimes + '" dur="3s" calcMode="linear" repeatCount="indefinite"/>' +
-        '</rect></g></svg>');
+        '</rect></svg>');
 
     // Recoil: a box flies to its mark and overshoots past it, then settles
     // (the same damped oscillation, mapped to horizontal travel).
