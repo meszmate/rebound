@@ -194,9 +194,9 @@
            ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
     });
 
-    // Visible wordmark so it is always clear this is the Rebound panel.
+    // Visible wordmark so it is always clear this is the Rebound panel. The
+    // mark already lives on the rail, so the topbar shows just the name.
     var brand = el('div.rb-brand', { title: 'Rebound' }, [
-      el('span.rb-brand-mark', { text: '◗' }),
       el('span.rb-brand-name', { text: 'Rebound' })
     ]);
 
