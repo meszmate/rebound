@@ -21,13 +21,23 @@ const browserGlobals = {
   cancelAnimationFrame: 'readonly',
   localStorage: 'readonly',
   CustomEvent: 'readonly',
+  matchMedia: 'readonly',
+  ResizeObserver: 'readonly',
+  MutationObserver: 'readonly',
+  Promise: 'readonly',
   // CEP / vendored
   CSInterface: 'readonly',
+  CSEvent: 'readonly',
   SystemPath: 'readonly',
   cep: 'readonly',
   cep_node: 'readonly',
   __adobe_cep__: 'readonly',
   Rebound: 'writable',
+  // UMD modules (easing, units) reference these under a guard so the same file
+  // runs in the browser and under Node tests.
+  module: 'readonly',
+  require: 'readonly',
+  globalThis: 'readonly',
 };
 
 const extendscriptGlobals = {
@@ -41,6 +51,18 @@ const extendscriptGlobals = {
   PropertyType: 'readonly',
   LayerQuality: 'readonly',
   BlendingMode: 'readonly',
+  CompItem: 'readonly',
+  FootageItem: 'readonly',
+  FolderItem: 'readonly',
+  Property: 'readonly',
+  PropertyGroup: 'readonly',
+  AVLayer: 'readonly',
+  Layer: 'readonly',
+  ShapeLayer: 'readonly',
+  TextLayer: 'readonly',
+  MaskPropertyGroup: 'readonly',
+  Date: 'readonly',
+  Math: 'readonly',
   system: 'readonly',
   JSON: 'writable',
 };
@@ -57,7 +79,7 @@ const nodeGlobals = {
 };
 
 export default [
-  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**'] },
+  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*'] },
   js.configs.recommended,
 
   // Browser / CEP panel code.
@@ -69,7 +91,8 @@ export default [
       globals: browserGlobals,
     },
     rules: {
-      'no-unused-vars': ['warn', { args: 'none' }],
+      'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+      'no-prototype-builtins': 'off',
       'no-var': 'off',
     },
   },

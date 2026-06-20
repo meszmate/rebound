@@ -12,7 +12,7 @@
   function hostDir() {
     // Prefer the root the panel handed us (most reliable under CEP).
     if (typeof $.__rebound_root === 'string' && $.__rebound_root.length) {
-      return $.__rebound_root.replace(/[\\\/]+$/, '') + '/host';
+      return $.__rebound_root.replace(/[\\/]+$/, '') + '/host';
     }
     // Otherwise derive it from this file's own location.
     if ($.fileName) {

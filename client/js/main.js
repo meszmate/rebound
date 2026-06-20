@@ -14,7 +14,6 @@
   });
 
   var mounted = {}; // toolId -> { wrap, api }
-  var activeGroup = 0;
 
   function boot() {
     R.theme.init();
@@ -38,7 +37,6 @@
     var ctx = makeContext();
 
     function showGroup(gi) {
-      activeGroup = gi;
       tabs.setActive(gi);
       var group = groups[gi];
       // sub-navigation chips when a group has several tools.
