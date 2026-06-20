@@ -95,10 +95,13 @@
   color: var(--rb-text-faint);
   font-size: calc(var(--rb-font-size) - 1px);
   cursor: ew-resize;
+  white-space: nowrap;
+  flex: none;
 }
 .rb-field input {
   width: 100%;
-  min-width: 28px;
+  min-width: 0;
+  flex: 1 1 auto;
   height: 100%;
   border: 0;
   background: transparent;

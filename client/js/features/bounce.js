@@ -44,7 +44,7 @@
     var gravitySlider = ui.slider({ label: 'Gravity', min: 0.5, max: 20, step: 0.1, value: gravity,
       onInput: function (v) { gravity = v; updateReadout(); } });
     var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 24, step: 1, decimals: 0,
-      width: '110px', onChange: function (v) { maxBounces = v; } });
+      width: '100%', onChange: function (v) { maxBounces = v; } });
     var eachKeyToggle = ui.toggle({ label: 'After every keyframe', value: eachKey,
       title: 'On: the value rebounds after every keyframe it passes. Off: only after the final keyframe (a single ball drop).',
       onChange: function (v) { eachKey = v; } });
@@ -54,7 +54,7 @@
       el('div.rb-faint', { text: 'Rebounds the value off its target after a keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
       elasticitySlider.el,
       gravitySlider.el,
-      ui.row('Max bounces', bouncesField.el),
+      bouncesField.el,
       eachKeyToggle.el
     ]));
 
