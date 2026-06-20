@@ -11,17 +11,27 @@
     var comp = util.activeComp();
     var props = comp.selectedProperties;
     var count = 0;
+    var failed = 0;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
       if (!(p instanceof Property)) continue;
       if (!p.canVaryOverTime) continue;
       var keys = p.selectedKeys;
       for (var k = 0; k < keys.length; k++) {
-        fn(p, keys[k]);
-        count++;
+        // Guard each key so an edge key (no in-side on the first, no out-side
+        // on the last) cannot abort the batch mid-undo-group.
+        try {
+          fn(p, keys[k]);
+          count++;
+        } catch (e) {
+          failed++;
+        }
       }
     }
-    if (!count) throw new Error('Select one or more keyframes.');
+    if (!count) {
+      if (failed) throw new Error('Could not set ' + failed + ' keyframe' + (failed === 1 ? '' : 's') + '.');
+      throw new Error('Select one or more keyframes.');
+    }
     return count;
   }
 

@@ -29,18 +29,22 @@
 
       for (var k = 0; k < selected.length; k++) {
         var ki = selected[k];
+        var changed = false;
 
         try {
           p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
+          changed = true;
         } catch (eInterp) {}
 
         if (autoBezier) {
           try {
             p.setTemporalAutoBezierAtKey(ki, true);
+            changed = true;
           } catch (eTemporal) {}
           if (spatial) {
             try {
               p.setSpatialAutoBezierAtKey(ki, true);
+              changed = true;
             } catch (eSpatial) {}
           }
         }
@@ -48,10 +52,12 @@
         if (roving && ki !== 1 && ki !== p.numKeys) {
           try {
             p.setRovingAtKey(ki, true);
+            changed = true;
           } catch (eRoving) {}
         }
 
-        keys++;
+        // Only count a key we actually mutated, so the toast is honest.
+        if (changed) keys++;
       }
     }
 
