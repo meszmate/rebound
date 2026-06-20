@@ -24,14 +24,29 @@
     var gravity = 4;
     var maxBounces = 4;
 
+    // Preview: a settling rebound synthesized from the rig parameters.
+    function previewCurve() {
+      return {
+        type: 'spring',
+        response: R.units.clamp(2 / gravity, 0.3, 1.3),
+        bounce: R.units.clamp(elasticity * 0.75, 0, 0.75)
+      };
+    }
+    var previewHost = el('div');
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape' });
+    function updateReadout() {
+      preview.setReadout('Elasticity ' + Math.round(elasticity * 100) + '% · gravity ' + R.units.round(gravity, 1));
+    }
+
     var elasticitySlider = ui.slider({ label: 'Elasticity', min: 0, max: 1, step: 0.01, value: elasticity,
-      format: function (v) { return Math.round(v * 100) + '%'; }, onInput: function (v) { elasticity = v; } });
+      format: function (v) { return Math.round(v * 100) + '%'; }, onInput: function (v) { elasticity = v; updateReadout(); } });
     var gravitySlider = ui.slider({ label: 'Gravity', min: 0.5, max: 20, step: 0.1, value: gravity,
-      onInput: function (v) { gravity = v; } });
+      onInput: function (v) { gravity = v; updateReadout(); } });
     var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 24, step: 1, decimals: 0,
       width: '110px', onChange: function (v) { maxBounces = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
       el('div.rb-faint', { text: 'Rebounds the value off its target after the last keyframe, each bounce smaller. Non-destructive — your keyframes stay.' }),
       elasticitySlider.el,
       gravitySlider.el,
@@ -61,6 +76,7 @@
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    updateReadout();
+    return { destroy: function () { off(); preview.destroy(); } };
   }
 })(window.Rebound = window.Rebound || {});

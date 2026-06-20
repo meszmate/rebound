@@ -23,20 +23,35 @@
     var bounce = 2;
     var friction = 6;
 
+    // Preview: synthesize a representative overshoot spring from the sliders so
+    // the motion is visible before applying (scale pops the overshoot best).
+    function previewCurve() {
+      return {
+        type: 'spring',
+        response: R.units.clamp(2 / bounce, 0.2, 1.3),
+        bounce: R.units.clamp(overshoot / 150, 0, 0.75),
+        velocity: 0
+      };
+    }
+    var previewHost = el('div');
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'scale', sample: 'shape' });
+
     var halfLife = el('span.rb-chip', { text: '' });
     function refreshChip() {
       var hl = friction > 0 ? Math.log(2) / friction : 0;
       halfLife.textContent = 'Half-life ' + R.units.round(hl, 2) + 's';
+      preview.setReadout('Overshoot ' + Math.round(overshoot) + '% · half-life ' + R.units.round(hl, 2) + 's');
     }
 
     var overshootSlider = ui.slider({ label: 'Overshoot', min: 0, max: 200, step: 1, value: overshoot,
-      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { overshoot = v; } });
+      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { overshoot = v; refreshChip(); } });
     var bounceSlider = ui.slider({ label: 'Bounce', min: 0.5, max: 8, step: 0.1, value: bounce,
-      onInput: function (v) { bounce = v; } });
+      onInput: function (v) { bounce = v; refreshChip(); } });
     var frictionSlider = ui.slider({ label: 'Friction', min: 0.5, max: 20, step: 0.1, value: friction,
       onInput: function (v) { friction = v; refreshChip(); } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
       el('div.rb-faint', { text: 'Adds elastic overshoot after each keyframe, scaled by the incoming velocity. Non-destructive — your keyframes stay.' }),
       overshootSlider.el,
       bounceSlider.el,
@@ -68,6 +83,6 @@
     }
 
     refreshChip();
-    return { destroy: off };
+    return { destroy: function () { off(); preview.destroy(); } };
   }
 })(window.Rebound = window.Rebound || {});
