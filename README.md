@@ -34,9 +34,12 @@ See the full roadmap in [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Status
 
-Active early development, but already broad: **45 tools across 11 groups** ship
-today, built on a fully unit-tested easing/spring engine and a clean
-panel↔host bridge.
+Active early development, but already broad: **45 tools** ship today, reached
+through a searchable, keyboard-first **Home launcher** (grouped into goal-shaped
+sections with favorites + recents), and a **live Preview Stage** that loops the
+easing/spring motion on a sample shape or text — so you see what a curve does
+before you apply it. Built on a fully unit-tested easing/spring engine and a
+clean panel↔host bridge.
 
 | Group | Tools |
 | --- | --- |
