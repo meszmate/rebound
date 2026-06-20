@@ -23,6 +23,8 @@
   function mount(ctx) {
     var stored = null;
     var mode = 'both';
+    var mirror = false;
+    var scale = 1;
 
     // --- Copy / Mode / Paste controls ---
     var copyBtn = el('button.rb-btn', {
@@ -35,6 +37,12 @@
       { value: 'speed', label: 'Speed', title: 'Paste only the speed' },
       { value: 'both', label: 'Both', title: 'Paste both influence and speed' }
     ], { value: mode, onChange: function (v) { mode = v; } });
+
+    var mirrorToggle = ui.toggle({ label: 'Mirror in and out', value: mirror,
+      title: 'Paste the copied out-ease onto the target in-side and vice versa, for a symmetric flip.',
+      onChange: function (v) { mirror = v; } });
+    var scaleField = ui.numberField({ label: 'Scale', value: scale, min: 0.1, max: 4, step: 0.05,
+      decimals: 2, suffix: 'x', width: '110px', onChange: function (v) { scale = v; } });
 
     var pasteBtn = el('button.rb-btn.is-disabled', {
       title: 'Paste the copied ease onto the selected keyframes',
@@ -50,6 +58,8 @@
       el('div.rb-row', null, [copyBtn]),
       el('div.rb-section-label', { text: 'Paste' }),
       modeCtl.el,
+      mirrorToggle.el,
+      ui.row('Scale', scaleField.el),
       el('div.rb-row', null, [pasteBtn])
     ]));
 
@@ -82,7 +92,7 @@
 
     function doPaste() {
       if (!stored) { ctx.toast('Copy an ease first', { kind: 'error' }); return; }
-      ctx.invoke('copyease.paste', { ease: stored, mode: mode })
+      ctx.invoke('copyease.paste', { ease: stored, mode: mode, mirror: mirror, scale: scale })
         .then(function (res) {
           ctx.toast('Pasted onto ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's'), { kind: 'success' });
           ctx.refreshSelection();

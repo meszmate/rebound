@@ -53,10 +53,10 @@
 
   // Build a KeyframeEase combining the stored ease with the current ease per
   // mode: 'influence' takes only influence, 'speed' takes only speed, 'both'
-  // takes the whole stored ease.
-  function combine(stored, current, mode) {
-    var speed = (mode === 'influence') ? current.speed : stored.speed;
-    var influence = (mode === 'speed') ? current.influence : stored.influence;
+  // takes the whole stored ease. The pasted (stored) part is scaled by `scale`.
+  function combine(stored, current, mode, scale) {
+    var speed = (mode === 'influence') ? current.speed : stored.speed * scale;
+    var influence = (mode === 'speed') ? current.influence : stored.influence * scale;
     return new KeyframeEase(speed, clampInfluence(influence));
   }
 
@@ -66,6 +66,11 @@
       throw new Error('Copy an ease before pasting.');
     }
     var mode = args.mode || 'both';
+    var mirror = !!args.mirror;
+    var scale = (args.scale == null || isNaN(args.scale) || args.scale <= 0) ? 1 : args.scale;
+    // Mirror pastes the source out-ease onto the target in-side and vice versa.
+    var inSource = mirror ? ease.outEase : ease.inEase;
+    var outSource = mirror ? ease.inEase : ease.outEase;
 
     var list = selectedProps();
     if (!list.length) {
@@ -86,8 +91,8 @@
         var inArr = [];
         var outArr = [];
         for (var d = 0; d < dims; d++) {
-          inArr.push(combine(ease.inEase, easeToPlain(curIn[d]), mode));
-          outArr.push(combine(ease.outEase, easeToPlain(curOut[d]), mode));
+          inArr.push(combine(inSource, easeToPlain(curIn[d]), mode, scale));
+          outArr.push(combine(outSource, easeToPlain(curOut[d]), mode, scale));
         }
         prop.setInterpolationTypeAtKey(
           index,
