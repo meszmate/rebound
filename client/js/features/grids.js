@@ -38,6 +38,7 @@
     var gutter = 20;
     var margin = 0;
     var colorName = 'cyan';
+    var replace = true;
 
     var presetCtl = ui.segmented([
       { value: 'thirds', label: 'Thirds', title: 'Lines at one third and two thirds' },
@@ -63,6 +64,10 @@
       return { value: c.value, label: c.label, title: 'Draw the guides in ' + c.label.toLowerCase() };
     }), { value: colorName, onChange: function (v) { colorName = v; } });
 
+    var replaceToggle = ui.toggle({ label: 'Replace existing', value: replace,
+      title: 'Swap the earlier Guides layer instead of stacking a new one on every apply.',
+      onChange: function (v) { replace = v; } });
+
     function syncColumns() {
       columnsRows.style.display = preset === 'columns' ? '' : 'none';
     }
@@ -72,7 +77,8 @@
       el('div.rb-faint', { text: 'Adds a non-rendering guide layer over the composition. Columns draws a real design grid (margin + gutter); Safe draws the action-safe and title-safe rectangles.' }),
       ui.row('Preset', presetCtl.el),
       columnsRows,
-      ui.row('Color', colorCtl.el)
+      ui.row('Color', colorCtl.el),
+      replaceToggle.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -83,7 +89,7 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('grids.apply', { preset: preset, count: count, gutter: gutter, margin: margin, color: rgbFor(colorName) })
+      ctx.invoke('grids.apply', { preset: preset, count: count, gutter: gutter, margin: margin, color: rgbFor(colorName), replace: replace })
         .then(function () { ctx.toast('Added guide layer', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not add grids', { kind: 'error' }); });
     }

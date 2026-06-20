@@ -93,6 +93,9 @@
     var lw = num(args && args.lineWidth, 1);
     if (lw < 1) lw = 1;
 
+    // Replace any earlier Guides layer instead of stacking a new one.
+    if (args.replace !== false) util.removeLayersNamed(comp, 'Guides');
+
     var layer = comp.layers.addShape();
     layer.name = 'Guides';
     layer.guideLayer = true;

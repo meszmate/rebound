@@ -1,8 +1,9 @@
 /*
  * Rebound, Vignette tool.
- * Drops a non-rendering-free black adjustment layer that darkens the edges of
- * the composition with a feathered elliptical hole. Amount drives the layer
- * opacity, Feather softens the falloff, and Scale sizes the clear center.
+ * Drops a black solid that darkens the edges of the composition through a
+ * feathered elliptical hole. Amount drives the layer opacity, Feather softens
+ * the falloff, and Scale sizes the clear center. Replace existing swaps the
+ * earlier Vignette layer instead of stacking a new one.
  */
 ;(function (R) {
   'use strict';
@@ -23,6 +24,7 @@
     var amount = 60;
     var feather = 150;
     var scale = 100;
+    var replace = true;
 
     var amountSlider = ui.slider({ label: 'Amount', min: 0, max: 100, step: 1, value: amount,
       format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { amount = v; } });
@@ -30,12 +32,16 @@
       format: function (v) { return Math.round(v) + 'px'; }, onInput: function (v) { feather = v; } });
     var scaleSlider = ui.slider({ label: 'Scale', min: 50, max: 150, step: 1, value: scale,
       format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { scale = v; } });
+    var replaceToggle = ui.toggle({ label: 'Replace existing', value: replace,
+      title: 'Swap the earlier Vignette layer instead of stacking a new one on every apply.',
+      onChange: function (v) { replace = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Adds a black adjustment layer that darkens the edges through a feathered elliptical hole. Amount sets the strength, Feather softens the falloff, Scale sizes the clear center.' }),
+      el('div.rb-faint', { text: 'Adds a black solid that darkens the edges through a feathered elliptical hole. Amount sets the strength, Feather softens the falloff, Scale sizes the clear center.' }),
       amountSlider.el,
       featherSlider.el,
-      scaleSlider.el
+      scaleSlider.el,
+      replaceToggle.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -46,7 +52,7 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('vignette.apply', { amount: amount, feather: feather, scale: scale })
+      ctx.invoke('vignette.apply', { amount: amount, feather: feather, scale: scale, replace: replace })
         .then(function () { ctx.toast('Added vignette', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not add vignette', { kind: 'error' }); });
     }

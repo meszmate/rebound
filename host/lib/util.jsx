@@ -94,6 +94,21 @@ $.__rebound.util = (function () {
     return [Math.round(c[0] * 255), Math.round(c[1] * 255), Math.round(c[2] * 255)];
   }
 
+  // Remove every layer in the comp whose name matches, so a tool that drops a
+  // named helper layer can replace it instead of piling up duplicates. Returns
+  // the number removed. Highest index first so indices stay valid.
+  function removeLayersNamed(comp, name) {
+    var removed = 0;
+    for (var i = comp.numLayers; i >= 1; i--) {
+      var layer = comp.layer(i);
+      if (layer.name === name) {
+        layer.remove();
+        removed++;
+      }
+    }
+    return removed;
+  }
+
   return {
     MATCH: MATCH,
     isComp: isComp,
@@ -103,6 +118,7 @@ $.__rebound.util = (function () {
     isSpatial: isSpatial,
     resolveProperty: resolveProperty,
     layerByIndex: layerByIndex,
-    color255: color255
+    color255: color255,
+    removeLayersNamed: removeLayersNamed
   };
 })();

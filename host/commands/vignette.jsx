@@ -69,6 +69,9 @@
     if (feather < 0) feather = 0;
     var scale = clamp(num(args.scale, 100), 50, 150);
 
+    // Replace any earlier Vignette layer instead of stacking a new one.
+    if (args.replace !== false) util.removeLayersNamed(comp, 'Vignette');
+
     var layer = comp.layers.addSolid([0, 0, 0], 'Vignette', comp.width, comp.height, 1);
 
     // Mask is described in layer space; the solid spans the full comp.
