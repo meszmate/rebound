@@ -101,17 +101,29 @@
       R.dom.clear(line);
       line.appendChild(svg('line', { x1: a.x * 100, y1: a.y * 100, x2: b.x * 100, y2: b.y * 100, stroke: '#fff', 'stroke-width': 0.8, opacity: 0.85 }));
       R.dom.clear(handles);
-      handles.appendChild(endpoint(a, 'start'));
-      handles.appendChild(endpoint(b, 'end'));
+      // Stops first, then the endpoint movers on top, so grabbing a line end
+      // always moves the line in 2D (up/down/any) rather than a coincident stop.
       model.stops.forEach(function (s) {
         var pt = lerp(a, b, s.pos);
         handles.appendChild(stopHandle(s, pt));
       });
+      handles.appendChild(endpoint(a, 'start'));
+      handles.appendChild(endpoint(b, 'end'));
+    }
+    function endStop(which) {
+      var s = sortedStops(model.stops);
+      return which === 'start' ? s[0] : s[s.length - 1];
     }
 
     function endpoint(pt, which) {
-      var h = el('div.rb-grad-h.is-end', { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%' }, title: which === 'start' ? 'Start' : 'End' });
-      h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragEndpoint(which); });
+      var h = el('div.rb-grad-h.is-end', { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%' }, title: (which === 'start' ? 'Start' : 'End') + ' of the line, drag to aim it' });
+      h.addEventListener('pointerdown', function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        selected = endStop(which); // so the colour controls target this end's stop
+        renderSelected();
+        dragEndpoint(which);
+      });
       return h;
     }
     function stopHandle(s, pt) {
