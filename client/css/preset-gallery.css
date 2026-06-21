@@ -51,29 +51,3 @@
 }
 .rb-tile.rb-pg-save:hover .rb-pg-savebtn { color: var(--rb-accent); }
 .rb-pg-plus { font-size: 18px; line-height: 1; }
-.rb-pg-save.is-editing { cursor: default; }
-.rb-pg-form { display: flex; align-items: center; gap: 4px; width: 100%; }
-.rb-pg-input {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 24px;
-  border: 1px solid var(--rb-border-strong);
-  border-radius: var(--rb-radius-1);
-  background: var(--rb-bg);
-  color: var(--rb-text);
-  padding: 0 6px;
-  font: inherit;
-  font-size: calc(var(--rb-font-size) - 1px);
-  outline: none;
-}
-.rb-pg-input:focus { border-color: var(--rb-accent); }
-.rb-pg-ok {
-  flex: none;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: var(--rb-radius-1);
-  background: var(--rb-accent);
-  color: var(--rb-accent-text);
-  cursor: pointer;
-}

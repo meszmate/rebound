@@ -92,44 +92,121 @@
       return node;
     }
 
-    function saveTile() {
-      var node = el('div.rb-tile.rb-pg-save');
-      function showButton() {
-        R.dom.clear(node);
-        node.classList.remove('is-editing');
-        node.appendChild(el('div.rb-pg-savebtn', null, [
-          el('span.rb-pg-plus', { text: '+' }),
-          el('span', { text: 'Save' })
-        ]));
-        node.onclick = showField;
+    function userNames() { return loadUser().map(function (u) { return u.name; }); }
+    function builtinNames() { return (defaults || []).map(function (d) { return d.name; }); }
+    function eqi(a, b) { return a.toLowerCase() === b.toLowerCase(); }
+    function existsIn(list, name) {
+      for (var i = 0; i < list.length; i++) { if (eqi(list[i], name)) return list[i]; }
+      return null;
+    }
+
+    // A comfortable Save dialog: a live preview of the motion being saved, a
+    // generous name field with a smart default, and graceful overwrite handling.
+    function openSaveDialog() {
+      var stage = null;
+      var previewWrap = null;
+
+      if (previewFor && R.ui.modal && R.ui.PreviewStage) {
+        // previewFor may return a bare function or a curve object; PreviewStage
+        // does not normalize a bare fn, so wrap it.
+        var liveCurve = function () {
+          var c = previewFor(config.get());
+          return (typeof c === 'function') ? { type: 'fn', fn: c } : c;
+        };
+        try {
+          var stageHost = el('div.rb-savedlg-stage');
+          previewWrap = el('div.rb-savedlg-preview', null, [stageHost]);
+          stage = R.ui.PreviewStage(stageHost, { getCurve: liveCurve, property: 'position', sample: 'shape', duration: 900, controls: false });
+        } catch (e) {
+          stage = null;
+          try {
+            var c2 = previewFor(config.get());
+            previewWrap = el('div.rb-savedlg-preview.is-static', null, [R.ui.curveChip(typeof c2 === 'function' ? { type: 'fn', fn: c2 } : c2, { width: 300, height: 92, pad: 10 })]);
+          } catch (e2) { previewWrap = null; }
+        }
       }
-      function showField() {
-        R.dom.clear(node);
-        node.onclick = null;
-        node.classList.add('is-editing');
-        var input = el('input.rb-pg-input', {
-          type: 'text', placeholder: 'Name…', spellcheck: 'false',
-          onkeydown: function (e) {
-            if (e.key === 'Enter') commit(input.value);
-            else if (e.key === 'Escape') showButton();
-          }
-        });
-        var ok = el('button.rb-pg-ok', { type: 'button', title: 'Save', onclick: function () { commit(input.value); } }, ['✓']);
-        node.appendChild(el('div.rb-pg-form', null, [input, ok]));
-        input.focus();
+
+      var input = el('input.rb-savedlg-input', {
+        type: 'text', spellcheck: 'false', autocomplete: 'off', maxlength: '40',
+        'data-autofocus': '1', value: suggestName(),
+        onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); } },
+        oninput: refreshHint
+      });
+      var hint = el('div.rb-savedlg-hint', { 'aria-live': 'polite', text: '' });
+      var field = el('div.rb-savedlg-field', null, [
+        el('span.rb-savedlg-label', { text: 'Preset name' }), input, hint
+      ]);
+
+      var children = [];
+      if (previewWrap) children.push(previewWrap);
+      children.push(field);
+
+      var cancelBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { handle.close('close'); } }, ['Cancel']);
+      var saveBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: commit }, ['Save']);
+
+      var handle = R.ui.modal({
+        title: 'Save preset', width: 360, className: 'rb-modal-save',
+        body: el('div.rb-savedlg', null, children),
+        footer: [cancelBtn, saveBtn],
+        initialFocus: input,
+        onClose: function () { if (stage) { stage.destroy(); stage = null; } }
+      });
+
+      function suggestName() {
+        if (previewFor && R.ui.curveName) {
+          try {
+            var c = previewFor(config.get());
+            var nm = R.ui.curveName(typeof c === 'function' ? null : c);
+            if (nm && nm !== 'Custom' && nm !== 'No ease' && nm !== 'Linear' &&
+              !existsIn(userNames(), nm) && !existsIn(builtinNames(), nm)) return nm;
+          } catch (e) { /* fall through */ }
+        }
+        var n = loadUser().length + 1;
+        while (existsIn(userNames(), 'Preset ' + n) || existsIn(builtinNames(), 'Preset ' + n)) n++;
+        return 'Preset ' + n;
       }
-      function commit(name) {
-        name = ('' + (name || '')).trim();
-        if (!name) { showButton(); return; }
-        var items = loadUser().filter(function (u) { return u.name !== name; });
+
+      function refreshHint() {
+        var name = input.value.trim();
+        input.classList.remove('is-invalid');
+        hint.classList.remove('is-warn', 'is-error');
+        if (!name) { saveBtn.disabled = true; saveBtn.textContent = 'Save'; hint.textContent = ''; return; }
+        var bi = existsIn(builtinNames(), name);
+        if (bi) {
+          saveBtn.disabled = true; saveBtn.textContent = 'Save';
+          hint.classList.add('is-error'); hint.textContent = '“' + bi + '” is a built-in preset. Choose another name.';
+          input.classList.add('is-invalid'); return;
+        }
+        saveBtn.disabled = false;
+        var u = existsIn(userNames(), name);
+        if (u) { saveBtn.textContent = 'Replace'; hint.classList.add('is-warn'); hint.textContent = 'Replaces your preset “' + u + '”.'; }
+        else { saveBtn.textContent = 'Save'; hint.textContent = ''; }
+      }
+
+      function commit() {
+        var name = input.value.trim();
+        if (!name || existsIn(builtinNames(), name)) { input.classList.add('is-invalid'); input.focus(); input.select(); refreshHint(); return; }
+        var replaced = !!existsIn(userNames(), name);
+        var items = loadUser().filter(function (u) { return !eqi(u.name, name); });
         items.push({ name: name, state: config.get() });
         saveUser(items);
+        handle.close('confirm');
         rebuild();
         mark(name);
-        if (R.ui.toast) R.ui.toast('Saved “' + name + '”', { kind: 'success' });
+        if (R.ui.toast) R.ui.toast((replaced ? 'Replaced “' : 'Saved “') + name + '”', { kind: 'success' });
       }
-      showButton();
-      return node;
+
+      refreshHint();
+    }
+
+    function saveTile() {
+      return el('div.rb-tile.rb-pg-save', {
+        role: 'button', tabindex: '0', title: 'Save current settings as a preset',
+        onclick: openSaveDialog,
+        onkeydown: function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSaveDialog(); } }
+      }, [
+        el('div.rb-pg-savebtn', null, [el('span.rb-pg-plus', { text: '+' }), el('span', { text: 'Save' })])
+      ]);
     }
 
     function rebuild() {
