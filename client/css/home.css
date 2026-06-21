@@ -106,11 +106,15 @@
   font-size: calc(var(--rb-font-size) - 1px);
 }
 .rb-home-widget-body { padding: var(--rb-gap-2) var(--rb-gap-3); }
+.rb-home-widget-body > .rb-col { gap: var(--rb-gap-2); }
 /* Compact widgets: drop the descriptive prose and the "vs After Effects" note so
    the widget is just the controls and its graph. Section labels and live
    readouts stay. The full tool view keeps all of it. */
 .rb-home-widget-body .rb-faint,
 .rb-home-widget-body .rb-diff { display: none; }
+/* Preview graphs stretch to fill the widget width (no letterboxed empty space);
+   set by JS via preserveAspectRatio on non-editor previews. Keep them compact. */
+.rb-home-widget-body svg[preserveAspectRatio="none"] { max-height: 84px; }
 .rb-home-widget .rb-action-bar {
   display: flex; align-items: center; gap: var(--rb-gap-2);
   padding: var(--rb-gap-2) var(--rb-gap-3); border-top: 1px solid var(--rb-border);
@@ -133,6 +137,10 @@
 }
 .rb-home-widget.is-dragging { opacity: 0.4; }
 .rb-home-widget.is-droptarget { border-color: var(--rb-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 35%, transparent); }
+
+/* Fullscreen Home: hide the category rail so the board fills the panel; the
+   topbar (search) stays. The rail returns when browsing or in a tool. */
+#rb-app.is-home-full .rb-rail { display: none; }
 
 /* ---- Focus mode (hide the rail + topbar, fill the panel) ----------------- */
 #rb-app.is-focus .rb-rail,

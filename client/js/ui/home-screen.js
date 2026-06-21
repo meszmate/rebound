@@ -31,6 +31,19 @@
     return { items: R.homeActions.DEFAULT.slice(), widths: {} };
   }
 
+  // Stretch a widget's schematic preview graphs to fill its width so there is no
+  // letterboxed empty space. Interactive curve editors and curve chips are left
+  // alone so their shape is not distorted.
+  function fillPreviews(host) {
+    var svgs = host.querySelectorAll('svg[width="100%"]');
+    for (var i = 0; i < svgs.length; i++) {
+      var s = svgs[i];
+      if ((s.getAttribute('class') || '').indexOf('rb-curve-chip') !== -1) continue;
+      if (s.querySelector('.rb-curve-path, .rb-handle, .rb-swatch-dot')) continue;
+      s.setAttribute('preserveAspectRatio', 'none');
+    }
+  }
+
   function create(opts) {
     var saved = load();
     var ids = saved.items;
@@ -148,6 +161,16 @@
       } else {
         host.appendChild(el('div.rb-empty', null, ['Unknown widget']));
       }
+
+      // Fill preview graphs now and on every re-render (controls rebuild them).
+      fillPreviews(host);
+      var mo = null;
+      if (typeof MutationObserver !== 'undefined') {
+        mo = new MutationObserver(function () { fillPreviews(host); });
+        mo.observe(host, { childList: true, subtree: true });
+      }
+      var toolDestroy = destroy;
+      destroy = function () { if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
 
       var widthBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Toggle widget width',
         onclick: function (e) { e.stopPropagation(); setWidth(action.id, widthOf(action.id) === 'half' ? 'full' : 'half'); } }, [widthOf(action.id) === 'half' ? '½' : '▭']);

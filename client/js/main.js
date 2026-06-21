@@ -22,7 +22,8 @@
 
   var mounted = {};
   var ctx = null;
-  var view = 'detail';        // 'browse' | 'detail'
+  var view = 'detail';        // 'home' | 'browse' | 'detail'
+  var detailReturn = 'home';  // where Back returns to after a tool
   var lastCategory = 'ease';
   var searchQuery = '';
   var cards = [];             // [{ tool, el }] currently shown
@@ -284,6 +285,7 @@
     if (homeEl) homeEl.classList.remove('rb-hidden');
     if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
     if (homeRailBtn) homeRailBtn.classList.remove('is-active');
+    setHomeFull(false);
   }
 
   // The configurable Home: the one-click action grid, hiding the browse/detail
@@ -297,6 +299,7 @@
     if (homeScreenEl) homeScreenEl.classList.remove('rb-hidden');
     highlightRail(null);
     if (homeRailBtn) homeRailBtn.classList.add('is-active');
+    setHomeFull(true);
   }
 
   // Focus mode hides the rail and topbar so the current view fills the panel;
@@ -408,6 +411,9 @@
   // ---- Detail ---------------------------------------------------------------
 
   function openTool(tool) {
+    // Remember where to return: opening from the Home goes back to the Home,
+    // opening from a category browse goes back to that category.
+    detailReturn = (view === 'browse') ? 'browse' : 'home';
     pushRecent(tool.id);
     if (!mounted[tool.id]) {
       var host = el('div.rb-tool-host');
@@ -459,11 +465,20 @@
     if (homeEl) homeEl.classList.add('rb-hidden');
     if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
     if (homeRailBtn) homeRailBtn.classList.remove('is-active');
+    setHomeFull(false);
     appStore.update({ activeTool: tool.id });
   }
 
   function back() {
-    showCategory(lastCategory || 'ease');
+    if (detailReturn === 'browse') showCategory(lastCategory || 'ease');
+    else showHome();
+  }
+
+  // The Home is shown fullscreen: its own sidebar (the category rail) is hidden
+  // so the board fills the panel. The rail returns when browsing or in a tool.
+  function setHomeFull(on) {
+    var app = document.getElementById('rb-app');
+    if (app) app.classList.toggle('is-home-full', !!on);
   }
 
   function openToolById(id) {
