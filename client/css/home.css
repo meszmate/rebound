@@ -275,14 +275,17 @@
   border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
   background: var(--rb-bg-raised, var(--rb-bg-sunken)); overflow: hidden;
 }
-.rb-home-widget-head, .rb-home-widget .rb-action-bar { flex: none; }
+.rb-home-widget .rb-action-bar { flex: none; }
 /* When the user has given a widget an explicit height, its body fills it. */
 .rb-home-widget.is-sized .rb-home-widget-body { flex: 1 1 auto; max-height: none; min-height: 0; }
 
-/* Collapse to just the header. */
+/* Collapse to a slim bar; the floating title + controls stay visible. */
+.rb-home-widget.is-collapsed { min-height: 30px; }
 .rb-home-widget.is-collapsed .rb-home-widget-body,
 .rb-home-widget.is-collapsed .rb-action-bar,
 .rb-home-widget.is-collapsed .rb-home-widget-shield { display: none; }
+.rb-home-widget.is-collapsed .rb-home-wctrls,
+.rb-home-widget.is-collapsed .rb-home-wtitle { opacity: 1; transform: none; pointer-events: auto; }
 
 /* Maximize a single widget to fill the whole panel. */
 .rb-home-widget.is-maximized {
@@ -291,23 +294,39 @@
 }
 .rb-home-widget.is-maximized .rb-home-widget-body { flex: 1 1 auto; max-height: none; overflow-y: auto; }
 
+/* Floating chrome: the tool fills the whole widget; a title chip (top-left) and a
+   controls cluster (top-right) fade in on hover or in edit mode, sitting over the
+   content's edges instead of a header bar that steals space. */
+.rb-home-wctrls {
+  position: absolute; top: 5px; right: 5px; z-index: 6; display: flex; gap: 4px;
+  opacity: 0; transform: translateY(-3px); pointer-events: none;
+  transition: opacity var(--rb-transition), transform var(--rb-transition);
+}
+.rb-home-wtitle {
+  position: absolute; top: 5px; left: 5px; z-index: 6; display: inline-flex; align-items: center; gap: 5px;
+  max-width: 58%; padding: 3px 10px 3px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--rb-bg) 72%, transparent); color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+  opacity: 0; transform: translateY(-3px); pointer-events: none;
+  transition: opacity var(--rb-transition), transform var(--rb-transition);
+}
+.rb-home-wtitle-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-home-widget:hover .rb-home-wctrls, .rb-home-widget.is-editmode .rb-home-wctrls,
+.rb-home-widget:hover .rb-home-wtitle, .rb-home-widget.is-editmode .rb-home-wtitle { opacity: 1; transform: none; pointer-events: auto; }
+
 .rb-home-wbtn {
   display: inline-flex; align-items: center; justify-content: center;
-  flex: none; min-width: 22px; height: 20px; padding: 0 5px;
-  border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
-  background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; line-height: 1;
-  transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), color var(--rb-transition), border-color var(--rb-transition);
+  width: 24px; height: 24px; padding: 0; flex: none;
+  border: 1px solid var(--rb-border-strong); border-radius: 999px;
+  background: color-mix(in srgb, var(--rb-bg-raised) 86%, transparent); color: var(--rb-text-muted);
+  cursor: pointer; font: inherit; line-height: 1; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: color var(--rb-transition), border-color var(--rb-transition), background var(--rb-transition);
 }
+.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); background: var(--rb-bg-raised); }
+.rb-home-wbtn.is-active { color: var(--rb-accent-text); background: var(--rb-accent); border-color: var(--rb-accent); }
+.rb-home-wbtn-x:hover { color: #fff; background: var(--rb-danger); border-color: var(--rb-danger); }
 .rb-home-wbtn-edit { display: none; }
 .rb-home-widget.is-editmode .rb-home-wbtn-edit { display: inline-flex; }
-.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); }
-.rb-home-wbtn.is-active { color: var(--rb-accent); border-color: var(--rb-accent); }
-.rb-home-widget-head {
-  display: flex; align-items: center; gap: var(--rb-gap-2);
-  padding: 6px 8px; border-bottom: 1px solid var(--rb-border);
-  background: var(--rb-bg-sunken); color: var(--rb-text-muted);
-  font-size: calc(var(--rb-font-size) - 1px);
-}
 /* Cap an embedded tool so it stays a manageable panel and scrolls inside rather
    than dominating the board. Maximize lifts the cap. */
 .rb-home-widget-body { padding: var(--rb-gap-2); max-height: 280px; overflow-y: auto; }
@@ -341,7 +360,8 @@
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
-.rb-home-widget.is-filled .rb-curve svg,
+.rb-home-widget.is-filled .rb-home-widget-body svg { max-height: none; }
+.rb-home-widget.is-filled .rb-curve svg { width: 100%; height: 100%; }
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
 /* Edge-to-edge: the box IS the widget, so drop its own frame and rounding. */
 .rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; border: 0; border-radius: 0; }
@@ -421,12 +441,12 @@
 /* Board accent picker in the edit bar, and the per-widget colour swatch. */
 .rb-home-boardcolor { width: 26px; height: 20px; }
 .rb-home-wcolor {
-  display: none; width: 22px; height: 20px; padding: 0; flex: none; cursor: pointer;
-  border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1); background: none;
+  width: 24px; height: 24px; padding: 0; flex: none; cursor: pointer;
+  border: 1px solid var(--rb-border-strong); border-radius: 999px; background: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
-.rb-home-wcolor::-webkit-color-swatch-wrapper { padding: 2px; }
-.rb-home-wcolor::-webkit-color-swatch { border: none; border-radius: 2px; }
-.rb-home-widget.is-editmode .rb-home-wcolor { display: inline-block; }
+.rb-home-wcolor::-webkit-color-swatch-wrapper { padding: 3px; }
+.rb-home-wcolor::-webkit-color-swatch { border: none; border-radius: 999px; }
 
 /* Drag-to-resize handle (bottom-right). Big and accent-coloured, revealed on
    tile hover (see the affordance reveal rules above). */

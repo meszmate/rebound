@@ -673,24 +673,22 @@
       var toolDestroy = destroy;
       destroy = function () { if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
 
+      // No persistent header: the tool fills the widget, and the chrome floats on
+      // the edges, appearing on hover (or in edit mode).
       var collapseBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Collapse / expand',
         onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
       var fillBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Fill: show just the main control, full size',
         onclick: function (e) { e.stopPropagation(); toggleFill(action.id); } }, [filledOf(action.id) ? '▣' : '▢']);
       var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
-      var wColor = el('input.rb-home-wcolor', { type: 'color', title: 'Widget colour (double-click to clear)' });
+      var removeBtn = el('button.rb-home-wbtn.rb-home-wbtn-x.rb-home-wbtn-edit', { type: 'button', title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']);
+      var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour (double-click to clear)' });
       wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; card.style.setProperty('--rb-accent', wColor.value); persist(); });
       wColor.addEventListener('dblclick', function () { if (meta[action.id]) delete meta[action.id].color; card.style.removeProperty('--rb-accent'); persist(); });
-      var header = el('div.rb-home-widget-head', null, [
-        el('span.rb-home-grip', { title: 'Drag to move' }, ['⠿']),
-        iconSpan(action.toolId, 'rb-home-ico-sm'),
-        el('span.rb-grow', { text: action.label }),
-        wColor, fillBtn, collapseBtn, maxBtn,
-        el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×'])
-      ]);
+      var controls = el('div.rb-home-wctrls', null, [wColor, fillBtn, collapseBtn, maxBtn, removeBtn]);
+      var titleChip = el('div.rb-home-wtitle', null, [iconSpan(action.toolId, 'rb-home-ico-sm'), el('span.rb-home-wtitle-name', { text: action.label })]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
-      var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
+      var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, footer]);
       wireDrag(card, action.id);
       attachResize(card, action.id, 'widget');
       widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, fillBtn: fillBtn, wColor: wColor };
