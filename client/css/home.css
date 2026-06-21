@@ -74,6 +74,33 @@
    small label under it. Recognizable on sight, so no icon chip needed. */
 .rb-home-tilevis { width: 100%; flex: 1 1 auto; min-height: 26px; max-height: 100%; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .rb-home-tilevis svg { width: 100%; height: 100%; }
+
+/* Per-easing visual: a unique curve plus a dot that travels with that easing. */
+.rb-home-tilevis.rb-ez { position: relative; }
+.rb-ez-svg { display: block; }
+.rb-ez-base { stroke: var(--rb-border-strong); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.rb-ez-curve { fill: none; stroke: var(--rb-accent); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.rb-ez-dot {
+  position: absolute; bottom: 9%; left: 6%; width: 8px; height: 8px; margin-left: -4px;
+  border-radius: 50%; background: var(--rb-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rb-accent) 22%, transparent);
+  animation: rb-ez-run 1.9s infinite both;
+}
+@keyframes rb-ez-run {
+  0% { left: 6%; opacity: 0; }
+  7% { opacity: 1; }
+  47% { left: 94%; opacity: 1; }
+  70% { left: 94%; opacity: 0; }
+  100% { left: 6%; opacity: 0; }
+}
+.is-ez-linear .rb-ez-dot { animation-timing-function: linear; }
+.is-ez-ease .rb-ez-dot { animation-timing-function: cubic-bezier(0.33, 0, 0.67, 1); }
+.is-ez-easeIn .rb-ez-dot { animation-timing-function: cubic-bezier(0.42, 0, 1, 1); }
+.is-ez-easeOut .rb-ez-dot { animation-timing-function: cubic-bezier(0, 0, 0.58, 1); }
+.is-ez-hold .rb-ez-dot { animation-timing-function: steps(1, jump-end); }
+/* The user can turn tile animation off (Appearance > Animate tiles). */
+:root.rb-tiles-static .rb-ez-dot { animation: none; opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .rb-ez-dot { animation: none; opacity: 0; } }
 .rb-home-tile.is-disp-visual { justify-content: space-between; padding: 7px 7px 6px; }
 .rb-home-tile.is-disp-visual .rb-home-label { flex: none; font-size: calc(var(--rb-font-size) - 2px); color: var(--rb-text-muted); }
 

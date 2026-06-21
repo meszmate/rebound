@@ -19,9 +19,11 @@
   // label. desc: the line shown in the big hover tooltip. The user can override
   // the look per tile in the customizer.
   var APPLY = [
-    { id: 'easy-ease', label: 'Easy Ease', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', desc: 'Ease selected keyframes in and out (F9).', invoke: { method: 'keys.setInterp', args: { type: 'easyEase' } } },
-    { id: 'ease-linear', label: 'Linear', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', desc: 'Constant-speed interpolation between keys.', invoke: { method: 'keys.setInterp', args: { type: 'linear' } } },
-    { id: 'ease-hold', label: 'Hold', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', desc: 'Hold each value until the next keyframe.', invoke: { method: 'keys.setInterp', args: { type: 'hold' } } },
+    { id: 'easy-ease', label: 'Easy Ease', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', curve: 'ease', desc: 'Ease selected keyframes in and out (F9).', invoke: { method: 'keys.setInterp', args: { type: 'easyEase' } } },
+    { id: 'ease-in', label: 'Ease In', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', curve: 'easeIn', desc: 'Ease into the next keyframe (slow start).', invoke: { method: 'keys.setInterp', args: { type: 'easyEaseIn' } } },
+    { id: 'ease-out', label: 'Ease Out', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', curve: 'easeOut', desc: 'Ease out of a keyframe (slow finish).', invoke: { method: 'keys.setInterp', args: { type: 'easyEaseOut' } } },
+    { id: 'ease-linear', label: 'Linear', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', curve: 'linear', desc: 'Constant-speed interpolation between keys.', invoke: { method: 'keys.setInterp', args: { type: 'linear' } } },
+    { id: 'ease-hold', label: 'Hold', toolId: 'keys', group: 'Easing', kind: 'apply', display: 'visual', curve: 'hold', desc: 'Hold each value until the next keyframe.', invoke: { method: 'keys.setInterp', args: { type: 'hold' } } },
     { id: 'reverse-keys', label: 'Reverse Keys', toolId: 'reverse', group: 'Timing', kind: 'apply', display: 'text', desc: 'Reverse the order of the selected keyframes.', invoke: { method: 'reverse.apply', args: {} } },
     { id: 'trim-keys', label: 'Trim to Keys', toolId: 'trim', group: 'Timing', kind: 'apply', display: 'text', desc: 'Trim the layer to its first and last keyframe.', invoke: { method: 'trim.apply', args: { trimIn: true, trimOut: true, paddingFrames: 0 } } },
     { id: 'bake-frames', label: 'Bake Frames', toolId: 'bake', group: 'Easing', kind: 'apply', display: 'text', desc: 'Bake the animation to a keyframe on every frame.', invoke: { method: 'bake.apply', args: { range: 'work', stepFrames: 1, includeExpressions: false } } },
@@ -69,10 +71,10 @@
   // A clean, dense starter board of compact one-click actions and quick tool
   // jumps. Widgets (whole-tool panels) are one Add away from the browser.
   var DEFAULT = [
-    'easy-ease', 'ease-linear', 'ease-hold', 'reverse-keys', 'trim-keys',
-    'center-anchor', 'align-center', 'add-null', 'reset-transform',
-    'shape-rect', 'shape-ellipse', 'grid-thirds', 'expr-wiggle', 'expr-loop',
-    'open-ease', 'open-spring', 'open-scatter', 'open-gradient', 'open-expressions'
+    'easy-ease', 'ease-in', 'ease-out', 'ease-linear', 'ease-hold',
+    'reverse-keys', 'trim-keys', 'center-anchor', 'align-center', 'add-null',
+    'reset-transform', 'shape-rect', 'shape-ellipse', 'grid-thirds', 'expr-wiggle',
+    'expr-loop', 'open-spring', 'open-scatter', 'open-gradient', 'open-expressions'
   ];
 
   R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, all: all, byId: byId, DEFAULT: DEFAULT };

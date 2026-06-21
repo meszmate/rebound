@@ -113,12 +113,16 @@
       advToggle.textContent = (on ? '▾ ' : '▸ ') + 'Fine-tune colours';
     } }, ['▸ Fine-tune colours']);
 
+    var animToggle = R.ui.toggle({ label: 'Animate tiles', value: s.animateTiles !== false,
+      onChange: function (v) { s.animateTiles = v; document.documentElement.classList.toggle('rb-tiles-static', !v); apply(); } });
+
     var body = el('div.rb-appe', null, [
       el('div.rb-section-label', { text: 'Theme' }),
       presets,
       R.ui.row('Mode', modeCtl.el),
       accentField,
       bgField,
+      animToggle.el,
       el('div.rb-appe-advsec', null, [advToggle, advWrap])
     ]);
 

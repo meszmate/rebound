@@ -244,7 +244,27 @@
       if (m && m.icon) return el('span.rb-home-ico.is-custom', null, [el('img', { src: m.icon, alt: '' })]);
       return iconSpan(action.toolId);
     }
+    // Unique easing visuals: each curve type draws its own shape and a dot that
+    // travels the baseline with that exact easing, so Linear, Hold, Ease In/Out
+    // look and move differently. The dot animation can be turned off globally.
+    var EZ_PATH = {
+      linear: 'M6,46 L94,6',
+      ease: 'M6,46 C 42,46 58,6 94,6',
+      easeIn: 'M6,46 C 52,46 76,32 94,6',
+      easeOut: 'M6,46 C 24,20 48,6 94,6',
+      hold: 'M6,46 L50,46 L50,6 L94,6'
+    };
+    function easingVisual(kind) {
+      if (!EZ_PATH[kind]) kind = 'ease';
+      var box = el('div.rb-home-tilevis.rb-ez.is-ez-' + kind);
+      box.innerHTML = '<svg viewBox="0 0 100 52" preserveAspectRatio="none" class="rb-ez-svg">'
+        + '<line x1="6" y1="46" x2="94" y2="46" class="rb-ez-base"/>'
+        + '<path d="' + EZ_PATH[kind] + '" class="rb-ez-curve"/></svg>'
+        + '<span class="rb-ez-dot"></span>';
+      return box;
+    }
     function tileVisual(action) {
+      if (action.curve) return easingVisual(action.curve);
       var d = R.toolDemos && R.toolDemos[action.toolId];
       if (d && d.svg) { var w = el('div.rb-home-tilevis'); w.innerHTML = d.svg; return w; }
       return null;
@@ -420,7 +440,40 @@
       ]);
     }
 
+    // Smooth reflow (FLIP): snapshot positions/sizes before a re-render, then
+    // animate each surviving item from where it was to where it lands, so resize,
+    // reorder and column changes glide instead of jumping.
+    function captureRects() {
+      var map = {};
+      Array.prototype.forEach.call(grid.querySelectorAll('[data-id]'), function (n) { map[n.getAttribute('data-id')] = n.getBoundingClientRect(); });
+      return map;
+    }
+    function flip(prev) {
+      if (!prev) return;
+      if (document.documentElement.classList.contains('rb-tiles-static')) return;
+      if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      Array.prototype.forEach.call(grid.querySelectorAll('[data-id]'), function (n) {
+        var was = prev[n.getAttribute('data-id')];
+        if (!was) return;
+        var now = n.getBoundingClientRect();
+        if (!now.width || !was.width) return;
+        var dx = was.left - now.left, dy = was.top - now.top;
+        var sx = was.width / now.width, sy = was.height / now.height;
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
+        n.style.transformOrigin = 'top left';
+        n.style.transition = 'none';
+        n.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
+        void n.offsetWidth;
+        n.style.transition = 'transform var(--rb-dur-medium, 0.26s) var(--rb-ease-emphasized, cubic-bezier(0.2, 0.9, 0.25, 1))';
+        n.style.transform = '';
+        n.addEventListener('transitionend', function te(ev) {
+          if (ev.propertyName === 'transform') { n.style.transition = ''; n.style.transformOrigin = ''; n.removeEventListener('transitionend', te); }
+        });
+      });
+    }
+
     function render() {
+      var prevRects = captureRects();
       var keep = {};
       ids.forEach(function (id) { keep[id] = true; });
       Object.keys(widgetCache).forEach(function (id) {
@@ -448,6 +501,7 @@
         }
       });
       if (editing) grid.appendChild(addTile());
+      flip(prevRects);
       lastAddedId = null;
     }
 

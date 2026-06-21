@@ -552,10 +552,15 @@
 
   // ---- Settings / selection / context --------------------------------------
 
+  function applyMiscPrefs(s) {
+    document.documentElement.classList.toggle('rb-tiles-static', !!(s && s.animateTiles === false));
+  }
+
   function applySavedSettings() {
     try {
       var s = R.disk.read('settings', null);
       R.theme.applyFromSettings(s || {});
+      applyMiscPrefs(s);
       appStore.update({ settings: s || {} });
     } catch (e) {
       R.log.warn('Could not load settings', e);
@@ -569,6 +574,7 @@
           var s = null;
           try { s = JSON.parse(ev.data); } catch (e) { return; }
           R.theme.applyFromSettings(s);
+          applyMiscPrefs(s);
           appStore.update({ settings: s });
         });
       }
