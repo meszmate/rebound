@@ -10,7 +10,7 @@
 .rb-grad-canvas {
   position: relative;
   height: 168px;
-  margin: 14px 14px 0; /* room for endpoints dragged past the edges */
+  margin: 22px 22px 0; /* room for endpoints dragged past the edges */
   border: 1px solid var(--rb-border);
   border-radius: var(--rb-radius-2) var(--rb-radius-2) 0 0;
   overflow: visible; /* endpoints can sit outside the shape, like Figma */
@@ -20,7 +20,9 @@
 .rb-grad-line,
 .rb-grad-handles { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 
-.rb-grad-h { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: grab; }
+/* Handles sit above the fused bar / siblings so a handle dragged outside the
+   canvas stays grabbable (can always be dragged back). */
+.rb-grad-h { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: grab; z-index: 6; }
 .rb-grad-h:active { cursor: grabbing; }
 .rb-grad-h.is-end {
   width: 16px; height: 16px; border-radius: 50%;
@@ -54,7 +56,7 @@
 
 /* 2. Fused 1D stop bar */
 .rb-grad-bar {
-  position: relative; height: 24px; margin: -1px 14px 0; /* align with the canvas */
+  position: relative; height: 24px; margin: -1px 22px 0; /* align with the canvas */
   border: 1px solid var(--rb-border); border-top: 0;
   border-radius: 0 0 var(--rb-radius-2) var(--rb-radius-2);
   cursor: copy; touch-action: none;

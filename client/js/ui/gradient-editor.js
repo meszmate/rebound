@@ -153,9 +153,10 @@
     }
 
     function dragEndpoint(which) {
-      // Allow the endpoints a little past the box edges (Figma-style), so the
-      // line can extend beyond the shape; the remapped fill reflects it.
-      function move(ev) { var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, -0.12, 1.12), y: clampR(p.y, -0.12, 1.12) }; renderStage(); }
+      // Allow the endpoints a little past the box edges (Figma-style) but only
+      // as far as the canvas margin, so a handle dragged out stays visible and
+      // grabbable (never clipped by the panel) and can always be dragged back.
+      function move(ev) { var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, -0.07, 1.07), y: clampR(p.y, -0.07, 1.07) }; renderStage(); }
       function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
