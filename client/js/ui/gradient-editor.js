@@ -1,19 +1,28 @@
 /*
  * Rebound, gradient editor.
- * A Figma-style multi-stop gradient editor: a gradient bar with draggable color
- * stops (click the bar to add one, drag to move, select to recolor / reposition,
- * delete down to two), a type switch and angle, reverse, and a live preview on
- * both a shape and text. The value is a model:
- *   { type:'linear'|'radial', angle:0..360, stops:[{ pos:0..1, color:'#rrggbb' }] }
+ * A Figma-style gradient editor. The gradient line lives on a shape stage with
+ * two endpoint handles you drag freely in 2D (direction + position) and the
+ * color stops sitting on the line (drag along it to reposition, click the stage
+ * to add one, Delete to remove down to two). Plus a text preview, a type switch,
+ * reverse, and per-stop color/position. Value model:
+ *   { type:'linear'|'radial', start:{x,y}, end:{x,y}, stops:[{pos,color}] }
+ * where start/end are normalized 0..1 in the stage. Older { angle } values are
+ * converted on load.
  */
 ;(function (R) {
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function clone(o) { return o ? JSON.parse(JSON.stringify(o)) : o; }
+  function lerp(a, b, t) { return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; }
+  function projectT(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy || 1;
+    return clamp01(((p.x - a.x) * dx + (p.y - a.y) * dy) / len2);
+  }
 
   function hex2rgb(h) {
     h = ('' + h).replace('#', '');
@@ -25,139 +34,150 @@
     function c(x) { x = Math.max(0, Math.min(255, Math.round(x))); return (x < 16 ? '0' : '') + x.toString(16); }
     return '#' + c(r) + c(g) + c(b);
   }
-  function lerpHex(a, b, t) {
-    var x = hex2rgb(a), y = hex2rgb(b);
-    return rgb2hex(x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t);
-  }
+  function lerpHex(a, b, t) { var x = hex2rgb(a), y = hex2rgb(b); return rgb2hex(x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t); }
 
   function sortedStops(stops) { return stops.slice().sort(function (a, b) { return a.pos - b.pos; }); }
-  function stopsCss(stops) {
-    return sortedStops(stops).map(function (s) { return s.color + ' ' + (s.pos * 100).toFixed(1) + '%'; }).join(', ');
-  }
-  // CSS for the model; forBar renders a flat left-to-right ramp regardless of type.
-  function gradCss(model, forBar) {
-    var cs = stopsCss(model.stops);
-    if (forBar || model.type !== 'radial') {
-      return 'linear-gradient(' + (forBar ? 90 : (90 + (model.angle || 0))) + 'deg, ' + cs + ')';
-    }
-    return 'radial-gradient(circle at 50% 50%, ' + cs + ')';
-  }
-
+  function stopsCss(stops) { return sortedStops(stops).map(function (s) { return s.color + ' ' + (s.pos * 100).toFixed(1) + '%'; }).join(', '); }
   function colorAt(stops, p) {
     var s = sortedStops(stops);
     if (p <= s[0].pos) return s[0].color;
     if (p >= s[s.length - 1].pos) return s[s.length - 1].color;
     for (var i = 0; i < s.length - 1; i++) {
-      if (p >= s[i].pos && p <= s[i + 1].pos) {
-        var span = (s[i + 1].pos - s[i].pos) || 1;
-        return lerpHex(s[i].color, s[i + 1].color, (p - s[i].pos) / span);
-      }
+      if (p >= s[i].pos && p <= s[i + 1].pos) { var span = (s[i + 1].pos - s[i].pos) || 1; return lerpHex(s[i].color, s[i + 1].color, (p - s[i].pos) / span); }
     }
     return s[0].color;
   }
 
+  // The gradient line for a model: from start/end, or derived from a legacy angle.
+  function lineOf(m) {
+    if (m.start && m.end) return { a: m.start, b: m.end };
+    var ang = (m.angle || 0) * Math.PI / 180, h = 0.42;
+    return { a: { x: 0.5 - h * Math.cos(ang), y: 0.5 - h * Math.sin(ang) }, b: { x: 0.5 + h * Math.cos(ang), y: 0.5 + h * Math.sin(ang) } };
+  }
+  function gradCss(m) {
+    var cs = stopsCss(m.stops);
+    var L = lineOf(m);
+    if (m.type === 'radial') return 'radial-gradient(circle at ' + (L.a.x * 100).toFixed(1) + '% ' + (L.a.y * 100).toFixed(1) + '%, ' + cs + ')';
+    var ang = Math.atan2(L.b.x - L.a.x, -(L.b.y - L.a.y)) * 180 / Math.PI;
+    return 'linear-gradient(' + ang.toFixed(1) + 'deg, ' + cs + ')';
+  }
+
+  function normalize(v) {
+    var m = clone(v) || {};
+    if (!m.type) m.type = 'linear';
+    if (!m.stops || m.stops.length < 2) m.stops = [{ pos: 0, color: '#1e63ff' }, { pos: 1, color: '#16e0c0' }];
+    if (!m.start || !m.end) { var L = lineOf(m); m.start = clone(L.a); m.end = clone(L.b); }
+    delete m.angle;
+    return m;
+  }
+
   function gradientEditor(opts) {
     opts = opts || {};
-    var model = clone(opts.value) || { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#1e63ff' }, { pos: 1, color: '#16e0c0' }] };
+    var model = normalize(opts.value);
     var onChange = opts.onChange || function () {};
-    var selected = 0;
+    var selected = model.stops[0];
 
     function emit() { onChange(clone(model)); }
+    function selIndex() { return model.stops.indexOf(selected); }
 
-    var shapePrev = el('div.rb-grad-prev-shape');
+    var stage = el('div.rb-grad-stage');
+    var line = svg('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'class': 'rb-grad-line' });
+    var handles = el('div.rb-grad-handles');
+    stage.appendChild(line);
+    stage.appendChild(handles);
+
     var textPrev = el('div.rb-grad-prev-text', { text: 'Gradient' });
-    function renderPreviews() {
-      var css = gradCss(model);
-      // Set background-image (not the background shorthand) so the text preview
-      // keeps its background-clip:text from CSS (the shorthand would reset it).
-      shapePrev.style.backgroundImage = css;
-      textPrev.style.backgroundImage = css;
+
+    function ptFromEvent(e) {
+      var r = stage.getBoundingClientRect();
+      return { x: clamp01((e.clientX - r.left) / (r.width || 1)), y: clamp01((e.clientY - r.top) / (r.height || 1)) };
     }
 
-    var bar = el('div.rb-grad-bar');
-    var stopsLayer = el('div.rb-grad-stops');
-    var barWrap = el('div.rb-grad-barwrap', null, [bar, stopsLayer]);
-
-    function renderBar() {
-      bar.style.background = gradCss(model, true);
-      R.dom.clear(stopsLayer);
-      model.stops.forEach(function (s, i) {
-        var h = el('div.rb-grad-stop' + (i === selected ? '.is-selected' : ''), {
-          style: { left: (s.pos * 100) + '%' }, title: Math.round(s.pos * 100) + '%'
-        }, [el('span.rb-grad-stop-dot', { style: { background: s.color } })]);
-        h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); startDrag(i); });
-        stopsLayer.appendChild(h);
+    function renderStage() {
+      var css = gradCss(model);
+      stage.style.backgroundImage = css;
+      textPrev.style.backgroundImage = css;
+      var a = model.start, b = model.end;
+      R.dom.clear(line);
+      line.appendChild(svg('line', { x1: a.x * 100, y1: a.y * 100, x2: b.x * 100, y2: b.y * 100, stroke: '#fff', 'stroke-width': 0.8, opacity: 0.85 }));
+      R.dom.clear(handles);
+      handles.appendChild(endpoint(a, 'start'));
+      handles.appendChild(endpoint(b, 'end'));
+      model.stops.forEach(function (s) {
+        var pt = lerp(a, b, s.pos);
+        handles.appendChild(stopHandle(s, pt));
       });
     }
 
-    function startDrag(i) {
-      selected = i;
-      renderBar();
-      renderSelected();
-      var rect = bar.getBoundingClientRect();
-      function move(ev) {
-        model.stops[i].pos = clamp01((ev.clientX - rect.left) / (rect.width || 1));
-        renderBar();
-        renderPreviews();
-        renderSelected();
-      }
-      function up() {
-        document.removeEventListener('pointermove', move);
-        document.removeEventListener('pointerup', up);
-        emit();
-      }
+    function endpoint(pt, which) {
+      var h = el('div.rb-grad-h.is-end', { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%' }, title: which === 'start' ? 'Start' : 'End' });
+      h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragEndpoint(which); });
+      return h;
+    }
+    function stopHandle(s, pt) {
+      var h = el('div.rb-grad-h.is-stop' + (s === selected ? '.is-selected' : ''), { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%', background: s.color }, title: Math.round(s.pos * 100) + '%' });
+      h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragStop(s); });
+      return h;
+    }
+
+    function dragEndpoint(which) {
+      function move(ev) { model[which] = ptFromEvent(ev); renderStage(); }
+      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     }
-
-    bar.addEventListener('pointerdown', function (e) {
-      var rect = bar.getBoundingClientRect();
-      var p = clamp01((e.clientX - rect.left) / (rect.width || 1));
-      model.stops.push({ pos: p, color: colorAt(model.stops, p) });
-      selected = model.stops.length - 1;
-      renderBar();
-      renderPreviews();
+    function dragStop(s) {
+      selected = s; renderStage(); renderSelected();
+      function move(ev) { s.pos = projectT(ptFromEvent(ev), model.start, model.end); renderStage(); renderSelected(); }
+      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    }
+    // Click the stage (not a handle) to add a stop on the line at that point.
+    stage.addEventListener('pointerdown', function (e) {
+      var t = projectT(ptFromEvent(e), model.start, model.end);
+      var s = { pos: t, color: colorAt(model.stops, t) };
+      model.stops.push(s);
+      selected = s;
+      renderStage();
       renderSelected();
-      startDrag(selected);
+      dragStop(s);
     });
 
+    // ---- selected-stop controls ----
     var colorInput = el('input.rb-color-input', { type: 'color',
-      oninput: function (e) { model.stops[selected].color = e.target.value; renderBar(); renderPreviews(); emit(); } });
+      oninput: function (e) { selected.color = e.target.value; renderStage(); emit(); } });
     var posInput = ui.numberField({ label: 'Position', value: 0, min: 0, max: 100, step: 1, decimals: 0, suffix: '%', width: '92px',
-      onChange: function (v) { model.stops[selected].pos = clamp01(v / 100); renderBar(); renderPreviews(); emit(); } });
+      onChange: function (v) { selected.pos = clamp01(v / 100); renderStage(); emit(); } });
     var delBtn = el('button.rb-btn.is-ghost', { title: 'Delete the selected stop', onclick: function () {
-      if (model.stops.length > 2) { model.stops.splice(selected, 1); selected = Math.max(0, selected - 1); renderBar(); renderPreviews(); renderSelected(); emit(); }
+      if (model.stops.length > 2) { var i = selIndex(); model.stops.splice(i, 1); selected = model.stops[Math.max(0, i - 1)]; renderStage(); renderSelected(); emit(); }
     } }, ['Delete']);
     function renderSelected() {
-      var s = model.stops[selected];
-      if (!s) return;
-      colorInput.value = s.color;
-      posInput.set(Math.round(s.pos * 100));
+      if (model.stops.indexOf(selected) < 0) selected = model.stops[0];
+      colorInput.value = selected.color;
+      posInput.set(Math.round(selected.pos * 100));
       delBtn.disabled = model.stops.length <= 2;
     }
 
     var typeCtl = ui.segmented([
-      { value: 'linear', label: 'Linear', title: 'A straight ramp.' },
-      { value: 'radial', label: 'Radial', title: 'A circular ramp.' }
-    ], { value: model.type, onChange: function (v) { model.type = v; angleSlider.el.style.display = v === 'linear' ? '' : 'none'; renderPreviews(); emit(); } });
-    var angleSlider = ui.slider({ label: 'Angle', min: 0, max: 360, step: 1, value: model.angle || 0,
-      format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { model.angle = v; renderPreviews(); emit(); } });
-    angleSlider.el.style.display = model.type === 'linear' ? '' : 'none';
+      { value: 'linear', label: 'Linear', title: 'A straight ramp along the line.' },
+      { value: 'radial', label: 'Radial', title: 'A circular ramp from the start handle outward.' }
+    ], { value: model.type, onChange: function (v) { model.type = v; renderStage(); emit(); } });
     var reverseBtn = el('button.rb-btn.is-ghost', { title: 'Reverse the stop order', onclick: function () {
-      model.stops.forEach(function (s) { s.pos = clamp01(1 - s.pos); });
-      renderBar(); renderPreviews(); renderSelected(); emit();
+      model.stops.forEach(function (s) { s.pos = clamp01(1 - s.pos); }); renderStage(); renderSelected(); emit();
     } }, ['Reverse']);
+    var distributeBtn = el('button.rb-btn.is-ghost', { title: 'Space the stops evenly', onclick: function () {
+      var s = sortedStops(model.stops); for (var i = 0; i < s.length; i++) s[i].pos = i / (s.length - 1); renderStage(); renderSelected(); emit();
+    } }, ['Distribute']);
 
     var root = el('div.rb-grad-editor', null, [
-      el('div.rb-grad-previews', null, [shapePrev, textPrev]),
-      barWrap,
-      el('div.rb-row.rb-grad-stoprow', null, [colorInput, posInput.el, delBtn, reverseBtn]),
+      el('div.rb-grad-previews', null, [stage, textPrev]),
+      el('div.rb-row.rb-grad-stoprow', null, [colorInput, posInput.el, delBtn]),
       ui.row('Type', typeCtl.el),
-      angleSlider.el
+      el('div.rb-row', null, [reverseBtn, distributeBtn])
     ]);
 
-    renderBar();
-    renderPreviews();
+    renderStage();
     renderSelected();
 
     return {
@@ -165,13 +185,10 @@
       getValue: function () { return clone(model); },
       setValue: function (v) {
         if (!v) return;
-        model = clone(v);
-        selected = 0;
+        model = normalize(v);
+        selected = model.stops[0];
         typeCtl.set(model.type);
-        angleSlider.set(model.angle || 0);
-        angleSlider.el.style.display = model.type === 'linear' ? '' : 'none';
-        renderBar();
-        renderPreviews();
+        renderStage();
         renderSelected();
       }
     };
@@ -179,5 +196,6 @@
 
   R.ui = R.ui || {};
   R.ui.gradientEditor = gradientEditor;
-  R.ui.gradientCss = gradCss; // reused by the tool's preset thumbnails
+  R.ui.gradientCss = gradCss;
+  R.ui.gradientLineOf = lineOf;
 })(window.Rebound = window.Rebound || {});

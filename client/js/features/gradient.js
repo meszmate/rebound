@@ -46,9 +46,11 @@
 
     function doApply() {
       var m = editor.getValue();
+      var L = R.ui.gradientLineOf(m); // direction from the dragged line endpoints
+      var angle = Math.atan2(L.b.y - L.a.y, L.b.x - L.a.x) * 180 / Math.PI;
       ctx.invoke('gradient.apply', {
         type: m.type,
-        angle: m.angle,
+        angle: angle,
         stops: m.stops.map(function (s) { return { pos: s.pos, color: hexToRgb01(s.color) }; })
       })
         .then(function (res) {
