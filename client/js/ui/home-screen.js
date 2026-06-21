@@ -27,8 +27,8 @@
 
   function load() {
     var d = R.disk.read('home-layout', null);
-    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, sizes: d.sizes || {}, board: d.board || 'md' };
-    return { items: R.homeActions.DEFAULT.slice(), widths: {}, collapsed: {}, meta: {}, sizes: {}, board: 'md' };
+    if (d && d.items && d.items.length) return { items: d.items.slice(), collapsed: d.collapsed || {}, meta: d.meta || {}, spans: d.spans || {}, board: d.board || 'md', cols: d.cols || 4 };
+    return { items: R.homeActions.DEFAULT.slice(), collapsed: {}, meta: {}, spans: {}, board: 'md', cols: 4 };
   }
 
   // Stretch a widget's schematic preview graphs to fill its width so there is no
@@ -47,11 +47,11 @@
   function create(opts) {
     var saved = load();
     var ids = saved.items;
-    var widths = saved.widths || {};
     var collapsed = saved.collapsed || {};
-    var meta = saved.meta || {};            // per-tile look: label, display, badge, size, icon
-    var sizes = saved.sizes || {};          // per-item drag-resized pixel size { w, h }
-    var board = saved.board || 'md';        // global density: sm | md | lg
+    var meta = saved.meta || {};            // per-tile look: label, display, badge, icon
+    var spans = saved.spans || {};          // per-item grid span { c, r } (cells)
+    var board = saved.board || 'md';        // cell size: sm | md | lg
+    var cols = saved.cols || 4;             // number of grid columns
     var maximizedId = null;
     var editing = false;
     var dragId = null;
@@ -75,59 +75,94 @@
       node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
     }
 
-    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed, meta: meta, sizes: sizes, board: board }); }
+    function persist() { R.disk.write('home-layout', { schemaVersion: 2, items: ids, collapsed: collapsed, meta: meta, spans: spans, board: board, cols: cols }); }
 
     function setBoard(b) { board = b; grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + b); persist(); syncBoardBtns(); }
     function syncBoardBtns() {
-      if (!boardBtns) return;
-      ['sm', 'md', 'lg'].forEach(function (b) { boardBtns[b].classList.toggle('is-active', board === b); });
+      if (boardBtns) ['sm', 'md', 'lg'].forEach(function (b) { boardBtns[b].classList.toggle('is-active', board === b); });
+    }
+    function setCols(n) { cols = n; grid.style.setProperty('--rb-home-cols', n); persist(); syncColsBtns(); render(); }
+    function syncColsBtns() {
+      if (colsBtns) [3, 4, 5, 6].forEach(function (n) { colsBtns[n].classList.toggle('is-active', cols === n); });
     }
 
-    // A corner drag-resize handle (edit mode), MTP-style: drag to size an item.
-    // axes 'both' resizes width + height (tiles); 'x' width only (widgets).
-    function attachResize(node, id, axes, minW, minH) {
-      var handle = el('span.rb-home-resize', { title: 'Drag to resize' });
+    function applySpan(node, id, full) {
+      var s = spans[id];
+      if (s) { node.style.gridColumn = 'span ' + Math.min(s.c, cols); node.style.gridRow = 'span ' + (s.r || 1); }
+      else if (full) { node.style.gridColumn = '1 / -1'; node.style.gridRow = ''; }
+    }
+
+    // A corner drag-resize handle (edit mode) that SNAPS to whole grid cells, so
+    // an item is always a clean 1x1 / 2x1 / 2x2 rectangle and the board stays
+    // aligned. axes 'both' sizes columns + rows (tiles); 'x' sizes columns only
+    // (widgets keep content height).
+    function attachResize(node, id, axes) {
+      var handle = el('span.rb-home-resize', { title: 'Drag to resize (snaps to the grid)' });
       handle.addEventListener('pointerdown', function (e) {
         e.preventDefault(); e.stopPropagation();
-        var r = node.getBoundingClientRect();
-        var sx = e.clientX, sy = e.clientY, sw = r.width, sh = r.height, drafted = null;
+        var gcs = window.getComputedStyle(grid);
+        var gap = parseFloat(gcs.columnGap || gcs.gap) || 8;
+        var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
+        var cellW = (grid.clientWidth - (cols - 1) * gap) / cols;
+        var cellH = parseFloat(gcs.getPropertyValue('--rb-home-cell')) || 78;
+        var rect = node.getBoundingClientRect();
+        var left = rect.left, top = rect.top, drafted = null;
+        node.classList.add('is-resizing');
         try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
         function mv(ev) {
-          var w = Math.max(minW, Math.round(sw + (ev.clientX - sx)));
-          var h = Math.max(minH, Math.round(sh + (ev.clientY - sy)));
-          node.style.flex = '0 0 auto';
-          node.style.width = w + 'px';
-          node.style.maxWidth = 'none';
-          if (axes === 'both') { node.style.height = h + 'px'; node.style.minHeight = h + 'px'; }
-          drafted = (axes === 'both') ? { w: w, h: h } : { w: w };
+          var c = Math.max(1, Math.min(cols, Math.round((ev.clientX - left) / (cellW + gap))));
+          var r = (axes === 'both') ? Math.max(1, Math.min(6, Math.round((ev.clientY - top) / (cellH + rgap)))) : 1;
+          node.style.gridColumn = 'span ' + c;
+          if (axes === 'both') node.style.gridRow = 'span ' + r;
+          drafted = { c: c, r: r };
         }
         function up() {
           handle.removeEventListener('pointermove', mv);
           handle.removeEventListener('pointerup', up);
-          if (drafted) { sizes[id] = drafted; persist(); render(); }
+          node.classList.remove('is-resizing');
+          if (drafted) {
+            if (drafted.c === 1 && drafted.r === 1) delete spans[id]; else spans[id] = drafted;
+            persist(); render();
+          }
         }
         handle.addEventListener('pointermove', mv);
         handle.addEventListener('pointerup', up);
       });
-      // Double-click the handle to reset to the default size.
-      handle.addEventListener('dblclick', function (e) { e.preventDefault(); e.stopPropagation(); delete sizes[id]; persist(); render(); });
+      handle.addEventListener('dblclick', function (e) { e.preventDefault(); e.stopPropagation(); delete spans[id]; persist(); render(); });
       node.appendChild(handle);
     }
 
-    var WIDTHS = ['full', 'half', 'twothirds', 'third'];
-    function widthOf(id) { return widths[id] || 'full'; }
-    function widthGlyph(id) { var w = widthOf(id); return w === 'half' ? '½' : w === 'third' ? '⅓' : w === 'twothirds' ? '⅔' : '▭'; }
-    function cycleWidth(id) {
-      var next = WIDTHS[(WIDTHS.indexOf(widthOf(id)) + 1) % WIDTHS.length];
-      if (next === 'full') delete widths[id]; else widths[id] = next;
-      delete sizes[id]; // a width preset overrides a drag size
-      persist(); render();
-    }
     function collapsedOf(id) { return !!collapsed[id]; }
     function toggleCollapse(id) { if (collapsed[id]) delete collapsed[id]; else collapsed[id] = true; persist(); render(); }
     function toggleMaximize(id) { maximizedId = (maximizedId === id) ? null : id; render(); }
 
     var grid = el('div.rb-home-grid');
+
+    // A big, readable tooltip (not the tiny native one). Shows the action name and
+    // a short description on hover, positioned above the tile and kept on-panel.
+    var tip = el('div.rb-home-tip');
+    var tipTimer = null;
+    function showTip(node, title, desc) {
+      R.dom.clear(tip);
+      tip.appendChild(el('div.rb-home-tip-title', { text: title }));
+      if (desc) tip.appendChild(el('div.rb-home-tip-desc', { text: desc }));
+      tip.classList.add('is-on');
+      var r = node.getBoundingClientRect(), rootR = root.getBoundingClientRect();
+      tip.style.left = '0px'; tip.style.top = '0px';
+      var tw = tip.offsetWidth, th = tip.offsetHeight;
+      var cx = r.left + r.width / 2 - rootR.left;
+      var x = Math.max(6, Math.min(rootR.width - tw - 6, cx - tw / 2));
+      var y = r.top - rootR.top - th - 9;
+      tip.classList.toggle('is-below', y < 2);
+      if (y < 2) y = r.bottom - rootR.top + 9;
+      tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    }
+    function hideTip() { window.clearTimeout(tipTimer); tip.classList.remove('is-on'); }
+    function attachTip(node, title, desc) {
+      node.addEventListener('mouseenter', function () { if (editing) return; window.clearTimeout(tipTimer); tipTimer = window.setTimeout(function () { showTip(node, title, desc); }, 320); });
+      node.addEventListener('mouseleave', hideTip);
+      node.addEventListener('mousedown', hideTip);
+    }
 
     function iconBtn(inner, title, onclick) {
       var b = el('button.rb-btn.is-ghost.is-icon', { type: 'button', title: title, 'aria-label': title, onclick: onclick });
@@ -145,8 +180,11 @@
     var boardBtns = {};
     function boardBtn(b, lbl) { var x = el('button.rb-home-sizebtn', { type: 'button', title: 'Tile size ' + lbl, onclick: function () { setBoard(b); } }, [lbl]); boardBtns[b] = x; return x; }
     var boardControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Size' }), boardBtn('sm', 'S'), boardBtn('md', 'M'), boardBtn('lg', 'L')]);
+    var colsBtns = {};
+    function colsBtn(n) { var x = el('button.rb-home-sizebtn', { type: 'button', title: n + ' columns', onclick: function () { setCols(n); } }, [String(n)]); colsBtns[n] = x; return x; }
+    var colsControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Columns' }), colsBtn(3), colsBtn(4), colsBtn(5), colsBtn(6)]);
     var hintText = el('span.rb-grow', { text: '' });
-    var hint = el('div.rb-home-hint', null, [hintText, boardControl]);
+    var hint = el('div.rb-home-hint', null, [hintText, colsControl, boardControl]);
 
     var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
     var actions = [addBtn, editBtn];
@@ -154,15 +192,19 @@
     if (opts.openSettings) actions.push(iconBtn(ICON_GEAR, 'Settings', opts.openSettings));
     var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 
-    var root = el('div.rb-home', null, [head, hint, grid]);
+    var root = el('div.rb-home', null, [head, hint, grid, tip]);
     grid.classList.add('is-' + board);
+    grid.style.setProperty('--rb-home-cols', cols);
     syncBoardBtns();
+    syncColsBtns();
 
     function syncEdit() {
       editBtn.classList.toggle('is-active', editing);
       editBtn.title = editing ? 'Done editing' : 'Edit board';
+      editBtn.setAttribute('aria-label', editing ? 'Done editing' : 'Edit board');
       hintText.textContent = editing ? 'Drag to arrange · drag a tile corner to resize · × to remove' : '';
       root.classList.toggle('is-editing', editing);
+      if (editing) hideTip();
     }
 
     function runAction(action) {
@@ -174,7 +216,7 @@
 
     function removeItem(id) {
       ids = ids.filter(function (x) { return x !== id; });
-      delete widths[id]; delete collapsed[id]; delete sizes[id]; delete meta[id];
+      delete collapsed[id]; delete spans[id]; delete meta[id];
       if (maximizedId === id) maximizedId = null;
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
       persist(); render();
@@ -205,9 +247,20 @@
       if (d && d.svg) { var w = el('div.rb-home-tilevis'); w.innerHTML = d.svg; return w; }
       return null;
     }
+    // Smart default look per action: a recognizable easing curve shows its visual,
+    // a wordy action (Add Null, Reset Transform) shows clear text, everything else
+    // an icon + label. The catalog can pin a default with action.display; the user
+    // can always override per tile in the customizer.
+    function autoDisplay(action) {
+      var demo = R.toolDemos && R.toolDemos[action.toolId];
+      if (demo && action.group === 'Easing') return 'visual';
+      return 'icon';
+    }
+    function displayFor(action, m) { return (m && m.display) || action.display || autoDisplay(action); }
+
     // The tile contents for a given look (display, label, badge, icon).
     function tileContent(action, m) {
-      var display = m.display || 'icon';
+      var display = displayFor(action, m);
       var label = m.label || action.label;
       var kids = [];
       if (display === 'visual') { kids.push(tileVisual(action) || tileIcon(action, m)); }
@@ -221,36 +274,30 @@
     function tileClass(action, m, base) {
       var c = base;
       if (action && action.id === lastAddedId) c += '.rb-pop';
-      c += '.is-disp-' + (m.display || 'icon');
+      c += '.is-disp-' + displayFor(action, m);
       return c;
-    }
-    function applySize(node, id, both) {
-      var sz = sizes[id];
-      if (sz) {
-        node.style.flex = '0 0 auto'; node.style.width = sz.w + 'px'; node.style.maxWidth = 'none';
-        if (both && sz.h) { node.style.height = sz.h + 'px'; node.style.minHeight = sz.h + 'px'; }
-      }
     }
     function tile(action) {
       var m = metaOf(action.id);
+      var label = m.label || action.label;
       var node = el(tileClass(action, m, 'button.rb-home-tile'), {
         type: 'button', 'data-id': action.id,
-        title: action.kind === 'apply' ? ('Apply ' + (m.label || action.label)) : ('Open ' + (m.label || action.label)),
         onclick: function () { if (editing) return; runAction(action); if (action.kind === 'apply') playOnce(node, 'rb-pulse'); }
       }, tileContent(action, m));
-      applySize(node, action.id, true);
+      applySpan(node, action.id, false);
+      attachTip(node, label, action.desc || (action.kind === 'open' ? 'Opens the full tool' : 'One-click action'));
       if (editing) {
         node.classList.add('is-editmode');
         node.setAttribute('draggable', 'true');
         node.appendChild(el('span.rb-home-cog', { title: 'Customize tile', onclick: function (e) { e.stopPropagation(); customizeTile(action); } }, ['✎']));
         node.appendChild(el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']));
         wireDrag(node, action.id);
-        attachResize(node, action.id, 'both', 44, 40);
+        attachResize(node, action.id, 'both');
       }
       return node;
     }
     function previewTile(action, m) {
-      return el(tileClass(null, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
+      return el(tileClass(action, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
     }
 
     // The full tile customizer: label, display (icon / visual / text / icon only),
@@ -336,38 +383,31 @@
         onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
       var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
-      var widthBtn = el('button.rb-home-wbtn.rb-home-wbtn-edit', { type: 'button', title: 'Cycle width (full, half, two-thirds, third)',
-        onclick: function (e) { e.stopPropagation(); cycleWidth(action.id); } }, [widthGlyph(action.id)]);
       var header = el('div.rb-home-widget-head', null, [
         el('span.rb-home-grip', { title: 'Drag to move' }, ['⠿']),
         iconSpan(action.toolId, 'rb-home-ico-sm'),
         el('span.rb-grow', { text: action.label }),
-        collapseBtn, maxBtn, widthBtn,
+        collapseBtn, maxBtn,
         el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×'])
       ]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
-      attachResize(card, action.id, 'x', 200, 0);
-      widgetCache[action.id] = { card: card, destroy: destroy, widthBtn: widthBtn, collapseBtn: collapseBtn, maxBtn: maxBtn };
+      attachResize(card, action.id, 'x');
+      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn };
       return card;
     }
 
     function decorateWidget(action) {
       var entry = widgetCache[action.id];
       if (!entry) return;
-      var card = entry.card, w = widthOf(action.id);
+      var card = entry.card;
       card.classList.toggle('is-editmode', editing);
-      card.classList.toggle('is-half', w === 'half');
-      card.classList.toggle('is-third', w === 'third');
-      card.classList.toggle('is-twothirds', w === 'twothirds');
       card.classList.toggle('is-collapsed', collapsedOf(action.id));
       card.classList.toggle('is-maximized', maximizedId === action.id);
       card.setAttribute('draggable', editing ? 'true' : 'false');
-      var sz = sizes[action.id];
-      if (sz && maximizedId !== action.id) { card.style.flex = '0 0 ' + sz.w + 'px'; card.style.width = sz.w + 'px'; card.style.maxWidth = 'none'; }
-      else { card.style.flex = ''; card.style.width = ''; card.style.maxWidth = ''; }
-      entry.widthBtn.textContent = widthGlyph(action.id);
+      card.style.gridColumn = ''; card.style.gridRow = '';
+      if (maximizedId !== action.id) applySpan(card, action.id, true);
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
     }
