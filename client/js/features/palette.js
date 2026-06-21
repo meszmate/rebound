@@ -29,8 +29,15 @@
 
   function mount(ctx) {
     var wrap = el('div.rb-col');
+    var target = 'fill';
+    var targetCtl = R.ui.segmented([
+      { value: 'fill', label: 'Fill', title: 'Recolor fills and solids.' },
+      { value: 'stroke', label: 'Stroke', title: 'Recolor shape strokes.' },
+      { value: 'both', label: 'Both', title: 'Recolor fills and strokes.' }
+    ], { value: target, onChange: function (v) { target = v; } });
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Click a swatch to recolor the selected layers (shape fills, solids, or a Fill effect).' }),
+      el('div.rb-faint', { text: 'Click a swatch to recolor the selected layers. Choose whether it hits fills, strokes, or both.' }),
+      targetCtl.el,
       wrap
     ]));
 
@@ -89,7 +96,7 @@
 
     function applyColor(hex) {
       var rgb = hexToRgb01(hex);
-      ctx.invoke('color.apply', { rgb: rgb })
+      ctx.invoke('color.apply', { rgb: rgb, target: target })
         .then(function (res) { ctx.toast('Colored ' + res.colored + ' layer' + (res.colored === 1 ? '' : 's'), { kind: 'success' }); })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply color', { kind: 'error' }); });
     }
