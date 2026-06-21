@@ -60,11 +60,17 @@
     function previewCurve() {
       return { type: 'fn', fn: makeBounce(elasticity, maxBounces) };
     }
+    // The bounce curve as a read-only graph, the same way Spring shows its shape.
+    var editorHost = el('div');
+    var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
+    // Live preview as a horizontal position move, consistent with the other
+    // tools: the value slides to the target and rebounds off it, settling.
     var previewHost = el('div');
-    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', axis: 'vertical', sample: 'shape', duration: 1600 });
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1600 });
     function updateReadout() {
       // Gravity sets how fast the bounce plays (higher gravity, faster), so it
       // drives the preview pacing; elasticity and max bounces shape the curve.
+      editor.setCurve(previewCurve());
       preview.setDuration(Math.round(R.units.clamp(6400 / gravity, 600, 3200)));
       preview.setReadout('Elasticity ' + Math.round(elasticity * 100) + '% · gravity ' + R.units.round(gravity, 1));
     }
@@ -74,13 +80,14 @@
     var gravitySlider = ui.slider({ label: 'Gravity', min: 0.5, max: 20, step: 0.1, value: gravity,
       onInput: function (v) { gravity = v; updateReadout(); } });
     var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 24, step: 1, decimals: 0,
-      width: '100%', onChange: function (v) { maxBounces = v; } });
+      width: '100%', onChange: function (v) { maxBounces = v; updateReadout(); } });
     var eachKeyToggle = ui.toggle({ label: 'After every keyframe', value: eachKey,
       title: 'On: the value rebounds after every keyframe it passes. Off: only after the final keyframe (a single ball drop).',
       onChange: function (v) { eachKey = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
+      editorHost,
       el('div.rb-faint', { text: 'Rebounds the value off its target after a keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
       elasticitySlider.el,
       gravitySlider.el,
@@ -137,7 +144,7 @@
           { name: 'Every Key', state: { elasticity: 0.6, gravity: 5, maxBounces: 4, eachKey: true } }
         ]
       },
-      destroy: function () { off(); preview.destroy(); }
+      destroy: function () { off(); preview.destroy(); editor.destroy(); }
     };
   }
 })(window.Rebound = window.Rebound || {});

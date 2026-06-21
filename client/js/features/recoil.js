@@ -49,12 +49,16 @@
       var dec = R.units.clamp(friction / 3, 0.8, 4);
       return { type: 'fn', fn: makeRecoil(amp, freq, dec) };
     }
+    // The recoil shape as a read-only graph, the same way Spring shows its shape.
+    var editorHost = el('div');
+    var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1300 });
 
     var halfLife = el('span.rb-chip', { text: '' });
     function refreshChip() {
       var hl = friction > 0 ? Math.log(2) / friction : 0;
+      editor.setCurve(previewCurve());
       halfLife.textContent = 'Half-life ' + R.units.round(hl, 2) + 's';
       preview.setReadout('Overshoot ' + Math.round(overshoot) + '% · half-life ' + R.units.round(hl, 2) + 's');
     }
@@ -71,6 +75,7 @@
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
+      editorHost,
       el('div.rb-faint', { text: 'Adds elastic overshoot after a keyframe, scaled by the incoming velocity. Non-destructive, your keyframes stay.' }),
       overshootSlider.el,
       bounceSlider.el,
@@ -134,7 +139,7 @@
           { name: 'Tight Recoil', state: { overshoot: 50, bounce: 6, friction: 14, eachKey: false } }
         ]
       },
-      destroy: function () { off(); preview.destroy(); }
+      destroy: function () { off(); preview.destroy(); editor.destroy(); }
     };
   }
 })(window.Rebound = window.Rebound || {});

@@ -67,16 +67,16 @@
         '<rect x="14" y="25" width="22" height="22" rx="6" style="fill:var(--rb-accent)">' + moving(rc) + '</rect>' +
         '</svg>');
 
-    // Bounce: a rounded square falls onto the floor and rebounds, each bounce
-    // smaller (vertical, like the Bounce position preview). Same parametric
-    // bounce the preview plays.
+    // Bounce: a rounded square slides to its mark and rebounds off it, each
+    // rebound smaller (horizontal, like the Bounce position preview). Same
+    // parametric bounce the preview plays.
     var bounceFn = makeBounce(0.7, 4);
-    var bc = sampleSMIL(bounceFn, 40, function (v) { return '0,' + r(v * 32); }, '0,0');
+    var bc = sampleSMIL(bounceFn, 40, function (v) { return r(v * 64) + ',0'; }, '0,0');
     R.registerToolDemo('bounce',
       '<strong>Bounce.</strong> A gravitational rebound off the target, each bounce smaller.',
       '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
-        '<line x1="40" y1="58" x2="80" y2="58" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>' +
-        '<rect x="50" y="6" width="20" height="20" rx="6" style="fill:var(--rb-accent)">' + moving(bc) + '</rect>' +
+        '<line x1="89" y1="16" x2="89" y2="56" stroke="currentColor" stroke-width="1" stroke-dasharray="2 3" opacity="0.3"/>' +
+        '<rect x="14" y="25" width="22" height="22" rx="6" style="fill:var(--rb-accent)">' + moving(bc) + '</rect>' +
         '</svg>');
   }
 
