@@ -61,8 +61,10 @@
     function metaOf(id) { return meta[id] || {}; }
     function setMeta(id, m) {
       // Drop the override entirely when it is all defaults, to keep storage clean.
+      var noArgs = true;
+      if (m.args) for (var ak in m.args) { if (m.args.hasOwnProperty(ak)) { noArgs = false; break; } }
       var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.icon)
-        && (!m.iconKey) && (m.iconBg !== false) && (!m.layout || m.layout === 'vertical');
+        && (!m.iconKey) && (m.iconBg !== false) && (!m.layout || m.layout === 'vertical') && noArgs;
       if (isDefault) delete meta[id]; else meta[id] = m;
       persist(); render();
     }
@@ -210,9 +212,17 @@
       if (editing) hideTip();
     }
 
+    // Merge a tile's saved setup (meta.args) over the action's default args, so a
+    // tile can be pointed at a specific easing, expression or shape.
+    function mergedArgs(action, override) {
+      var base = action.invoke.args || {}, out = {}, k;
+      for (k in base) if (base.hasOwnProperty(k)) out[k] = base[k];
+      if (override) for (k in override) if (override.hasOwnProperty(k) && override[k] != null && override[k] !== '') out[k] = override[k];
+      return out;
+    }
     function runAction(action) {
       if (action.kind === 'open') { opts.openTool(action.toolId); return; }
-      opts.invoke(action.invoke.method, action.invoke.args)
+      opts.invoke(action.invoke.method, mergedArgs(action, metaOf(action.id).args))
         .then(function () { opts.toast(action.label + ' applied', { kind: 'success' }); if (opts.refreshSelection) opts.refreshSelection(); })
         .catch(function (err) { opts.toast((err && err.message) || ('Could not apply ' + action.label), { kind: 'error' }); });
     }
@@ -274,8 +284,12 @@
         + '<span class="rb-ez-dot"></span>';
       return box;
     }
-    function tileVisual(action) {
-      if (action.curve) return easingVisual(action.curve);
+    // A configured easing type drives the visual, so a tile set to "Ease In" shows
+    // the ease-in curve even if it started as a different one.
+    var TYPE_CURVE = { easyEase: 'ease', easyEaseIn: 'easeIn', easyEaseOut: 'easeOut', linear: 'linear', hold: 'hold', autoBezier: 'ease', continuous: 'ease', bezier: 'ease' };
+    function tileVisual(action, m) {
+      var curve = (m && m.args && m.args.type && TYPE_CURVE[m.args.type]) || action.curve;
+      if (curve) return easingVisual(curve);
       var d = R.toolDemos && R.toolDemos[action.toolId];
       if (d && d.svg) { var w = el('div.rb-home-tilevis'); w.innerHTML = d.svg; return w; }
       return null;
@@ -296,7 +310,7 @@
       var display = displayFor(action, m);
       var label = m.label || action.label;
       var kids = [];
-      if (display === 'visual') { kids.push(tileVisual(action) || tileIcon(action, m)); }
+      if (display === 'visual') { kids.push(tileVisual(action, m) || tileIcon(action, m)); }
       else if (display !== 'text') { kids.push(tileIcon(action, m)); }
       if (display !== 'icononly') kids.push(el('span.rb-home-label', { text: label }));
       if (m.badge === true && display !== 'icononly') {
@@ -341,12 +355,41 @@
       if (!R.ui.modal) return;
       var b = metaOf(action.id);
       var draft = {
-        label: b.label || '', display: b.display || 'icon', badge: b.badge === true,
-        icon: b.icon || null, iconKey: b.iconKey || null, iconBg: b.iconBg !== false, layout: b.layout || 'vertical'
+        label: b.label || '', display: displayFor(action, b), badge: b.badge === true,
+        icon: b.icon || null, iconKey: b.iconKey || null, iconBg: b.iconBg !== false, layout: b.layout || 'vertical',
+        args: {}
       };
+      if (b.args) for (var ak in b.args) if (b.args.hasOwnProperty(ak)) draft.args[ak] = b.args[ak];
 
       var previewHost = el('div.rb-home-cust-preview');
       function renderPrev() { R.dom.clear(previewHost); previewHost.appendChild(previewTile(action, draft)); }
+
+      // ---- Setup: configure what this tile actually does (per action.config) ----
+      function argValue(field) {
+        if (draft.args[field.arg] != null && draft.args[field.arg] !== '') return draft.args[field.arg];
+        return (action.invoke && action.invoke.args) ? action.invoke.args[field.arg] : '';
+      }
+      function setArg(field, v) { draft.args[field.arg] = v; renderPrev(); }
+      function cfgField(field) {
+        if (field.type === 'select') {
+          var sel = el('select.rb-cfg-select');
+          (field.options || []).forEach(function (o) {
+            var op = el('option', { value: o.value }, [o.label]);
+            if (String(o.value) === String(argValue(field))) op.selected = true;
+            sel.appendChild(op);
+          });
+          sel.addEventListener('change', function () { setArg(field, sel.value); });
+          return sel;
+        }
+        var inp = el('input.rb-cfg-text', { type: 'text', spellcheck: 'false', value: argValue(field) });
+        inp.addEventListener('input', function () { setArg(field, inp.value); });
+        return inp;
+      }
+      var setupSection = null;
+      if (action.config && action.config.length) {
+        var setupRows = action.config.map(function (f) { return R.ui.row(f.label, cfgField(f)); });
+        setupSection = el('div.rb-home-cust-setup', null, [el('div.rb-section-label', { text: 'Setup' })].concat(setupRows));
+      }
 
       var labelInput = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: draft.label, placeholder: action.label,
         oninput: function () { draft.label = this.value; renderPrev(); } });
@@ -395,8 +438,9 @@
 
       renderPrev();
       renderIcons();
-      var body = el('div.rb-home-cust', null, [
-        previewHost,
+      var bodyKids = [previewHost];
+      if (setupSection) bodyKids.push(setupSection);
+      bodyKids.push(
         R.ui.row('Label', labelInput),
         R.ui.row('Display', displayCtl.el),
         R.ui.row('Layout', layoutCtl.el),
@@ -405,7 +449,8 @@
         el('div.rb-section-label', { text: 'Icon' }),
         iconGrid,
         el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, fileInput])
-      ]);
+      );
+      var body = el('div.rb-home-cust', null, bodyKids);
 
       var resetBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { delete meta[action.id]; persist(); render(); handle.close('confirm'); } }, ['Reset']);
       var cancelBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { handle.close('close'); } }, ['Cancel']);

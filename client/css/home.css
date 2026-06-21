@@ -154,6 +154,16 @@
 .rb-home-iconpick:hover { border-color: var(--rb-accent); }
 .rb-home-iconpick.is-sel { border-color: var(--rb-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 35%, transparent); }
 
+/* Setup section: configure what the tile does. */
+.rb-home-cust-setup { display: flex; flex-direction: column; gap: var(--rb-gap-2); padding: var(--rb-gap-2) var(--rb-gap-3) var(--rb-gap-3); background: var(--rb-bg-sunken); border-radius: var(--rb-radius-2); }
+.rb-cfg-select, .rb-cfg-text {
+  width: 100%; height: 26px; padding: 0 7px; font: inherit;
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-1);
+  background: var(--rb-bg-raised); color: var(--rb-text);
+}
+.rb-cfg-select { cursor: pointer; }
+.rb-cfg-text { font-family: var(--rb-mono, ui-monospace, monospace); font-size: calc(var(--rb-font-size) - 1px); }
+
 /* ---- Edit mode ----------------------------------------------------------- */
 .rb-home.is-editing .rb-home-tile.is-editmode { border-style: dashed; cursor: grab; }
 .rb-home-tile.is-dragging { opacity: 0.4; }
