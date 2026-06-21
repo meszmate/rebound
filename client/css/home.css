@@ -260,8 +260,8 @@
 }
 .rb-home-wbtn-edit { display: none; }
 .rb-home-widget.is-editmode .rb-home-wbtn-edit { display: inline-flex; }
-.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); transform: scale(1.12); }
-.rb-home-wbtn:active { transform: scale(0.9); }
+.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); }
+.rb-home-wbtn.is-active { color: var(--rb-accent); border-color: var(--rb-accent); }
 .rb-home-widget-head {
   display: flex; align-items: center; gap: var(--rb-gap-2);
   padding: 6px 8px; border-bottom: 1px solid var(--rb-border);
@@ -289,15 +289,21 @@
 .rb-home-widget-body .rb-anchor-readout,
 .rb-home-widget-body .rb-readout { font-size: calc(var(--rb-font-size) - 2px); }
 
-/* The Anchor widget is just its clickable box, filling the widget. Drag the
-   widget taller for a bigger box. (The full Anchor tab keeps every control.) */
-.rb-home-widget[data-id="widget-anchor"] .rb-home-widget-body { display: flex; padding: var(--rb-gap-2); }
-.rb-home-widget[data-id="widget-anchor"] .rb-home-widget-body > .rb-col { flex: 1 1 auto; height: 100%; min-height: 0; gap: 0; }
-.rb-home-widget[data-id="widget-anchor"] .rb-home-widget-body > .rb-col > *:not(.rb-anchor-stage) { display: none; }
-.rb-home-widget[data-id="widget-anchor"] .rb-anchor-stage { flex: 1 1 auto; min-height: 0; padding: 0; display: flex; }
-.rb-home-widget[data-id="widget-anchor"] .rb-anchor-box { width: 100%; max-height: none; }
-.rb-home-widget[data-id="widget-anchor"].is-sized .rb-anchor-box { height: 100%; aspect-ratio: auto; }
-.rb-home-widget[data-id="widget-anchor"] .rb-action-bar { display: none; }
+/* Fill mode (any widget): keep only the tool's primary element and stretch it to
+   the whole widget. JS marks the kept element + its ancestors .rb-focus-fill and
+   hides the rest .rb-focus-hidden. Drag the widget taller for a bigger control.
+   (The full tool tab always keeps every control.) */
+.rb-focus-hidden { display: none !important; }
+.rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
+.rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: var(--rb-gap-2); }
+.rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
+.rb-home-widget.is-filled .rb-action-bar { display: none; }
+.rb-home-widget.is-filled .rb-anchor-stage,
+.rb-home-widget.is-filled .rb-curve,
+.rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
+.rb-home-widget.is-filled .rb-curve svg,
+.rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
+.rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; }
 /* Preview graphs stretch to fill the widget width (no letterboxed empty space);
    set by JS via preserveAspectRatio on non-editor previews. Keep them compact. */
 .rb-home-widget-body svg[preserveAspectRatio="none"] { max-height: 80px; }

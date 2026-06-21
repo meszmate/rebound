@@ -27,9 +27,17 @@
 
   function load() {
     var d = R.disk.read('home-layout', null);
-    if (d && d.items && d.items.length) return { items: d.items.slice(), collapsed: d.collapsed || {}, meta: d.meta || {}, spans: d.spans || {}, board: d.board || 'md', cols: d.cols || 4 };
-    return { items: R.homeActions.DEFAULT.slice(), collapsed: {}, meta: {}, spans: {}, board: 'md', cols: 4 };
+    if (d && d.items && d.items.length) return { items: d.items.slice(), collapsed: d.collapsed || {}, meta: d.meta || {}, spans: d.spans || {}, filled: d.filled || {}, board: d.board || 'md', cols: d.cols || 4 };
+    return { items: R.homeActions.DEFAULT.slice(), collapsed: {}, meta: {}, spans: {}, filled: {}, board: 'md', cols: 4 };
   }
+
+  // The primary, full-bleed element of a tool's widget when "Fill" is on, and the
+  // widgets that fill by default (their box IS the tool).
+  var WIDGET_FOCUS = {
+    anchor: '.rb-anchor-stage', ease: '.rb-curve', velocity: '.rb-curve', copyease: '.rb-curve',
+    spring: '.rb-preview-stage', bounce: '.rb-preview-stage', recoil: '.rb-preview-stage', drift: '.rb-preview-stage', smooth: '.rb-curve'
+  };
+  var DEFAULT_FILLED = { 'widget-anchor': true };
 
   // Stretch a widget's schematic preview graphs to fill its width so there is no
   // letterboxed empty space. Interactive curve editors and curve chips are left
@@ -50,6 +58,7 @@
     var collapsed = saved.collapsed || {};
     var meta = saved.meta || {};            // per-tile look: label, display, badge, icon
     var spans = saved.spans || {};          // per-item grid span { c, r } (cells)
+    var filled = saved.filled || {};        // per-widget Fill (just the main control) state
     var board = saved.board || 'md';        // cell size: sm | md | lg
     var cols = saved.cols || 4;             // number of grid columns
     var maximizedId = null;
@@ -78,7 +87,10 @@
       node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
     }
 
-    function persist() { R.disk.write('home-layout', { schemaVersion: 2, items: ids, collapsed: collapsed, meta: meta, spans: spans, board: board, cols: cols }); }
+    function persist() { R.disk.write('home-layout', { schemaVersion: 2, items: ids, collapsed: collapsed, meta: meta, spans: spans, filled: filled, board: board, cols: cols }); }
+
+    function filledOf(id) { return (id in filled) ? !!filled[id] : !!DEFAULT_FILLED[id]; }
+    function toggleFill(id) { filled[id] = !filledOf(id); persist(); render(); }
 
     function setBoard(b) { board = b; grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + b); persist(); syncBoardBtns(); }
     function syncBoardBtns() {
@@ -504,21 +516,46 @@
 
       var collapseBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Collapse / expand',
         onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
+      var fillBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Fill: show just the main control, full size',
+        onclick: function (e) { e.stopPropagation(); toggleFill(action.id); } }, [filledOf(action.id) ? '▣' : '▢']);
       var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
       var header = el('div.rb-home-widget-head', null, [
         el('span.rb-home-grip', { title: 'Drag to move' }, ['⠿']),
         iconSpan(action.toolId, 'rb-home-ico-sm'),
         el('span.rb-grow', { text: action.label }),
-        collapseBtn, maxBtn,
+        fillBtn, collapseBtn, maxBtn,
         el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×'])
       ]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
       attachResize(card, action.id, 'widget');
-      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn };
+      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, fillBtn: fillBtn };
       return card;
+    }
+
+    // Fill mode: keep only the tool's primary element (per WIDGET_FOCUS) and let
+    // it stretch to the whole widget; hide everything else. Works for any widget
+    // with a registered primary element, e.g. the Ease curve or the Anchor box.
+    function applyFocus(action) {
+      var entry = widgetCache[action.id];
+      if (!entry) return;
+      var card = entry.card, body = card.querySelector('.rb-home-widget-body');
+      Array.prototype.forEach.call(card.querySelectorAll('.rb-focus-hidden'), function (n) { n.classList.remove('rb-focus-hidden'); });
+      Array.prototype.forEach.call(card.querySelectorAll('.rb-focus-fill'), function (n) { n.classList.remove('rb-focus-fill'); });
+      card.classList.toggle('is-filled', filledOf(action.id));
+      if (!filledOf(action.id) || !body) return;
+      var sel = WIDGET_FOCUS[action.toolId];
+      var target = sel ? body.querySelector(sel) : null;
+      if (!target) return;
+      var node = target;
+      while (node && node !== body) {
+        node.classList.add('rb-focus-fill');
+        var parent = node.parentNode;
+        Array.prototype.forEach.call(parent.children, function (ch) { if (ch !== node) ch.classList.add('rb-focus-hidden'); });
+        node = parent;
+      }
     }
 
     function decorateWidget(action) {
@@ -539,6 +576,8 @@
       }
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
+      if (entry.fillBtn) { entry.fillBtn.textContent = filledOf(action.id) ? '▣' : '▢'; entry.fillBtn.classList.toggle('is-active', filledOf(action.id)); }
+      applyFocus(action);
     }
 
     function addTile() {
