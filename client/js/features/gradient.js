@@ -33,21 +33,31 @@
     var startHex = '#1e63ff';
     var endHex = '#16e0c0';
 
+    var angle = 0;
+    var swatch = el('div', { style: { height: '52px', borderRadius: 'var(--rb-radius-2)', border: '1px solid var(--rb-border)' } });
+    function updateSwatch() { swatch.style.background = gradCss({ type: type, startHex: startHex, endHex: endHex, angle: angle }); }
+
     var typeCtl = ui.segmented([
       { value: 'linear', label: 'Linear', title: 'A straight gradient ramp' },
       { value: 'radial', label: 'Radial', title: 'A circular gradient ramp' }
-    ], { value: type, onChange: function (v) { type = v; } });
+    ], { value: type, onChange: function (v) { type = v; updateSwatch(); } });
 
     var startInput = el('input.rb-color-input', { type: 'color', value: startHex,
-      oninput: function (e) { startHex = e.target.value; } });
+      oninput: function (e) { startHex = e.target.value; updateSwatch(); } });
     var endInput = el('input.rb-color-input', { type: 'color', value: endHex,
-      oninput: function (e) { endHex = e.target.value; } });
+      oninput: function (e) { endHex = e.target.value; updateSwatch(); } });
+    var angleSlider = ui.slider({ label: 'Angle', min: 0, max: 360, step: 1, value: angle,
+      title: 'Rotates a linear ramp (ignored for radial).',
+      format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { angle = v; updateSwatch(); } });
 
+    updateSwatch();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Adds a gradient fill to every shape group in the selected shape layers, running between the two chosen colors. Non-shape layers are skipped.' }),
+      swatch,
       ui.row('Type', typeCtl.el),
       ui.row('Start', startInput),
-      ui.row('End', endInput)
+      ui.row('End', endInput),
+      angleSlider.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -58,7 +68,7 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('gradient.apply', { type: type, startColor: hexToRgb01(startHex), endColor: hexToRgb01(endHex) })
+      ctx.invoke('gradient.apply', { type: type, startColor: hexToRgb01(startHex), endColor: hexToRgb01(endHex), angle: angle })
         .then(function (res) {
           if (!res.applied) {
             ctx.toast('No shape layers to fill', { kind: 'info' });
@@ -72,13 +82,15 @@
     }
 
     function getState() {
-      return { type: type, startHex: startHex, endHex: endHex };
+      return { type: type, startHex: startHex, endHex: endHex, angle: angle };
     }
     function applyState(s) {
       if (!s) return;
       if (s.type != null) { type = s.type; typeCtl.set(s.type); }
       if (s.startHex != null) { startHex = s.startHex; startInput.value = s.startHex; }
       if (s.endHex != null) { endHex = s.endHex; endInput.value = s.endHex; }
+      if (s.angle != null) { angle = s.angle; angleSlider.set(s.angle); }
+      updateSwatch();
     }
 
     return {
@@ -86,6 +98,7 @@
         toolId: 'gradient',
         get: getState,
         set: applyState,
+        thumbFor: function (state, opts) { return gradSwatch(state, (opts && opts.height) || 38); },
         defaults: [
           { name: 'Ocean', state: { type: 'linear', startHex: '#1e63ff', endHex: '#16e0c0' } },
           { name: 'Sunset', state: { type: 'linear', startHex: '#ff5e3a', endHex: '#ffd166' } },
@@ -95,6 +108,16 @@
       },
       destroy: off
     };
+  }
+
+  // The gradient as a CSS background, for the live swatch and preset thumbnails.
+  function gradCss(state) {
+    var s = state.startHex || '#000000', e = state.endHex || '#ffffff';
+    if (state.type === 'radial') return 'radial-gradient(circle at 50% 50%, ' + s + ', ' + e + ')';
+    return 'linear-gradient(' + (90 + (state.angle || 0)) + 'deg, ' + s + ', ' + e + ')';
+  }
+  function gradSwatch(state, h) {
+    return el('div', { style: { height: h + 'px', borderRadius: 'var(--rb-radius-1)', background: gradCss(state) } });
   }
 
   function describe(sel) {

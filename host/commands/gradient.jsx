@@ -49,12 +49,12 @@
   // point spread, and the two chosen color stops. Some builds name the points
   // differently and the colors array can be version-sensitive, so guard each.
   // Returns the number of gradient fills added.
-  function addGradientFill(contents, gradType, c0, c1) {
+  function addGradientFill(contents, gradType, c0, c1, sp, ep) {
     var gfill = contents.addProperty(GFILL);
     gfill.property(GRAD_TYPE).setValue(gradType);
     try {
-      gfill.property(GRAD_START).setValue([-100, 0]);
-      gfill.property(GRAD_END).setValue([100, 0]);
+      gfill.property(GRAD_START).setValue(sp);
+      gfill.property(GRAD_END).setValue(ep);
     } catch (e) {}
     try {
       gfill.property(GRAD_COLORS).setValue(twoStopData(c0, c1));
@@ -65,7 +65,7 @@
   // Walk a vectors group. Every nested shape group's contents collection
   // ('ADBE Vectors Group') receives a gradient fill; nested groups recurse.
   // Returns the number of gradient fills added in this subtree.
-  function fillGroups(group, gradType, c0, c1) {
+  function fillGroups(group, gradType, c0, c1, sp, ep) {
     // Snapshot the nested contents collections first; adding a G-Fill mutates
     // a collection while we iterate over its siblings.
     var nested = [];
@@ -78,8 +78,8 @@
 
     var added = 0;
     for (var k = 0; k < nested.length; k++) {
-      added += addGradientFill(nested[k], gradType, c0, c1);
-      added += fillGroups(nested[k], gradType, c0, c1);
+      added += addGradientFill(nested[k], gradType, c0, c1, sp, ep);
+      added += fillGroups(nested[k], gradType, c0, c1, sp, ep);
     }
     return added;
   }
@@ -93,6 +93,12 @@
     var c0 = readColor(args && args.startColor, [0, 0, 0]);
     var c1 = readColor(args && args.endColor, [1, 1, 1]);
 
+    // Rotate the ramp endpoints by the chosen angle (0 = left-to-right).
+    var ang = (args && args.angle != null) ? args.angle : 0;
+    var t = ang * Math.PI / 180;
+    var sp = [Math.cos(t) * -100, Math.sin(t) * -100];
+    var ep = [Math.cos(t) * 100, Math.sin(t) * 100];
+
     var applied = 0;
     var skipped = 0;
 
@@ -103,7 +109,7 @@
         skipped++;
         continue;
       }
-      fillGroups(root, gradType, c0, c1);
+      fillGroups(root, gradType, c0, c1, sp, ep);
       applied++;
     }
 
