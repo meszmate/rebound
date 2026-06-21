@@ -69,12 +69,20 @@
       });
     }
 
-    // Capture phase so this runs before the document-level shortcut handler.
-    box.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') {
-        if (opts.closeOnEscape !== false) { e.preventDefault(); e.stopPropagation(); close('escape'); }
-        return;
+    // Escape is handled at the document level (capture) so it closes the dialog
+    // no matter where focus currently is, even if it drifted outside the box
+    // (e.g. after a native colour picker, or a click that blurred the dialog).
+    function onDocKeydown(e) {
+      if (closed) return;
+      if (e.key === 'Escape' && opts.closeOnEscape !== false) {
+        e.preventDefault(); e.stopPropagation();
+        close('escape');
       }
+    }
+    document.addEventListener('keydown', onDocKeydown, true);
+
+    // Tab focus trap stays scoped to the box.
+    box.addEventListener('keydown', function (e) {
       if (e.key === 'Tab') {
         var f = focusable();
         if (!f.length) { e.preventDefault(); box.focus(); return; }
@@ -112,6 +120,7 @@
       function teardown() {
         if (done) return;
         done = true;
+        document.removeEventListener('keydown', onDocKeydown, true);
         if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
         document.body.style.overflow = prevOverflow;
         if (app) app.removeAttribute('aria-hidden');
