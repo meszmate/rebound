@@ -10,8 +10,11 @@
   var svg = R.dom.svg;
   var ui = R.ui;
 
-  // A small "what it does" diagram: a few layers gathered into one nested comp.
-  function precompSvg(h) {
+  // A few layers gathered into one nested comp. The transform badge (T) sits
+  // inside the nested comp when Move all attributes is on, or stays on the outer
+  // nested layer when off, so the toggle's effect is visible.
+  function precompSvg(state, h) {
+    var move = !(state && state.moveAttributes === false);
     var kids = [];
     var i;
     for (i = 0; i < 3; i++) kids.push(svg('rect', { x: 10, y: 16 + i * 16, width: 40, height: 12, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.85' }));
@@ -19,6 +22,9 @@
     kids.push(svg('path', { d: 'M75 35 L81 40 L75 45', fill: 'none', stroke: 'var(--rb-text-muted)', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
     kids.push(svg('rect', { x: 92, y: 12, width: 58, height: 56, rx: 3, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }));
     for (i = 0; i < 3; i++) kids.push(svg('rect', { x: 100, y: 20 + i * 14, width: 42, height: 9, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.5' }));
+    var bx = move ? 138 : 70, by = move ? 60 : 22;
+    kids.push(svg('circle', { cx: bx, cy: by, r: 7, fill: 'var(--rb-accent)' }));
+    kids.push(svg('text', { x: bx, y: by + 3, 'font-size': 8, 'text-anchor': 'middle', 'font-weight': 700, fill: '#fff' }, ['T']));
     return svg('svg', { viewBox: '0 0 160 80', width: '100%', height: h }, kids);
   }
 
@@ -45,14 +51,18 @@
     });
     var nameField = el('div.rb-field', null, [nameInput]);
 
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(precompSvg({ moveAttributes: moveAttributes }, 80)); }
+
     var moveToggle = ui.toggle({ label: 'Move all attributes', value: moveAttributes,
-      onChange: function (v) { moveAttributes = v; } });
+      onChange: function (v) { moveAttributes = v; renderPreview(); } });
     var openToggle = ui.toggle({ label: 'Open new comp', value: open,
       onChange: function (v) { open = v; } });
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Nests the selected layers into a new composition. Move all attributes keeps transforms, masks, and effects on the nested comp.' }),
-      el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } }, [precompSvg(80)]),
+      previewHost,
       ui.row('Name', nameField),
       moveToggle.el,
       openToggle.el

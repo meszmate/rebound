@@ -9,7 +9,31 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // A faint "current" layer (offset, tilted, enlarged, dim) and the "reset"
+  // target. Each enabled toggle pulls one property to its default, so toggling
+  // Rotation straightens the target, Position centers it, and so on.
+  function resetSvg(state, h) {
+    var W = 160, H = 100, cx = W / 2, cy = H / 2;
+    var gx = cx - 22, gy = cy + 12;
+    var ax = state.position ? cx : gx;
+    var ay = state.position ? cy : gy;
+    var rot = state.rotation ? 0 : 16;
+    var sc = state.scale ? 1 : 1.25;
+    var op = state.opacity ? 0.95 : 0.45;
+    return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, [
+      svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      svg('g', { transform: 'translate(' + gx + ',' + gy + ') rotate(16) scale(1.25)', opacity: '0.3' }, [
+        svg('rect', { x: -22, y: -12, width: 44, height: 24, rx: 3, fill: 'var(--rb-text-faint)' })
+      ]),
+      svg('g', { transform: 'translate(' + ax + ',' + ay + ') rotate(' + rot + ') scale(' + sc + ')', opacity: String(op) }, [
+        svg('rect', { x: -22, y: -12, width: 44, height: 24, rx: 3, fill: 'var(--rb-accent)' }),
+        svg('circle', { cx: state.anchor ? 0 : -18, cy: state.anchor ? 0 : -9, r: 2.6, fill: '#fff' })
+      ])
+    ]);
+  }
 
   R.tools.register({
     id: 'reset',
@@ -27,19 +51,24 @@
     var opacity = true;
     var anchor = false;
 
-    var positionToggle = ui.toggle({ label: 'Position (comp center)', value: position,
-      onChange: function (v) { position = v; } });
-    var scaleToggle = ui.toggle({ label: 'Scale (100%)', value: scale,
-      onChange: function (v) { scale = v; } });
-    var rotationToggle = ui.toggle({ label: 'Rotation (0°)', value: rotation,
-      onChange: function (v) { rotation = v; } });
-    var opacityToggle = ui.toggle({ label: 'Opacity (100%)', value: opacity,
-      onChange: function (v) { opacity = v; } });
-    var anchorToggle = ui.toggle({ label: 'Anchor (bbox center)', value: anchor,
-      onChange: function (v) { anchor = v; } });
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(resetSvg({ position: position, scale: scale, rotation: rotation, opacity: opacity, anchor: anchor }, 100)); }
 
+    var positionToggle = ui.toggle({ label: 'Position (comp center)', value: position,
+      onChange: function (v) { position = v; renderPreview(); } });
+    var scaleToggle = ui.toggle({ label: 'Scale (100%)', value: scale,
+      onChange: function (v) { scale = v; renderPreview(); } });
+    var rotationToggle = ui.toggle({ label: 'Rotation (0°)', value: rotation,
+      onChange: function (v) { rotation = v; renderPreview(); } });
+    var opacityToggle = ui.toggle({ label: 'Opacity (100%)', value: opacity,
+      onChange: function (v) { opacity = v; renderPreview(); } });
+    var anchorToggle = ui.toggle({ label: 'Anchor (bbox center)', value: anchor,
+      onChange: function (v) { anchor = v; renderPreview(); } });
+
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Restores the enabled transform properties to their defaults. Properties that are keyframed or expression-driven are left untouched.' }),
+      previewHost,
       positionToggle.el,
       scaleToggle.el,
       rotationToggle.el,
