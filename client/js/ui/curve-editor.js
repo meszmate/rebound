@@ -310,7 +310,15 @@
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
-  function clone(o) { return o ? JSON.parse(JSON.stringify(o)) : o; }
+  // Deep-clone the serializable fields, but carry a function-curve's fn across
+  // (JSON would drop it), so read-only fn curves can be rendered.
+  function clone(o) {
+    if (!o) return o;
+    var fn = o.fn;
+    var c = JSON.parse(JSON.stringify(o));
+    if (typeof fn === 'function') c.fn = fn;
+    return c;
+  }
 
   R.ui = R.ui || {};
   R.ui.CurveEditor = CurveEditor;
