@@ -75,9 +75,24 @@
         grid.appendChild(el('div.rb-empty', { style: { gridColumn: '1 / -1' } }, ['No presets match.']));
         return;
       }
-      list.forEach(function (p) {
-        grid.appendChild(tile(p));
-      });
+      var builtins = list.filter(function (p) { return p.builtin; });
+      var customs = list.filter(function (p) { return !p.builtin; });
+      var groupCustoms = customs.length > 0;
+
+      if (builtins.length) {
+        if (groupCustoms) grid.appendChild(collectionHeader('Built-in'));
+        builtins.forEach(function (p) { grid.appendChild(tile(p)); });
+      }
+      if (groupCustoms) {
+        // Group custom presets by their collection (set), sorted alphabetically.
+        var order = [], byCol = {};
+        customs.forEach(function (p) { var c = p.collection || 'Custom'; if (!byCol[c]) { byCol[c] = []; order.push(c); } byCol[c].push(p); });
+        order.sort();
+        order.forEach(function (c) {
+          if (builtins.length || order.length > 1) grid.appendChild(collectionHeader(c));
+          byCol[c].forEach(function (p) { grid.appendChild(tile(p)); });
+        });
+      }
     }
 
     function tile(preset) {
@@ -95,10 +110,45 @@
       if (!preset.builtin) {
         node.addEventListener('contextmenu', function (e) {
           e.preventDefault();
-          if (confirmDelete(preset)) removeCustom(preset.id);
+          manageDialog(preset);
         });
       }
       return node;
+    }
+
+    // A header that spans the whole tile grid, labelling a collection.
+    function collectionHeader(text) {
+      return el('div.rb-lib-collhead', { style: {
+        gridColumn: '1 / -1', fontSize: '11px', color: 'var(--rb-text-faint)',
+        textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px'
+      }, text: text });
+    }
+
+    // Manage a custom preset: rename its collection (set) or delete it.
+    function manageDialog(preset) {
+      if (!R.ui.modal) { if (confirmDelete(preset)) removeCustom(preset.id); return; }
+      var input = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', maxlength: '30',
+        value: preset.collection || 'Custom',
+        onkeydown: function (e) { if (e.key === 'Enter') { e.preventDefault(); save(); } } });
+      var field = el('div.rb-savedlg-field', null, [el('span.rb-savedlg-label', { text: 'Collection' }), input]);
+      var delBtn = el('button.rb-btn.is-ghost', { onclick: function () { handle.close('close'); if (confirmDelete(preset)) removeCustom(preset.id); } }, ['Delete']);
+      var cancelBtn = el('button.rb-btn.is-ghost', { onclick: function () { handle.close('close'); } }, ['Cancel']);
+      var saveBtn = el('button.rb-btn.is-primary', { onclick: save }, ['Save']);
+      var handle = R.ui.modal({ title: 'Manage ' + preset.name, width: 320,
+        body: el('div.rb-savedlg', null, [field]), footer: [delBtn, cancelBtn, saveBtn], initialFocus: input });
+      function save() {
+        var c = (input.value || '').trim() || 'Custom';
+        setCollection(preset.id, c);
+        handle.close('confirm');
+        if (R.ui.toast) R.ui.toast('Moved to ' + c, { kind: 'success' });
+      }
+    }
+
+    function setCollection(id, collection) {
+      var data = loadUser();
+      (data.items || []).forEach(function (it) { if (it.id === id) it.collection = collection; });
+      saveUser(data);
+      render();
     }
 
     function toggleFav(id) {
