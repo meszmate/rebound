@@ -121,6 +121,19 @@
         addVertical(contents, comp, left, lw, color);
         addVertical(contents, comp, left + colW, lw, color);
       }
+      // Optional rows for a modular grid: same margin + gutter on the Y axis.
+      var rows = Math.round(num(args.rows, 0));
+      if (rows > 100) rows = 100;
+      if (rows >= 1) {
+        var usableH = comp.height - 2 * margin - (rows - 1) * gutter;
+        var rowH = usableH / rows;
+        if (rowH < 1) rowH = 1;
+        for (var r = 0; r < rows; r++) {
+          var top = margin + r * (rowH + gutter);
+          addHorizontal(contents, comp, top, lw, color);
+          addHorizontal(contents, comp, top + rowH, lw, color);
+        }
+      }
     } else if (preset === 'safe') {
       // Broadcast safe areas: action-safe inset 5%, title-safe inset 10%.
       addRectOutline(contents, comp, comp.width * 0.05, comp.height * 0.05, lw, color);
@@ -131,6 +144,12 @@
         addVertical(contents, comp, fractions[f] * comp.width, lw, color);
         addHorizontal(contents, comp, fractions[f] * comp.height, lw, color);
       }
+    }
+
+    // Optional centre crosshair on any preset.
+    if (args && args.crosshair) {
+      addVertical(contents, comp, comp.width / 2, lw, color);
+      addHorizontal(contents, comp, comp.height / 2, lw, color);
     }
 
     return { created: 1 };

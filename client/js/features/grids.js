@@ -1,24 +1,16 @@
 /*
  * Rebound, Grids tool.
- * Drops a non-rendering guide-overlay shape layer of composition guide lines:
- * rule-of-thirds, golden-ratio, a real N-column layout (margin + gutter), or the
- * broadcast action-safe / title-safe rectangles. The guide color is settable so
- * the lines stay visible on any background.
+ * Drops a non-rendering guide-overlay shape layer: rule-of-thirds, golden-ratio,
+ * a real N-column (and optional N-row) layout with margin + gutter, or the
+ * broadcast safe rectangles. A live preview shows the grid; line width, a centre
+ * crosshair, and the guide color are settable.
  */
 ;(function (R) {
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
-
-  R.tools.register({
-    id: 'grids',
-    title: 'Grids',
-    group: 'Layout',
-    order: 4,
-    keywords: ['grid', 'grids', 'guides', 'thirds', 'golden', 'ratio', 'columns', 'gutter', 'overlay', 'layout'],
-    mount: mount
-  });
 
   var COLORS = [
     { value: 'cyan', label: 'Cyan', rgb: [0, 0.85, 1] },
@@ -26,57 +18,111 @@
     { value: 'white', label: 'White', rgb: [1, 1, 1] },
     { value: 'black', label: 'Black', rgb: [0, 0, 0] }
   ];
+  function rgbFor(name) { for (var i = 0; i < COLORS.length; i++) if (COLORS[i].value === name) return COLORS[i].rgb; return COLORS[0].rgb; }
+  function colorCss(name) { var c = rgbFor(name); return 'rgb(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ')'; }
 
-  function rgbFor(name) {
-    for (var i = 0; i < COLORS.length; i++) if (COLORS[i].value === name) return COLORS[i].rgb;
-    return COLORS[0].rgb;
+  // The grid as an SVG over a sample frame, for the live preview and the tiles.
+  function gridSvg(state, h) {
+    var W = 160, H = 100, kids = [];
+    var col = colorCss(state.colorName || 'cyan');
+    var lw = Math.max(0.7, Math.min(2.6, (state.lineWidth == null ? 2 : state.lineWidth) * 0.7));
+    kids.push(svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: '#44474e', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }));
+    function vline(fx) { var x = (fx * W).toFixed(1); kids.push(svg('line', { x1: x, y1: 1, x2: x, y2: H - 1, stroke: col, 'stroke-width': lw })); }
+    function hline(fy) { var y = (fy * H).toFixed(1); kids.push(svg('line', { x1: 1, y1: y, x2: W - 1, y2: y, stroke: col, 'stroke-width': lw })); }
+    var preset = state.preset || 'thirds';
+    if (preset === 'columns') {
+      var fx = W / 1920, fy = H / 1080;
+      var count = Math.max(1, Math.min(24, Math.round(state.count || 12)));
+      var gx = (state.gutter || 0) * fx, mx = (state.margin || 0) * fx;
+      var usable = W - 2 * mx - (count - 1) * gx, colW = usable / count;
+      if (colW > 0.4) { for (var i = 0; i < count; i++) { var lx = mx + i * (colW + gx); vline(lx / W); vline((lx + colW) / W); } }
+      var rows = Math.max(0, Math.min(24, Math.round(state.rows || 0)));
+      if (rows >= 1) {
+        var gy = (state.gutter || 0) * fy, my = (state.margin || 0) * fy;
+        var usableH = H - 2 * my - (rows - 1) * gy, rowH = usableH / rows;
+        if (rowH > 0.4) { for (var j = 0; j < rows; j++) { var ly = my + j * (rowH + gy); hline(ly / H); hline((ly + rowH) / H); } }
+      }
+    } else if (preset === 'safe') {
+      [0.05, 0.10].forEach(function (ins) { kids.push(svg('rect', { x: (ins * W).toFixed(1), y: (ins * H).toFixed(1), width: ((1 - 2 * ins) * W).toFixed(1), height: ((1 - 2 * ins) * H).toFixed(1), fill: 'none', stroke: col, 'stroke-width': lw })); });
+    } else {
+      var fr = preset === 'golden' ? [0.382, 0.618] : [1 / 3, 2 / 3];
+      fr.forEach(function (v) { vline(v); hline(v); });
+    }
+    if (state.crosshair) { vline(0.5); hline(0.5); }
+    return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
+
+  R.tools.register({
+    id: 'grids',
+    title: 'Grids',
+    group: 'Layout',
+    order: 4,
+    keywords: ['grid', 'grids', 'guides', 'thirds', 'golden', 'ratio', 'columns', 'rows', 'gutter', 'overlay', 'layout', 'crosshair'],
+    mount: mount
+  });
 
   function mount(ctx) {
     var preset = 'thirds';
     var count = 12;
+    var rows = 0;
     var gutter = 20;
     var margin = 0;
+    var lineWidth = 2;
+    var crosshair = false;
     var colorName = 'cyan';
     var replace = true;
+
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function state() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName }; }
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(gridSvg(state(), 120)); }
 
     var presetCtl = ui.segmented([
       { value: 'thirds', label: 'Thirds', title: 'Lines at one third and two thirds' },
       { value: 'golden', label: 'Golden', title: 'Lines at the golden-ratio divisions' },
-      { value: 'columns', label: 'Columns', title: 'A real design column grid with margin and gutter' },
+      { value: 'columns', label: 'Columns', title: 'A real design column / row grid with margin and gutter' },
       { value: 'safe', label: 'Safe', title: 'Broadcast action-safe and title-safe rectangles' }
-    ], { value: preset, onChange: function (v) { preset = v; syncColumns(); } });
+    ], { value: preset, onChange: function (v) { preset = v; syncColumns(); renderPreview(); } });
 
-    var countField = ui.numberField({ label: 'Count', value: count, min: 1, max: 100, step: 1, decimals: 0, width: '110px',
-      onChange: function (v) { count = v; } });
+    var countField = ui.numberField({ label: 'Columns', value: count, min: 1, max: 100, step: 1, decimals: 0, width: '110px',
+      onChange: function (v) { count = v; renderPreview(); } });
+    var rowsField = ui.numberField({ label: 'Rows', value: rows, min: 0, max: 100, step: 1, decimals: 0, width: '110px',
+      title: '0 = columns only. Above 0 draws horizontal divisions too, for a modular grid.', onChange: function (v) { rows = v; renderPreview(); } });
     var gutterField = ui.numberField({ label: 'Gutter', value: gutter, min: 0, step: 1, decimals: 0, suffix: 'px', width: '110px',
-      onChange: function (v) { gutter = v; } });
+      onChange: function (v) { gutter = v; renderPreview(); } });
     var marginField = ui.numberField({ label: 'Margin', value: margin, min: 0, step: 1, decimals: 0, suffix: 'px', width: '110px',
-      onChange: function (v) { margin = v; } });
+      onChange: function (v) { margin = v; renderPreview(); } });
 
     var columnsRows = el('div.rb-col', null, [
-      ui.row('Count', countField.el),
+      ui.row('Columns', countField.el),
+      ui.row('Rows', rowsField.el),
       ui.row('Gutter', gutterField.el),
       ui.row('Margin', marginField.el)
     ]);
 
+    var widthField = ui.numberField({ label: 'Line width', value: lineWidth, min: 1, max: 12, step: 1, decimals: 0, suffix: 'px', width: '110px',
+      onChange: function (v) { lineWidth = v; renderPreview(); } });
+    var crosshairToggle = ui.toggle({ label: 'Center crosshair', value: crosshair,
+      title: 'Add a line through the exact centre of the frame.', onChange: function (v) { crosshair = v; renderPreview(); } });
+
     var colorCtl = ui.segmented(COLORS.map(function (c) {
       return { value: c.value, label: c.label, title: 'Draw the guides in ' + c.label.toLowerCase() };
-    }), { value: colorName, onChange: function (v) { colorName = v; } });
+    }), { value: colorName, onChange: function (v) { colorName = v; renderPreview(); } });
 
     var replaceToggle = ui.toggle({ label: 'Replace existing', value: replace,
       title: 'Swap the earlier Guides layer instead of stacking a new one on every apply.',
       onChange: function (v) { replace = v; } });
 
-    function syncColumns() {
-      columnsRows.style.display = preset === 'columns' ? '' : 'none';
-    }
+    function syncColumns() { columnsRows.style.display = preset === 'columns' ? '' : 'none'; }
     syncColumns();
+    renderPreview();
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Adds a non-rendering guide layer over the composition. Columns draws a real design grid (margin + gutter); Safe draws the action-safe and title-safe rectangles.' }),
+      el('div.rb-faint', { text: 'Adds a non-rendering guide layer over the composition. Columns draws a real design grid (margin + gutter, and rows for a modular grid); Safe draws the action-safe and title-safe rectangles.' }),
+      previewHost,
       ui.row('Preset', presetCtl.el),
       columnsRows,
+      ui.row('Line width', widthField.el),
+      crosshairToggle.el,
       ui.row('Color', colorCtl.el),
       replaceToggle.el
     ]));
@@ -89,22 +135,24 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('grids.apply', { preset: preset, count: count, gutter: gutter, margin: margin, color: rgbFor(colorName), replace: replace })
+      ctx.invoke('grids.apply', { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, color: rgbFor(colorName), replace: replace })
         .then(function () { ctx.toast('Added guide layer', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not add grids', { kind: 'error' }); });
     }
 
-    function getState() {
-      return { preset: preset, count: count, gutter: gutter, margin: margin, colorName: colorName };
-    }
+    function getState() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName }; }
     function applyState(s) {
       if (!s) return;
       if (s.preset != null) { preset = s.preset; presetCtl.set(s.preset); }
       if (s.count != null) { count = s.count; countField.set(s.count); }
+      if (s.rows != null) { rows = s.rows; rowsField.set(s.rows); }
       if (s.gutter != null) { gutter = s.gutter; gutterField.set(s.gutter); }
       if (s.margin != null) { margin = s.margin; marginField.set(s.margin); }
+      if (s.lineWidth != null) { lineWidth = s.lineWidth; widthField.set(s.lineWidth); }
+      if (s.crosshair != null) { crosshair = s.crosshair; crosshairToggle.set(s.crosshair); }
       if (s.colorName != null) { colorName = s.colorName; colorCtl.set(s.colorName); }
       syncColumns();
+      renderPreview();
     }
 
     return {
@@ -112,11 +160,13 @@
         toolId: 'grids',
         get: getState,
         set: applyState,
+        thumbFor: function (st, opts) { return gridSvg(st, (opts && opts.height) || 38); },
         defaults: [
-          { name: 'Thirds', state: { preset: 'thirds', count: 12, gutter: 20, margin: 0, colorName: 'cyan' } },
-          { name: '12-col', state: { preset: 'columns', count: 12, gutter: 20, margin: 60, colorName: 'magenta' } },
-          { name: 'Golden', state: { preset: 'golden', count: 12, gutter: 20, margin: 0, colorName: 'white' } },
-          { name: 'Title-safe', state: { preset: 'safe', count: 12, gutter: 20, margin: 0, colorName: 'white' } }
+          { name: 'Thirds', state: { preset: 'thirds', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
+          { name: '12-col', state: { preset: 'columns', count: 12, rows: 0, gutter: 20, margin: 60, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
+          { name: 'Modular 6x4', state: { preset: 'columns', count: 6, rows: 4, gutter: 24, margin: 48, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
+          { name: 'Golden', state: { preset: 'golden', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: true, colorName: 'white' } },
+          { name: 'Title-safe', state: { preset: 'safe', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'white' } }
         ]
       },
       destroy: off
