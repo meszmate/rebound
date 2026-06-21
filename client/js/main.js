@@ -218,13 +218,8 @@
            ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
     });
 
-    // Visible wordmark so it is always clear this is the Rebound panel. The
-    // mark already lives on the rail, so the topbar shows just the name.
-    var brand = el('div.rb-brand', { title: 'Rebound' }, [
-      el('span.rb-brand-name', { text: 'Rebound' })
-    ]);
-
-    var children = [brand, search, el('span.rb-selchip', null, [selDot, selText])];
+    // The mark already lives on the rail, so the topbar leads with search.
+    var children = [search, el('span.rb-selchip', null, [selDot, selText])];
     if (R.bridge.available) {
       children.push(el('button.rb-btn.is-ghost.is-icon', {
         title: 'Reload host (dev)', 'aria-label': 'Reload host',
