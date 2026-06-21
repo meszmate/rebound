@@ -221,7 +221,27 @@
 .rb-home-add:hover { border-color: var(--rb-accent); color: var(--rb-text); }
 .rb-home-plus { font-size: 22px; line-height: 1; color: var(--rb-text-muted); }
 
-.rb-home-empty { flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; gap: var(--rb-gap-2); padding: 24px; color: var(--rb-text-muted); }
+/* Playful empty state, spanning the whole grid. */
+.rb-home-empty {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 44px 24px; min-height: 280px; text-align: center; color: var(--rb-text-muted);
+}
+.rb-home-empty-art { width: 132px; height: 100px; }
+.rb-home-empty-art svg { width: 100%; height: 100%; overflow: visible; }
+.rb-ee-card { fill: var(--rb-bg-raised); stroke: var(--rb-border-strong); stroke-width: 2; transform-box: fill-box; transform-origin: center; }
+.rb-ee-c1 { animation: rb-ee-float 3.2s ease-in-out infinite; }
+.rb-ee-c2 { fill: color-mix(in srgb, var(--rb-accent) 18%, var(--rb-bg-raised)); stroke: var(--rb-accent); animation: rb-ee-float 3.2s ease-in-out infinite 0.45s; }
+.rb-ee-c3 { animation: rb-ee-float 3.2s ease-in-out infinite 0.9s; }
+.rb-ee-plus { stroke: var(--rb-accent); stroke-width: 3; stroke-linecap: round; fill: none; }
+.rb-ee-spark { fill: var(--rb-accent); transform-box: fill-box; transform-origin: center; animation: rb-ee-twinkle 2.4s ease-in-out infinite; }
+@keyframes rb-ee-float { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+@keyframes rb-ee-twinkle { 0%, 100% { opacity: 0.45; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.15); } }
+:root.rb-tiles-static .rb-ee-card, :root.rb-tiles-static .rb-ee-spark { animation: none; }
+@media (prefers-reduced-motion: reduce) { .rb-ee-card, .rb-ee-spark { animation: none; } }
+.rb-home-empty-title { font-size: calc(var(--rb-font-size) + 5px); font-weight: 800; color: var(--rb-text); letter-spacing: -0.01em; }
+.rb-home-empty-sub { font-size: var(--rb-font-size); max-width: 260px; line-height: 1.45; }
+.rb-home-empty-btn { margin-top: 6px; height: 30px; padding: 0 16px; font-size: calc(var(--rb-font-size) + 1px); }
 
 /* ---- Action browser ------------------------------------------------------ */
 .rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
@@ -315,7 +335,7 @@
    (The full tool tab always keeps every control.) */
 .rb-focus-hidden { display: none !important; }
 .rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
-.rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: var(--rb-gap-2); }
+.rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; }
 .rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
 .rb-home-widget.is-filled .rb-action-bar { display: none; }
 .rb-home-widget.is-filled .rb-anchor-stage,
@@ -323,7 +343,8 @@
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
 .rb-home-widget.is-filled .rb-curve svg,
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
-.rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; }
+/* Edge-to-edge: the box IS the widget, so drop its own frame and rounding. */
+.rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; border: 0; border-radius: 0; }
 /* Preview graphs stretch to fill the widget width (no letterboxed empty space);
    set by JS via preserveAspectRatio on non-editor previews. Keep them compact. */
 .rb-home-widget-body svg[preserveAspectRatio="none"] { max-height: 80px; }
@@ -367,11 +388,12 @@
 
 /* A spring pop for a freshly added item. */
 @keyframes rb-pop {
-  0% { opacity: 0; transform: scale(0.82); }
-  60% { transform: scale(1.05); }
+  0% { opacity: 0; transform: scale(0.9); }
   100% { opacity: 1; transform: scale(1); }
 }
-.rb-pop { animation: rb-pop var(--rb-dur-medium, 0.3s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)); }
+/* Grow in without overshooting scale 1, so a freshly added item never briefly
+   spills over its neighbours. */
+.rb-pop { animation: rb-pop var(--rb-dur-medium, 0.3s) var(--rb-ease-emphasized, cubic-bezier(0.2, 0.9, 0.25, 1)); }
 
 /* A ring pulse when a one-click tile fires. */
 @keyframes rb-pulse {

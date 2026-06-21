@@ -393,13 +393,15 @@
   width: 100%;
   aspect-ratio: 16 / 10;
   max-height: 280px;
-  border: 1px dashed var(--rb-border-strong);
-  border-radius: var(--rb-radius-2);
+  border: 1.5px solid var(--rb-border);
+  border-radius: 14px;
   background:
-    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--rb-accent) 7%, transparent), transparent 70%),
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--rb-text-faint) 26%, transparent) 1.4px, transparent 0) 0 0 / 18px 18px,
+    radial-gradient(130% 110% at 50% 0%, color-mix(in srgb, var(--rb-accent) 14%, transparent), transparent 62%),
     var(--rb-bg-sunken);
   cursor: crosshair;
   touch-action: none;
+  overflow: hidden;
   transition: border-color var(--rb-transition);
 }
 .rb-anchor-box:hover { border-color: var(--rb-accent); }
@@ -409,48 +411,50 @@
 .rb-anchor-cross::before { left: 0; right: 0; top: 50%; height: 1px; }
 .rb-anchor-cross::after { top: 0; bottom: 0; left: 50%; width: 1px; }
 
+/* Playful candy dots: soft accent discs that spring on hover, glow when active. */
 .rb-anchor-dot {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border-radius: 50%;
-  border: 2px solid var(--rb-text-muted);
-  background: var(--rb-bg-raised);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  border: 0;
+  background: color-mix(in srgb, var(--rb-accent) 24%, var(--rb-bg-raised));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 0 0 2px var(--rb-bg-raised);
   cursor: pointer;
   z-index: 2;
   transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
-    border-color var(--rb-transition), background var(--rb-transition), box-shadow var(--rb-transition);
+    background var(--rb-transition), box-shadow var(--rb-transition);
 }
-.rb-anchor-dot:hover { border-color: var(--rb-accent); transform: translate(-50%, -50%) scale(1.4); box-shadow: 0 0 0 4px color-mix(in srgb, var(--rb-accent) 18%, transparent); }
-.rb-anchor-dot:active { transform: translate(-50%, -50%) scale(1.15); }
-.rb-anchor-dot.is-active { background: var(--rb-accent); border-color: var(--rb-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--rb-accent) 28%, transparent); }
+.rb-anchor-dot:hover { transform: translate(-50%, -50%) scale(1.45); background: color-mix(in srgb, var(--rb-accent) 50%, var(--rb-bg-raised)); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rb-accent) 16%, transparent); }
+.rb-anchor-dot:active { transform: translate(-50%, -50%) scale(1.2); }
+.rb-anchor-dot.is-active { background: var(--rb-accent); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rb-accent) 24%, transparent), 0 3px 10px color-mix(in srgb, var(--rb-accent) 55%, transparent); }
 
-/* the AE-style draggable anchor crosshair (a ring with a cross), softly glowing */
+/* The draggable anchor: a glowing orb that pulses. */
 .rb-anchor-target {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 2px solid var(--rb-accent);
+  border: 2.5px solid var(--rb-accent);
+  background: radial-gradient(circle, color-mix(in srgb, var(--rb-accent) 55%, transparent), transparent 68%);
   pointer-events: none;
   z-index: 3;
-  box-shadow: 0 0 10px color-mix(in srgb, var(--rb-accent) 50%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--rb-accent) 60%, transparent);
   animation: rb-anchor-pulse 1.9s ease-in-out infinite;
 }
 @keyframes rb-anchor-pulse {
-  0%, 100% { box-shadow: 0 0 7px color-mix(in srgb, var(--rb-accent) 38%, transparent); }
-  50% { box-shadow: 0 0 15px color-mix(in srgb, var(--rb-accent) 72%, transparent); }
+  0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, var(--rb-accent) 45%, transparent); transform: translate(-50%, -50%) scale(1); }
+  50% { box-shadow: 0 0 22px color-mix(in srgb, var(--rb-accent) 80%, transparent); transform: translate(-50%, -50%) scale(1.08); }
 }
 @media (prefers-reduced-motion: reduce) { .rb-anchor-target { animation: none; } }
 :root.rb-tiles-static .rb-anchor-target { animation: none; }
 .rb-anchor-target::before,
-.rb-anchor-target::after { content: ''; position: absolute; background: var(--rb-accent); }
-.rb-anchor-target::before { left: 50%; top: -6px; bottom: -6px; width: 2px; transform: translateX(-50%); }
-.rb-anchor-target::after { top: 50%; left: -6px; right: -6px; height: 2px; transform: translateY(-50%); }
+.rb-anchor-target::after { content: ''; position: absolute; background: var(--rb-accent-text, #fff); border-radius: 2px; }
+.rb-anchor-target::before { left: 50%; top: 6px; bottom: 6px; width: 2px; transform: translateX(-50%); }
+.rb-anchor-target::after { top: 50%; left: 6px; right: 6px; height: 2px; transform: translateY(-50%); }
 
 .rb-anchor-readout { text-align: center; font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); }
 

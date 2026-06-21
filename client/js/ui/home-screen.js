@@ -28,9 +28,11 @@
   // One board's full state. Several boards live side by side, switched via tabs.
   function boardFrom(name, d, emptyItems) {
     d = d || {};
+    // An explicit items array (even an empty one) is respected; only a board with
+    // no items field at all falls back to the default set (or empty on request).
+    var items = d.items ? d.items.slice() : (emptyItems ? [] : R.homeActions.DEFAULT.slice());
     return {
-      name: name,
-      items: (d.items && d.items.length) ? d.items.slice() : (emptyItems ? [] : R.homeActions.DEFAULT.slice()),
+      name: name, items: items,
       spans: d.spans || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, filled: d.filled || {},
       board: d.board || 'md', cols: d.cols || 4, theme: d.theme || null
     };
@@ -793,9 +795,19 @@
 
       R.dom.clear(grid);
       if (!ids.length) {
+        var art = el('div.rb-home-empty-art');
+        art.innerHTML = '<svg viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg">'
+          + '<rect class="rb-ee-card rb-ee-c1" x="20" y="30" width="34" height="34" rx="8"/>'
+          + '<rect class="rb-ee-card rb-ee-c2" x="66" y="24" width="34" height="34" rx="8"/>'
+          + '<rect class="rb-ee-card rb-ee-c3" x="44" y="48" width="34" height="34" rx="8"/>'
+          + '<path class="rb-ee-plus" d="M61 60v12M55 66h12"/>'
+          + '<path class="rb-ee-spark" d="M98 14l1.6 4.4 4.4 1.6-4.4 1.6L98 26l-1.6-4.4-4.4-1.6 4.4-1.6z"/>'
+          + '</svg>';
         grid.appendChild(el('div.rb-home-empty', null, [
-          el('div', { text: 'No items pinned yet.' }),
-          el('button.rb-btn', { onclick: openBrowser }, ['Add items'])
+          art,
+          el('div.rb-home-empty-title', { text: 'Make this board yours' }),
+          el('div.rb-home-empty-sub', { text: 'Pin one-click actions, tools and live widgets, then arrange and theme them however you like.' }),
+          el('button.rb-btn.is-primary.rb-home-empty-btn', { type: 'button', onclick: openBrowser }, ['+  Add your first item'])
         ]));
         return;
       }
@@ -806,7 +818,7 @@
           if (!widgetCache[id]) buildWidget(action);
           decorateWidget(action);
           grid.appendChild(widgetCache[id].card);
-          if (id === lastAddedId) playOnce(widgetCache[id].card, 'rb-pop');
+          if (id === lastAddedId) playOnce(widgetCache[id].card, 'rb-anim-in'); // gentle fade, never overshoots its bounds
         } else {
           grid.appendChild(tile(action));
         }
