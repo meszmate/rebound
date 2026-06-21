@@ -71,7 +71,9 @@
       var lo = Math.min(0, r.min);
       var hi = Math.max(1, r.max);
       var span = (hi - lo) || 1;
-      var m = span * 0.12;
+      // Generous, stable headroom above and below so there is room to pull a
+      // handle into overshoot without the graph rescaling the instant you grab.
+      var m = Math.max(span * 0.22, 0.3);
       return { vMin: lo - m, vMax: hi + m };
     }
 
@@ -174,10 +176,10 @@
         e.preventDefault();
         circle.classList.add('is-dragging');
         circle.setPointerCapture(e.pointerId);
-        // Freeze a generous view for the whole drag so the coordinate space
-        // never rescales under the pointer (you can always drag back down).
-        var base = computeView(curve);
-        frozenView = { vMin: Math.min(base.vMin, -1.3), vMax: Math.max(base.vMax, 2.3) };
+        // Freeze the current (already generous) view so it does not jump on
+        // grab; it grows only if the handle is dragged past an edge, never
+        // shrinks, so the coordinate space stays steady under the pointer.
+        frozenView = computeView(curve);
         render();
         var move = function (ev) {
           var p = toPlot(ev);
@@ -223,6 +225,13 @@
       else y = clamp(y, -3, 4);
       if (key === 'h1') { curve.x1 = x; curve.y1 = y; }
       else { curve.x2 = x; curve.y2 = y; }
+      // While dragging, grow the frozen view to keep the handle visible (never
+      // shrink), so pushing into overshoot expands the graph smoothly.
+      if (frozenView) {
+        var pad = 0.18;
+        if (y < frozenView.vMin + pad) frozenView.vMin = y - pad;
+        if (y > frozenView.vMax - pad) frozenView.vMax = y + pad;
+      }
       onChange(clone(curve));
       render();
       showReadout(key, ev);

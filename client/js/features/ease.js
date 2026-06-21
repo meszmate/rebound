@@ -29,6 +29,7 @@
       value: curve,
       swatch: false,
       allowOvershoot: true,
+      height: 300,
       onChange: function (c) {
         curve = c;
         syncFields();
