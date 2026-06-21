@@ -64,13 +64,23 @@
       var draft = { type: s.type };
       var nameI = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: s.name, placeholder: 'Name' });
       var typeCtl = ui.segmented([{ value: 'script', label: 'Script' }, { value: 'expression', label: 'Expression' }], { value: s.type, onChange: function (v) { draft.type = v; } });
-      var codeI = el('textarea.rb-cfg-text.rb-scripts-code', { spellcheck: 'false', rows: '9', placeholder: 'app.project.activeItem... or wiggle(2, 30)' });
-      codeI.value = s.code || '';
+      // Syntax-highlighted editor when available; fall back to a plain textarea
+      // so the tool never breaks if the component failed to load.
+      var codeEd, codeNode;
+      if (R.codeEditor) {
+        codeEd = R.codeEditor.create({ value: s.code || '', placeholder: 'app.project.activeItem... or wiggle(2, 30)', minHeight: 150 });
+        codeNode = codeEd.el;
+      } else {
+        var codeI = el('textarea.rb-cfg-text.rb-scripts-code', { spellcheck: 'false', rows: '9', placeholder: 'app.project.activeItem... or wiggle(2, 30)' });
+        codeI.value = s.code || '';
+        codeEd = { getValue: function () { return codeI.value; } };
+        codeNode = codeI;
+      }
       var saveB = el('button.rb-btn.is-primary', { type: 'button', onclick: function () {
         var name = (nameI.value || '').trim();
         if (!name) { ctx.toast('Give it a name first', { kind: 'error' }); return; }
         var l = load();
-        var rec = { id: s.id, name: name, type: draft.type, code: codeI.value };
+        var rec = { id: s.id, name: name, type: draft.type, code: codeEd.getValue() };
         if (i == null) l.push(rec); else l[i] = rec;
         save(l); render(); h.close('confirm');
       } }, ['Save']);
@@ -78,7 +88,7 @@
         ui.row('Name', nameI),
         ui.row('Type', typeCtl.el),
         el('div.rb-section-label', { text: 'Code' }),
-        codeI,
+        codeNode,
         el('div.rb-faint', { text: 'Script runs as ExtendScript in one undo step. Expression is written onto the selected properties.' })
       ]);
       var h = ui.modal({ title: i == null ? 'New script / expression' : 'Edit', width: 460, body: body, footer: [saveB], initialFocus: nameI });

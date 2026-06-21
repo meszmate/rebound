@@ -470,6 +470,68 @@
   background: var(--rb-bg-sunken); color: var(--rb-text);
 }
 
+/* ---- Code editor (syntax-highlighted) ------------------------------------ */
+/* A transparent <textarea> sits on top of a highlighted <pre>; both must share
+   identical metrics (font, size, padding, line-height, border) so the colored
+   text lines up exactly under the caret. Token colors are custom properties so
+   they recolor with the host theme. */
+.rb-code-editor {
+  --rb-tok-comment: var(--rb-text-faint);
+  --rb-tok-string: var(--rb-success);
+  --rb-tok-keyword: var(--rb-accent);
+  --rb-tok-number: var(--rb-warning);
+  --rb-tok-global: #c08af0;
+
+  position: relative;
+  width: 100%; min-height: 150px;
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-1);
+  background: var(--rb-bg-sunken);
+  overflow: hidden;
+}
+
+.rb-code-pre,
+.rb-code-input {
+  margin: 0; padding: 8px;
+  font-family: var(--rb-mono, ui-monospace, monospace);
+  font-size: calc(var(--rb-font-size) - 1px);
+  line-height: 1.4;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+
+/* Highlight layer: under the textarea, never interactive. */
+.rb-code-pre {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  color: var(--rb-text);
+  overflow: hidden;
+}
+.rb-code-pre .rb-code-hl { font: inherit; }
+
+/* Input layer: transparent text so only the highlight shows, caret stays lit. */
+.rb-code-input {
+  position: relative;
+  display: block;
+  width: 100%; min-height: 150px; height: auto;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--rb-text);
+  -webkit-text-fill-color: transparent;
+}
+.rb-code-input::selection { background: color-mix(in srgb, var(--rb-accent) 35%, transparent); }
+.rb-code-input::placeholder { color: var(--rb-text-faint); -webkit-text-fill-color: var(--rb-text-faint); }
+.rb-code-input:focus { outline: none; }
+.rb-code-editor:focus-within { border-color: var(--rb-accent); }
+
+.rb-tok-comment { color: var(--rb-tok-comment); font-style: italic; }
+.rb-tok-string { color: var(--rb-tok-string); }
+.rb-tok-keyword { color: var(--rb-tok-keyword); }
+.rb-tok-number { color: var(--rb-tok-number); }
+.rb-tok-global { color: var(--rb-tok-global); }
+
 /* ---- Empty state --------------------------------------------------------- */
 .rb-empty {
   display: flex;
