@@ -7,12 +7,32 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
 
   var PALETTE = [
     '#f4453a', '#f5910b', '#f7d000', '#54c245',
     '#1fa6e0', '#3a52d6', '#9b3fd6', '#1a1c20'
   ];
+
+  // A sample shape outlined with the live stroke width, color, and dash. The
+  // real px width is mapped onto a clamped on-screen width so it always reads.
+  function strokeSvg(state, h) {
+    var raw = state.width == null ? 4 : state.width;
+    var sw = Math.max(1, Math.min(8, raw / 2 + 1));
+    var attrs = {
+      x: 30, y: 24, width: 100, height: 42, rx: 10,
+      fill: 'none',
+      stroke: state.hex || 'var(--rb-accent)',
+      'stroke-width': sw,
+      'stroke-linejoin': 'round'
+    };
+    if (state.dash) attrs['stroke-dasharray'] = state.dash;
+    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, [
+      svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      svg('rect', attrs)
+    ]);
+  }
 
   R.tools.register({
     id: 'stroke',
@@ -28,8 +48,11 @@
     var activeHex = PALETTE[7];
     var rgb = hexToRgb(activeHex);
 
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(strokeSvg({ width: width, hex: activeHex }, 90)); }
+
     var widthField = ui.numberField({ label: 'Width', value: width, min: 0, step: 1, decimals: 0, suffix: 'px', width: '110px',
-      onChange: function (v) { width = v; } });
+      onChange: function (v) { width = v; renderPreview(); } });
 
     var swatches = [];
     var swatchRow = el('div.rb-row.rb-wrap');
@@ -42,7 +65,7 @@
       var b = el('button.rb-btn.is-icon', { title: 'Stroke ' + hex });
       b.style.background = hex;
       b.style.borderColor = hex;
-      b.addEventListener('click', function () { activeHex = hex; rgb = hexToRgb(hex); setActive(hex); });
+      b.addEventListener('click', function () { activeHex = hex; rgb = hexToRgb(hex); setActive(hex); renderPreview(); });
       swatches.push({ hex: hex, el: b });
       return b;
     }
@@ -53,8 +76,10 @@
       }
     }
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Adds or updates a stroke on selected shape layers. Pick a width and a color, then apply, or remove every stroke.' }),
+      previewHost,
       widthField.el,
       ui.row('Color', swatchRow),
       el('div.rb-row.rb-wrap', null, [
@@ -98,6 +123,7 @@
       if (!s) return;
       if (s.width != null) { width = s.width; widthField.set(s.width); }
       if (s.hex != null) { activeHex = s.hex; rgb = hexToRgb(s.hex); setActive(s.hex); }
+      renderPreview();
     }
 
     return {

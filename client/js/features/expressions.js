@@ -95,6 +95,43 @@
     ]);
   }
 
+  // ---- Animated motion sample (detail area) --------------------------------
+  // A tiny SMIL-driven SVG that demonstrates the selected snippet's motion type.
+  function motionSampleSvg(category) {
+    var frame = svg('rect', { x: 1, y: 1, width: 158, height: 62, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 });
+    var dot;
+
+    if (category === 'wiggle') {
+      dot = svg('circle', { cx: 80, cy: 32, r: 5, fill: 'var(--rb-accent)' }, [
+        svg('animate', { attributeName: 'cx', values: '80;62;96;70;90;74;80', dur: '1.2s', repeatCount: 'indefinite' }),
+        svg('animate', { attributeName: 'cy', values: '32;22;40;26;44;30;32', dur: '1.2s', repeatCount: 'indefinite' })
+      ]);
+    } else if (category === 'loop') {
+      dot = svg('circle', { cx: 20, cy: 32, r: 5, fill: 'var(--rb-accent)' }, [
+        svg('animate', { attributeName: 'cx', values: '20;140;20', keyTimes: '0;0.92;1', dur: '1.4s', repeatCount: 'indefinite' })
+      ]);
+    } else if (category === 'time') {
+      dot = svg('circle', { cx: 20, cy: 32, r: 5, fill: 'var(--rb-accent)' }, [
+        svg('animate', { attributeName: 'cx', values: '20;140', dur: '1.6s', calcMode: 'linear', repeatCount: 'indefinite' })
+      ]);
+    } else if (category === 'random') {
+      dot = svg('circle', { cx: 30, cy: 20, r: 5, fill: 'var(--rb-accent)' }, [
+        svg('animate', { attributeName: 'cx', values: '30;120;55;138;22;90;30', dur: '1s', calcMode: 'discrete', repeatCount: 'indefinite' }),
+        svg('animate', { attributeName: 'cy', values: '20;46;28;50;18;38;20', dur: '1s', calcMode: 'discrete', repeatCount: 'indefinite' })
+      ]);
+    } else if (category === 'physics') {
+      dot = svg('circle', { cx: 80, cy: 14, r: 5, fill: 'var(--rb-accent)' }, [
+        svg('animate', { attributeName: 'cy', values: '14;48;26;48;36;48;42;48', dur: '1.5s', repeatCount: 'indefinite' })
+      ]);
+    } else { // default / other: gentle horizontal ease
+      dot = svg('circle', { cx: 30, cy: 32, r: 5, fill: 'var(--rb-accent)' }, [
+        svg('animate', { attributeName: 'cx', values: '30;130;30', keyTimes: '0;0.5;1', calcMode: 'spline', keySplines: '0.42 0 0.58 1;0.42 0 0.58 1', dur: '2s', repeatCount: 'indefinite' })
+      ]);
+    }
+
+    return svg('svg', { viewBox: '0 0 160 64', width: '100%', height: 64 }, [frame, dot]);
+  }
+
   R.tools.register({
     id: 'expressions',
     title: 'Expressions',
@@ -144,10 +181,15 @@
       color: 'var(--rb-text)', background: 'var(--rb-bg-sunken)', border: '1px solid var(--rb-border)',
       borderRadius: 'var(--rb-radius-2)', padding: '6px' } });
     var detailName = el('div.rb-section-label', { text: 'Pick an expression' });
+    var sampleHost = el('div', { style: {
+      border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)',
+      background: 'var(--rb-bg-sunken)', padding: '6px' } }, [
+      el('div.rb-faint', { text: 'Select an expression to preview its motion.' })
+    ]);
     var applyBtn = el('button.rb-btn.is-primary.is-disabled', { onclick: doApply }, ['Apply']);
     var copyBtn = el('button.rb-btn.is-disabled', { onclick: doCopy }, ['Copy']);
     var detail = el('div.rb-col', { style: { gap: '6px' } }, [
-      detailName, codeBox, el('div.rb-row', { style: { gap: '6px' } }, [applyBtn, copyBtn])
+      detailName, sampleHost, codeBox, el('div.rb-row', { style: { gap: '6px' } }, [applyBtn, copyBtn])
     ]);
 
     // New-expression form (collapsible).
@@ -230,6 +272,8 @@
       selected = snippet;
       detailName.textContent = snippet.name;
       codeBox.value = snippet.code;
+      R.dom.clear(sampleHost);
+      sampleHost.appendChild(motionSampleSvg(snippet.category));
       applyBtn.classList.remove('is-disabled');
       copyBtn.classList.remove('is-disabled');
       render();

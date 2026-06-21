@@ -7,6 +7,7 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
 
   var RES = [
@@ -41,6 +42,19 @@
     return el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } }, [
       box,
       el('div.rb-faint', { style: { fontSize: '11px' }, text: (w > 0 && h > 0) ? (Math.round(w) + ' × ' + Math.round(h) + '   ' + ratioLabel(w, h)) : 'No composition' })
+    ]);
+  }
+  // A tiny aspect-ratio glyph: a filled rect sized to w:h, centered in a 22x16 box.
+  function aspectGlyph(w, h) {
+    var boxW = 22, boxH = 16, pad = 2, availW = boxW - pad * 2, availH = boxH - pad * 2;
+    var rw = availW, rh = availH;
+    if (w > 0 && h > 0) {
+      var ratio = w / h;
+      if (ratio >= availW / availH) { rw = availW; rh = availW / ratio; } else { rh = availH; rw = availH * ratio; }
+    }
+    var rx = (boxW - rw) / 2, ry = (boxH - rh) / 2;
+    return svg('svg', { viewBox: '0 0 22 16', width: 22, height: 16, style: 'flex:none' }, [
+      svg('rect', { x: rx.toFixed(1), y: ry.toFixed(1), width: rw.toFixed(1), height: rh.toFixed(1), rx: 1, fill: 'var(--rb-accent)', 'fill-opacity': '0.85' })
     ]);
   }
 
@@ -87,7 +101,7 @@
     var cropBtn = el('button.rb-btn', { title: 'Resize the composition to fit the content', onclick: doCrop }, ['Crop comp to content']);
 
     var resRow = el('div.rb-row.rb-wrap', null, RES.map(function (r) {
-      return el('button.rb-btn.is-ghost', { title: r.w + ' × ' + r.h, onclick: function () { width = r.w; height = r.h; widthField.set(r.w); heightField.set(r.h); renderPreview(); } }, [r.name]);
+      return el('button.rb-btn.is-ghost', { title: r.w + ' × ' + r.h, style: { display: 'inline-flex', alignItems: 'center', gap: '5px' }, onclick: function () { width = r.w; height = r.h; widthField.set(r.w); heightField.set(r.h); renderPreview(); } }, [aspectGlyph(r.w, r.h), el('span', { text: r.name })]);
     }));
     var fpsRow = el('div.rb-row.rb-wrap', null, FPS.map(function (f) {
       return el('button.rb-btn.is-ghost', { onclick: function () { frameRate = f; frameRateField.set(f); } }, [String(f)]);

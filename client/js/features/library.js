@@ -113,6 +113,20 @@
           manageDialog(preset);
         });
       }
+      // Animate the curve dot while the tile is hovered. SMIL begin/end methods
+      // can throw in some engines, so each call is guarded.
+      node.addEventListener('mouseenter', function () {
+        var anims = node.querySelectorAll('animateMotion, animate');
+        for (var i = 0; i < anims.length; i++) {
+          try { anims[i].beginElement(); } catch (e) { /* SMIL not ready */ }
+        }
+      });
+      node.addEventListener('mouseleave', function () {
+        var anims = node.querySelectorAll('animateMotion, animate');
+        for (var i = 0; i < anims.length; i++) {
+          try { anims[i].endElement(); } catch (e) { /* SMIL not ready */ }
+        }
+      });
       return node;
     }
 
@@ -211,8 +225,17 @@
       var y = (h - pad) - ((pt.y - lo) / span) * (h - 2 * pad);
       return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
     }).join(' ');
-    return R.dom.svg('svg', { viewBox: '0 0 ' + w + ' ' + h }, [
-      R.dom.svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5 })
+    // A dot that rides the same curve path on hover, so the easing can be felt
+    // before applying. The SMIL animations are dormant (begin:'indefinite') until
+    // the tile starts them; tiles that are never hovered render the static path
+    // exactly as before.
+    var dot = R.dom.svg('circle', { r: 2.4, fill: 'var(--rb-accent)', opacity: 0 }, [
+      R.dom.svg('animateMotion', { dur: '1.1s', repeatCount: 'indefinite', path: d, begin: 'indefinite' }),
+      R.dom.svg('animate', { attributeName: 'opacity', values: '0;1;1;0', dur: '1.1s', repeatCount: 'indefinite', begin: 'indefinite' })
+    ]);
+    return R.dom.svg('svg', { 'class': 'rb-mini-curve', viewBox: '0 0 ' + w + ' ' + h }, [
+      R.dom.svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }),
+      dot
     ]);
   }
 

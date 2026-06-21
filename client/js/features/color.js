@@ -8,12 +8,37 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
 
   var PALETTE = [
     '#f4453a', '#f5910b', '#f7d000', '#54c245',
     '#1fa6e0', '#3a52d6', '#9b3fd6', '#f0f1f5'
   ];
+
+  // A large sample shape recolored with the current color. The fill follows the
+  // color when the target is Fill or Both, the stroke follows it when the target
+  // is Stroke or Both, and a small hue strip plus the swatch sit underneath so
+  // hue, saturation, lightness, hex, and the target all drive the preview.
+  function colorSvg(state, h) {
+    var rgb = hslToRgb(state.hue, state.saturation / 100, state.lightness / 100);
+    var css = rgbCss(rgb);
+    var target = state.target;
+    var fillCss = (target === 'fill' || target === 'both') ? css : 'none';
+    var hasStroke = (target === 'stroke' || target === 'both');
+    var hueOnly = rgbCss(hslToRgb(state.hue, 1, 0.5));
+    var kids = [
+      svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      svg('rect', { x: 34, y: 22, width: 92, height: 46, rx: 8, fill: fillCss, stroke: hasStroke ? css : 'none', 'stroke-width': hasStroke ? 4 : 0 }),
+      svg('rect', { x: 34, y: 76, width: 92, height: 6, rx: 3, fill: hueOnly, opacity: '0.85' }),
+      svg('circle', { cx: 22, cy: 45, r: 9, fill: css, stroke: 'var(--rb-border)', 'stroke-width': 1 })
+    ];
+    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
+  }
+
+  function rgbCss(rgb) {
+    return 'rgb(' + Math.round(rgb[0] * 255) + ',' + Math.round(rgb[1] * 255) + ',' + Math.round(rgb[2] * 255) + ')';
+  }
 
   R.tools.register({
     id: 'color',
@@ -31,22 +56,27 @@
     var target = 'fill';
 
     function currentRgb() { return hslToRgb(hue, saturation / 100, lightness / 100); }
+    function currentState() { return { hue: hue, saturation: saturation, lightness: lightness, target: target }; }
+
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(colorSvg(currentState(), 90)); }
 
     var swatchRow = el('div.rb-row.rb-wrap');
     for (var i = 0; i < PALETTE.length; i++) {
       swatchRow.appendChild(makeSwatch(PALETTE[i]));
     }
 
-    var preview = el('button.rb-btn.is-icon', {
+    var applyBtn = el('button.rb-btn.is-icon', {
       title: 'Apply the slider color',
       onclick: function () { apply(currentRgb()); }
     });
-    paint(preview, currentRgb());
+    paint(applyBtn, currentRgb());
 
-    // Native picker: pick any color and apply it directly.
+    // Native picker: pick any color, load it into the sliders, and refresh the
+    // preview so the chosen color drives the sample shape.
     var hexInput = el('input.rb-color-input', { type: 'color', value: '#1fa6e0',
-      title: 'Pick any color and apply it',
-      onchange: function (e) { apply(hexToRgb(e.target.value)); } });
+      title: 'Pick any color to load it into the sliders',
+      onchange: function (e) { setFromHex(e.target.value); } });
 
     var hueSlider = ui.slider({ label: 'Hue', min: 0, max: 360, step: 1, value: hue,
       format: function (v) { return Math.round(v) + '°'; },
@@ -62,21 +92,31 @@
       { value: 'fill', label: 'Fill', title: 'Recolor fills' },
       { value: 'stroke', label: 'Stroke', title: 'Recolor strokes (shape layers)' },
       { value: 'both', label: 'Both', title: 'Recolor fills and strokes' }
-    ], { value: target, onChange: function (v) { target = v; } });
+    ], { value: target, onChange: function (v) { target = v; renderPreview(); } });
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Sets the color of selected layers. Click a swatch, dial in Hue, Saturation, and Lightness, or pick any color. Stroke targets apply to shape layers.' }),
+      previewHost,
       swatchRow,
       hueSlider.el,
       satSlider.el,
       lightSlider.el,
       el('div.rb-section-label', { text: 'Target' }),
       targetCtl.el,
-      el('div.rb-row', null, [preview, el('span.rb-faint.rb-grow', { text: 'Slider color' }), hexInput])
+      el('div.rb-row', null, [applyBtn, el('span.rb-faint.rb-grow', { text: 'Slider color' }), hexInput])
     ]));
 
     function updatePreview() {
-      paint(preview, currentRgb());
+      paint(applyBtn, currentRgb());
+      renderPreview();
+    }
+
+    function setFromHex(hex) {
+      var hsl = rgbToHsl(hexToRgb(hex));
+      hue = hsl[0]; saturation = hsl[1]; lightness = hsl[2];
+      hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
+      updatePreview();
     }
 
     function makeSwatch(hex) {
@@ -89,7 +129,7 @@
     }
 
     function paint(node, rgb) {
-      var css = 'rgb(' + Math.round(rgb[0] * 255) + ',' + Math.round(rgb[1] * 255) + ',' + Math.round(rgb[2] * 255) + ')';
+      var css = rgbCss(rgb);
       node.style.background = css;
       node.style.borderColor = css;
     }
@@ -135,6 +175,23 @@
     var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
     var p = 2 * l - q;
     return [hue2rgb(p, q, h + 1 / 3), hue2rgb(p, q, h), hue2rgb(p, q, h - 1 / 3)];
+  }
+
+  // 0..1 RGB triplet to HSL (h 0..360, s/l 0..100) for loading the sliders.
+  function rgbToHsl(rgb) {
+    var r = rgb[0], g = rgb[1], b = rgb[2];
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var l = (max + min) / 2;
+    var h = 0, s = 0;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h = h / 6;
+    }
+    return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
   }
 
   function hue2rgb(p, q, t) {
