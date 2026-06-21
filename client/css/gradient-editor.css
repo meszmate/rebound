@@ -1,64 +1,81 @@
 /*
- * Rebound, gradient editor. A shape stage with a draggable gradient line
- * (endpoint handles + stops on the line), a text preview, and stop controls.
+ * Rebound, gradient editor. Three zones: a hero canvas (the 2D surface with the
+ * draggable line + Shape/Text preview toggle), a fused 1D stop bar, and one
+ * control card.
  */
 .rb-grad-editor { display: flex; flex-direction: column; gap: var(--rb-gap-3); }
+.rb-grad-spacer { flex: 1 1 auto; }
 
-.rb-grad-previews { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
-
-/* The shape stage: shows the gradient fill and hosts the draggable line. */
-.rb-grad-stage {
+/* 1. Hero canvas, the single 2D surface. Bottom corners square so the bar fuses. */
+.rb-grad-canvas {
   position: relative;
-  height: 150px;
-  border-radius: var(--rb-radius-2);
+  height: 168px;
   border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2) var(--rb-radius-2) 0 0;
   overflow: hidden;
   cursor: copy;
   touch-action: none;
 }
-.rb-grad-line { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.rb-grad-line,
 .rb-grad-handles { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
-.rb-grad-h {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: auto;
-  cursor: grab;
-}
+
+.rb-grad-h { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; cursor: grab; }
 .rb-grad-h:active { cursor: grabbing; }
 .rb-grad-h.is-end {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.5);
-  cursor: move;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.5); cursor: move;
 }
 .rb-grad-h.is-stop {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .rb-grad-h.is-stop.is-selected { border-color: var(--rb-accent); box-shadow: 0 0 0 2px var(--rb-accent), 0 1px 3px rgba(0, 0, 0, 0.5); }
 
-/* Text preview (gradient clipped to the glyphs). */
-.rb-grad-prev-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 58px;
-  border-radius: var(--rb-radius-2);
-  background-color: var(--rb-bg-sunken);
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+/* Pinned Shape|Text toolbar, top-left of the canvas */
+.rb-grad-toolbar {
+  position: absolute; top: var(--rb-gap-3); left: var(--rb-gap-3);
+  padding: 2px; border-radius: var(--rb-radius-2);
+  background: rgba(0, 0, 0, 0.4);
 }
 
-.rb-grad-stoprow { align-items: center; gap: var(--rb-gap-2); flex-wrap: wrap; }
+/* Text-mode overlay (hidden in shape mode) */
+.rb-grad-text {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  display: none; align-items: center; justify-content: center;
+  font-size: 64px; font-weight: 800; letter-spacing: 1px;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  pointer-events: none;
+}
+.rb-grad-canvas.is-text .rb-grad-text { display: flex; }
+.rb-grad-canvas.is-text { background-color: var(--rb-bg-sunken); }
+
+/* 2. Fused 1D stop bar */
+.rb-grad-bar {
+  position: relative; height: 24px; margin-top: -1px;
+  border: 1px solid var(--rb-border); border-top: 0;
+  border-radius: 0 0 var(--rb-radius-2) var(--rb-radius-2);
+  cursor: copy; touch-action: none;
+}
+.rb-grad-bar-fill { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.rb-grad-bar-chips { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.rb-grad-chip {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
+  cursor: grab; touch-action: none;
+}
+.rb-grad-chip:active { cursor: grabbing; }
+.rb-grad-chip.is-selected { border-color: var(--rb-accent); box-shadow: 0 0 0 2px var(--rb-accent), 0 1px 3px rgba(0, 0, 0, 0.5); }
+
+/* 3. Single bordered control card */
+.rb-grad-panel {
+  display: flex; flex-direction: column; gap: var(--rb-gap-3);
+  padding: var(--rb-gap-4);
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-3);
+  background: var(--rb-bg-raised);
+}
+.rb-grad-stoprow { align-items: center; gap: var(--rb-gap-3); }
 .rb-grad-stoprow .rb-color-input { flex: none; }
+.rb-grad-utils { gap: var(--rb-gap-2); padding-top: var(--rb-gap-3); border-top: 1px solid var(--rb-border); }

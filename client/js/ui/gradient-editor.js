@@ -1,13 +1,11 @@
 /*
  * Rebound, gradient editor.
- * A Figma-style gradient editor. The gradient line lives on a shape stage with
- * two endpoint handles you drag freely in 2D (direction + position) and the
- * color stops sitting on the line (drag along it to reposition, click the stage
- * to add one, Delete to remove down to two). Plus a text preview, a type switch,
- * reverse, and per-stop color/position. Value model:
+ * A Figma-style gradient editor laid out as three zones: a hero canvas (the only
+ * 2D surface, with the draggable gradient line and a Shape/Text preview toggle),
+ * a fused 1D stop bar (the canonical place to add/order/select stops), and one
+ * control card (recolor / position / delete / type / reverse / distribute).
+ * Aim on the canvas, order on the bar, edit in the card. Value model:
  *   { type:'linear'|'radial', start:{x,y}, end:{x,y}, stops:[{pos,color}] }
- * where start/end are normalized 0..1 in the stage. Older { angle } values are
- * converted on load.
  */
 ;(function (R) {
   'use strict';
@@ -48,7 +46,6 @@
     return s[0].color;
   }
 
-  // The gradient line for a model: from start/end, or derived from a legacy angle.
   function lineOf(m) {
     if (m.start && m.end) return { a: m.start, b: m.end };
     var ang = (m.angle || 0) * Math.PI / 180, h = 0.42;
@@ -76,17 +73,30 @@
     var model = normalize(opts.value);
     var onChange = opts.onChange || function () {};
     var selected = model.stops[0];
+    var previewMode = 'shape';
 
     function emit() { onChange(clone(model)); }
     function selIndex() { return model.stops.indexOf(selected); }
+    function endStop(which) { var s = sortedStops(model.stops); return which === 'start' ? s[0] : s[s.length - 1]; }
 
-    var stage = el('div.rb-grad-stage');
+    // ---- hero canvas ----
+    var stage = el('div.rb-grad-canvas');
     var line = svg('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', 'class': 'rb-grad-line' });
     var handles = el('div.rb-grad-handles');
+    var textOv = el('div.rb-grad-text', { text: 'Ag' });
+    var modeSeg = ui.segmented([
+      { value: 'shape', label: 'Shape', title: 'Preview as a shape fill.' },
+      { value: 'text', label: 'Text', title: 'Preview clipped to type.' }
+    ], { value: previewMode, onChange: function (v) { previewMode = v; renderStage(); } });
     stage.appendChild(line);
     stage.appendChild(handles);
+    stage.appendChild(textOv);
+    stage.appendChild(el('div.rb-grad-toolbar', null, [modeSeg.el]));
 
-    var textPrev = el('div.rb-grad-prev-text', { text: 'Gradient' });
+    // ---- fused 1D stop bar ----
+    var barFill = el('div.rb-grad-bar-fill');
+    var barChips = el('div.rb-grad-bar-chips');
+    var bar = el('div.rb-grad-bar', null, [barFill, barChips]);
 
     function ptFromEvent(e) {
       var r = stage.getBoundingClientRect();
@@ -95,41 +105,38 @@
 
     function renderStage() {
       var css = gradCss(model);
-      stage.style.backgroundImage = css;
-      textPrev.style.backgroundImage = css;
+      var isText = previewMode === 'text';
+      stage.classList.toggle('is-text', isText);
+      stage.style.backgroundImage = isText ? '' : css; // dim the fill in text mode so the glyph reads
+      textOv.style.backgroundImage = css;
+      barFill.style.backgroundImage = 'linear-gradient(90deg, ' + stopsCss(model.stops) + ')';
+
       var a = model.start, b = model.end;
       R.dom.clear(line);
       line.appendChild(svg('line', { x1: a.x * 100, y1: a.y * 100, x2: b.x * 100, y2: b.y * 100, stroke: '#fff', 'stroke-width': 0.8, opacity: 0.85 }));
       R.dom.clear(handles);
-      // Stops first, then the endpoint movers on top, so grabbing a line end
-      // always moves the line in 2D (up/down/any) rather than a coincident stop.
-      model.stops.forEach(function (s) {
-        var pt = lerp(a, b, s.pos);
-        handles.appendChild(stopHandle(s, pt));
-      });
+      model.stops.forEach(function (s) { handles.appendChild(stopHandle(s, lerp(a, b, s.pos))); });
       handles.appendChild(endpoint(a, 'start'));
       handles.appendChild(endpoint(b, 'end'));
-    }
-    function endStop(which) {
-      var s = sortedStops(model.stops);
-      return which === 'start' ? s[0] : s[s.length - 1];
+
+      R.dom.clear(barChips);
+      model.stops.forEach(function (s) { barChips.appendChild(barChip(s)); });
     }
 
     function endpoint(pt, which) {
       var h = el('div.rb-grad-h.is-end', { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%' }, title: (which === 'start' ? 'Start' : 'End') + ' of the line, drag to aim it' });
-      h.addEventListener('pointerdown', function (e) {
-        e.stopPropagation();
-        e.preventDefault();
-        selected = endStop(which); // so the colour controls target this end's stop
-        renderSelected();
-        dragEndpoint(which);
-      });
+      h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); selected = endStop(which); renderSelected(); dragEndpoint(which); });
       return h;
     }
     function stopHandle(s, pt) {
       var h = el('div.rb-grad-h.is-stop' + (s === selected ? '.is-selected' : ''), { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%', background: s.color }, title: Math.round(s.pos * 100) + '%' });
       h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragStop(s); });
       return h;
+    }
+    function barChip(s) {
+      var c = el('div.rb-grad-chip' + (s === selected ? '.is-selected' : ''), { style: { left: (s.pos * 100) + '%', background: s.color }, title: Math.round(s.pos * 100) + '%' });
+      c.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragChip(s); });
+      return c;
     }
 
     function dragEndpoint(which) {
@@ -145,18 +152,27 @@
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     }
-    // Click the stage (not a handle) to add a stop on the line at that point.
+    function dragChip(s) {
+      selected = s; renderStage(); renderSelected();
+      function move(ev) { var r = bar.getBoundingClientRect(); s.pos = clamp01((ev.clientX - r.left) / (r.width || 1)); renderStage(); renderSelected(); }
+      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    }
+    // Click the canvas to add a stop on the line; click the bar to add at that pos.
     stage.addEventListener('pointerdown', function (e) {
       var t = projectT(ptFromEvent(e), model.start, model.end);
       var s = { pos: t, color: colorAt(model.stops, t) };
-      model.stops.push(s);
-      selected = s;
-      renderStage();
-      renderSelected();
-      dragStop(s);
+      model.stops.push(s); selected = s; renderStage(); renderSelected(); dragStop(s);
+    });
+    bar.addEventListener('pointerdown', function (e) {
+      var r = bar.getBoundingClientRect();
+      var t = clamp01((e.clientX - r.left) / (r.width || 1));
+      var s = { pos: t, color: colorAt(model.stops, t) };
+      model.stops.push(s); selected = s; renderStage(); renderSelected(); dragChip(s);
     });
 
-    // ---- selected-stop controls ----
+    // ---- control card ----
     var colorInput = el('input.rb-color-input', { type: 'color',
       oninput: function (e) { selected.color = e.target.value; renderStage(); emit(); } });
     var posInput = ui.numberField({ label: 'Position', value: 0, min: 0, max: 100, step: 1, decimals: 0, suffix: '%', width: '92px',
@@ -183,10 +199,13 @@
     } }, ['Distribute']);
 
     var root = el('div.rb-grad-editor', null, [
-      el('div.rb-grad-previews', null, [stage, textPrev]),
-      el('div.rb-row.rb-grad-stoprow', null, [colorInput, posInput.el, delBtn]),
-      ui.row('Type', typeCtl.el),
-      el('div.rb-row', null, [reverseBtn, distributeBtn])
+      stage,
+      bar,
+      el('div.rb-grad-panel', null, [
+        el('div.rb-row.rb-grad-stoprow', null, [colorInput, posInput.el, el('span.rb-grad-spacer'), delBtn]),
+        ui.row('Type', typeCtl.el),
+        el('div.rb-row.rb-grad-utils', null, [el('span.rb-grad-spacer'), reverseBtn, distributeBtn])
+      ])
     ]);
 
     renderStage();
