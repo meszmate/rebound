@@ -1,0 +1,70 @@
+/*
+ * Rebound, gradient editor. A multi-stop gradient bar with draggable stops, a
+ * live shape + text preview, and stop controls.
+ */
+.rb-grad-editor { display: flex; flex-direction: column; gap: var(--rb-gap-3); }
+
+.rb-grad-previews { display: flex; gap: var(--rb-gap-3); align-items: stretch; }
+.rb-grad-prev-shape {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 66px;
+  border-radius: var(--rb-radius-2);
+  border: 1px solid var(--rb-border);
+}
+.rb-grad-prev-text {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 66px;
+  border-radius: var(--rb-radius-2);
+  background-color: var(--rb-bg-sunken);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Gradient bar + draggable stops */
+.rb-grad-barwrap { position: relative; padding-bottom: 16px; }
+.rb-grad-bar {
+  height: 26px;
+  border-radius: var(--rb-radius-1);
+  border: 1px solid var(--rb-border-strong);
+  cursor: copy;
+  /* checkerboard under transparency, harmless for opaque stops */
+  background-color: #2a2a2a;
+}
+.rb-grad-stops { position: absolute; left: 0; right: 0; top: 0; height: 26px; pointer-events: none; }
+.rb-grad-stop {
+  position: absolute;
+  top: -3px;
+  width: 16px;
+  height: 32px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rb-grad-stop:active { cursor: grabbing; }
+.rb-grad-stop-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.rb-grad-stop.is-selected .rb-grad-stop-dot {
+  border-color: var(--rb-accent);
+  box-shadow: 0 0 0 2px var(--rb-accent), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.rb-grad-stoprow { align-items: center; gap: var(--rb-gap-2); flex-wrap: wrap; }
+.rb-grad-stoprow .rb-color-input { flex: none; }
