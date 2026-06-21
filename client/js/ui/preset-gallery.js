@@ -36,6 +36,7 @@
   function gallery(config) {
     var toolId = config.toolId;
     var previewFor = config.previewFor;
+    var thumbFor = config.thumbFor; // optional custom per-preset visual (non-curve tools)
     var defaults = config.defaults || [];
 
     function key() { return 'presets:' + toolId; }
@@ -67,8 +68,10 @@
 
     function tile(p) {
       var children = [];
-      if (previewFor) {
-        try { children.push(thumb(previewFor(p.state))); } catch (e) { /* no thumb */ }
+      if (thumbFor) {
+        try { var tnode = thumbFor(p.state); if (tnode) children.push(tnode); } catch (e) { /* no thumb */ }
+      } else if (previewFor) {
+        try { children.push(thumb(previewFor(p.state))); } catch (e2) { /* no thumb */ }
       }
       children.push(el('div.rb-tile-name', { text: p.name }));
       var node = el('div.rb-tile', {
@@ -110,7 +113,13 @@
       var curveWrap = null;
       var previewWrap = null;
 
-      if (previewFor && R.ui.curveChip) {
+      if (thumbFor) {
+        // The same custom visual the preset tile shows, at a larger size.
+        try {
+          var tn = thumbFor(config.get(), { height: 108 });
+          if (tn) curveWrap = el('div.rb-savedlg-curve', null, [tn]);
+        } catch (e0a) { curveWrap = null; }
+      } else if (previewFor && R.ui.curveChip) {
         // The same static curve the preset tile shows, so the popup mirrors it.
         try {
           curveWrap = el('div.rb-savedlg-curve', null, [

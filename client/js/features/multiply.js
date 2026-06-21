@@ -33,19 +33,7 @@
     var stackHost = el('div');
     function renderStack() {
       R.dom.clear(stackHost);
-      var n = Math.max(1, Math.min(10, Math.round(copies)));
-      var maxOff = Math.max(Math.abs(offsetX), Math.abs(offsetY)) * (n - 1);
-      var k = maxOff > 0 ? Math.min(0.14, 46 / maxOff) : 0.14;
-      var cx = 62, cy = 58, base = 15, kids = [];
-      for (var i = n - 1; i >= 0; i--) {
-        var tx = cx + i * offsetX * k, ty = cy + i * offsetY * k;
-        var s = base * Math.max(0.2, 1 + i * scale / 100);
-        var op = Math.max(0.06, Math.min(1, 1 + i * opacity / 100));
-        kids.push(svg('rect', { x: (-s / 2).toFixed(1), y: (-s / 2).toFixed(1), width: s.toFixed(1), height: s.toFixed(1), rx: 2,
-          fill: 'var(--rb-accent)', opacity: op.toFixed(2),
-          transform: 'translate(' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ') rotate(' + (i * rotation) + ')' }));
-      }
-      stackHost.appendChild(svg('svg', { viewBox: '0 0 124 116', width: '100%', height: 120 }, kids));
+      stackHost.appendChild(stackSvg({ copies: copies, offsetX: offsetX, offsetY: offsetY, rotation: rotation, scale: scale, opacity: opacity }, 120));
     }
     var stackBox = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stackHost]);
 
@@ -128,6 +116,7 @@
         toolId: 'multiply',
         get: getState,
         set: applyState,
+        thumbFor: function (state, opts) { return stackSvg(state, (opts && opts.height) || 40); },
         defaults: [
           { name: 'Trail', state: { copies: 8, offsetX: 20, offsetY: 0, rotation: 0, scale: 0, opacity: -10, delayFrames: 2 } },
           { name: 'Echo fade', state: { copies: 6, offsetX: 0, offsetY: 0, rotation: 0, scale: -5, opacity: -15, delayFrames: 0 } },
@@ -137,6 +126,26 @@
       },
       destroy: off
     };
+  }
+
+  // The stack sketch for a state, shared by the live preview and preset tiles.
+  function stackSvg(st, h) {
+    var copies = st.copies == null ? 5 : st.copies;
+    var offsetX = st.offsetX || 0, offsetY = st.offsetY || 0;
+    var rotation = st.rotation || 0, scale = st.scale || 0, opacity = st.opacity || 0;
+    var n = Math.max(1, Math.min(10, Math.round(copies)));
+    var maxOff = Math.max(Math.abs(offsetX), Math.abs(offsetY)) * (n - 1);
+    var k = maxOff > 0 ? Math.min(0.14, 46 / maxOff) : 0.14;
+    var cx = 62, cy = 58, base = 15, kids = [];
+    for (var i = n - 1; i >= 0; i--) {
+      var tx = cx + i * offsetX * k, ty = cy + i * offsetY * k;
+      var s = base * Math.max(0.2, 1 + i * scale / 100);
+      var op = Math.max(0.06, Math.min(1, 1 + i * opacity / 100));
+      kids.push(svg('rect', { x: (-s / 2).toFixed(1), y: (-s / 2).toFixed(1), width: s.toFixed(1), height: s.toFixed(1), rx: 2,
+        fill: 'var(--rb-accent)', opacity: op.toFixed(2),
+        transform: 'translate(' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ') rotate(' + (i * rotation) + ')' }));
+    }
+    return svg('svg', { viewBox: '0 0 124 116', width: '100%', height: h }, kids);
   }
 
   function describe(sel) {

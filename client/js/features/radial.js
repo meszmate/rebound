@@ -31,22 +31,7 @@
     var ringHost = el('div');
     function renderRing() {
       R.dom.clear(ringHost);
-      var n = Math.max(1, Math.round(count));
-      var step = arc >= 360 ? arc / n : (n > 1 ? arc / (n - 1) : 0);
-      var rPx = Math.min(48, radius * 0.12);
-      var kids = [
-        svg('circle', { cx: 62, cy: 62, r: rPx, fill: 'none', stroke: 'var(--rb-border)', 'stroke-width': 1, 'stroke-dasharray': '2 3' }),
-        svg('circle', { cx: 62, cy: 62, r: 1.5, fill: 'var(--rb-text-faint)' })
-      ];
-      for (var i = 0; i < n; i++) {
-        var a = (startAngle + step * i - 90) * Math.PI / 180;
-        var x = 62 + rPx * Math.cos(a), y = 62 + rPx * Math.sin(a);
-        if (orient) {
-          kids.push(svg('line', { x1: x, y1: y, x2: 62 + (rPx - 7) * Math.cos(a), y2: 62 + (rPx - 7) * Math.sin(a), stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }));
-        }
-        kids.push(svg('rect', { x: x - 3, y: y - 3, width: 6, height: 6, rx: 1.5, fill: 'var(--rb-accent)' }));
-      }
-      ringHost.appendChild(svg('svg', { viewBox: '0 0 124 124', width: 132, height: 132 }, kids));
+      ringHost.appendChild(ringSvg({ count: count, radius: radius, startAngle: startAngle, arc: arc, orient: orient }, 132));
     }
     var ringBox = el('div', { style: { display: 'flex', justifyContent: 'center', padding: '6px', border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)' } }, [ringHost]);
 
@@ -112,6 +97,7 @@
         toolId: 'radial',
         get: getState,
         set: applyState,
+        thumbFor: function (state, opts) { return ringSvg(state, (opts && opts.height) || 40); },
         defaults: [
           { name: 'Full ring', state: { count: 8, radius: 200, startAngle: 0, arc: 360, orient: false } },
           { name: 'Dense circle', state: { count: 24, radius: 300, startAngle: 0, arc: 360, orient: true } },
@@ -121,6 +107,31 @@
       },
       destroy: off
     };
+  }
+
+  // The ring diagram for a state, shared by the live preview and preset tiles.
+  function ringSvg(st, px) {
+    var count = st.count == null ? 8 : st.count;
+    var radius = st.radius == null ? 200 : st.radius;
+    var startAngle = st.startAngle || 0;
+    var arc = st.arc == null ? 360 : st.arc;
+    var orient = !!st.orient;
+    var n = Math.max(1, Math.round(count));
+    var step = arc >= 360 ? arc / n : (n > 1 ? arc / (n - 1) : 0);
+    var rPx = Math.min(48, radius * 0.12);
+    var kids = [
+      svg('circle', { cx: 62, cy: 62, r: rPx, fill: 'none', stroke: 'var(--rb-border)', 'stroke-width': 1, 'stroke-dasharray': '2 3' }),
+      svg('circle', { cx: 62, cy: 62, r: 1.5, fill: 'var(--rb-text-faint)' })
+    ];
+    for (var i = 0; i < n; i++) {
+      var a = (startAngle + step * i - 90) * Math.PI / 180;
+      var x = 62 + rPx * Math.cos(a), y = 62 + rPx * Math.sin(a);
+      if (orient) {
+        kids.push(svg('line', { x1: x, y1: y, x2: 62 + (rPx - 7) * Math.cos(a), y2: 62 + (rPx - 7) * Math.sin(a), stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }));
+      }
+      kids.push(svg('rect', { x: x - 3, y: y - 3, width: 6, height: 6, rx: 1.5, fill: 'var(--rb-accent)' }));
+    }
+    return svg('svg', { viewBox: '0 0 124 124', width: px, height: px }, kids);
   }
 
   function describe(sel) {

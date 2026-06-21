@@ -40,13 +40,7 @@
       el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '34%', background: 'linear-gradient(180deg, rgba(20,26,34,0.1), rgba(16,20,28,0.7))' } }),
       overlay
     ]);
-    function updatePreview() {
-      var a = (amount / 100).toFixed(3);
-      var clearPct = 22 + (scale - 50) / 100 * 48;        // bigger scale = larger clear centre
-      var edge = Math.min(112, clearPct + 14 + (feather / 300) * 52); // feather widens the falloff
-      overlay.style.background = 'radial-gradient(ellipse at center, rgba(0,0,0,0) ' +
-        clearPct.toFixed(0) + '%, rgba(0,0,0,' + a + ') ' + edge.toFixed(0) + '%)';
-    }
+    function updatePreview() { overlay.style.background = vigGradient(amount, feather, scale); }
 
     var amountSlider = ui.slider({ label: 'Amount', min: 0, max: 100, step: 1, value: amount,
       format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { amount = v; updatePreview(); } });
@@ -97,6 +91,7 @@
         toolId: 'vignette',
         get: getState,
         set: applyState,
+        thumbFor: function (state, opts) { return vigSwatch(state, (opts && opts.height) || 38); },
         defaults: [
           { name: 'Subtle', state: { amount: 35, feather: 200, scale: 120 } },
           { name: 'Heavy', state: { amount: 85, feather: 100, scale: 80 } },
@@ -106,6 +101,22 @@
       },
       destroy: off
     };
+  }
+
+  // The vignette overlay gradient for a given state (shared by the live preview
+  // and the preset thumbnails).
+  function vigGradient(amount, feather, scale) {
+    var a = (amount / 100).toFixed(3);
+    var clearPct = 22 + (scale - 50) / 100 * 48;        // bigger scale = larger clear centre
+    var edge = Math.min(112, clearPct + 14 + (feather / 300) * 52); // feather widens the falloff
+    return 'radial-gradient(ellipse at center, rgba(0,0,0,0) ' +
+      clearPct.toFixed(0) + '%, rgba(0,0,0,' + a + ') ' + edge.toFixed(0) + '%)';
+  }
+  // A small framed swatch of a preset, for the gallery tiles and Save dialog.
+  function vigSwatch(state, h) {
+    return el('div', { style: { position: 'relative', height: h + 'px', borderRadius: 'var(--rb-radius-1)', overflow: 'hidden', background: 'linear-gradient(160deg, #7c8aa8 0%, #4a5872 55%, #2c3242 100%)' } }, [
+      el('div', { style: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, background: vigGradient(state.amount == null ? 60 : state.amount, state.feather == null ? 150 : state.feather, state.scale == null ? 100 : state.scale) } })
+    ]);
   }
 
   function describe(sel) {
