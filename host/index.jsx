@@ -72,6 +72,7 @@
   load('commands/precompose.jsx');
   load('commands/velocity.jsx');
   load('commands/copyease.jsx');
+  load('commands/retime.jsx');
   load('commands/bake.jsx');
   load('commands/kinetic.jsx');
   load('commands/separate.jsx');
