@@ -11,8 +11,6 @@
 
   var tip = null;
   var target = null;
-  var showTimer = null;
-  var DELAY = 320;
 
   function ensure() {
     if (tip) return tip;
@@ -69,7 +67,6 @@
   }
 
   function hide() {
-    if (showTimer) { clearTimeout(showTimer); showTimer = null; }
     target = null;
     if (tip) tip.classList.remove('is-visible');
   }
@@ -77,10 +74,8 @@
   function onOver(e) {
     var el = findTarget(e.target);
     if (!el || el === target) return;
-    hide();
     target = el;
-    textFor(el); // stash title now so the native tooltip never gets a chance
-    showTimer = setTimeout(function () { if (target === el) show(el); }, DELAY);
+    show(el); // instant, no hover delay
   }
 
   function onOut(e) {

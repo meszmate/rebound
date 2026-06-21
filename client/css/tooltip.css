@@ -18,7 +18,7 @@
   pointer-events: none;
   opacity: 0;
   transform: translateY(2px);
-  transition: opacity 120ms var(--rb-ease-standard), transform 120ms var(--rb-ease-standard);
+  transition: opacity 80ms var(--rb-ease-standard), transform 80ms var(--rb-ease-standard);
 }
 .rb-tooltip.is-visible { opacity: 1; transform: none; }
 .rb-tooltip[data-placement='right'] { transform: translateX(-2px); }
