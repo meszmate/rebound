@@ -26,18 +26,42 @@
     var scale = 100;
     var replace = true;
 
+    // Live preview: a sample frame with a radial vignette overlay that darkens,
+    // softens, and resizes exactly as the three sliders change.
+    var overlay = el('div', { style: { position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, pointerEvents: 'none' } });
+    var frame = el('div', {
+      style: {
+        position: 'relative', height: '132px', borderRadius: 'var(--rb-radius-2)',
+        overflow: 'hidden', border: '1px solid var(--rb-border)',
+        background: 'linear-gradient(160deg, #7c8aa8 0%, #4a5872 55%, #2c3242 100%)'
+      }
+    }, [
+      el('div', { style: { position: 'absolute', right: '20%', top: '18%', width: '54px', height: '54px', borderRadius: '50%', background: 'radial-gradient(circle at 40% 40%, #f6e3b0, #e7b964)' } }),
+      el('div', { style: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '34%', background: 'linear-gradient(180deg, rgba(20,26,34,0.1), rgba(16,20,28,0.7))' } }),
+      overlay
+    ]);
+    function updatePreview() {
+      var a = (amount / 100).toFixed(3);
+      var clearPct = 22 + (scale - 50) / 100 * 48;        // bigger scale = larger clear centre
+      var edge = Math.min(112, clearPct + 14 + (feather / 300) * 52); // feather widens the falloff
+      overlay.style.background = 'radial-gradient(ellipse at center, rgba(0,0,0,0) ' +
+        clearPct.toFixed(0) + '%, rgba(0,0,0,' + a + ') ' + edge.toFixed(0) + '%)';
+    }
+
     var amountSlider = ui.slider({ label: 'Amount', min: 0, max: 100, step: 1, value: amount,
-      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { amount = v; } });
+      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { amount = v; updatePreview(); } });
     var featherSlider = ui.slider({ label: 'Feather', min: 0, max: 300, step: 1, value: feather,
-      format: function (v) { return Math.round(v) + 'px'; }, onInput: function (v) { feather = v; } });
+      format: function (v) { return Math.round(v) + 'px'; }, onInput: function (v) { feather = v; updatePreview(); } });
     var scaleSlider = ui.slider({ label: 'Scale', min: 50, max: 150, step: 1, value: scale,
-      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { scale = v; } });
+      format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { scale = v; updatePreview(); } });
     var replaceToggle = ui.toggle({ label: 'Replace existing', value: replace,
       title: 'Swap the earlier Vignette layer instead of stacking a new one on every apply.',
       onChange: function (v) { replace = v; } });
 
+    updatePreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Adds a black solid that darkens the edges through a feathered elliptical hole. Amount sets the strength, Feather softens the falloff, Scale sizes the clear center.' }),
+      el('div.rb-faint', { text: 'Darkens the edges of the frame through a soft elliptical hole, to draw the eye to the centre. Amount sets the strength, Feather softens the falloff, Scale sizes the clear centre.' }),
+      frame,
       amountSlider.el,
       featherSlider.el,
       scaleSlider.el,
@@ -65,6 +89,7 @@
       if (s.amount != null) { amount = s.amount; amountSlider.set(s.amount); }
       if (s.feather != null) { feather = s.feather; featherSlider.set(s.feather); }
       if (s.scale != null) { scale = s.scale; scaleSlider.set(s.scale); }
+      updatePreview();
     }
 
     return {
