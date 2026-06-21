@@ -79,7 +79,8 @@
       refreshSelection: pollSelection,
       onSelection: function (fn) { return appStore.select(function (s) { return s.selection; }, fn); },
       getSelection: function () { return appStore.get().selection; },
-      onToggleFocus: function () { setFocus(); }
+      onToggleFocus: function () { setFocus(); },
+      openSettings: openSettings
     });
     homeScreenEl = homeScreenApi.el;
     homeScreenEl.classList.add('rb-hidden');

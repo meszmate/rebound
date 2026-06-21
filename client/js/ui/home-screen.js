@@ -43,25 +43,33 @@
     function widthOf(id) { return widths[id] === 'half' ? 'half' : 'full'; }
 
     var grid = el('div.rb-home-grid');
-    var editBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { editing = !editing; syncEdit(); render(); } }, ['Edit']);
-    var addBtn = el('button.rb-btn', { type: 'button', onclick: openBrowser }, ['+ Add']);
+
+    function iconBtn(inner, title, onclick) {
+      var b = el('button.rb-btn.is-ghost.is-icon', { type: 'button', title: title, 'aria-label': title, onclick: onclick });
+      if (R.toolMeta) b.innerHTML = R.toolMeta.svg(inner);
+      return b;
+    }
+    var ICON_ADD = '<path d="M12 5v14M5 12h14"/>';
+    var ICON_EDIT = '<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="M13 7l4 4"/>';
+    var ICON_FOCUS = '<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>';
+    var ICON_GEAR = '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6c.1-.3.1-.7.1-1z"/>';
+
+    var addBtn = iconBtn(ICON_ADD, 'Add to Home', openBrowser);
+    var editBtn = iconBtn(ICON_EDIT, 'Edit board', function () { editing = !editing; syncEdit(); render(); });
     var hint = el('div.rb-home-hint', { text: '' });
 
-    var headKids = [el('span.rb-home-title', { text: 'Home' }), el('span.rb-grow')];
-    if (opts.onToggleFocus) {
-      headKids.push(el('button.rb-btn.is-ghost', { type: 'button', title: 'Hide the sidebar and fill the panel (Ctrl/Cmd+Shift+F)', onclick: opts.onToggleFocus }, ['Focus']));
-    }
-    headKids.push(addBtn);
-    headKids.push(editBtn);
-    var head = el('div.rb-home-head', null, headKids);
+    var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
+    var actions = [addBtn, editBtn];
+    if (opts.onToggleFocus) actions.push(iconBtn(ICON_FOCUS, 'Focus mode — hide the sidebar (Ctrl/Cmd+Shift+F)', opts.onToggleFocus));
+    if (opts.openSettings) actions.push(iconBtn(ICON_GEAR, 'Settings', opts.openSettings));
+    var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 
     var root = el('div.rb-home', null, [head, hint, grid]);
 
     function syncEdit() {
-      editBtn.textContent = editing ? 'Done' : 'Edit';
       editBtn.classList.toggle('is-active', editing);
-      addBtn.style.display = editing ? '' : 'none';
-      hint.textContent = editing ? 'Drag to arrange, ▭/½ to resize a widget, × to remove, + Add to pin more.' : '';
+      editBtn.title = editing ? 'Done editing' : 'Edit board';
+      hint.textContent = editing ? 'Drag to arrange, ▭ / ½ to resize a widget, × to remove, + to add.' : '';
       root.classList.toggle('is-editing', editing);
     }
 
@@ -129,9 +137,11 @@
       var destroy = function () {};
       if (tool && tool.mount) {
         try {
+          // Mount just the tool's controls (no preset gallery) so the widget
+          // stays a compact, manageable panel; the long intro text is hidden
+          // by CSS. The full tool view still has presets and descriptions.
           var api = tool.mount(wctx);
           if (api && typeof api.destroy === 'function') destroy = api.destroy;
-          if (api && api.presets && R.ui.presetGallery) host.appendChild(R.ui.presetGallery(api.presets));
         } catch (e) {
           host.appendChild(el('div.rb-empty', null, ['This widget failed to load: ' + ((e && e.message) || e)]));
         }

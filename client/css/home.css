@@ -1,15 +1,20 @@
 /*
  * Rebound, configurable Home screen.
  */
-.rb-home { display: flex; flex-direction: column; gap: var(--rb-gap-3); padding: var(--rb-gap-3); }
+/* Fill the panel height: a pinned header, then a scrolling board that uses the
+   rest of the window, so widgets stack down the full height. */
+.rb-home { display: flex; flex-direction: column; gap: var(--rb-gap-2); padding: var(--rb-gap-3); overflow: hidden; min-height: 0; }
 
-.rb-home-head { display: flex; align-items: center; gap: var(--rb-gap-2); }
+.rb-home-head { display: flex; align-items: center; gap: 4px; flex: none; }
+.rb-home-brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: calc(var(--rb-font-size) + 3px); color: var(--rb-text); letter-spacing: 0.01em; }
+.rb-home-mark { color: var(--rb-accent); font-size: calc(var(--rb-font-size) + 5px); }
 .rb-home-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 700; color: var(--rb-text); }
-.rb-home-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); min-height: 0; }
+.rb-home-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); min-height: 0; flex: none; }
 
 .rb-home-grid {
   display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start;
   gap: var(--rb-gap-2);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
 }
 
 .rb-home-tile {
@@ -100,7 +105,12 @@
   background: var(--rb-bg-sunken); color: var(--rb-text-muted);
   font-size: calc(var(--rb-font-size) - 1px);
 }
-.rb-home-widget-body { padding: var(--rb-gap-3); }
+.rb-home-widget-body { padding: var(--rb-gap-2) var(--rb-gap-3); }
+/* Compact widgets: drop the descriptive prose and the "vs After Effects" note so
+   the widget is just the controls and its graph. Section labels and live
+   readouts stay. The full tool view keeps all of it. */
+.rb-home-widget-body .rb-faint,
+.rb-home-widget-body .rb-diff { display: none; }
 .rb-home-widget .rb-action-bar {
   display: flex; align-items: center; gap: var(--rb-gap-2);
   padding: var(--rb-gap-2) var(--rb-gap-3); border-top: 1px solid var(--rb-border);
