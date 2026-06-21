@@ -105,6 +105,12 @@
         toolId: 'stroke',
         get: getState,
         set: applyState,
+        thumbFor: function (state, opts) {
+          var w = Math.max(2, Math.min(16, state.width == null ? 4 : state.width));
+          return R.dom.svg('svg', { viewBox: '0 0 120 40', width: '100%', height: (opts && opts.height) || 38 }, [
+            R.dom.svg('line', { x1: 12, y1: 20, x2: 108, y2: 20, stroke: state.hex || '#888888', 'stroke-width': w, 'stroke-linecap': 'round' })
+          ]);
+        },
         defaults: [
           { name: 'Thin ink', state: { width: 2, hex: '#1a1c20' } },
           { name: 'Bold red', state: { width: 8, hex: '#f4453a' } },

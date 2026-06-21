@@ -7,7 +7,33 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // The opacity envelope of a fade over time: ramp up (in), hold, ramp down
+  // (out), shaped by the frame counts and ease, for the preset thumbnails.
+  function fadeThumb(state, h) {
+    var W = 120, pad = 6, top = pad, bot = 40 - pad;
+    var doIn = state.doIn !== false, doOut = state.doOut !== false;
+    var inW = doIn ? Math.min(48, 8 + (state.inFrames == null ? 12 : state.inFrames) * 1.4) : 0;
+    var outW = doOut ? Math.min(48, 8 + (state.outFrames == null ? 12 : state.outFrames) * 1.4) : 0;
+    var x0 = pad, x1 = W - pad, span = x1 - x0 - 10;
+    if (inW + outW > span && (inW + outW) > 0) { var sc = span / (inW + outW); inW *= sc; outW *= sc; }
+    var smooth = state.ease !== 'linear';
+    function ramp(xa, ya, xb, yb) {
+      if (!smooth) return 'L' + xb.toFixed(1) + ' ' + yb;
+      var cx = (xa + xb) / 2;
+      return 'C' + cx.toFixed(1) + ' ' + ya + ' ' + cx.toFixed(1) + ' ' + yb + ' ' + xb.toFixed(1) + ' ' + yb;
+    }
+    var d = 'M' + x0 + ' ' + (doIn ? bot : top);
+    if (doIn) d += ' ' + ramp(x0, bot, x0 + inW, top);
+    d += ' L' + (doOut ? (x1 - outW) : x1).toFixed(1) + ' ' + top;
+    if (doOut) d += ' ' + ramp(x1 - outW, top, x1, bot);
+    d += ' L' + x1 + ' ' + bot + ' L' + x0 + ' ' + bot + ' Z';
+    return svg('svg', { viewBox: '0 0 120 40', width: '100%', height: h }, [
+      svg('path', { d: d, fill: 'var(--rb-accent)', 'fill-opacity': '0.35', stroke: 'var(--rb-accent)', 'stroke-width': 1.5, 'stroke-linejoin': 'round' })
+    ]);
+  }
 
   R.tools.register({
     id: 'fade',
@@ -85,6 +111,7 @@
         toolId: 'fade',
         get: getState,
         set: applyState,
+        thumbFor: function (state, opts) { return fadeThumb(state, (opts && opts.height) || 38); },
         defaults: [
           { name: 'Quick', state: { doIn: true, doOut: true, inFrames: 6, outFrames: 6, ease: 'smooth' } },
           { name: 'Smooth', state: { doIn: true, doOut: true, inFrames: 12, outFrames: 12, ease: 'smooth' } },
