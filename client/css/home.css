@@ -1,0 +1,75 @@
+/*
+ * Rebound, configurable Home screen.
+ */
+.rb-home { display: flex; flex-direction: column; gap: var(--rb-gap-3); padding: var(--rb-gap-3); }
+
+.rb-home-head { display: flex; align-items: center; gap: var(--rb-gap-2); }
+.rb-home-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 700; color: var(--rb-text); }
+.rb-home-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); min-height: 0; }
+
+.rb-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: var(--rb-gap-2);
+}
+
+.rb-home-tile {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  min-height: 84px; padding: 10px 8px;
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-raised, var(--rb-bg-sunken)); color: var(--rb-text);
+  cursor: pointer; font: inherit; text-align: center;
+  transition: border-color var(--rb-transition), background var(--rb-transition), transform var(--rb-dur-instant) var(--rb-ease-standard), box-shadow var(--rb-transition);
+}
+.rb-home-tile:hover { border-color: var(--rb-border-strong); background: var(--rb-control, var(--rb-bg-raised)); }
+.rb-home-tile:active { transform: scale(0.97); }
+
+.rb-home-ico { width: 26px; height: 26px; color: var(--rb-accent); display: inline-flex; align-items: center; justify-content: center; }
+.rb-home-ico svg { width: 24px; height: 24px; }
+.rb-home-label { font-size: calc(var(--rb-font-size) - 1px); line-height: 1.15; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.rb-home-badge {
+  font-size: 8.5px; letter-spacing: 0.03em; text-transform: uppercase;
+  padding: 1px 5px; border-radius: 999px;
+  background: color-mix(in srgb, var(--rb-accent) 22%, transparent); color: var(--rb-accent);
+}
+.rb-home-badge.is-open { background: var(--rb-control, rgba(127, 127, 127, 0.18)); color: var(--rb-text-muted); }
+
+/* ---- Edit mode ----------------------------------------------------------- */
+.rb-home.is-editing .rb-home-tile.is-editmode { border-style: dashed; cursor: grab; }
+.rb-home-tile.is-dragging { opacity: 0.4; }
+.rb-home-tile.is-droptarget { border-color: var(--rb-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 35%, transparent); }
+
+.rb-home-remove {
+  position: absolute; top: 3px; right: 4px; width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--rb-danger, #e5534b); color: #fff;
+  font-size: 12px; line-height: 1; cursor: pointer;
+}
+
+.rb-home-add { border-style: dashed; color: var(--rb-text-muted); background: transparent; }
+.rb-home-add:hover { border-color: var(--rb-accent); color: var(--rb-text); }
+.rb-home-plus { font-size: 22px; line-height: 1; color: var(--rb-text-muted); }
+
+.rb-home-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: var(--rb-gap-2); padding: 24px; color: var(--rb-text-muted); }
+
+/* ---- Action browser ------------------------------------------------------ */
+.rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-home-browser-list { display: flex; flex-direction: column; gap: 2px; max-height: 50vh; overflow: auto; }
+.rb-home-browser-head {
+  font-size: calc(var(--rb-font-size) - 2px); text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--rb-text-faint); padding: 8px 4px 2px;
+}
+.rb-home-browser-row {
+  display: flex; align-items: center; gap: var(--rb-gap-2);
+  padding: 6px 8px; border: 1px solid transparent; border-radius: var(--rb-radius-2);
+  background: transparent; color: var(--rb-text); cursor: pointer; font: inherit; text-align: left; width: 100%;
+  transition: background var(--rb-transition), border-color var(--rb-transition);
+}
+.rb-home-browser-row:hover { background: var(--rb-bg-sunken); border-color: var(--rb-border); }
+.rb-home-browser-row.is-pinned { border-color: var(--rb-accent); }
+.rb-home-ico-sm { width: 18px; height: 18px; color: var(--rb-accent); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.rb-home-ico-sm svg { width: 17px; height: 17px; }
+.rb-home-pin { flex: none; width: 18px; text-align: center; color: var(--rb-text-muted); font-weight: 700; }
+.rb-home-browser-row.is-pinned .rb-home-pin { color: var(--rb-accent); }

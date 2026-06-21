@@ -29,6 +29,7 @@
   var activeIndex = -1;
 
   var railEl, browseEl, detailEl, mountsEl, breadcrumbEl, searchInput, homeEl;
+  var homeScreenEl, homeScreenApi, homeRailBtn;
   var railButtons = {};
 
   // ---- Boot ----------------------------------------------------------------
@@ -70,10 +71,20 @@
     homeEl = home.el;
     appStore.select(function (s) { return s.selection; }, function (sel) { home.update(sel); });
 
+    // The configurable one-click Home: a grid of action tiles the user arranges.
+    homeScreenApi = R.homeScreen.create({
+      invoke: function (m, a) { return R.bridge.invoke(m, a); },
+      openTool: openToolById,
+      toast: R.ui.toast,
+      refreshSelection: pollSelection
+    });
+    homeScreenEl = homeScreenApi.el;
+    homeScreenEl.classList.add('rb-hidden');
+
     var main = el('div.rb-main', null, [
       buildTopbar(),
       homeEl,
-      el('div.rb-content', null, [browseEl, detailEl])
+      el('div.rb-content', null, [homeScreenEl, browseEl, detailEl])
     ]);
     app.appendChild(main);
 
@@ -91,9 +102,8 @@
       R._debug = { setSelection: function (sel) { appStore.update({ selection: sel }); } };
     }
 
-    // Land on Context Home: it reflects the selection immediately and the
-    // default tool stays one click away (its card and the suggested chips).
-    showCategory(lastCategory || R.toolMeta.SECTIONS[0].id);
+    // Land on the configurable Home: the user's own one-click action grid.
+    showHome();
 
     R.ui.toast('Rebound ready', { kind: 'info', duration: 1400 });
   }
@@ -167,6 +177,9 @@
 
   function buildRail() {
     var children = [el('div.rb-rail-logo', { text: '◗', title: 'Rebound' })];
+    homeRailBtn = el('button.rb-rail-btn', { title: 'Home', 'aria-label': 'Home', onclick: showHome });
+    homeRailBtn.innerHTML = R.toolMeta.svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>');
+    children.push(homeRailBtn);
     R.toolMeta.SECTIONS.forEach(function (section) {
       var btn = el('button.rb-rail-btn', {
         title: section.name, 'aria-label': section.name,
@@ -253,6 +266,21 @@
     detailEl.classList.add('rb-hidden');
     browseEl.classList.remove('rb-hidden');
     if (homeEl) homeEl.classList.remove('rb-hidden');
+    if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
+    if (homeRailBtn) homeRailBtn.classList.remove('is-active');
+  }
+
+  // The configurable Home: the one-click action grid, hiding the browse/detail
+  // and the selection-reactive context band.
+  function showHome() {
+    view = 'home';
+    if (searchInput) { searchInput.value = ''; searchQuery = ''; }
+    detailEl.classList.add('rb-hidden');
+    browseEl.classList.add('rb-hidden');
+    if (homeEl) homeEl.classList.add('rb-hidden');
+    if (homeScreenEl) homeScreenEl.classList.remove('rb-hidden');
+    highlightRail(null);
+    if (homeRailBtn) homeRailBtn.classList.add('is-active');
   }
 
   function showCategory(catId) {
@@ -403,6 +431,8 @@
     browseEl.classList.add('rb-hidden');
     detailEl.classList.remove('rb-hidden');
     if (homeEl) homeEl.classList.add('rb-hidden');
+    if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
+    if (homeRailBtn) homeRailBtn.classList.remove('is-active');
     appStore.update({ activeTool: tool.id });
   }
 

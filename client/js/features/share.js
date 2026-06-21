@@ -13,7 +13,7 @@
   var ui = R.ui;
 
   var BUNDLE_VERSION = 1;
-  var FIXED_KEYS = ['settings', 'user-presets', 'favorites', 'palettes', 'user-expressions', 'fav-tools'];
+  var FIXED_KEYS = ['settings', 'user-presets', 'favorites', 'palettes', 'user-expressions', 'fav-tools', 'home-layout'];
 
   function allKeys() {
     var keys = FIXED_KEYS.slice();
