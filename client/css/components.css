@@ -385,12 +385,12 @@
 .rb-iconbar button svg { width: 18px; height: 18px; }
 
 /* ---- Anchor picker ------------------------------------------------------- */
-.rb-anchor-stage { display: flex; justify-content: center; padding: var(--rb-gap-2) 0; }
+.rb-anchor-stage { display: block; padding: var(--rb-gap-2) 0; }
 .rb-anchor-box {
   position: relative;
   width: 100%;
-  max-width: 320px;
   aspect-ratio: 16 / 10;
+  max-height: 280px;
   border: 1px dashed var(--rb-border-strong);
   border-radius: var(--rb-radius-2);
   background: var(--rb-bg-sunken);
