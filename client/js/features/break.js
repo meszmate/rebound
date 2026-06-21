@@ -8,7 +8,24 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // One shape layer with three groups fanning into three separate layers. The
+  // source fades when Delete original is on.
+  function breakSvg(state, h) {
+    var W = 160, H = 90, srcOp = state.deleteOriginal ? 0.3 : 1, i;
+    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
+    kids.push(svg('rect', { x: 10, y: 22, width: 46, height: 46, rx: 3, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.2, opacity: srcOp, 'stroke-dasharray': state.deleteOriginal ? '3 3' : null }));
+    for (i = 0; i < 3; i++) kids.push(svg('rect', { x: 15, y: 28 + i * 13, width: 36, height: 9, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.7', opacity: srcOp }));
+    kids.push(svg('path', { d: 'M62 45 L78 45 M73 41 L79 45 L73 49', fill: 'none', stroke: 'var(--rb-text-muted)', 'stroke-width': 1.6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+    for (i = 0; i < 3; i++) {
+      var y = 16 + i * 22;
+      kids.push(svg('rect', { x: 90, y: y, width: 58, height: 17, rx: 3, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1 }));
+      kids.push(svg('rect', { x: 95, y: y + 5, width: 30, height: 7, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.75' }));
+    }
+    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
+  }
 
   R.tools.register({
     id: 'break',
@@ -22,14 +39,19 @@
   function mount(ctx) {
     var deleteOriginal = false;
 
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(breakSvg({ deleteOriginal: deleteOriginal }, 90)); }
+
     var deleteToggle = ui.toggle({
       label: 'Delete original',
       value: deleteOriginal,
-      onChange: function (v) { deleteOriginal = v; }
+      onChange: function (v) { deleteOriginal = v; renderPreview(); }
     });
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Splits each selected shape layer into one new shape layer per top-level group.' }),
+      previewHost,
       deleteToggle.el
     ]));
 

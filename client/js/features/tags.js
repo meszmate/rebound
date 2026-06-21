@@ -9,7 +9,20 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // A mock layer row stamped with the label color and the #tag token.
+  function tagsSvg(state, h) {
+    var W = 160, H = 56, color = state.color || null;
+    var name = (state.tag || '').replace(/^[#\s]+/, '').replace(/\s+$/, '') || 'tag-name';
+    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
+    kids.push(svg('rect', { x: 10, y: 18, width: W - 20, height: 20, rx: 3, fill: 'var(--rb-bg-raised, var(--rb-bg))', stroke: 'var(--rb-border-strong)', 'stroke-width': 1 }));
+    kids.push(svg('rect', { x: 14, y: 22, width: 12, height: 12, rx: 2, fill: color || 'var(--rb-text-faint)', 'fill-opacity': color ? '1' : '0.4' }));
+    kids.push(svg('text', { x: 32, y: 32, 'font-size': 10, fill: 'var(--rb-text)' }, ['Layer  ']));
+    kids.push(svg('text', { x: 72, y: 32, 'font-size': 10, 'font-weight': 700, fill: 'var(--rb-accent)' }, ['#' + name]));
+    return svg('svg', { viewBox: '0 0 160 56', width: '100%', height: h }, kids);
+  }
 
   // Eight swatches mapping to After Effects label indices 1..8. Colors are for
   // the panel preview only; the host applies the index, so AE owns the truth.
@@ -37,12 +50,16 @@
     var tag = '';
     var label = 0;
 
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function colorFor(idx) { for (var i = 0; i < LABELS.length; i++) if (LABELS[i].index === idx) return LABELS[i].color; return null; }
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(tagsSvg({ tag: tag, color: colorFor(label) }, 56)); }
+
     var input = el('input', {
       type: 'text',
       value: '',
       placeholder: 'tag-name',
       'aria-label': 'Tag name',
-      oninput: function () { tag = input.value; }
+      oninput: function () { tag = input.value; renderPreview(); }
     });
     var tagField = el('div.rb-field', null, [
       el('span.rb-suffix', { text: '#', style: { paddingLeft: '8px', paddingRight: '4px' } }),
@@ -71,10 +88,13 @@
           swatches[k].classList.toggle('is-active', Number(k) === label);
         }
       }
+      renderPreview();
     }
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Tags layers with a reusable name kept in the project. Stamp a tag onto the selected layers, then select everything that carries it.' }),
+      previewHost,
       ui.row('Tag', tagField),
       ui.row('Label', swatchRow),
       el('div.rb-row.rb-wrap', null, [

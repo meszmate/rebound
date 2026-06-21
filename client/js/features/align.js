@@ -8,7 +8,33 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // Three sample layers laid into the chosen reference frame (comp or a dashed
+  // selection box), snapped to the hovered alignment or spread for distribute.
+  function alignSvg(state, h) {
+    var W = 160, H = 90, pad = 12;
+    var fx = pad, fy = pad, fw = W - 2 * pad, fh = H - 2 * pad;
+    if (state.relativeTo === 'selection') { fx = pad + 16; fy = pad + 8; fw = W - 2 * pad - 32; fh = H - 2 * pad - 16; }
+    var a = state.align || 'centerH';
+    var horiz = (a === 'left' || a === 'centerH' || a === 'right' || a === 'distH');
+    var sizes = [[30, 15], [20, 20], [36, 12]];
+    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
+    if (state.relativeTo === 'selection') kids.push(svg('rect', { x: fx, y: fy, width: fw, height: fh, fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1, 'stroke-dasharray': '3 3', opacity: '0.55' }));
+    for (var i = 0; i < 3; i++) {
+      var w = sizes[i][0], hh = sizes[i][1], x, y;
+      if (horiz) {
+        var rowH = fh / 3; y = fy + i * rowH + (rowH - hh) / 2;
+        if (a === 'left') x = fx; else if (a === 'right') x = fx + fw - w; else if (a === 'distH') x = fx + (fw - w) * (i / 2); else x = fx + (fw - w) / 2;
+      } else {
+        var colW = fw / 3; x = fx + i * colW + (colW - w) / 2;
+        if (a === 'top') y = fy; else if (a === 'bottom') y = fy + fh - hh; else if (a === 'distV') y = fy + (fh - hh) * (i / 2); else y = fy + (fh - hh) / 2;
+      }
+      kids.push(svg('rect', { x: x.toFixed(1), y: y.toFixed(1), width: w, height: hh, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.85' }));
+    }
+    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
+  }
 
   var ICON = {
     left: '<line x1="4.5" y1="4" x2="4.5" y2="20" stroke="currentColor" stroke-width="1.6"/><rect x="6.5" y="7" width="12" height="3.6" rx="1" fill="currentColor"/><rect x="6.5" y="13.4" width="7.5" height="3.6" rx="1" fill="currentColor"/>',
@@ -37,42 +63,60 @@
   function mountAlign(ctx) {
     var relativeTo = 'comp';
     var group = false;
+    var previewAlign = 'centerH';
+
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(alignSvg({ align: previewAlign, relativeTo: relativeTo }, 90)); }
+
+    // An icon align button that also previews its alignment on hover.
+    function aBtn(iconKey, alignKey, title, onClick) {
+      var b = iconBtn(ICON[iconKey], title, onClick);
+      b.addEventListener('mouseenter', function () { previewAlign = alignKey; renderPreview(); });
+      return b;
+    }
+    function distBtn(label, ghost, axis, mode, alignKey) {
+      var b = el('button.rb-btn' + (ghost ? '.is-ghost' : ''), { onclick: function () { distribute(axis, mode); } }, [label]);
+      b.addEventListener('mouseenter', function () { previewAlign = alignKey; renderPreview(); });
+      return b;
+    }
 
     var hBar = el('div.rb-iconbar', null, [
-      iconBtn(ICON.left, 'Align left', function () { doAlign({ gx: 0, axes: 'x' }); }),
-      iconBtn(ICON.centerH, 'Align horizontal center', function () { doAlign({ gx: 0.5, axes: 'x' }); }),
-      iconBtn(ICON.right, 'Align right', function () { doAlign({ gx: 1, axes: 'x' }); })
+      aBtn('left', 'left', 'Align left', function () { doAlign({ gx: 0, axes: 'x' }); }),
+      aBtn('centerH', 'centerH', 'Align horizontal center', function () { doAlign({ gx: 0.5, axes: 'x' }); }),
+      aBtn('right', 'right', 'Align right', function () { doAlign({ gx: 1, axes: 'x' }); })
     ]);
     var vBar = el('div.rb-iconbar', null, [
-      iconBtn(ICON.top, 'Align top', function () { doAlign({ gy: 0, axes: 'y' }); }),
-      iconBtn(ICON.middleV, 'Align vertical center', function () { doAlign({ gy: 0.5, axes: 'y' }); }),
-      iconBtn(ICON.bottom, 'Align bottom', function () { doAlign({ gy: 1, axes: 'y' }); })
+      aBtn('top', 'top', 'Align top', function () { doAlign({ gy: 0, axes: 'y' }); }),
+      aBtn('middleV', 'middleV', 'Align vertical center', function () { doAlign({ gy: 0.5, axes: 'y' }); }),
+      aBtn('bottom', 'bottom', 'Align bottom', function () { doAlign({ gy: 1, axes: 'y' }); })
     ]);
 
     var relCtl = ui.segmented([
       { value: 'comp', label: 'Composition' },
       { value: 'selection', label: 'Selection' }
-    ], { value: relativeTo, onChange: function (v) { relativeTo = v; } });
+    ], { value: relativeTo, onChange: function (v) { relativeTo = v; renderPreview(); } });
 
     var groupToggle = ui.toggle({ label: 'Move selection as a group', value: group,
       onChange: function (v) { group = v; } });
 
     var gapField = ui.numberField({ label: 'Gap', value: 0, step: 1, decimals: 0, suffix: 'px', width: '110px' });
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
       el('div.rb-section-label', { text: 'Align to' }),
       relCtl.el,
       el('div.rb-row.rb-wrap', { style: { gap: '10px' } }, [hBar, vBar]),
       groupToggle.el,
       el('div.rb-section-label', { text: 'Distribute' }),
       el('div.rb-row.rb-wrap', null, [
-        el('button.rb-btn', { onclick: function () { distribute('x', 'auto'); } }, ['Horizontal']),
-        el('button.rb-btn', { onclick: function () { distribute('y', 'auto'); } }, ['Vertical'])
+        distBtn('Horizontal', false, 'x', 'auto', 'distH'),
+        distBtn('Vertical', false, 'y', 'auto', 'distV')
       ]),
       el('div.rb-row.rb-wrap', null, [
         gapField.el,
-        el('button.rb-btn.is-ghost', { onclick: function () { distribute('x', 'gap'); } }, ['H by gap']),
-        el('button.rb-btn.is-ghost', { onclick: function () { distribute('y', 'gap'); } }, ['V by gap'])
+        distBtn('H by gap', true, 'x', 'gap', 'distH'),
+        distBtn('V by gap', true, 'y', 'gap', 'distV')
       ])
     ]));
 
