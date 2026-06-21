@@ -46,10 +46,30 @@
     var outInfluence = 33.33;
     var allKeys = false;
 
+    // The easy-ease shape these influences produce (out handle = outInfluence,
+    // in handle = 1 - inInfluence), redrawn whenever the fields change.
+    var curveHost = el('div', { style: { display: 'flex', justifyContent: 'center', padding: '6px', border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)' } });
+    function renderCurve() {
+      R.dom.clear(curveHost);
+      curveHost.appendChild(R.ui.curveChip({ type: 'bezier', x1: outInfluence / 100, y1: 0, x2: 1 - inInfluence / 100, y2: 1 }, { width: 220, height: 72 }));
+    }
+
     var inField = ui.numberField({ label: 'Influence In', value: inInfluence, min: 0.1, max: 100,
-      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function (v) { inInfluence = v; } });
+      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function (v) { inInfluence = v; renderCurve(); } });
     var outField = ui.numberField({ label: 'Influence Out', value: outInfluence, min: 0.1, max: 100,
-      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function (v) { outInfluence = v; } });
+      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function (v) { outInfluence = v; renderCurve(); } });
+
+    var PROFILES = [
+      { label: 'Soft', inI: 75, outI: 75 },
+      { label: 'Natural', inI: 50, outI: 50 },
+      { label: 'Snappy', inI: 90, outI: 20 }
+    ];
+    var profileRow = el('div.rb-row.rb-wrap', null, PROFILES.map(function (pf) {
+      return el('button.rb-btn.is-ghost', { title: 'Set influence to ' + pf.inI + ' / ' + pf.outI, onclick: function () {
+        inInfluence = pf.inI; outInfluence = pf.outI; inField.set(pf.inI); outField.set(pf.outI); renderCurve();
+      } }, [pf.label]);
+    }));
+
     var allToggle = ui.toggle({ label: 'All keys (not just selected)', value: allKeys,
       title: 'Apply to every keyframe on the selected properties, not only the ones you picked.',
       onChange: function (v) { allKeys = v; } });
@@ -68,8 +88,11 @@
       })));
     });
     body.appendChild(el('div.rb-section-label', { text: 'Easy Ease influence' }));
+    body.appendChild(curveHost);
+    body.appendChild(profileRow);
     body.appendChild(el('div.rb-row.rb-wrap', null, [half(inField.el), half(outField.el)]));
     body.appendChild(allToggle.el);
+    renderCurve();
     ctx.body.appendChild(body);
 
     var scopeText = el('span.rb-scope', { text: '' });
