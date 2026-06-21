@@ -53,6 +53,37 @@
 }
 .rb-home-badge.is-open { background: var(--rb-control, rgba(127, 127, 127, 0.18)); color: var(--rb-text-muted); }
 
+/* ---- Tile display modes + per-tile size ---------------------------------- */
+.rb-home-tile.is-wide { flex: 1 1 184px; max-width: 300px; }
+.rb-home-tile.is-static { pointer-events: none; }
+
+/* Visual mode: a small live tool demo instead of the icon. */
+.rb-home-tilevis { width: 100%; height: 44px; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.rb-home-tilevis svg { width: 100%; height: 100%; }
+
+/* Text mode: the label is the content. Icon-only: hide the label. */
+.rb-home-tile.is-disp-text .rb-home-label { font-size: var(--rb-font-size); font-weight: 600; white-space: normal; }
+.rb-home-tile.is-disp-icononly { min-height: 64px; }
+
+/* A custom uploaded icon fills the chip. */
+.rb-home-ico.is-custom { background: transparent; padding: 0; }
+.rb-home-ico.is-custom img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
+
+/* The customize cog (edit mode), opposite the remove ×. */
+.rb-home-cog {
+  position: absolute; top: 3px; left: 4px; width: 17px; height: 17px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--rb-bg-raised, var(--rb-bg-sunken));
+  border: 1px solid var(--rb-border-strong); color: var(--rb-text-muted);
+  font-size: 10px; cursor: pointer; z-index: 3;
+}
+.rb-home-cog:hover { color: var(--rb-accent); border-color: var(--rb-accent); }
+
+/* Customizer dialog. */
+.rb-home-cust { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-home-cust-preview { display: flex; justify-content: center; padding: 12px; background: var(--rb-bg-sunken); border-radius: var(--rb-radius-2); }
+.rb-home-cust-preview .rb-home-tile { flex: 0 0 auto; }
+
 /* ---- Edit mode ----------------------------------------------------------- */
 .rb-home.is-editing .rb-home-tile.is-editmode { border-style: dashed; cursor: grab; }
 .rb-home-tile.is-dragging { opacity: 0.4; }

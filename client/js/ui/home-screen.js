@@ -27,8 +27,8 @@
 
   function load() {
     var d = R.disk.read('home-layout', null);
-    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {}, collapsed: d.collapsed || {} };
-    return { items: R.homeActions.DEFAULT.slice(), widths: {}, collapsed: {} };
+    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {}, collapsed: d.collapsed || {}, meta: d.meta || {} };
+    return { items: R.homeActions.DEFAULT.slice(), widths: {}, collapsed: {}, meta: {} };
   }
 
   // Stretch a widget's schematic preview graphs to fill its width so there is no
@@ -49,11 +49,20 @@
     var ids = saved.items;
     var widths = saved.widths || {};
     var collapsed = saved.collapsed || {};
+    var meta = saved.meta || {};            // per-tile look: label, display, badge, size, icon
     var maximizedId = null;
     var editing = false;
     var dragId = null;
     var lastAddedId = null; // gets a one-time pop animation on the next render
     var widgetCache = {}; // id -> { card, destroy, widthBtn, collapseBtn, maxBtn }
+
+    function metaOf(id) { return meta[id] || {}; }
+    function setMeta(id, m) {
+      // Drop the override entirely when it is all defaults, to keep storage clean.
+      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (m.badge !== false) && (!m.size || m.size === 'normal') && (!m.icon);
+      if (isDefault) delete meta[id]; else meta[id] = m;
+      persist(); render();
+    }
 
     // Replay a CSS animation class on a node once (remove, reflow, add, cleanup).
     function playOnce(node, cls) {
@@ -64,7 +73,7 @@
       node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
     }
 
-    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed }); }
+    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed, meta: meta }); }
 
     var WIDTHS = ['full', 'half', 'twothirds', 'third'];
     function widthOf(id) { return widths[id] || 'full'; }
@@ -140,23 +149,100 @@
       node.addEventListener('drop', function (e) { if (!editing) return; e.preventDefault(); node.classList.remove('is-droptarget'); if (dragId && dragId !== id) reorder(dragId, id); });
     }
 
+    function tileIcon(action, m) {
+      if (m && m.icon) return el('span.rb-home-ico.is-custom', null, [el('img', { src: m.icon, alt: '' })]);
+      return iconSpan(action.toolId);
+    }
+    function tileVisual(action) {
+      var d = R.toolDemos && R.toolDemos[action.toolId];
+      if (d && d.svg) { var w = el('div.rb-home-tilevis'); w.innerHTML = d.svg; return w; }
+      return null;
+    }
+    // The tile contents for a given look (display, label, badge, icon).
+    function tileContent(action, m) {
+      var display = m.display || 'icon';
+      var label = m.label || action.label;
+      var kids = [];
+      if (display === 'visual') { kids.push(tileVisual(action) || tileIcon(action, m)); }
+      else if (display !== 'text') { kids.push(tileIcon(action, m)); }
+      if (display !== 'icononly') kids.push(el('span.rb-home-label', { text: label }));
+      if (m.badge !== false && display !== 'icononly') {
+        kids.push(action.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' }) : el('span.rb-home-badge.is-open', { text: 'open' }));
+      }
+      return kids;
+    }
+    function tileClass(action, m, base) {
+      var c = base;
+      if (action && action.id === lastAddedId) c += '.rb-pop';
+      if (m.size === 'wide') c += '.is-wide';
+      c += '.is-disp-' + (m.display || 'icon');
+      return c;
+    }
     function tile(action) {
-      var node = el('button.rb-home-tile' + (action.id === lastAddedId ? '.rb-pop' : ''), {
+      var m = metaOf(action.id);
+      var node = el(tileClass(action, m, 'button.rb-home-tile'), {
         type: 'button', 'data-id': action.id,
-        title: action.kind === 'apply' ? ('Apply ' + action.label + ' in one click') : ('Open ' + action.label),
+        title: action.kind === 'apply' ? ('Apply ' + (m.label || action.label)) : ('Open ' + (m.label || action.label)),
         onclick: function () { if (editing) return; runAction(action); if (action.kind === 'apply') playOnce(node, 'rb-pulse'); }
-      }, [
-        iconSpan(action.toolId),
-        el('span.rb-home-label', { text: action.label }),
-        action.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' }) : el('span.rb-home-badge.is-open', { text: 'open' })
-      ]);
+      }, tileContent(action, m));
       if (editing) {
         node.classList.add('is-editmode');
         node.setAttribute('draggable', 'true');
+        node.appendChild(el('span.rb-home-cog', { title: 'Customize tile', onclick: function (e) { e.stopPropagation(); customizeTile(action); } }, ['✎']));
         node.appendChild(el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']));
         wireDrag(node, action.id);
       }
       return node;
+    }
+    function previewTile(action, m) {
+      return el(tileClass(null, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
+    }
+
+    // The full tile customizer: label, display (icon / visual / text / icon only),
+    // badge, size, and a custom uploaded icon, with a live tile preview.
+    function customizeTile(action) {
+      if (!R.ui.modal) return;
+      var b = metaOf(action.id);
+      var draft = { label: b.label || '', display: b.display || 'icon', badge: b.badge !== false, size: b.size || 'normal', icon: b.icon || null };
+
+      var previewHost = el('div.rb-home-cust-preview');
+      function renderPrev() { R.dom.clear(previewHost); previewHost.appendChild(previewTile(action, draft)); }
+
+      var labelInput = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: draft.label, placeholder: action.label,
+        oninput: function () { draft.label = this.value; renderPrev(); } });
+      var displayCtl = R.ui.segmented([
+        { value: 'icon', label: 'Icon' }, { value: 'visual', label: 'Visual' }, { value: 'text', label: 'Text' }, { value: 'icononly', label: 'Icon only' }
+      ], { value: draft.display, onChange: function (v) { draft.display = v; renderPrev(); } });
+      var sizeCtl = R.ui.segmented([
+        { value: 'normal', label: 'Normal' }, { value: 'wide', label: 'Wide' }
+      ], { value: draft.size, onChange: function (v) { draft.size = v; renderPrev(); } });
+      var badgeToggle = R.ui.toggle({ label: 'Show badge', value: draft.badge, onChange: function (v) { draft.badge = v; renderPrev(); } });
+
+      var fileInput = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' },
+        onchange: function () {
+          var f = this.files && this.files[0];
+          if (!f) return;
+          var r = new window.FileReader();
+          r.onload = function () { draft.icon = r.result; renderPrev(); };
+          r.readAsDataURL(f);
+        } });
+      var uploadBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { fileInput.click(); } }, ['Upload icon…']);
+      var clearIconBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { draft.icon = null; renderPrev(); } }, ['Default icon']);
+
+      renderPrev();
+      var body = el('div.rb-home-cust', null, [
+        previewHost,
+        R.ui.row('Label', labelInput),
+        R.ui.row('Display', displayCtl.el),
+        R.ui.row('Size', sizeCtl.el),
+        badgeToggle.el,
+        el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, clearIconBtn, fileInput])
+      ]);
+
+      var resetBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { delete meta[action.id]; persist(); render(); handle.close('confirm'); } }, ['Reset']);
+      var cancelBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { handle.close('close'); } }, ['Cancel']);
+      var saveBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { setMeta(action.id, draft); handle.close('confirm'); } }, ['Save']);
+      var handle = R.ui.modal({ title: 'Customize tile', width: 380, className: 'rb-modal-home', body: body, footer: [resetBtn, cancelBtn, saveBtn], initialFocus: labelInput });
     }
 
     function buildWidget(action) {
