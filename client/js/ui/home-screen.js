@@ -109,6 +109,8 @@
     var maximizedId = null;
     var editing = false;
     var dragId = null;
+    var dragNode = null;        // the DOM node being dragged (for live rearrange)
+    var lastOverId = null;      // last item dragged over, to throttle live reorder
     var lastAddedId = null; // gets a one-time pop animation on the next render
     var widgetCache = {}; // id -> { card, destroy, widthBtn, collapseBtn, maxBtn }
 
@@ -208,21 +210,26 @@
         var cellW = (grid.clientWidth - (cols - 1) * gap) / cols;
         var cellH = parseFloat(gcs.getPropertyValue('--rb-home-cell')) || 78;
         var rect = node.getBoundingClientRect();
-        var left = rect.left, top = rect.top, drafted = null;
+        var left = rect.left, top = rect.top, drafted = null, lastC = null, lastR = null;
         node.classList.add('is-resizing');
         try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
         function mv(ev) {
           var c = Math.max(1, Math.min(cols, Math.round((ev.clientX - left) / (cellW + gap))));
           if (mode === 'widget') {
             var h = Math.max(120, Math.round(ev.clientY - top));
-            node.style.gridColumn = 'span ' + c;
-            node.style.height = h + 'px';
+            if (c !== lastC) { var p1 = captureRects(); node.style.gridColumn = 'span ' + c; flip(p1, true); lastC = c; }
+            node.style.height = h + 'px';        // free height, follows the pointer
             node.classList.add('is-sized');
             drafted = { c: c, h: h };
           } else {
             var r = Math.max(1, Math.min(6, Math.round((ev.clientY - top) / (cellH + rgap))));
-            node.style.gridColumn = 'span ' + c;
-            node.style.gridRow = 'span ' + r;
+            if (c !== lastC || r !== lastR) {    // snap changed: glide everything to the new layout
+              var p2 = captureRects();
+              node.style.gridColumn = 'span ' + c;
+              node.style.gridRow = 'span ' + r;
+              flip(p2, true);
+              lastC = c; lastR = r;
+            }
             drafted = { c: c, r: r };
           }
         }
@@ -362,20 +369,31 @@
       persist(); render();
     }
     function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); lastAddedId = id; persist(); render(); } }
-    function reorder(fromId, toId) {
-      var from = ids.indexOf(fromId), to = ids.indexOf(toId);
-      if (from === -1 || to === -1 || from === to) return;
-      ids.splice(from, 1);
-      ids.splice(ids.indexOf(toId) + (from < to ? 1 : 0), 0, fromId);
-      persist(); render();
-    }
 
     function wireDrag(node, id) {
-      node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
-      node.addEventListener('dragend', function () { node.classList.remove('is-dragging'); dragId = null; });
-      node.addEventListener('dragover', function (e) { if (!editing) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; node.classList.add('is-droptarget'); });
-      node.addEventListener('dragleave', function () { node.classList.remove('is-droptarget'); });
-      node.addEventListener('drop', function (e) { if (!editing) return; e.preventDefault(); node.classList.remove('is-droptarget'); if (dragId && dragId !== id) reorder(dragId, id); });
+      node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; dragNode = node; lastOverId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
+      node.addEventListener('dragend', function () { node.classList.remove('is-dragging'); if (dragId) persist(); dragId = null; dragNode = null; lastOverId = null; });
+      node.addEventListener('dragover', function (e) {
+        if (!editing || !dragId) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        if (id !== dragId && id !== lastOverId) { lastOverId = id; liveReorder(node, id); }
+      });
+      node.addEventListener('drop', function (e) { if (!editing) return; e.preventDefault(); });
+    }
+    // Live, animated rearrange: move the dragged item next to the hovered one and
+    // glide the rest into place, without a full re-render (so the drag continues).
+    function liveReorder(targetNode, targetId) {
+      var from = ids.indexOf(dragId), to = ids.indexOf(targetId);
+      if (from === -1 || to === -1 || from === to) return;
+      var prev = captureRects();
+      ids.splice(from, 1);
+      ids.splice(ids.indexOf(targetId) + (from < to ? 1 : 0), 0, dragId);
+      if (dragNode) {
+        if (from < to) grid.insertBefore(dragNode, targetNode.nextSibling);
+        else grid.insertBefore(dragNode, targetNode);
+      }
+      flip(prev, true);
     }
 
     function iconInnerFor(action, m) {
@@ -721,11 +739,13 @@
       Array.prototype.forEach.call(grid.querySelectorAll('[data-id]'), function (n) { map[n.getAttribute('data-id')] = n.getBoundingClientRect(); });
       return map;
     }
-    function flip(prev) {
+    function flip(prev, fast) {
       if (!prev) return;
       if (document.documentElement.classList.contains('rb-tiles-static')) return;
       if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var dur = fast ? '0.13s' : 'var(--rb-dur-medium, 0.26s)';
       Array.prototype.forEach.call(grid.querySelectorAll('[data-id]'), function (n) {
+        if (n.classList.contains('is-dragging')) return; // the dragged item follows the cursor
         var was = prev[n.getAttribute('data-id')];
         if (!was) return;
         var now = n.getBoundingClientRect();
@@ -737,7 +757,7 @@
         n.style.transition = 'none';
         n.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')';
         void n.offsetWidth;
-        n.style.transition = 'transform var(--rb-dur-medium, 0.26s) var(--rb-ease-emphasized, cubic-bezier(0.2, 0.9, 0.25, 1))';
+        n.style.transition = 'transform ' + dur + ' var(--rb-ease-emphasized, cubic-bezier(0.2, 0.9, 0.25, 1))';
         n.style.transform = '';
         n.addEventListener('transitionend', function te(ev) {
           if (ev.propertyName === 'transform') { n.style.transition = ''; n.style.transformOrigin = ''; n.removeEventListener('transitionend', te); }
