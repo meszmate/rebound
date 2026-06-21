@@ -21,6 +21,13 @@
   function rgbFor(name) { for (var i = 0; i < COLORS.length; i++) if (COLORS[i].value === name) return COLORS[i].rgb; return COLORS[0].rgb; }
   function colorCss(name) { var c = rgbFor(name); return 'rgb(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ')'; }
 
+  // Vertical social-video safe insets {left, top, right, bottom} as fractions.
+  var SOCIAL = {
+    tiktok: { l: 0.04, t: 0.06, r: 0.12, b: 0.20 },
+    reels: { l: 0.04, t: 0.07, r: 0.14, b: 0.22 },
+    shorts: { l: 0.04, t: 0.06, r: 0.12, b: 0.15 }
+  };
+
   // The grid as an SVG over a sample frame, for the live preview and the tiles.
   function gridSvg(state, h) {
     var W = 160, H = 100, kids = [];
@@ -44,6 +51,9 @@
       }
     } else if (preset === 'safe') {
       [0.05, 0.10].forEach(function (ins) { kids.push(svg('rect', { x: (ins * W).toFixed(1), y: (ins * H).toFixed(1), width: ((1 - 2 * ins) * W).toFixed(1), height: ((1 - 2 * ins) * H).toFixed(1), fill: 'none', stroke: col, 'stroke-width': lw })); });
+    } else if (preset === 'social') {
+      var p = SOCIAL[state.platform] || SOCIAL.tiktok;
+      kids.push(svg('rect', { x: (p.l * W).toFixed(1), y: (p.t * H).toFixed(1), width: ((1 - p.l - p.r) * W).toFixed(1), height: ((1 - p.t - p.b) * H).toFixed(1), fill: 'none', stroke: col, 'stroke-width': lw }));
     } else {
       var fr = preset === 'golden' ? [0.382, 0.618] : [1 / 3, 2 / 3];
       fr.forEach(function (v) { vline(v); hline(v); });
@@ -70,18 +80,27 @@
     var lineWidth = 2;
     var crosshair = false;
     var colorName = 'cyan';
+    var platform = 'tiktok';
     var replace = true;
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function state() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName }; }
+    function state() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName, platform: platform }; }
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(gridSvg(state(), 120)); }
 
     var presetCtl = ui.segmented([
       { value: 'thirds', label: 'Thirds', title: 'Lines at one third and two thirds' },
       { value: 'golden', label: 'Golden', title: 'Lines at the golden-ratio divisions' },
       { value: 'columns', label: 'Columns', title: 'A real design column / row grid with margin and gutter' },
-      { value: 'safe', label: 'Safe', title: 'Broadcast action-safe and title-safe rectangles' }
-    ], { value: preset, onChange: function (v) { preset = v; syncColumns(); renderPreview(); } });
+      { value: 'safe', label: 'Safe', title: 'Broadcast action-safe and title-safe rectangles' },
+      { value: 'social', label: 'Social', title: 'Vertical social-video safe area, clear of the platform UI' }
+    ], { value: preset, onChange: function (v) { preset = v; syncRows(); renderPreview(); } });
+
+    var platformCtl = ui.segmented([
+      { value: 'tiktok', label: 'TikTok', title: 'TikTok safe area' },
+      { value: 'reels', label: 'Reels', title: 'Instagram Reels safe area' },
+      { value: 'shorts', label: 'Shorts', title: 'YouTube Shorts safe area' }
+    ], { value: platform, onChange: function (v) { platform = v; renderPreview(); } });
+    var platformRow = ui.row('Platform', platformCtl.el);
 
     var countField = ui.numberField({ label: 'Columns', value: count, min: 1, max: 100, step: 1, decimals: 0, width: '110px',
       onChange: function (v) { count = v; renderPreview(); } });
@@ -112,8 +131,11 @@
       title: 'Swap the earlier Guides layer instead of stacking a new one on every apply.',
       onChange: function (v) { replace = v; } });
 
-    function syncColumns() { columnsRows.style.display = preset === 'columns' ? '' : 'none'; }
-    syncColumns();
+    function syncRows() {
+      columnsRows.style.display = preset === 'columns' ? '' : 'none';
+      platformRow.style.display = preset === 'social' ? '' : 'none';
+    }
+    syncRows();
     renderPreview();
 
     ctx.body.appendChild(el('div.rb-col', null, [
@@ -121,6 +143,7 @@
       previewHost,
       ui.row('Preset', presetCtl.el),
       columnsRows,
+      platformRow,
       ui.row('Line width', widthField.el),
       crosshairToggle.el,
       ui.row('Color', colorCtl.el),
@@ -135,12 +158,12 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('grids.apply', { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, color: rgbFor(colorName), replace: replace })
+      ctx.invoke('grids.apply', { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, color: rgbFor(colorName), platform: platform, replace: replace })
         .then(function () { ctx.toast('Added guide layer', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not add grids', { kind: 'error' }); });
     }
 
-    function getState() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName }; }
+    function getState() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName, platform: platform }; }
     function applyState(s) {
       if (!s) return;
       if (s.preset != null) { preset = s.preset; presetCtl.set(s.preset); }
@@ -151,7 +174,8 @@
       if (s.lineWidth != null) { lineWidth = s.lineWidth; widthField.set(s.lineWidth); }
       if (s.crosshair != null) { crosshair = s.crosshair; crosshairToggle.set(s.crosshair); }
       if (s.colorName != null) { colorName = s.colorName; colorCtl.set(s.colorName); }
-      syncColumns();
+      if (s.platform != null) { platform = s.platform; platformCtl.set(s.platform); }
+      syncRows();
       renderPreview();
     }
 
@@ -166,7 +190,9 @@
           { name: '12-col', state: { preset: 'columns', count: 12, rows: 0, gutter: 20, margin: 60, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
           { name: 'Modular 6x4', state: { preset: 'columns', count: 6, rows: 4, gutter: 24, margin: 48, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
           { name: 'Golden', state: { preset: 'golden', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: true, colorName: 'white' } },
-          { name: 'Title-safe', state: { preset: 'safe', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'white' } }
+          { name: 'Title-safe', state: { preset: 'safe', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'white' } },
+          { name: 'TikTok safe', state: { preset: 'social', platform: 'tiktok', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
+          { name: 'Reels safe', state: { preset: 'social', platform: 'reels', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'magenta' } }
         ]
       },
       destroy: off

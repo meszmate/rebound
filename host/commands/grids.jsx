@@ -57,6 +57,31 @@
     addLine(contents, comp, comp.width / 2, cy, comp.width, h, color);
   }
 
+  // Per-platform safe insets for vertical social video, as fractions of the
+  // comp edges {left, top, right, bottom}. The central rectangle is the area
+  // clear of each platform's UI (caption, side icons, nav bar).
+  var SOCIAL = {
+    tiktok: { l: 0.04, t: 0.06, r: 0.12, b: 0.20 },
+    reels: { l: 0.04, t: 0.07, r: 0.14, b: 0.22 },
+    shorts: { l: 0.04, t: 0.06, r: 0.12, b: 0.15 }
+  };
+
+  // A rectangle outline with independent edge insets (fractions of the comp).
+  function addRectOutlineAsym(contents, comp, l, t, r, b, lw, color) {
+    var left = comp.width * l;
+    var right = comp.width * (1 - r);
+    var top = comp.height * t;
+    var bottom = comp.height * (1 - b);
+    var innerW = right - left;
+    var innerH = bottom - top;
+    var cx = (left + right) / 2;
+    var cy = (top + bottom) / 2;
+    addLine(contents, comp, left + lw / 2, cy, lw, innerH, color);
+    addLine(contents, comp, right - lw / 2, cy, lw, innerH, color);
+    addLine(contents, comp, cx, top + lw / 2, innerW, lw, color);
+    addLine(contents, comp, cx, bottom - lw / 2, innerW, lw, color);
+  }
+
   // A rectangle outline inset by (mx, my) from the comp edges, drawn as four
   // thin lines of width lw. Used for the safe-area guides.
   function addRectOutline(contents, comp, mx, my, lw, color) {
@@ -138,6 +163,10 @@
       // Broadcast safe areas: action-safe inset 5%, title-safe inset 10%.
       addRectOutline(contents, comp, comp.width * 0.05, comp.height * 0.05, lw, color);
       addRectOutline(contents, comp, comp.width * 0.10, comp.height * 0.10, lw, color);
+    } else if (preset === 'social') {
+      // Vertical social-video safe area, clear of the platform UI overlays.
+      var plat = SOCIAL[args.platform] || SOCIAL.tiktok;
+      addRectOutlineAsym(contents, comp, plat.l, plat.t, plat.r, plat.b, lw, color);
     } else {
       var fractions = preset === 'golden' ? [0.382, 0.618] : [1 / 3, 2 / 3];
       for (var f = 0; f < fractions.length; f++) {
