@@ -16,9 +16,36 @@
 
   var XFORM = 'ADBE Transform Group';
   var POSITION = 'ADBE Position';
+  var ANCHOR = 'ADBE Anchor Point';
+  var SCALE = 'ADBE Scale';
 
   function num(v) {
     return (v == null || isNaN(v)) ? 0 : v;
+  }
+
+  // Axis-aligned bounding box of a layer in composition space, from its content
+  // rect transformed by Position, Anchor, and Scale (rotation is ignored, like
+  // the viewer's align). Returns null for layers without bounds.
+  function layerBox(layer, time) {
+    if (!(layer instanceof AVLayer)) return null;
+    var rect = layer.sourceRectAtTime(time, false);
+    var tr = layer.property(XFORM);
+    var pos = tr.property(POSITION).valueAtTime(time, false);
+    var anc = tr.property(ANCHOR).valueAtTime(time, false);
+    var scale = tr.property(SCALE).valueAtTime(time, false);
+    var sx = scale[0] / 100, sy = scale[1] / 100;
+    var x1 = pos[0] + (rect.left - anc[0]) * sx;
+    var x2 = pos[0] + (rect.left + rect.width - anc[0]) * sx;
+    var y1 = pos[1] + (rect.top - anc[1]) * sy;
+    var y2 = pos[1] + (rect.top + rect.height - anc[1]) * sy;
+    return { minX: Math.min(x1, x2), maxX: Math.max(x1, x2), minY: Math.min(y1, y2), maxY: Math.max(y1, y2) };
+  }
+
+  function clampSize(v) {
+    v = Math.round(v);
+    if (v < 4) return 4;
+    if (v > 30000) return 30000;
+    return v;
   }
 
   // Offset every top-level layer's Position by (dx, dy) so comp content stays
@@ -89,6 +116,47 @@
     return { ok: true, recentered: recenter && (newW !== oldW || newH !== oldH) };
   }
 
+  // Resize the comp to fit the selected layers (or all layers when none are
+  // selected), with an optional pixel margin, shifting every layer so the
+  // content lands at the margin. Mirrors how Crop Comp is used day to day.
+  function cropToContent(args) {
+    var comp = util.activeComp();
+    var pad = num(args && args.padding);
+    if (pad < 0) pad = 0;
+
+    var sel = comp.selectedLayers;
+    var useSelected = args && args.scope === 'all' ? false : (sel && sel.length > 0);
+
+    var boxes = [];
+    var b, i;
+    if (useSelected) {
+      for (i = 0; i < sel.length; i++) { b = layerBox(sel[i], comp.time); if (b) boxes.push(b); }
+    } else {
+      for (i = 1; i <= comp.numLayers; i++) { b = layerBox(comp.layer(i), comp.time); if (b) boxes.push(b); }
+    }
+    if (!boxes.length) throw new Error('No layers with bounds to crop to.');
+
+    var u = { minX: boxes[0].minX, minY: boxes[0].minY, maxX: boxes[0].maxX, maxY: boxes[0].maxY };
+    for (i = 1; i < boxes.length; i++) {
+      if (boxes[i].minX < u.minX) u.minX = boxes[i].minX;
+      if (boxes[i].minY < u.minY) u.minY = boxes[i].minY;
+      if (boxes[i].maxX > u.maxX) u.maxX = boxes[i].maxX;
+      if (boxes[i].maxY > u.maxY) u.maxY = boxes[i].maxY;
+    }
+
+    var newW = clampSize(u.maxX - u.minX + 2 * pad);
+    var newH = clampSize(u.maxY - u.minY + 2 * pad);
+
+    // Shift all layers so the content's top-left lands at (pad, pad).
+    recenterLayers(comp, pad - u.minX, pad - u.minY);
+
+    comp.width = newW;
+    comp.height = newH;
+
+    return { width: newW, height: newH };
+  }
+
   R.register('comp.info', info);
   R.register('comp.apply', apply, 'Rebound: Composition Settings');
+  R.register('comp.cropToContent', cropToContent, 'Rebound: Crop Comp to Content');
 })();

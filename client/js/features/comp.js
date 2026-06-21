@@ -59,6 +59,8 @@
     var width = 0;
     var height = 0;
     var recenter = true;
+    var cropScope = 'selected';
+    var cropPadding = 0;
 
     var frameRateField = ui.numberField({ label: 'Frame rate', value: frameRate, min: 1, max: 999, step: 1, decimals: 3, suffix: 'fps', width: '160px',
       onChange: function (v) { frameRate = v; } });
@@ -75,6 +77,14 @@
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '10px', display: 'flex', justifyContent: 'center' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(aspectPreview(width, height)); }
     renderPreview();
+
+    var cropScopeCtl = ui.segmented([
+      { value: 'selected', label: 'Selected', title: 'Fit the frame to the selected layers' },
+      { value: 'all', label: 'All layers', title: 'Fit the frame to every layer in the comp' }
+    ], { value: cropScope, onChange: function (v) { cropScope = v; } });
+    var cropPadField = ui.numberField({ label: 'Margin', value: cropPadding, min: 0, step: 1, decimals: 0, suffix: 'px', width: '160px',
+      onChange: function (v) { cropPadding = v; } });
+    var cropBtn = el('button.rb-btn', { title: 'Resize the composition to fit the content', onclick: doCrop }, ['Crop comp to content']);
 
     var resRow = el('div.rb-row.rb-wrap', null, RES.map(function (r) {
       return el('button.rb-btn.is-ghost', { title: r.w + ' × ' + r.h, onclick: function () { width = r.w; height = r.h; widthField.set(r.w); heightField.set(r.h); renderPreview(); } }, [r.name]);
@@ -94,7 +104,11 @@
       fpsRow,
       ui.row('Frame rate', frameRateField.el),
       ui.row('Duration', durationField.el),
-      recenterToggle.el
+      recenterToggle.el,
+      el('div.rb-section-label', { text: 'Crop to content' }),
+      ui.row('Fit to', cropScopeCtl.el),
+      ui.row('Margin', cropPadField.el),
+      el('div.rb-row', null, [cropBtn])
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -131,6 +145,15 @@
           ctx.refreshSelection(); prefill();
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not update composition', { kind: 'error' }); });
+    }
+
+    function doCrop() {
+      ctx.invoke('comp.cropToContent', { scope: cropScope, padding: cropPadding })
+        .then(function (res) {
+          ctx.toast('Cropped to ' + res.width + ' × ' + res.height, { kind: 'success' });
+          ctx.refreshSelection(); prefill();
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not crop composition', { kind: 'error' }); });
     }
 
     return { destroy: off };
