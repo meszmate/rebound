@@ -24,8 +24,8 @@
     return svg('svg', { viewBox: '0 0 160 56', width: '100%', height: h }, kids);
   }
 
-  // Eight swatches mapping to After Effects label indices 1..8. Colors are for
-  // the panel preview only; the host applies the index, so AE owns the truth.
+  // The sixteen After Effects label indices 1..16. Colors are for the panel
+  // preview only; the host applies the index, so AE owns the truth.
   var LABELS = [
     { index: 1, color: '#d96a6a', title: 'Red' },
     { index: 2, color: '#e0b34d', title: 'Yellow' },
@@ -34,7 +34,15 @@
     { index: 5, color: '#b8a9e0', title: 'Lavender' },
     { index: 6, color: '#e0c2a3', title: 'Peach' },
     { index: 7, color: '#a9d6c4', title: 'Sea Foam' },
-    { index: 8, color: '#7d9ad6', title: 'Blue' }
+    { index: 8, color: '#7d9ad6', title: 'Blue' },
+    { index: 9, color: '#5ea15e', title: 'Green' },
+    { index: 10, color: '#8b6fc4', title: 'Purple' },
+    { index: 11, color: '#d98a3d', title: 'Orange' },
+    { index: 12, color: '#8f6f4f', title: 'Brown' },
+    { index: 13, color: '#c94f9c', title: 'Fuchsia' },
+    { index: 14, color: '#4aa7b8', title: 'Cyan' },
+    { index: 15, color: '#c4ad8a', title: 'Sandstone' },
+    { index: 16, color: '#3f6f4f', title: 'Dark Green' }
   ];
 
   R.tools.register({
