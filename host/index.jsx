@@ -74,6 +74,7 @@
   load('commands/copyease.jsx');
   load('commands/retime.jsx');
   load('commands/clone.jsx');
+  load('commands/expressions.jsx');
   load('commands/bake.jsx');
   load('commands/kinetic.jsx');
   load('commands/separate.jsx');
