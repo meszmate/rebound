@@ -7,6 +7,7 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
 
   R.tools.register({
@@ -25,21 +26,48 @@
     var arc = 360;
     var orient = false;
 
+    // Live ring diagram: dots laid out exactly as Count / Radius / Arc / Start
+    // angle place them, with a tick toward centre when Rotate-to-face is on.
+    var ringHost = el('div');
+    function renderRing() {
+      R.dom.clear(ringHost);
+      var n = Math.max(1, Math.round(count));
+      var step = arc >= 360 ? arc / n : (n > 1 ? arc / (n - 1) : 0);
+      var rPx = Math.min(48, radius * 0.12);
+      var kids = [
+        svg('circle', { cx: 62, cy: 62, r: rPx, fill: 'none', stroke: 'var(--rb-border)', 'stroke-width': 1, 'stroke-dasharray': '2 3' }),
+        svg('circle', { cx: 62, cy: 62, r: 1.5, fill: 'var(--rb-text-faint)' })
+      ];
+      for (var i = 0; i < n; i++) {
+        var a = (startAngle + step * i - 90) * Math.PI / 180;
+        var x = 62 + rPx * Math.cos(a), y = 62 + rPx * Math.sin(a);
+        if (orient) {
+          kids.push(svg('line', { x1: x, y1: y, x2: 62 + (rPx - 7) * Math.cos(a), y2: 62 + (rPx - 7) * Math.sin(a), stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }));
+        }
+        kids.push(svg('rect', { x: x - 3, y: y - 3, width: 6, height: 6, rx: 1.5, fill: 'var(--rb-accent)' }));
+      }
+      ringHost.appendChild(svg('svg', { viewBox: '0 0 124 124', width: 132, height: 132 }, kids));
+    }
+    var ringBox = el('div', { style: { display: 'flex', justifyContent: 'center', padding: '6px', border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)' } }, [ringHost]);
+
     var countField = ui.numberField({ label: 'Count', value: count, min: 2, max: 60, step: 1, decimals: 0, width: '110px',
-      onChange: function (v) { count = v; } });
+      onChange: function (v) { count = v; renderRing(); } });
 
     var radiusSlider = ui.slider({ label: 'Radius', min: 0, max: 1000, step: 1, value: radius,
-      format: function (v) { return Math.round(v) + 'px'; }, onInput: function (v) { radius = v; } });
+      format: function (v) { return Math.round(v) + 'px'; }, onInput: function (v) { radius = v; renderRing(); } });
     var startSlider = ui.slider({ label: 'Start angle', min: -360, max: 360, step: 1, value: startAngle,
-      format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { startAngle = v; } });
+      format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { startAngle = v; renderRing(); } });
     var arcSlider = ui.slider({ label: 'Arc', min: 0, max: 360, step: 1, value: arc,
-      format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { arc = v; } });
+      format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { arc = v; renderRing(); } });
 
-    var orientToggle = ui.toggle({ label: 'Orient to center', value: orient,
-      onChange: function (v) { orient = v; } });
+    var orientToggle = ui.toggle({ label: 'Rotate copies to face center', value: orient,
+      title: 'Spin each copy so it points toward the centre of the ring.',
+      onChange: function (v) { orient = v; renderRing(); } });
 
+    renderRing();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Duplicates each selected layer into a ring of copies around where the layer sits. Arc sets how much of the circle to fill.' }),
+      el('div.rb-faint', { text: 'Duplicates each selected layer into a ring of copies around where the layer sits. Arc sets how much of the circle to fill, Start angle where it begins.' }),
+      ringBox,
       countField.el,
       radiusSlider.el,
       startSlider.el,
@@ -76,6 +104,7 @@
       if (s.startAngle != null) { startAngle = s.startAngle; startSlider.set(s.startAngle); }
       if (s.arc != null) { arc = s.arc; arcSlider.set(s.arc); }
       if (s.orient != null) { orient = s.orient; orientToggle.set(s.orient); }
+      renderRing();
     }
 
     return {
