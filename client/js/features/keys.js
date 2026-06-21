@@ -46,12 +46,31 @@
     var outInfluence = 33.33;
     var allKeys = false;
 
-    // The easy-ease shape these influences produce (out handle = outInfluence,
-    // in handle = 1 - inInfluence), redrawn whenever the fields change.
-    var curveHost = el('div', { style: { display: 'flex', justifyContent: 'center', padding: '6px', border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)' } });
-    function renderCurve() {
+    // A preview of how the keyframe interpolation behaves. It shows the easy-ease
+    // shape the influences produce, and previews any type you hover so you can
+    // see how it animates before applying.
+    var curveHost = el('div', { style: { display: 'flex', justifyContent: 'center' } });
+    var curveCaption = el('div', { text: 'Easy Ease', style: { textAlign: 'center', color: 'var(--rb-text-muted)', fontSize: '11px', marginTop: '4px' } });
+    var previewBox = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } }, [curveHost, curveCaption]);
+
+    function influenceCurve() { return { type: 'bezier', x1: outInfluence / 100, y1: 0, x2: 1 - inInfluence / 100, y2: 1 }; }
+    function keyCurve(type) {
+      switch (type) {
+        case 'linear': return { type: 'bezier', x1: 0, y1: 0, x2: 1, y2: 1 };
+        case 'hold': return { type: 'fn', fn: function (t) { return t < 1 ? 0 : 1; } };
+        case 'bezier': return { type: 'bezier', x1: 0.4, y1: 0.2, x2: 0.6, y2: 0.8 };
+        case 'easyEaseIn': return { type: 'bezier', x1: outInfluence / 100, y1: 0, x2: 1, y2: 1 };
+        case 'easyEaseOut': return { type: 'bezier', x1: 0, y1: 0, x2: 1 - inInfluence / 100, y2: 1 };
+        case 'autoBezier': return { type: 'bezier', x1: 0.33, y1: 0, x2: 0.67, y2: 1 };
+        case 'continuous': return { type: 'bezier', x1: 0.25, y1: 0.1, x2: 0.75, y2: 0.9 };
+        case 'roving': return { type: 'bezier', x1: 0, y1: 0, x2: 1, y2: 1 };
+        default: return influenceCurve();
+      }
+    }
+    function renderCurve(c, caption) {
       R.dom.clear(curveHost);
-      curveHost.appendChild(R.ui.curveChip({ type: 'bezier', x1: outInfluence / 100, y1: 0, x2: 1 - inInfluence / 100, y2: 1 }, { width: 220, height: 72 }));
+      curveHost.appendChild(R.ui.curveChip(c || influenceCurve(), { width: 240, height: 92 }));
+      curveCaption.textContent = caption || 'Easy Ease';
     }
 
     var inField = ui.numberField({ label: 'Influence In', value: inInfluence, min: 0.1, max: 100,
@@ -77,18 +96,21 @@
     function half(node) { return el('div', { style: { flex: '1 1 96px', minWidth: '96px' } }, [node]); }
 
     var body = el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Set the interpolation of the selected keyframes. Ease In and Ease Out shape just one side; the influence below drives the eased side.' })
+      el('div.rb-faint', { text: 'Set the interpolation of the selected keyframes. Hover a type to see how it animates; the influence below shapes the eased types.' }),
+      previewBox
     ]);
     GROUPS.forEach(function (g) {
       body.appendChild(el('div.rb-section-label', { text: g.label }));
       body.appendChild(el('div.rb-row.rb-wrap', null, g.types.map(function (t) {
-        return el('button.rb-btn', { title: t.label, onclick: function () {
+        var b = el('button.rb-btn', { title: t.label, onclick: function () {
           set(ctx, t.type, { inInfluence: inInfluence, outInfluence: outInfluence, allKeys: allKeys });
         } }, [t.label]);
+        b.addEventListener('pointerenter', function () { renderCurve(keyCurve(t.type), t.label); });
+        b.addEventListener('pointerleave', function () { renderCurve(); });
+        return b;
       })));
     });
     body.appendChild(el('div.rb-section-label', { text: 'Easy Ease influence' }));
-    body.appendChild(curveHost);
     body.appendChild(profileRow);
     body.appendChild(el('div.rb-row.rb-wrap', null, [half(inField.el), half(outField.el)]));
     body.appendChild(allToggle.el);
