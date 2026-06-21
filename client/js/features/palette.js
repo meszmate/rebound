@@ -50,6 +50,19 @@
   function hexToRgb255(hex) { var h = normHex(hex).substring(1); return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)]; }
   function isHex(h) { return /^#?[0-9a-f]{6}$/i.test(h) || /^#?[0-9a-f]{3}$/i.test(h); }
 
+  // A sample shape painted the way the current Target (fill / stroke / both)
+  // would recolor: filled accent when fill is included, an accent outline when
+  // stroke is included.
+  function paletteTargetSvg(target) {
+    var hasFill = target === 'fill' || target === 'both';
+    var hasStroke = target === 'stroke' || target === 'both';
+    return svg('svg', { viewBox: '0 0 44 28', width: 44, height: 28, style: 'flex:none' }, [
+      svg('rect', { x: hasStroke ? 3 : 2, y: hasStroke ? 3 : 2, width: hasStroke ? 38 : 40, height: hasStroke ? 22 : 24, rx: 5,
+        fill: hasFill ? 'var(--rb-accent)' : 'none', 'fill-opacity': hasFill ? '0.85' : '0',
+        stroke: hasStroke ? 'var(--rb-accent)' : 'none', 'stroke-width': hasStroke ? 3 : 0 })
+    ]);
+  }
+
   function chevSvg() { return svg('svg', { viewBox: '0 0 24 24', width: 13, height: 13, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [svg('path', { d: 'M9 6l6 6-6 6' })]); }
   function pencilSvg() { return svg('svg', { viewBox: '0 0 24 24', width: 13, height: 13, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [svg('path', { d: 'M4 20h4L18 10l-4-4L4 16z' }), svg('path', { d: 'M13 7l4 4' })]); }
   function plusSvg() { return svg('svg', { viewBox: '0 0 24 24', width: 13, height: 13, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round' }, [svg('path', { d: 'M12 5v14M5 12h14' })]); }
@@ -60,16 +73,20 @@
     var openId = null;
     var lastAppliedId = null;
 
+    var targetPrevHost = el('div', { style: { display: 'inline-flex', alignItems: 'center' } });
+    function renderTargetPreview() { R.dom.clear(targetPrevHost); targetPrevHost.appendChild(paletteTargetSvg(target)); }
+
     var targetCtl = R.ui.segmented([
       { value: 'fill', label: 'Fill', title: 'Recolor fills and solids.' },
       { value: 'stroke', label: 'Stroke', title: 'Recolor shape strokes.' },
       { value: 'both', label: 'Both', title: 'Recolor fills and strokes.' }
-    ], { value: target, onChange: function (v) { target = v; } });
+    ], { value: target, onChange: function (v) { target = v; renderTargetPreview(); } });
 
+    renderTargetPreview();
     var shelf = el('div.rb-palette-shelf');
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Tap a palette to open it, then tap a color to recolor the selection.' }),
-      el('div.rb-palette-bartop', null, [targetCtl.el]),
+      el('div.rb-palette-bartop', null, [el('div.rb-row', { style: { alignItems: 'center', gap: '8px' } }, [targetCtl.el, targetPrevHost])]),
       shelf
     ]));
 
