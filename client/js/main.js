@@ -30,7 +30,7 @@
   var activeIndex = -1;
 
   var railEl, browseEl, detailEl, mountsEl, breadcrumbEl, searchInput, homeEl;
-  var homeScreenEl, homeScreenApi, homeRailBtn;
+  var homeScreenEl, homeScreenApi, homeRailBtn, browseBtn;
   var railButtons = {};
 
   // ---- Boot ----------------------------------------------------------------
@@ -80,7 +80,6 @@
       refreshSelection: pollSelection,
       onSelection: function (fn) { return appStore.select(function (s) { return s.selection; }, fn); },
       getSelection: function () { return appStore.get().selection; },
-      onToggleFocus: function () { setFocus(); },
       openSettings: openSettings
     });
     homeScreenEl = homeScreenApi.el;
@@ -93,15 +92,9 @@
     ]);
     app.appendChild(main);
 
-    // Floating control to leave focus mode (the rail/topbar are hidden then).
-    var focusExit = el('button.rb-focus-exit', { title: 'Show the menu', onclick: function () { setFocus(false); } },
-      [icon('<path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>'), 'Show menu']);
-    app.appendChild(focusExit);
-
     ctx = makeContext();
     setupKeyboard();
     home.update(appStore.get().selection);
-    if (R.disk.read('focus-mode', false)) setFocus(true);
 
     if (R.bridge.available) {
       pollSelection();
@@ -242,14 +235,14 @@
            ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
     });
 
-    var focusBtn = el('button.rb-btn.is-ghost.is-icon', {
-      title: 'Focus mode — hide the sidebar and fill the panel', 'aria-label': 'Focus mode',
-      onclick: function () { setFocus(); }
+    browseBtn = el('button.rb-btn.is-ghost.is-icon', {
+      title: 'Browse all tools', 'aria-label': 'Browse tools',
+      onclick: function () { if (view === 'browse') showHome(); else showCategory(lastCategory || R.toolMeta.SECTIONS[0].id); }
     });
-    focusBtn.innerHTML = R.toolMeta.svg('<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>');
+    browseBtn.innerHTML = R.toolMeta.svg('<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>');
 
     // The mark already lives on the rail, so the topbar leads with search.
-    var children = [search, el('span.rb-selchip', null, [selDot, selText]), focusBtn];
+    var children = [search, el('span.rb-selchip', null, [selDot, selText]), browseBtn];
     if (R.bridge.available) {
       children.push(el('button.rb-btn.is-ghost.is-icon', {
         title: 'Reload host (dev)', 'aria-label': 'Reload host',
@@ -285,7 +278,8 @@
     if (homeEl) homeEl.classList.remove('rb-hidden');
     if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
     if (homeRailBtn) homeRailBtn.classList.remove('is-active');
-    setHomeFull(false);
+    setBrowsing(true);
+    animateIn(browseEl);
   }
 
   // The configurable Home: the one-click action grid, hiding the browse/detail
@@ -299,17 +293,8 @@
     if (homeScreenEl) homeScreenEl.classList.remove('rb-hidden');
     highlightRail(null);
     if (homeRailBtn) homeRailBtn.classList.add('is-active');
-    setHomeFull(true);
-  }
-
-  // Focus mode hides the rail and topbar so the current view fills the panel;
-  // a floating button (and the same shortcut) brings the chrome back.
-  function setFocus(on) {
-    var app = document.getElementById('rb-app');
-    if (!app) return;
-    var next = (on == null) ? !app.classList.contains('is-focus') : !!on;
-    app.classList.toggle('is-focus', next);
-    try { R.disk.write('focus-mode', next); } catch (e) { /* ignore */ }
+    setBrowsing(false);
+    animateIn(homeScreenEl);
   }
 
   function showCategory(catId) {
@@ -465,7 +450,8 @@
     if (homeEl) homeEl.classList.add('rb-hidden');
     if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
     if (homeRailBtn) homeRailBtn.classList.remove('is-active');
-    setHomeFull(false);
+    setBrowsing(false);
+    animateIn(detailEl);
     appStore.update({ activeTool: tool.id });
   }
 
@@ -474,11 +460,20 @@
     else showHome();
   }
 
-  // The Home is shown fullscreen: its own sidebar (the category rail) is hidden
-  // so the board fills the panel. The rail returns when browsing or in a tool.
-  function setHomeFull(on) {
+  // The category rail is the browse sidebar: shown only while browsing. The Home
+  // (the default) and a focused tool hide it, so the content fills the panel.
+  function setBrowsing(on) {
     var app = document.getElementById('rb-app');
-    if (app) app.classList.toggle('is-home-full', !!on);
+    if (app) app.classList.toggle('is-view-browse', !!on);
+    if (browseBtn) browseBtn.classList.toggle('is-active', !!on);
+  }
+
+  // A quick spring-y entrance for whichever surface just became visible.
+  function animateIn(node) {
+    if (!node) return;
+    node.classList.remove('rb-anim-in');
+    void node.offsetWidth;
+    node.classList.add('rb-anim-in');
   }
 
   function openToolById(id) {
@@ -536,9 +531,6 @@
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (triggerPrimaryAction()) e.preventDefault();
         return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
-        e.preventDefault(); setFocus(); return;
       }
       if (e.key === '/' && !inInput) { e.preventDefault(); if (searchInput) searchInput.focus(); return; }
 

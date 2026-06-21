@@ -6,6 +6,10 @@
 .rb-home { display: flex; flex-direction: column; gap: var(--rb-gap-2); padding: var(--rb-gap-3); overflow: hidden; min-height: 0; }
 
 .rb-home-head { display: flex; align-items: center; gap: 4px; flex: none; }
+.rb-home-head .rb-btn.is-icon { transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), color var(--rb-transition), background var(--rb-transition); }
+.rb-home-head .rb-btn.is-icon:hover { transform: scale(1.14); }
+.rb-home-head .rb-btn.is-icon:active { transform: scale(0.9); }
+@media (prefers-reduced-motion: reduce) { .rb-home-head .rb-btn.is-icon { transition: color var(--rb-transition); } .rb-home-head .rb-btn.is-icon:hover, .rb-home-head .rb-btn.is-icon:active { transform: none; } }
 .rb-home-brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: calc(var(--rb-font-size) + 3px); color: var(--rb-text); letter-spacing: 0.01em; }
 .rb-home-mark { color: var(--rb-accent); font-size: calc(var(--rb-font-size) + 5px); }
 .rb-home-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 700; color: var(--rb-text); }
@@ -25,10 +29,12 @@
   border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
   background: var(--rb-bg-raised, var(--rb-bg-sunken)); color: var(--rb-text);
   cursor: pointer; font: inherit; text-align: center;
-  transition: border-color var(--rb-transition), background var(--rb-transition), transform var(--rb-dur-instant) var(--rb-ease-standard), box-shadow var(--rb-transition);
+  transition: border-color var(--rb-transition), background var(--rb-transition),
+    transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), box-shadow var(--rb-transition);
 }
-.rb-home-tile:hover { border-color: var(--rb-border-strong); background: var(--rb-control, var(--rb-bg-raised)); }
-.rb-home-tile:active { transform: scale(0.97); }
+.rb-home-tile:hover { border-color: var(--rb-accent); background: var(--rb-control, var(--rb-bg-raised)); transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28); }
+.rb-home-tile:active { transform: translateY(-1px) scale(0.95); }
+@media (prefers-reduced-motion: reduce) { .rb-home-tile, .rb-home-tile:hover, .rb-home-tile:active { transform: none; } }
 
 .rb-home-ico { width: 26px; height: 26px; color: var(--rb-accent); display: inline-flex; align-items: center; justify-content: center; }
 .rb-home-ico svg { width: 24px; height: 24px; }
@@ -138,20 +144,18 @@
 .rb-home-widget.is-dragging { opacity: 0.4; }
 .rb-home-widget.is-droptarget { border-color: var(--rb-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 35%, transparent); }
 
-/* Fullscreen Home: hide the category rail so the board fills the panel; the
-   topbar (search) stays. The rail returns when browsing or in a tool. */
-#rb-app.is-home-full .rb-rail { display: none; }
+/* The category rail is the browse sidebar: hidden everywhere except the browse
+   view, so the Home (default) and tools fill the panel. The topbar Browse button
+   reveals it. */
+#rb-app:not(.is-view-browse) .rb-rail { display: none; }
 
-/* ---- Focus mode (hide the rail + topbar, fill the panel) ----------------- */
-#rb-app.is-focus .rb-rail,
-#rb-app.is-focus .rb-topbar { display: none; }
-.rb-focus-exit {
-  display: none; position: fixed; top: 8px; right: 10px; z-index: 60;
-  align-items: center; gap: 6px; padding: 5px 10px;
-  border: 1px solid var(--rb-border-strong); border-radius: 999px;
-  background: var(--rb-bg-raised, var(--rb-bg-sunken)); color: var(--rb-text-muted);
-  cursor: pointer; font: inherit; font-size: calc(var(--rb-font-size) - 1px);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+/* ---- Entrance + bounce animations ---------------------------------------- */
+@keyframes rb-anim-in {
+  from { opacity: 0; transform: translateY(7px) scale(0.99); }
+  to { opacity: 1; transform: none; }
 }
-#rb-app.is-focus .rb-focus-exit { display: inline-flex; }
-.rb-focus-exit:hover { color: var(--rb-text); border-color: var(--rb-accent); }
+.rb-anim-in { animation: rb-anim-in var(--rb-dur-medium, 0.26s) var(--rb-ease-emphasized, cubic-bezier(0.2, 0.9, 0.25, 1)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-anim-in { animation: none; }
+}
