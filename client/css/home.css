@@ -172,6 +172,9 @@
    view, so the Home (default) and tools fill the panel. The topbar Browse button
    reveals it. */
 #rb-app:not(.is-view-browse) .rb-rail { display: none; }
+/* The Home is fullscreen: hide the topbar (search) too; its controls live in the
+   Home header. Browse or open a tool to get the search back. */
+#rb-app.is-view-home .rb-topbar { display: none; }
 
 /* ---- Entrance + bounce animations ---------------------------------------- */
 @keyframes rb-anim-in {

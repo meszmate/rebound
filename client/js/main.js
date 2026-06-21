@@ -80,7 +80,8 @@
       refreshSelection: pollSelection,
       onSelection: function (fn) { return appStore.select(function (s) { return s.selection; }, fn); },
       getSelection: function () { return appStore.get().selection; },
-      openSettings: openSettings
+      openSettings: openSettings,
+      onBrowse: function () { showCategory(lastCategory || R.toolMeta.SECTIONS[0].id); }
     });
     homeScreenEl = homeScreenApi.el;
     homeScreenEl.classList.add('rb-hidden');
@@ -278,7 +279,7 @@
     if (homeEl) homeEl.classList.remove('rb-hidden');
     if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
     if (homeRailBtn) homeRailBtn.classList.remove('is-active');
-    setBrowsing(true);
+    setView('browse');
     animateIn(browseEl);
   }
 
@@ -293,7 +294,7 @@
     if (homeScreenEl) homeScreenEl.classList.remove('rb-hidden');
     highlightRail(null);
     if (homeRailBtn) homeRailBtn.classList.add('is-active');
-    setBrowsing(false);
+    setView('home');
     animateIn(homeScreenEl);
   }
 
@@ -450,7 +451,7 @@
     if (homeEl) homeEl.classList.add('rb-hidden');
     if (homeScreenEl) homeScreenEl.classList.add('rb-hidden');
     if (homeRailBtn) homeRailBtn.classList.remove('is-active');
-    setBrowsing(false);
+    setView('detail');
     animateIn(detailEl);
     appStore.update({ activeTool: tool.id });
   }
@@ -460,12 +461,16 @@
     else showHome();
   }
 
-  // The category rail is the browse sidebar: shown only while browsing. The Home
-  // (the default) and a focused tool hide it, so the content fills the panel.
-  function setBrowsing(on) {
+  // Reflect the active view on the app so the chrome adapts: the Home hides the
+  // topbar (search) and the category rail to fill the panel; browse shows both;
+  // a tool shows the topbar but not the rail.
+  function setView(v) {
     var app = document.getElementById('rb-app');
-    if (app) app.classList.toggle('is-view-browse', !!on);
-    if (browseBtn) browseBtn.classList.toggle('is-active', !!on);
+    if (!app) return;
+    app.classList.toggle('is-view-home', v === 'home');
+    app.classList.toggle('is-view-browse', v === 'browse');
+    app.classList.toggle('is-view-detail', v === 'detail');
+    if (browseBtn) browseBtn.classList.toggle('is-active', v === 'browse');
   }
 
   // A quick spring-y entrance for whichever surface just became visible.
@@ -523,6 +528,7 @@
 
       if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
+        if (view === 'home') showCategory(lastCategory || R.toolMeta.SECTIONS[0].id);
         if (searchInput) searchInput.select();
         return;
       }
