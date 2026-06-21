@@ -52,7 +52,17 @@
     var maximizedId = null;
     var editing = false;
     var dragId = null;
+    var lastAddedId = null; // gets a one-time pop animation on the next render
     var widgetCache = {}; // id -> { card, destroy, widthBtn, collapseBtn, maxBtn }
+
+    // Replay a CSS animation class on a node once (remove, reflow, add, cleanup).
+    function playOnce(node, cls) {
+      if (!node) return;
+      node.classList.remove(cls);
+      void node.offsetWidth;
+      node.classList.add(cls);
+      node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
+    }
 
     function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed }); }
 
@@ -111,7 +121,7 @@
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
       persist(); render();
     }
-    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); persist(); render(); } }
+    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); lastAddedId = id; persist(); render(); } }
     function reorder(fromId, toId) {
       var from = ids.indexOf(fromId), to = ids.indexOf(toId);
       if (from === -1 || to === -1 || from === to) return;
@@ -129,10 +139,10 @@
     }
 
     function tile(action) {
-      var node = el('button.rb-home-tile', {
+      var node = el('button.rb-home-tile' + (action.id === lastAddedId ? '.rb-pop' : ''), {
         type: 'button', 'data-id': action.id,
         title: action.kind === 'apply' ? ('Apply ' + action.label + ' in one click') : ('Open ' + action.label),
-        onclick: function () { if (!editing) runAction(action); }
+        onclick: function () { if (editing) return; runAction(action); if (action.kind === 'apply') playOnce(node, 'rb-pulse'); }
       }, [
         iconSpan(action.toolId),
         el('span.rb-home-label', { text: action.label }),
@@ -247,11 +257,13 @@
           if (!widgetCache[id]) buildWidget(action);
           decorateWidget(action);
           grid.appendChild(widgetCache[id].card);
+          if (id === lastAddedId) playOnce(widgetCache[id].card, 'rb-pop');
         } else {
           grid.appendChild(tile(action));
         }
       });
       if (editing) grid.appendChild(addTile());
+      lastAddedId = null;
     }
 
     // ---- Browser (searchable, filterable by kind) ----
