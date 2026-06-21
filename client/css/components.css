@@ -384,35 +384,58 @@
 .rb-iconbar button:active { background: var(--rb-accent); color: var(--rb-accent-text); }
 .rb-iconbar button svg { width: 18px; height: 18px; }
 
-/* ---- Anchor 9-point grid ------------------------------------------------- */
-.rb-anchor-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  width: 96px;
-  height: 96px;
-  border: 1px solid var(--rb-border-strong);
+/* ---- Anchor picker ------------------------------------------------------- */
+.rb-anchor-stage { display: flex; justify-content: center; padding: var(--rb-gap-2) 0; }
+.rb-anchor-box {
+  position: relative;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 16 / 10;
+  border: 1px dashed var(--rb-border-strong);
   border-radius: var(--rb-radius-2);
   background: var(--rb-bg-sunken);
+  cursor: crosshair;
+  touch-action: none;
 }
-.rb-anchor-grid button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.rb-anchor-grid button::after {
-  content: '';
-  width: 8px;
-  height: 8px;
+/* faint centre cross guide */
+.rb-anchor-cross::before,
+.rb-anchor-cross::after { content: ''; position: absolute; background: var(--rb-border); }
+.rb-anchor-cross::before { left: 0; right: 0; top: 50%; height: 1px; }
+.rb-anchor-cross::after { top: 0; bottom: 0; left: 50%; width: 1px; }
+
+.rb-anchor-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  padding: 0;
   border-radius: 50%;
-  background: var(--rb-text-faint);
-  transition: background var(--rb-transition), transform var(--rb-transition);
+  border: 2px solid var(--rb-text-muted);
+  background: var(--rb-bg-raised);
+  cursor: pointer;
+  z-index: 2;
+  transition: transform var(--rb-transition), border-color var(--rb-transition), background var(--rb-transition);
 }
-.rb-anchor-grid button:hover::after { background: var(--rb-accent); transform: scale(1.35); }
-.rb-anchor-grid button.is-active::after { background: var(--rb-accent); }
+.rb-anchor-dot:hover { border-color: var(--rb-accent); transform: translate(-50%, -50%) scale(1.25); }
+.rb-anchor-dot.is-active { background: var(--rb-accent); border-color: var(--rb-accent); }
+
+/* the AE-style draggable anchor crosshair (a ring with a cross) */
+.rb-anchor-target {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--rb-accent);
+  pointer-events: none;
+  z-index: 3;
+}
+.rb-anchor-target::before,
+.rb-anchor-target::after { content: ''; position: absolute; background: var(--rb-accent); }
+.rb-anchor-target::before { left: 50%; top: -6px; bottom: -6px; width: 2px; transform: translateX(-50%); }
+.rb-anchor-target::after { top: 50%; left: -6px; right: -6px; height: 2px; transform: translateY(-50%); }
+
+.rb-anchor-readout { text-align: center; font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); }
 
 /* ---- Empty state --------------------------------------------------------- */
 .rb-empty {
