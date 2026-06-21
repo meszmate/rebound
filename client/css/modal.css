@@ -1,0 +1,107 @@
+/*
+ * Rebound, modal dialog. Centered box over a scrim, mirroring the command
+ * palette, with a fade/scale enter-exit. Plus the Save-preset dialog body.
+ */
+.rb-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300; /* above the palette (1200) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rb-gap-5);
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 1;
+  transition: opacity var(--rb-dur-fast) var(--rb-ease-standard);
+}
+.rb-modal-overlay.is-entering,
+.rb-modal-overlay.is-leaving { opacity: 0; }
+
+.rb-modal {
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--rb-bg-raised);
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-3);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  outline: none;
+  transform: translateY(8px) scale(0.96);
+  opacity: 0;
+  transition: transform var(--rb-dur-medium) var(--rb-ease-emphasized),
+    opacity var(--rb-dur-fast) var(--rb-ease-standard);
+}
+.rb-modal-overlay:not(.is-entering):not(.is-leaving) .rb-modal { transform: none; opacity: 1; }
+.rb-modal-overlay.is-leaving .rb-modal { transform: translateY(4px) scale(0.98); opacity: 0; }
+.rb-modal.is-busy { pointer-events: none; }
+
+.rb-modal-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-4) var(--rb-gap-4) var(--rb-gap-3);
+  border-bottom: 1px solid var(--rb-border);
+}
+.rb-modal-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: calc(var(--rb-font-size) + 2px);
+  font-weight: 600;
+  color: var(--rb-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-modal-x { flex: none; color: var(--rb-text-faint); font-size: 16px; line-height: 1; }
+.rb-modal-x:hover { color: var(--rb-text); }
+
+.rb-modal-body { padding: var(--rb-gap-4); overflow-y: auto; }
+.rb-modal-foot {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--rb-gap-3);
+  padding: var(--rb-gap-3) var(--rb-gap-4) var(--rb-gap-4);
+}
+.rb-modal.is-busy .rb-modal-foot { opacity: 0.5; }
+
+/* ---- Save-preset dialog -------------------------------------------------- */
+.rb-savedlg { display: flex; flex-direction: column; gap: var(--rb-gap-4); }
+.rb-savedlg-preview {
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+  padding: var(--rb-gap-3);
+}
+.rb-savedlg-preview.is-static { display: flex; align-items: center; justify-content: center; }
+.rb-savedlg-preview.is-static .rb-curve-chip { width: 100%; height: auto; max-height: 96px; }
+.rb-savedlg-stage { min-height: 120px; }
+.rb-savedlg-field { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-savedlg-label {
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+.rb-savedlg-input {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg);
+  color: var(--rb-text);
+  padding: 0 var(--rb-gap-3);
+  font: inherit;
+  font-size: calc(var(--rb-font-size) + 1px);
+  outline: none;
+  transition: border-color var(--rb-transition);
+}
+.rb-savedlg-input:focus { border-color: var(--rb-accent); }
+.rb-savedlg-input.is-invalid { border-color: var(--rb-danger); }
+.rb-savedlg-hint { min-height: 14px; font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-faint); }
+.rb-savedlg-hint.is-warn { color: var(--rb-warning); }
+.rb-savedlg-hint.is-error { color: var(--rb-danger); }
