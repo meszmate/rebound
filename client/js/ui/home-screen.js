@@ -59,7 +59,7 @@
     function metaOf(id) { return meta[id] || {}; }
     function setMeta(id, m) {
       // Drop the override entirely when it is all defaults, to keep storage clean.
-      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (m.badge !== false) && (!m.size || m.size === 'normal') && (!m.icon);
+      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.size || m.size === 'normal') && (!m.icon);
       if (isDefault) delete meta[id]; else meta[id] = m;
       persist(); render();
     }
@@ -166,7 +166,7 @@
       if (display === 'visual') { kids.push(tileVisual(action) || tileIcon(action, m)); }
       else if (display !== 'text') { kids.push(tileIcon(action, m)); }
       if (display !== 'icononly') kids.push(el('span.rb-home-label', { text: label }));
-      if (m.badge !== false && display !== 'icononly') {
+      if (m.badge === true && display !== 'icononly') {
         kids.push(action.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' }) : el('span.rb-home-badge.is-open', { text: 'open' }));
       }
       return kids;
@@ -203,7 +203,7 @@
     function customizeTile(action) {
       if (!R.ui.modal) return;
       var b = metaOf(action.id);
-      var draft = { label: b.label || '', display: b.display || 'icon', badge: b.badge !== false, size: b.size || 'normal', icon: b.icon || null };
+      var draft = { label: b.label || '', display: b.display || 'icon', badge: b.badge === true, size: b.size || 'normal', icon: b.icon || null };
 
       var previewHost = el('div.rb-home-cust-preview');
       function renderPrev() { R.dom.clear(previewHost); previewHost.appendChild(previewTile(action, draft)); }

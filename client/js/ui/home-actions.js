@@ -62,13 +62,13 @@
     return null;
   }
 
-  // A sensible starter set for a first run: a row of one-click actions, a live
-  // Align widget to show the concept, then more actions and quick tool jumps.
+  // A clean, dense starter board of compact one-click actions and quick tool
+  // jumps. Widgets (whole-tool panels) are one Add away from the browser.
   var DEFAULT = [
-    'easy-ease', 'center-anchor', 'align-center', 'add-null',
-    'widget-align',
-    'shape-rect', 'grid-thirds', 'expr-wiggle', 'reverse-keys',
-    'open-ease', 'open-spring', 'open-scatter', 'open-gradient'
+    'easy-ease', 'ease-linear', 'ease-hold', 'reverse-keys', 'trim-keys',
+    'center-anchor', 'align-center', 'add-null', 'reset-transform',
+    'shape-rect', 'shape-ellipse', 'grid-thirds', 'expr-wiggle', 'expr-loop',
+    'open-ease', 'open-spring', 'open-scatter', 'open-gradient', 'open-expressions'
   ];
 
   R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, all: all, byId: byId, DEFAULT: DEFAULT };
