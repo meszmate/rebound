@@ -8,13 +8,13 @@
 .rb-home-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); min-height: 0; }
 
 .rb-home-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  display: flex; flex-wrap: wrap; align-content: flex-start; align-items: flex-start;
   gap: var(--rb-gap-2);
 }
 
 .rb-home-tile {
   position: relative;
+  flex: 1 1 84px; max-width: 132px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
   min-height: 84px; padding: 10px 8px;
   border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
@@ -52,7 +52,7 @@
 .rb-home-add:hover { border-color: var(--rb-accent); color: var(--rb-text); }
 .rb-home-plus { font-size: 22px; line-height: 1; color: var(--rb-text-muted); }
 
-.rb-home-empty { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: var(--rb-gap-2); padding: 24px; color: var(--rb-text-muted); }
+.rb-home-empty { flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; gap: var(--rb-gap-2); padding: 24px; color: var(--rb-text-muted); }
 
 /* ---- Action browser ------------------------------------------------------ */
 .rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
@@ -78,10 +78,22 @@
 /* ---- Live tool widgets --------------------------------------------------- */
 .rb-home-widget {
   position: relative;
-  grid-column: 1 / -1;                 /* span the whole board */
+  flex: 1 1 100%;                      /* full width by default */
   border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
   background: var(--rb-bg-raised, var(--rb-bg-sunken)); overflow: hidden;
 }
+/* Half-width: holds ~50% (grow 0 so a lone half stays mid-width, not full); two
+   sit side by side, and on a narrow panel the min-width wraps it to its own row
+   so it never gets too cramped. */
+.rb-home-widget.is-half { flex: 0 1 calc(50% - var(--rb-gap-2)); min-width: 220px; }
+
+.rb-home-wbtn {
+  display: none; flex: none; min-width: 22px; height: 20px; padding: 0 5px;
+  border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
+  background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; line-height: 1;
+}
+.rb-home-widget.is-editmode .rb-home-wbtn { display: inline-flex; align-items: center; justify-content: center; }
+.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); }
 .rb-home-widget-head {
   display: flex; align-items: center; gap: var(--rb-gap-2);
   padding: 6px 8px; border-bottom: 1px solid var(--rb-border);

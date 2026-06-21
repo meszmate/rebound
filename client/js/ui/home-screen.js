@@ -2,16 +2,15 @@
  * Rebound, configurable Home screen.
  *
  * A board the user arranges themselves, mixing three kinds of item:
- *   - one-click ACTION tiles that apply a host command (Center Anchor, Wiggle...)
- *     or open a tool,
- *   - live WIDGETS that embed a tool's whole UI right on the Home, so you can use
- *     the real controller (the Align grid, the Ease curve, ...) and Apply inline.
- * Edit mode lets you drag items to reorder, remove them, or open a searchable
- * browser to pin any action, tool, or widget. The layout persists to disk
- * (home-layout) and travels in the Share Center bundle.
+ *   - one-click ACTION tiles that apply a host command or open a tool,
+ *   - live WIDGETS that embed a tool's whole UI right on the Home, so you use the
+ *     real controller (the Align grid, the Ease curve, the Anchor box...) inline.
+ * Widgets can be full or half width. Edit mode lets you drag to reorder, resize,
+ * remove, or open a searchable browser (filterable by kind) to pin anything. The
+ * layout persists to disk (home-layout) and travels in the Share Center bundle.
  *
  * R.homeScreen.create({ invoke, openTool, toast, refreshSelection, onSelection,
- *   getSelection }) -> { el, refresh }
+ *   getSelection, onToggleFocus }) -> { el, refresh }
  */
 ;(function (R) {
   'use strict';
@@ -28,27 +27,33 @@
 
   function load() {
     var d = R.disk.read('home-layout', null);
-    return (d && d.items && d.items.length) ? d.items.slice() : R.homeActions.DEFAULT.slice();
+    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {} };
+    return { items: R.homeActions.DEFAULT.slice(), widths: {} };
   }
-  function persist(ids) { R.disk.write('home-layout', { schemaVersion: 1, items: ids }); }
 
   function create(opts) {
-    var ids = load();
+    var saved = load();
+    var ids = saved.items;
+    var widths = saved.widths || {};
     var editing = false;
     var dragId = null;
-    var widgetCache = {}; // id -> { card, destroy }
+    var widgetCache = {}; // id -> { card, destroy, widthBtn }
+
+    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths }); }
+    function widthOf(id) { return widths[id] === 'half' ? 'half' : 'full'; }
 
     var grid = el('div.rb-home-grid');
     var editBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { editing = !editing; syncEdit(); render(); } }, ['Edit']);
     var addBtn = el('button.rb-btn', { type: 'button', onclick: openBrowser }, ['+ Add']);
     var hint = el('div.rb-home-hint', { text: '' });
 
-    var head = el('div.rb-home-head', null, [
-      el('span.rb-home-title', { text: 'Home' }),
-      el('span.rb-grow'),
-      addBtn,
-      editBtn
-    ]);
+    var headKids = [el('span.rb-home-title', { text: 'Home' }), el('span.rb-grow')];
+    if (opts.onToggleFocus) {
+      headKids.push(el('button.rb-btn.is-ghost', { type: 'button', title: 'Hide the sidebar and fill the panel (Ctrl/Cmd+Shift+F)', onclick: opts.onToggleFocus }, ['Focus']));
+    }
+    headKids.push(addBtn);
+    headKids.push(editBtn);
+    var head = el('div.rb-home-head', null, headKids);
 
     var root = el('div.rb-home', null, [head, hint, grid]);
 
@@ -56,7 +61,7 @@
       editBtn.textContent = editing ? 'Done' : 'Edit';
       editBtn.classList.toggle('is-active', editing);
       addBtn.style.display = editing ? '' : 'none';
-      hint.textContent = editing ? 'Drag to arrange, × to remove, + Add to pin actions or whole-tool widgets.' : '';
+      hint.textContent = editing ? 'Drag to arrange, ▭/½ to resize a widget, × to remove, + Add to pin more.' : '';
       root.classList.toggle('is-editing', editing);
     }
 
@@ -69,19 +74,20 @@
 
     function removeItem(id) {
       ids = ids.filter(function (x) { return x !== id; });
+      delete widths[id];
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
-      persist(ids); render();
+      persist(); render();
     }
-    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); persist(ids); render(); } }
+    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); persist(); render(); } }
     function reorder(fromId, toId) {
       var from = ids.indexOf(fromId), to = ids.indexOf(toId);
       if (from === -1 || to === -1 || from === to) return;
       ids.splice(from, 1);
       ids.splice(ids.indexOf(toId) + (from < to ? 1 : 0), 0, fromId);
-      persist(ids); render();
+      persist(); render();
     }
+    function setWidth(id, w) { if (w === 'full') delete widths[id]; else widths[id] = w; persist(); render(); }
 
-    // Shared drag wiring for any reorderable card/tile.
     function wireDrag(node, id) {
       node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
       node.addEventListener('dragend', function () { node.classList.remove('is-dragging'); dragId = null; });
@@ -109,8 +115,6 @@
       return node;
     }
 
-    // A live tool widget: mount the tool's whole UI inline, once, and cache it so
-    // reordering never re-mounts (which would drop its state and subscriptions).
     function buildWidget(action) {
       var tool = R.tools.get(action.toolId);
       var host = el('div.rb-home-widget-body');
@@ -135,22 +139,29 @@
         host.appendChild(el('div.rb-empty', null, ['Unknown widget']));
       }
 
+      var widthBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Toggle widget width',
+        onclick: function (e) { e.stopPropagation(); setWidth(action.id, widthOf(action.id) === 'half' ? 'full' : 'half'); } }, [widthOf(action.id) === 'half' ? '½' : '▭']);
       var header = el('div.rb-home-widget-head', null, [
-        el('span.rb-home-grip', { title: 'Drag to move' }, ['⠋⡇']),
+        el('span.rb-home-grip', { title: 'Drag to move' }, ['⠿']),
         iconSpan(action.toolId, 'rb-home-ico-sm'),
         el('span.rb-grow', { text: action.label }),
+        widthBtn,
         el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×'])
       ]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
-      widgetCache[action.id] = { card: card, destroy: destroy };
+      widgetCache[action.id] = { card: card, destroy: destroy, widthBtn: widthBtn };
       return card;
     }
 
-    function decorateWidget(card) {
-      card.classList.toggle('is-editmode', editing);
-      card.setAttribute('draggable', editing ? 'true' : 'false');
+    function decorateWidget(action) {
+      var entry = widgetCache[action.id];
+      if (!entry) return;
+      entry.card.classList.toggle('is-editmode', editing);
+      entry.card.classList.toggle('is-half', widthOf(action.id) === 'half');
+      entry.card.setAttribute('draggable', editing ? 'true' : 'false');
+      entry.widthBtn.textContent = widthOf(action.id) === 'half' ? '½' : '▭';
     }
 
     function addTile() {
@@ -160,7 +171,6 @@
     }
 
     function render() {
-      // Tear down widgets that are no longer pinned.
       var keep = {};
       ids.forEach(function (id) { keep[id] = true; });
       Object.keys(widgetCache).forEach(function (id) {
@@ -179,9 +189,9 @@
         var action = R.homeActions.byId(id);
         if (!action) return;
         if (action.kind === 'widget') {
-          var card = widgetCache[id] ? widgetCache[id].card : buildWidget(action);
-          decorateWidget(card);
-          grid.appendChild(card);
+          if (!widgetCache[id]) buildWidget(action);
+          decorateWidget(action);
+          grid.appendChild(widgetCache[id].card);
         } else {
           grid.appendChild(tile(action));
         }
@@ -189,12 +199,21 @@
       if (editing) grid.appendChild(addTile());
     }
 
-    // ---- Action / widget browser (searchable) ----
+    // ---- Browser (searchable, filterable by kind) ----
     function openBrowser() {
       if (!R.ui.modal) return;
       var query = '';
+      var kind = 'all';
       var listEl = el('div.rb-home-browser-list');
-      var search = el('input', { type: 'text', spellcheck: 'false', placeholder: 'Search actions, tools, and widgets…',
+
+      var kindCtl = R.ui.segmented([
+        { value: 'all', label: 'All' },
+        { value: 'apply', label: '1-click' },
+        { value: 'widget', label: 'Widgets' },
+        { value: 'open', label: 'Open' }
+      ], { value: kind, onChange: function (v) { kind = v; renderList(); } });
+
+      var search = el('input', { type: 'text', spellcheck: 'false', placeholder: 'Search…',
         oninput: function () { query = this.value.toLowerCase(); renderList(); } });
 
       function groupName(a) {
@@ -207,6 +226,7 @@
       function renderList() {
         R.dom.clear(listEl);
         var actions = R.homeActions.all().filter(function (a) {
+          if (kind !== 'all' && a.kind !== kind) return false;
           return !query || (a.label + ' ' + a.group).toLowerCase().indexOf(query) !== -1;
         });
         var groups = {}, order = [];
@@ -245,7 +265,11 @@
       var doneBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { handle.close('confirm'); } }, ['Done']);
       var handle = R.ui.modal({
         title: 'Add to Home', width: 460, className: 'rb-modal-home',
-        body: el('div.rb-home-browser', null, [el('div.rb-search', null, [search]), listEl]),
+        body: el('div.rb-home-browser', null, [
+          el('div.rb-home-browser-filter', null, [kindCtl.el]),
+          el('div.rb-search', null, [search]),
+          listEl
+        ]),
         footer: [doneBtn], initialFocus: search
       });
     }

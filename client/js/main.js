@@ -78,7 +78,8 @@
       toast: R.ui.toast,
       refreshSelection: pollSelection,
       onSelection: function (fn) { return appStore.select(function (s) { return s.selection; }, fn); },
-      getSelection: function () { return appStore.get().selection; }
+      getSelection: function () { return appStore.get().selection; },
+      onToggleFocus: function () { setFocus(); }
     });
     homeScreenEl = homeScreenApi.el;
     homeScreenEl.classList.add('rb-hidden');
