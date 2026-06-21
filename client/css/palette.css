@@ -1,0 +1,105 @@
+/*
+ * Rebound, palette shelf. Accordion cards with full-bleed swatch bars, hover
+ * hex, copy, a focused-color detail strip, and a dashed New-palette card.
+ */
+.rb-palette-bartop {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding-bottom: var(--rb-gap-2);
+  background: var(--rb-bg);
+}
+.rb-palette-shelf { display: flex; flex-direction: column; gap: var(--rb-gap-3); }
+
+/* ---- Card ---------------------------------------------------------------- */
+.rb-palette-card {
+  border: 1px solid var(--rb-border);
+  border-left: 2px solid transparent;
+  border-radius: var(--rb-radius-2);
+  overflow: hidden;
+  background: var(--rb-bg-raised);
+  transition: border-color var(--rb-transition), box-shadow var(--rb-transition);
+}
+.rb-palette-card.is-open { border-color: var(--rb-border-strong); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28); }
+.rb-palette-card.is-active { border-left-color: var(--rb-accent); }
+
+/* ---- Swatch bar ---------------------------------------------------------- */
+.rb-palette-bar { display: flex; height: 34px; cursor: pointer; transition: height var(--rb-dur-medium) var(--rb-ease-emphasized); }
+.rb-palette-card.is-open .rb-palette-bar { height: 72px; cursor: default; }
+.rb-swatch {
+  flex: 1 1 0; min-width: 0; padding: 0; border: 0; cursor: pointer;
+  position: relative;
+  transition: filter var(--rb-dur-instant) var(--rb-ease-standard), transform var(--rb-dur-instant) var(--rb-ease-standard);
+}
+.rb-palette-card:not(.is-open) .rb-swatch { pointer-events: none; }
+.rb-palette-card.is-open .rb-swatch:hover { filter: brightness(1.12); }
+.rb-swatch.is-applied { animation: rb-swatch-pop var(--rb-dur-fast) var(--rb-ease-spring); }
+@keyframes rb-swatch-pop { 0% { transform: scale(0.92); } 100% { transform: scale(1); } }
+
+.rb-swatch-tip {
+  position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%);
+  padding: 2px 6px; border-radius: var(--rb-radius-1);
+  background: rgba(0, 0, 0, 0.82); color: #fff;
+  font-size: calc(var(--rb-font-size) - 1px); font-variant-numeric: tabular-nums;
+  white-space: nowrap; letter-spacing: 0.02em; pointer-events: none; opacity: 0;
+  transition: opacity var(--rb-dur-instant); z-index: 10;
+}
+.rb-palette-card.is-open .rb-swatch:hover .rb-swatch-tip { opacity: 1; }
+
+.rb-swatch-copy {
+  position: absolute; top: 3px; right: 3px; width: 17px; height: 17px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--rb-radius-1); cursor: pointer;
+  background: rgba(0, 0, 0, 0.42); color: #fff; opacity: 0;
+  transition: opacity var(--rb-dur-instant), background var(--rb-transition);
+}
+.rb-palette-card.is-open .rb-swatch:hover .rb-swatch-copy { opacity: 1; }
+.rb-swatch-copy:hover { background: rgba(0, 0, 0, 0.66); }
+
+/* ---- Footer -------------------------------------------------------------- */
+.rb-palette-foot {
+  display: flex; align-items: center; gap: var(--rb-gap-2);
+  height: 26px; padding: 0 var(--rb-gap-2);
+  background: var(--rb-bg-sunken); cursor: pointer;
+}
+.rb-palette-chev {
+  flex: none; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; color: var(--rb-text-faint); cursor: pointer;
+  transition: transform var(--rb-dur-fast) var(--rb-ease-standard), color var(--rb-transition);
+}
+.rb-palette-card.is-open .rb-palette-chev { transform: rotate(90deg); color: var(--rb-text-muted); }
+.rb-palette-name { color: var(--rb-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-palette-count { flex: none; font-variant-numeric: tabular-nums; }
+.rb-palette-actions { flex: none; display: flex; gap: 2px; opacity: 0; transition: opacity var(--rb-transition); }
+.rb-palette-card:hover .rb-palette-actions,
+.rb-palette-card.is-open .rb-palette-actions { opacity: 1; }
+.rb-palette-actions .rb-btn.is-icon { width: 20px; height: 20px; }
+.rb-palette-del:hover { color: var(--rb-danger); }
+
+/* ---- Detail strip -------------------------------------------------------- */
+.rb-palette-detail {
+  display: flex; flex-direction: column; gap: var(--rb-gap-2);
+  padding: var(--rb-gap-3); border-top: 1px solid var(--rb-border);
+  background: var(--rb-bg-raised);
+}
+.rb-detail-preview { height: 40px; border-radius: var(--rb-radius-2); border: 1px solid var(--rb-border); }
+.rb-detail-meta { display: flex; align-items: baseline; gap: var(--rb-gap-3); }
+.rb-detail-hex { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: calc(var(--rb-font-size) + 1px); color: var(--rb-text); letter-spacing: 0.02em; }
+.rb-detail-rgb { color: var(--rb-text-faint); font-variant-numeric: tabular-nums; }
+
+/* ---- New-palette card ---------------------------------------------------- */
+.rb-palette-new {
+  display: flex; align-items: center; justify-content: center; gap: var(--rb-gap-2);
+  width: 100%; height: 36px;
+  border: 1px dashed var(--rb-border-strong); border-radius: var(--rb-radius-2);
+  background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit;
+  transition: border-color var(--rb-transition), color var(--rb-transition), background var(--rb-transition);
+}
+.rb-palette-new:hover { border-color: var(--rb-accent); color: var(--rb-text); background: var(--rb-control); }
+
+/* ---- Modal editor (reuses .rb-savedlg-*) --------------------------------- */
+.rb-palette-edit-rows { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-palette-edit-row { display: flex; align-items: center; gap: var(--rb-gap-2); }
+.rb-palette-edit-row .rb-savedlg-input { flex: 1 1 auto; font-family: ui-monospace, Menlo, Consolas, monospace; }
+.rb-palette-edit-preview { display: flex; height: 28px; border-radius: var(--rb-radius-1); overflow: hidden; border: 1px solid var(--rb-border); }
+.rb-palette-edit-preview > span { flex: 1 1 0; }
