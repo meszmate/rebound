@@ -135,15 +135,20 @@
     var rotation = st.rotation || 0, scale = st.scale || 0, opacity = st.opacity || 0;
     var n = Math.max(1, Math.min(10, Math.round(copies)));
     var maxOff = Math.max(Math.abs(offsetX), Math.abs(offsetY)) * (n - 1);
-    var k = maxOff > 0 ? Math.min(0.14, 46 / maxOff) : 0.14;
-    var cx = 62, cy = 58, base = 15, kids = [];
+    var k = maxOff > 0 ? Math.min(0.2, 84 / maxOff) : 0; // spread the fan to fill the box
+    var cx = 62, cy = 58, base = 12, kids = [];
+    // Centre the fan so it stays in view, and outline each copy so overlapping
+    // copies read as a stack of cards instead of one connected blob.
+    var totalX = (n - 1) * offsetX * k, totalY = (n - 1) * offsetY * k;
     for (var i = n - 1; i >= 0; i--) {
-      var tx = cx + i * offsetX * k, ty = cy + i * offsetY * k;
-      var s = base * Math.max(0.2, 1 + i * scale / 100);
-      var op = Math.max(0.06, Math.min(1, 1 + i * opacity / 100));
+      var tx = cx - totalX / 2 + i * offsetX * k;
+      var ty = cy - totalY / 2 + i * offsetY * k;
+      var s = base * Math.max(0.25, 1 + i * scale / 100);
+      var op = Math.max(0.12, Math.min(1, 1 + i * opacity / 100));
       kids.push(svg('rect', { x: (-s / 2).toFixed(1), y: (-s / 2).toFixed(1), width: s.toFixed(1), height: s.toFixed(1), rx: 2,
         fill: 'var(--rb-accent)', opacity: op.toFixed(2),
-        transform: 'translate(' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ') rotate(' + (i * rotation) + ')' }));
+        stroke: 'var(--rb-bg-sunken)', 'stroke-width': 1,
+        transform: 'translate(' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ') rotate(' + (i * rotation).toFixed(1) + ')' }));
     }
     return svg('svg', { viewBox: '0 0 124 116', width: '100%', height: h }, kids);
   }
