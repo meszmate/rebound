@@ -10,6 +10,9 @@
 .rb-home-head .rb-btn.is-icon:hover { transform: scale(1.14); }
 .rb-home-head .rb-btn.is-icon:active { transform: scale(0.9); }
 @media (prefers-reduced-motion: reduce) { .rb-home-head .rb-btn.is-icon { transition: color var(--rb-transition); } .rb-home-head .rb-btn.is-icon:hover, .rb-home-head .rb-btn.is-icon:active { transform: none; } }
+/* The theme/colour control stands out in accent so it reads as "colours". */
+.rb-home-themebtn { color: var(--rb-accent); }
+.rb-home-themebtn:hover { background: color-mix(in srgb, var(--rb-accent) 16%, transparent); color: var(--rb-accent); }
 .rb-home-brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: calc(var(--rb-font-size) + 3px); color: var(--rb-text); letter-spacing: 0.01em; }
 .rb-home-mark { color: var(--rb-accent); font-size: calc(var(--rb-font-size) + 5px); }
 .rb-home-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 700; color: var(--rb-text); }

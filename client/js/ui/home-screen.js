@@ -39,6 +39,23 @@
   };
   var DEFAULT_FILLED = { 'widget-anchor': true };
 
+  // Only offer icons that fit the action, by group, so the picker stays relevant.
+  var ICON_RELATED = {
+    Easing: ['curve', 'wave', 'gauge', 'spring', 'bolt', 'play', 'sparkle'],
+    Timing: ['clock', 'scissors', 'copy', 'play', 'bake', 'bolt'],
+    Transform: ['target', 'move', 'link', 'crop', 'rotate', 'scale', 'orbit'],
+    Layout: ['align', 'grid', 'layout', 'stack', 'crop', 'move'],
+    Shapes: ['shape', 'star', 'heart', 'droplet', 'pen', 'sparkle', 'image'],
+    Generators: ['stack', 'orbit', 'copy', 'sparkle', 'bolt', 'magic', 'layers'],
+    Color: ['droplet', 'grid', 'pen', 'image', 'sparkle'],
+    Tools: ['curve', 'grid', 'target', 'shape', 'spring', 'star', 'bolt']
+  };
+  function relatedIconKeys(action) {
+    var ICONS = (R.toolMeta && R.toolMeta.ICONS) || {};
+    var keys = ICON_RELATED[action.group] || ['curve', 'grid', 'target', 'shape', 'star', 'bolt', 'sparkle', 'tag'];
+    return keys.filter(function (k) { return ICONS[k]; });
+  }
+
   // Stretch a widget's schematic preview graphs to fill its width so there is no
   // letterboxed empty space. Interactive curve editors and curve chips are left
   // alone so their shape is not distorted.
@@ -213,7 +230,9 @@
     var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
     var actions = [addBtn, editBtn];
     if (opts.onBrowse) actions.push(iconBtn(ICON_BROWSE, 'Browse all tools', opts.onBrowse));
-    actions.push(iconBtn(ICON_THEME, 'Appearance and colours', function () { if (R.appearance) R.appearance.open(); }));
+    var themeBtn = iconBtn(ICON_THEME, 'Theme & colours', function () { if (R.appearance) R.appearance.open(); });
+    themeBtn.classList.add('rb-home-themebtn');
+    actions.push(themeBtn);
     if (opts.openSettings) actions.push(iconBtn(ICON_GEAR, 'Settings', opts.openSettings));
     var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 
@@ -440,7 +459,7 @@
           iconGrid.appendChild(iconBtn({ title: 'Your uploaded icon', img: draft.icon, selected: true, onclick: function () {} }));
         }
         var ICONS = (R.toolMeta && R.toolMeta.ICONS) || {};
-        Object.keys(ICONS).forEach(function (k) {
+        relatedIconKeys(action).forEach(function (k) {
           iconGrid.appendChild(iconBtn({ title: k, inner: ICONS[k], selected: !draft.icon && draft.iconKey === k,
             onclick: function () { draft.iconKey = k; draft.icon = null; renderPrev(); renderIcons(); } }));
         });
