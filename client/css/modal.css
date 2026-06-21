@@ -70,6 +70,13 @@
 
 /* ---- Save-preset dialog -------------------------------------------------- */
 .rb-savedlg { display: flex; flex-direction: column; gap: var(--rb-gap-4); }
+.rb-savedlg-curve {
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+  padding: var(--rb-gap-3);
+}
+.rb-savedlg-curve .rb-curve-chip { width: 100%; height: auto; display: block; }
 .rb-savedlg-preview {
   border: 1px solid var(--rb-border);
   border-radius: var(--rb-radius-2);

@@ -100,29 +100,36 @@
       return null;
     }
 
-    // A comfortable Save dialog: a live preview of the motion being saved, a
-    // generous name field with a smart default, and graceful overwrite handling.
+    function asCurve(c) { return (typeof c === 'function') ? { type: 'fn', fn: c } : c; }
+
+    // A comfortable Save dialog: the curve graph being saved (matching the
+    // tiles), a live preview of the motion, a generous name field with a smart
+    // default, and graceful overwrite handling.
     function openSaveDialog() {
       var stage = null;
+      var curveWrap = null;
       var previewWrap = null;
+
+      if (previewFor && R.ui.curveChip) {
+        // The same static curve the preset tile shows, so the popup mirrors it.
+        try {
+          curveWrap = el('div.rb-savedlg-curve', null, [
+            R.ui.curveChip(asCurve(previewFor(config.get())), { width: 300, height: 96, pad: 10 })
+          ]);
+        } catch (e0) { curveWrap = null; }
+      }
 
       if (previewFor && R.ui.modal && R.ui.PreviewStage) {
         // previewFor may return a bare function or a curve object; PreviewStage
         // does not normalize a bare fn, so wrap it.
-        var liveCurve = function () {
-          var c = previewFor(config.get());
-          return (typeof c === 'function') ? { type: 'fn', fn: c } : c;
-        };
+        var liveCurve = function () { return asCurve(previewFor(config.get())); };
         try {
           var stageHost = el('div.rb-savedlg-stage');
           previewWrap = el('div.rb-savedlg-preview', null, [stageHost]);
           stage = R.ui.PreviewStage(stageHost, { getCurve: liveCurve, property: 'position', sample: 'shape', duration: 900, controls: false });
         } catch (e) {
           stage = null;
-          try {
-            var c2 = previewFor(config.get());
-            previewWrap = el('div.rb-savedlg-preview.is-static', null, [R.ui.curveChip(typeof c2 === 'function' ? { type: 'fn', fn: c2 } : c2, { width: 300, height: 92, pad: 10 })]);
-          } catch (e2) { previewWrap = null; }
+          previewWrap = null;
         }
       }
 
@@ -138,6 +145,7 @@
       ]);
 
       var children = [];
+      if (curveWrap) children.push(curveWrap);
       if (previewWrap) children.push(previewWrap);
       children.push(field);
 
