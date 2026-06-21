@@ -77,7 +77,9 @@
     });
   }
 
-  function all() { return applyActions().concat(widgetActions()).concat(openActions()); }
+  function scriptActions() { return (R.userScripts && R.userScripts.homeActions) ? R.userScripts.homeActions() : []; }
+
+  function all() { return applyActions().concat(scriptActions()).concat(widgetActions()).concat(openActions()); }
 
   function byId(id) {
     var a = all();

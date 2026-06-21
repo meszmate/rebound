@@ -454,6 +454,22 @@
 
 .rb-anchor-readout { text-align: center; font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); }
 
+/* ---- Script & expression manager ---------------------------------------- */
+.rb-scripts-list { display: flex; flex-direction: column; gap: 4px; }
+.rb-scripts-row {
+  display: flex; align-items: center; gap: var(--rb-gap-2);
+  padding: 5px 8px; border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+}
+.rb-scripts-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-scripts-code {
+  width: 100%; min-height: 150px; resize: vertical;
+  font-family: var(--rb-mono, ui-monospace, monospace); font-size: calc(var(--rb-font-size) - 1px);
+  line-height: 1.4; padding: 8px; height: auto;
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-1);
+  background: var(--rb-bg-sunken); color: var(--rb-text);
+}
+
 /* ---- Empty state --------------------------------------------------------- */
 .rb-empty {
   display: flex;

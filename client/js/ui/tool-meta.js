@@ -54,7 +54,8 @@
     layers: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
     crop: '<path d="M6 2v16h16M2 6h16v16"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
-    check: '<path d="M4 12l5 5L20 6"/>'
+    check: '<path d="M4 12l5 5L20 6"/>',
+    code: '<path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/>'
   };
 
   var SECTIONS = [
@@ -150,6 +151,7 @@
 
     // Organize & help
     tags: t('organize', ICONS.tag, 'Tag and select layers'),
+    scripts: t('organize', ICONS.code, 'Save, run and organize scripts and expressions'),
     demo: t('organize', ICONS.play, 'Build a practice composition')
   };
 
