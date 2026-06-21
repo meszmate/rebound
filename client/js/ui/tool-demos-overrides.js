@@ -15,19 +15,15 @@
 
   function r(v) { return Math.round(v * 100) / 100; }
 
-  var DUR = '3.2s';
-  // Opacity mask that hides the loop seam, mirroring the preview's cosine fade:
-  // full through play + hold, fade to 0 across the reset, fade back in.
-  var SEAM_V = '1;1;0;0;1';
-  var SEAM_K = '0;0.86;0.93;0.94;1';
-  var SEAM_S = '0.42 0 0.58 1;0 0 1 1;0.42 0 0.58 1';
+  var DUR = '3.4s';
 
   // Build a looping transform value/keyTime pair by sampling fn(t) over the play
-  // band, holding at the settled value, then snapping back to the start during
-  // the seam (which the opacity mask hides). `map` turns a sampled value into the
-  // attribute string; `resetVal` is the start.
+  // band, holding briefly at the settled value, then gliding smoothly back to the
+  // start (the same gentle return the preview uses, so there is no fade or jump).
+  // `map` turns a sampled value into the attribute string; `resetVal` is the
+  // start. The final segment (hold -> start) is the return.
   function sampleSMIL(fn, n, map, resetVal) {
-    var playEnd = 0.6;
+    var playEnd = 0.55;
     var values = [];
     var keyTimes = [];
     for (var i = 0; i <= n; i++) {
@@ -35,19 +31,14 @@
       values.push(map(fn(t)));
       keyTimes.push(r(t * playEnd));
     }
-    var endVal = map(fn(1));
-    values.push(endVal); keyTimes.push(0.93);  // hold at the end through fade-out
-    values.push(resetVal); keyTimes.push(0.94); // snap to start while invisible
-    values.push(resetVal); keyTimes.push(1);    // rest at start through fade-in
+    values.push(map(fn(1))); keyTimes.push(0.68); // brief hold at the end
+    values.push(resetVal); keyTimes.push(1);      // glide back to the start
     return { values: values.join(';'), keyTimes: keyTimes.join(';') };
   }
 
-  // The transform + the matching opacity mask, for one moving sample.
   function moving(s) {
     return '<animateTransform attributeName="transform" type="translate" values="' + s.values + '" ' +
-      'keyTimes="' + s.keyTimes + '" dur="' + DUR + '" calcMode="linear" repeatCount="indefinite"/>' +
-      '<animate attributeName="opacity" values="' + SEAM_V + '" keyTimes="' + SEAM_K + '" ' +
-      'dur="' + DUR + '" calcMode="spline" keySplines="' + SEAM_S + '" repeatCount="indefinite"/>';
+      'keyTimes="' + s.keyTimes + '" dur="' + DUR + '" calcMode="linear" repeatCount="indefinite"/>';
   }
 
   var sampler = R.easing && R.easing.sampler;

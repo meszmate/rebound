@@ -59,10 +59,10 @@
     }
 
     // Named setters so both the in-stage controls and the public API drive them.
-    function setProperty(p) { property = p; if (propSeg) propSeg.set(p); renderAt(phaseToP()); }
+    function setProperty(p) { property = p; if (propSeg) propSeg.set(p); renderAt(computeState(phase)); }
     function setSample(s) { sample = s; setSampleNode(); }
     function setSlowmo(f) { slowmo = f; if (speedBtn) speedBtn.textContent = f === 1 ? '1×' : '¼×'; }
-    function setGhost(on) { showLinearGhost = on; renderAt(phaseToP()); }
+    function setGhost(on) { showLinearGhost = on; renderAt(computeState(phase)); }
 
     var playBtn = el('button.rb-btn.is-ghost.is-icon', {
       'aria-label': 'Play or pause the preview', title: 'Play / pause',
@@ -94,8 +94,8 @@
     var phase = 0;
     var paused = reduced; // reduced-motion starts paused on a static frame
 
-    var fadeMs = 220; // cross-fade that masks the loop seam so the reset never shows
-    function totalCycle() { return (duration / 1000) * slowmo + holdMs / 1000 + 2 * (fadeMs / 1000); }
+    var returnMs = 520; // gentle glide from the end state back to the start
+    function totalCycle() { return (duration / 1000) * slowmo + holdMs / 1000 + returnMs / 1000; }
 
     // Cached sampler fn, rebuilt only when the curve actually changes, so the
     // per-frame path is a single fn(p) call.
@@ -112,24 +112,23 @@
       return cachedFn;
     }
 
-    // Map a phase in [0,1) to eased progress p and a loop-seam opacity envelope.
-    // Bands: play (p 0->1), hold (p=1), fade-out (p=1, alpha 1->0), fade-in
-    // (p=0, alpha 0->1). The fn(1)->fn(0) reset happens at alpha ~0, never seen,
-    // and the cosine fade has zero velocity at both ends.
+    // Map a phase in [0,1) to a render state. Bands: play (the curve, p 0->1),
+    // hold (rest at the end), return (a gentle smoothstep glide from the end
+    // value back to the start value). The return ends exactly at the start, so
+    // the loop is continuous with no fade and no jump.
     function computeState(ph) {
       var play = (duration / 1000) * slowmo;
       var hold = holdMs / 1000;
-      var fade = fadeMs / 1000;
+      var ret = returnMs / 1000;
       var t = ph * totalCycle();
-      if (t < play) return { p: play > 0 ? t / play : 1, alpha: 1 };
+      if (t < play) return { mode: 'play', p: play > 0 ? t / play : 1 };
       t -= play;
-      if (t < hold) return { p: 1, alpha: 1 };
+      if (t < hold) return { mode: 'hold' };
       t -= hold;
-      if (t < fade) return { p: 1, alpha: 0.5 + 0.5 * Math.cos(Math.PI * (t / fade)) };
-      t -= fade;
-      var b = fade > 0 ? Math.min(1, t / fade) : 1;
-      return { p: 0, alpha: 0.5 - 0.5 * Math.cos(Math.PI * b) };
+      return { mode: 'return', rp: ret > 0 ? Math.min(1, t / ret) : 1 };
     }
+
+    function smoothstep(x) { return x * x * (3 - 2 * x); }
 
     function hrange() { return Math.max(0, stage.clientWidth - 32); }
     function vrange() { return Math.max(0, stage.clientHeight - 50); }
@@ -138,7 +137,7 @@
     // Apply the eased value e (may overshoot) to the sample for the active
     // property. Horizontal slides along the track; vertical drops onto the floor
     // (value 1 = resting on the floor, dips above it = bounces).
-    function applyTo(node, e, isGhost, alpha) {
+    function applyTo(node, e, isGhost) {
       var baseX = axis === 'vertical' ? centerX() : hrange() / 2;
       var tx = baseX;
       var ty = 0;
@@ -157,16 +156,26 @@
       if (scale !== 1) t += ' scale(' + scale + ')';
       if (rot) t += ' rotate(' + rot + 'deg)';
       node.style.transform = t;
-      var a = alpha == null ? 1 : alpha;
-      node.style.opacity = (isGhost ? opacity * 0.5 : opacity) * a;
+      node.style.opacity = isGhost ? opacity * 0.5 : opacity;
     }
 
-    function renderAt(p, alpha) {
+    // Render one state. The dot follows the curve while playing, rests at the
+    // end, then glides smoothly back to the start; the ghost mirrors it linearly.
+    function renderAt(state) {
       var fn = curveFn();
-      applyTo(dot, fn(p), false, alpha);
-      // The vs-linear ghost only makes sense along the horizontal track.
+      var e, eg;
+      if (state.mode === 'return') {
+        var k = smoothstep(state.rp);
+        e = fn(1) + (fn(0) - fn(1)) * k;
+        eg = 1 - k;
+      } else if (state.mode === 'hold') {
+        e = fn(1); eg = 1;
+      } else {
+        e = fn(state.p); eg = state.p;
+      }
+      applyTo(dot, e, false);
       var ghostOn = showLinearGhost && axis !== 'vertical';
-      if (ghostOn) applyTo(ghost, p, true, alpha);
+      if (ghostOn) applyTo(ghost, eg, true);
       ghost.style.display = ghostOn ? '' : 'none';
       ghostTrack.style.display = ghostOn ? '' : 'none';
     }
@@ -178,13 +187,12 @@
       last = ts;
       phase += dt / totalCycle();
       if (phase >= 1) phase -= 1; // keep the sub-frame remainder, never snap to 0
-      var st = computeState(phase);
-      renderAt(st.p, st.alpha);
+      renderAt(computeState(phase));
       rafId = requestAnimationFrame(frame);
     }
 
     function play() {
-      if (reduced) { renderAt(1); return; }
+      if (reduced) { renderAt({ mode: 'hold' }); return; }
       paused = false;
       playBtn.textContent = '❚❚';
       if (rafId == null) { last = 0; rafId = requestAnimationFrame(frame); }
@@ -204,7 +212,7 @@
       reduced = false;
       phase = 0;
       play();
-      setTimeout(function () { reduced = true; pause(); renderAt(1); }, duration + holdMs);
+      setTimeout(function () { reduced = true; pause(); renderAt({ mode: 'hold' }); }, duration + holdMs);
     }
 
     function onVisibility() {
@@ -234,7 +242,7 @@
 
     // Initial paint + autostart (unless reduced motion).
     setSampleNode();
-    renderAt(reduced ? 0.62 : 0);
+    renderAt(reduced ? { mode: 'play', p: 0.62 } : computeState(0));
     if (!reduced) play();
 
     function setSampleNode() {
@@ -254,15 +262,13 @@
       setReadout: setReadout,
       play: play,
       pause: pause,
-      refresh: function () { renderAt(phaseToP()); },
+      refresh: function () { renderAt(computeState(phase)); },
       destroy: function () {
         pause();
         document.removeEventListener('visibilitychange', onVisibility);
         if (io) io.disconnect();
       }
     };
-
-    function phaseToP() { return computeState(phase).p; }
   }
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
