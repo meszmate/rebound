@@ -60,6 +60,9 @@
     return {
       presets: {
         toolId: 'smooth',
+        // Smooth has no single fixed curve (it depends on the keyframes); show
+        // the flowing ease-in-out shape it produces, so the tiles read as curves.
+        previewFor: function () { return { type: 'bezier', x1: 0.37, y1: 0, x2: 0.63, y2: 1 }; },
         get: getState,
         set: applyState,
         defaults: [
