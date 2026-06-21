@@ -118,6 +118,8 @@
   font-size: calc(var(--rb-font-size) - 1px);
 }
 .rb-field.is-invalid { border-color: var(--rb-danger); }
+.rb-field.is-scrubbing { border-color: var(--rb-accent); }
+.rb-field.is-scrubbing label { color: var(--rb-accent); }
 
 /* ---- Slider -------------------------------------------------------------- */
 .rb-slider {

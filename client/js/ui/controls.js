@@ -109,19 +109,45 @@
       }
     });
 
-    // Drag the label to scrub the value.
+    // Drag the label to scrub the value. Pointer Lock hides the cursor and
+    // reports unbounded relative motion, so scrubbing never stalls when the
+    // pointer reaches the edge of the screen (the way After Effects and Flow
+    // scrub their fields). movementX works with or without the lock, so this
+    // still scrubs if the lock is refused. We track on the document so a fast
+    // drag that leaves the small label keeps scrubbing.
     if (opts.label) {
       var labelEl = root.querySelector('label');
-      var dragging = false, lastX = 0;
-      on(labelEl, 'pointerdown', function (e) {
-        dragging = true; lastX = e.clientX; labelEl.setPointerCapture(e.pointerId);
-      });
-      on(labelEl, 'pointermove', function (e) {
+      var dragging = false;
+
+      function onMove(e) {
         if (!dragging) return;
-        var dx = e.clientX - lastX; lastX = e.clientX;
+        var dx = e.movementX || 0;
+        if (!dx) return;
         commit((R.units.parseNumber(input.value) || 0) + dx * step * (e.shiftKey ? 10 : 1), true);
+      }
+      function onLockChange() {
+        if (dragging && !document.pointerLockElement) endDrag();
+      }
+      function endDrag() {
+        if (!dragging) return;
+        dragging = false;
+        document.removeEventListener('pointermove', onMove, true);
+        document.removeEventListener('pointerup', endDrag, true);
+        document.removeEventListener('pointerlockchange', onLockChange, false);
+        if (document.pointerLockElement && document.exitPointerLock) document.exitPointerLock();
+        root.classList.remove('is-scrubbing');
+      }
+      on(labelEl, 'pointerdown', function (e) {
+        e.preventDefault();
+        dragging = true;
+        root.classList.add('is-scrubbing');
+        document.addEventListener('pointermove', onMove, true);
+        document.addEventListener('pointerup', endDrag, true);
+        document.addEventListener('pointerlockchange', onLockChange, false);
+        if (labelEl.requestPointerLock) {
+          try { labelEl.requestPointerLock(); } catch (err) { /* lock refused; movementX still scrubs */ }
+        }
       });
-      on(labelEl, 'pointerup', function () { dragging = false; });
     }
 
     return {
