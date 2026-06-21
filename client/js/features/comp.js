@@ -9,6 +9,41 @@
   var el = R.dom.el;
   var ui = R.ui;
 
+  var RES = [
+    { name: 'HD 1080p', w: 1920, h: 1080 },
+    { name: '4K UHD', w: 3840, h: 2160 },
+    { name: 'DCI 4K', w: 4096, h: 2160 },
+    { name: 'HD 720p', w: 1280, h: 720 },
+    { name: 'Square', w: 1080, h: 1080 },
+    { name: 'Vertical 9:16', w: 1080, h: 1920 },
+    { name: 'Cinema 2.39', w: 1920, h: 803 }
+  ];
+  var FPS = [23.976, 24, 25, 29.97, 30, 50, 60];
+
+  function gcd(a, b) { a = Math.round(a); b = Math.round(b); while (b) { var t = b; b = a % b; a = t; } return a || 1; }
+  function ratioLabel(w, h) {
+    w = Math.round(w); h = Math.round(h);
+    if (w <= 0 || h <= 0) return '';
+    var g = gcd(w, h), rw = w / g, rh = h / g;
+    if (rw <= 40 && rh <= 40) return rw + ':' + rh;
+    return (w / h).toFixed(2) + ':1';
+  }
+  // A scaled frame rectangle showing the comp aspect ratio + its dimensions.
+  function aspectPreview(w, h) {
+    var maxW = 150, maxH = 84, box;
+    if (w > 0 && h > 0) {
+      var ratio = w / h, rw, rh;
+      if (ratio >= maxW / maxH) { rw = maxW; rh = maxW / ratio; } else { rh = maxH; rw = maxH * ratio; }
+      box = el('div', { style: { width: rw.toFixed(0) + 'px', height: rh.toFixed(0) + 'px', background: 'var(--rb-accent)', opacity: '0.85', borderRadius: '3px' } });
+    } else {
+      box = el('div', { style: { width: '120px', height: '68px', border: '1px dashed var(--rb-border-strong)', borderRadius: '3px' } });
+    }
+    return el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' } }, [
+      box,
+      el('div.rb-faint', { style: { fontSize: '11px' }, text: (w > 0 && h > 0) ? (Math.round(w) + ' × ' + Math.round(h) + '   ' + ratioLabel(w, h)) : 'No composition' })
+    ]);
+  }
+
   R.tools.register({
     id: 'comp',
     title: 'Composition',
@@ -30,19 +65,35 @@
     var durationField = ui.numberField({ label: 'Duration', value: duration, min: 0, max: 86400, step: 0.1, decimals: 3, suffix: 's', width: '160px',
       onChange: function (v) { duration = v; } });
     var widthField = ui.numberField({ label: 'Width', value: width, min: 1, max: 30000, step: 1, decimals: 0, suffix: 'px', width: '160px',
-      onChange: function (v) { width = v; } });
+      onChange: function (v) { width = v; renderPreview(); } });
     var heightField = ui.numberField({ label: 'Height', value: height, min: 1, max: 30000, step: 1, decimals: 0, suffix: 'px', width: '160px',
-      onChange: function (v) { height = v; } });
+      onChange: function (v) { height = v; renderPreview(); } });
     var recenterToggle = ui.toggle({ label: 'Keep content centered', value: recenter,
       title: 'When changing resolution, shift every layer so the existing framing stays centered instead of drifting toward a corner.',
       onChange: function (v) { recenter = v; } });
 
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '10px', display: 'flex', justifyContent: 'center' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(aspectPreview(width, height)); }
+    renderPreview();
+
+    var resRow = el('div.rb-row.rb-wrap', null, RES.map(function (r) {
+      return el('button.rb-btn.is-ghost', { title: r.w + ' × ' + r.h, onclick: function () { width = r.w; height = r.h; widthField.set(r.w); heightField.set(r.h); renderPreview(); } }, [r.name]);
+    }));
+    var fpsRow = el('div.rb-row.rb-wrap', null, FPS.map(function (f) {
+      return el('button.rb-btn.is-ghost', { onclick: function () { frameRate = f; frameRateField.set(f); } }, [String(f)]);
+    }));
+
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Edits the active composition in place. Fields are pre-filled from the current comp; Apply writes back any value above zero.' }),
-      ui.row('Frame rate', frameRateField.el),
-      ui.row('Duration', durationField.el),
+      previewHost,
+      el('div.rb-section-label', { text: 'Resolution presets' }),
+      resRow,
       ui.row('Width', widthField.el),
       ui.row('Height', heightField.el),
+      el('div.rb-section-label', { text: 'Frame rate' }),
+      fpsRow,
+      ui.row('Frame rate', frameRateField.el),
+      ui.row('Duration', durationField.el),
       recenterToggle.el
     ]));
 
@@ -61,6 +112,7 @@
           duration = info.duration; durationField.set(duration);
           width = info.width; widthField.set(width);
           height = info.height; heightField.set(height);
+          renderPreview();
         })
         .catch(function () { /* no comp open, leave fields at zero */ });
     }
