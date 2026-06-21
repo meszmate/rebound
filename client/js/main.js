@@ -552,18 +552,10 @@
 
   // ---- Settings / selection / context --------------------------------------
 
-  function hexToRgb(hex) {
-    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
-    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
-  }
-
   function applySavedSettings() {
     try {
       var s = R.disk.read('settings', null);
-      if (s && s.accent) {
-        var rgb = hexToRgb(s.accent);
-        if (rgb) R.theme.setAccent(rgb);
-      }
+      R.theme.applyFromSettings(s || {});
       appStore.update({ settings: s || {} });
     } catch (e) {
       R.log.warn('Could not load settings', e);
@@ -576,10 +568,7 @@
         R.bridge.cs.addEventListener('com.meszmate.rebound.settingsChanged', function (ev) {
           var s = null;
           try { s = JSON.parse(ev.data); } catch (e) { return; }
-          if (s.accent) {
-            var rgb = hexToRgb(s.accent);
-            if (rgb) R.theme.setAccent(rgb);
-          }
+          R.theme.applyFromSettings(s);
           appStore.update({ settings: s });
         });
       }

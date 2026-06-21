@@ -173,6 +173,7 @@
     var ICON_EDIT = '<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="M13 7l4 4"/>';
     var ICON_BROWSE = '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>';
     var ICON_GEAR = '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6c.1-.3.1-.7.1-1z"/>';
+    var ICON_THEME = '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="8" r="1.3"/><circle cx="8.4" cy="13.6" r="1.3"/><circle cx="15.6" cy="13.6" r="1.3"/>';
 
     var addBtn = iconBtn(ICON_ADD, 'Add to Home', openBrowser);
     var editBtn = iconBtn(ICON_EDIT, 'Edit board', function () { editing = !editing; syncEdit(); render(); });
@@ -189,6 +190,7 @@
     var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
     var actions = [addBtn, editBtn];
     if (opts.onBrowse) actions.push(iconBtn(ICON_BROWSE, 'Browse all tools', opts.onBrowse));
+    actions.push(iconBtn(ICON_THEME, 'Appearance and colours', function () { if (R.appearance) R.appearance.open(); }));
     if (opts.openSettings) actions.push(iconBtn(ICON_GEAR, 'Settings', opts.openSettings));
     var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 

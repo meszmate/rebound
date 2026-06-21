@@ -84,6 +84,14 @@
 
   var defaultAccent = [84, 150, 250]; // Rebound blue (a touch more vivid)
   var accentOverride = null;
+  var bgOverride = null;        // [r,g,b] custom base background, else host/auto
+  var forcedMode = 'auto';      // auto | dark | light
+  var userOverrides = {};       // { '<css-var-suffix>': '<color>' } fine-tune layer
+
+  function hexToRgb(hex) {
+    var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
+  }
 
   function readSkin() {
     var bg = [30, 31, 35]; // refined default dark base (slightly cool); host overrides
@@ -101,10 +109,28 @@
     return { bg: bg, fontSize: fontSize };
   }
 
+  // The base background the palette is generated from: a user custom colour wins,
+  // then a forced dark/light default, else the host skin (auto).
+  function baseBg(skin) {
+    if (bgOverride) return bgOverride;
+    if (forcedMode === 'light') return [236, 237, 240];
+    if (forcedMode === 'dark') return [30, 31, 35];
+    return skin.bg;
+  }
+
+  // Layer the user's fine-tune colour overrides on top of the generated palette.
+  function applyOverrides() {
+    var root = document.documentElement;
+    for (var k in userOverrides) {
+      if (userOverrides.hasOwnProperty(k) && userOverrides[k]) root.style.setProperty('--rb-' + k, userOverrides[k]);
+    }
+  }
+
   function refresh() {
     var skin = readSkin();
-    var palette = buildPalette(skin.bg, accentOverride || defaultAccent);
+    var palette = buildPalette(baseBg(skin), accentOverride || defaultAccent);
     applyPalette(palette, skin.fontSize);
+    applyOverrides();
     if (R.bus) R.bus.emit('theme:changed', palette);
     return palette;
   }
@@ -114,8 +140,19 @@
     return refresh();
   }
 
+  // Apply a whole appearance settings object (accent, base background, mode, and
+  // fine-tune overrides) at once. Used on boot and on live settings changes.
+  function applyFromSettings(s) {
+    s = s || {};
+    accentOverride = s.accent ? (hexToRgb(s.accent) || null) : null;
+    bgOverride = s.themeBg ? (hexToRgb(s.themeBg) || null) : null;
+    forcedMode = s.themeMode || 'auto';
+    userOverrides = s.colorOverrides || {};
+    return refresh();
+  }
+
   function init() {
-    var palette = refresh();
+    applyFromSettings(R.disk ? R.disk.read('settings', {}) : {});
     try {
       if (R.bridge && R.bridge.cs) {
         R.bridge.cs.addEventListener(THEME_EVENT, function () { refresh(); });
@@ -123,13 +160,15 @@
     } catch (e) {
       if (R.log) R.log.warn('Theme: could not subscribe to host theme changes', e);
     }
-    return palette;
+    return refresh();
   }
 
   R.theme = {
     init: init,
     refresh: refresh,
     setAccent: setAccent,
-    buildPalette: buildPalette
+    applyFromSettings: applyFromSettings,
+    buildPalette: buildPalette,
+    hexToRgb: hexToRgb
   };
 })(window.Rebound = window.Rebound || {});

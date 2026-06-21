@@ -286,3 +286,44 @@
 .rb-home-tip.is-on { opacity: 1; transform: none; }
 .rb-home-tip-title { font-size: calc(var(--rb-font-size) + 2px); font-weight: 700; color: var(--rb-text); line-height: 1.2; }
 .rb-home-tip-desc { font-size: var(--rb-font-size); color: var(--rb-text-muted); margin-top: 3px; line-height: 1.3; }
+
+/* ---- Appearance customizer ----------------------------------------------- */
+.rb-appe { display: flex; flex-direction: column; gap: var(--rb-gap-3); }
+.rb-appe-presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rb-appe-preset {
+  position: relative; height: 46px; border-radius: var(--rb-radius-2);
+  border: 1px solid var(--rb-border-strong); cursor: pointer; padding: 0;
+  display: flex; align-items: flex-end; justify-content: flex-start; overflow: hidden;
+  transition: border-color var(--rb-transition), box-shadow var(--rb-transition);
+}
+.rb-appe-preset:hover { border-color: var(--rb-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 25%, transparent); }
+.rb-appe-dot { position: absolute; top: 6px; left: 6px; width: 12px; height: 12px; border-radius: 999px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.35); }
+.rb-appe-pname { width: 100%; padding: 2px 5px; font-size: calc(var(--rb-font-size) - 2px); font-weight: 600; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, 0.55)); text-align: left; }
+
+.rb-appe-cf { display: flex; align-items: center; gap: 6px; }
+.rb-appe-color {
+  width: 30px; height: 24px; padding: 0; border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-1); background: none; cursor: pointer; flex: none;
+}
+.rb-appe-color::-webkit-color-swatch-wrapper { padding: 2px; }
+.rb-appe-color::-webkit-color-swatch { border: none; border-radius: 2px; }
+.rb-appe-hex {
+  width: 84px; height: 24px; padding: 0 7px; font: inherit; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-1);
+  background: var(--rb-bg-sunken); color: var(--rb-text);
+}
+.rb-appe-clear {
+  height: 24px; padding: 0 8px; font: inherit; font-size: calc(var(--rb-font-size) - 1px);
+  border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
+  background: transparent; color: var(--rb-text-muted); cursor: pointer;
+}
+.rb-appe-clear:hover { color: var(--rb-text); border-color: var(--rb-accent); }
+
+.rb-appe-advsec { border-top: 1px solid var(--rb-border); padding-top: var(--rb-gap-2); }
+.rb-appe-advtoggle {
+  display: inline-flex; padding: 4px 2px; font: inherit; font-weight: 600;
+  background: none; border: none; color: var(--rb-text-muted); cursor: pointer;
+}
+.rb-appe-advtoggle:hover { color: var(--rb-text); }
+.rb-appe-adv { display: none; flex-direction: column; gap: var(--rb-gap-2); margin-top: var(--rb-gap-2); }
+.rb-appe-adv.is-open { display: flex; }
