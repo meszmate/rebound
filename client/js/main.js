@@ -379,16 +379,11 @@
         demoNode = buildDemo(R.toolDemos[tool.id]);
         host.insertBefore(demoNode, host.firstChild);
       }
-      // A preset gallery (animated, named previews) when the tool can preview a
-      // preset; otherwise the compact save/recall bar.
-      if (api && api.presets) {
-        var bar = null;
-        if (api.presets.previewFor && R.ui.presetGallery) bar = R.ui.presetGallery(api.presets);
-        else if (R.ui.presetBar) bar = R.ui.presetBar(api.presets);
-        if (bar) {
-          if (demoNode) host.insertBefore(bar, demoNode.nextSibling);
-          else host.insertBefore(bar, host.firstChild);
-        }
+      // One consistent preset surface for every tool: a tile gallery at the
+      // bottom of the tool (a curve thumbnail when the tool can preview a preset,
+      // name-only otherwise) with an inline Save tile.
+      if (api && api.presets && R.ui.presetGallery) {
+        host.appendChild(R.ui.presetGallery(api.presets));
       }
       // A "what we do differently" note, pinned above everything else.
       var meta = R.toolMeta.forTool(tool.id);

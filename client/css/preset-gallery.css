@@ -1,63 +1,20 @@
 /*
- * Rebound, preset gallery. A horizontal strip of preset cards, each playing a
- * tiny looping animation of what it feels like, plus an inline save tile.
+ * Rebound, preset gallery. A wrapping grid of preset tiles (themed like the Ease
+ * preset tiles) plus a Save tile that prompts for a name. No horizontal scroll.
  */
 .rb-presetgallery {
   display: flex;
   flex-direction: column;
   gap: var(--rb-gap-2);
 }
-.rb-pg-head { display: flex; align-items: center; }
-.rb-pg-title {
-  color: var(--rb-text-muted);
-  font-size: calc(var(--rb-font-size) - 1px);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-.rb-pg-track {
-  display: flex;
+.rb-pg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
   gap: var(--rb-gap-2);
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scrollbar-width: thin;
 }
-.rb-pg-track::-webkit-scrollbar { height: 6px; }
-.rb-pg-track::-webkit-scrollbar-thumb { background: var(--rb-border); border-radius: 3px; }
 
-.rb-pg-card {
-  position: relative;
-  flex: none;
-  width: 104px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px;
-  border: 1px solid var(--rb-border);
-  border-radius: var(--rb-radius-2);
-  background: var(--rb-bg-sunken);
-  color: var(--rb-text);
-  cursor: pointer;
-  transition: border-color var(--rb-dur-fast) var(--rb-ease-standard),
-    background var(--rb-dur-fast) var(--rb-ease-standard);
-}
-.rb-pg-card:hover { border-color: var(--rb-control-hover); background: var(--rb-control); }
-.rb-pg-card.is-active { border-color: var(--rb-accent); }
-.rb-pg-anim {
-  width: 100%;
-  height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.rb-miniloop { width: 100%; height: 34px; }
-.rb-pg-name {
-  font-size: calc(var(--rb-font-size) - 1px);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: center;
-}
-.rb-pg-del {
+/* Delete affordance on user tiles (mirrors the favourite star position) */
+.rb-tile-del {
   position: absolute;
   top: 2px;
   right: 4px;
@@ -69,34 +26,33 @@
   color: var(--rb-text-faint);
   font-size: 13px;
   opacity: 0;
-  transition: opacity var(--rb-dur-fast) var(--rb-ease-standard), color var(--rb-dur-fast) var(--rb-ease-standard);
+  transition: opacity var(--rb-transition), color var(--rb-transition);
 }
-.rb-pg-card:hover .rb-pg-del { opacity: 1; }
-.rb-pg-del:hover { color: var(--rb-danger); background: var(--rb-bg); }
+.rb-tile:hover .rb-tile-del { opacity: 1; }
+.rb-tile-del:hover { color: var(--rb-danger); background: var(--rb-bg); }
 
 /* Save tile */
 .rb-pg-save {
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
+  min-height: 64px;
   border-style: dashed;
-  cursor: default;
 }
 .rb-pg-savebtn {
-  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  border: 0;
-  background: transparent;
+  width: 100%;
+  height: 100%;
   color: var(--rb-text-muted);
-  cursor: pointer;
   font-size: calc(var(--rb-font-size) - 1px);
 }
-.rb-pg-savebtn:hover { color: var(--rb-accent); }
+.rb-tile.rb-pg-save:hover .rb-pg-savebtn { color: var(--rb-accent); }
 .rb-pg-plus { font-size: 18px; line-height: 1; }
-.rb-pg-form { display: flex; align-items: center; gap: 4px; width: 100%; height: 100%; }
+.rb-pg-save.is-editing { cursor: default; }
+.rb-pg-form { display: flex; align-items: center; gap: 4px; width: 100%; }
 .rb-pg-input {
   flex: 1 1 auto;
   min-width: 0;
