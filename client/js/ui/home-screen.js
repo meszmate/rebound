@@ -95,12 +95,12 @@
       else if (full) { node.style.gridColumn = '1 / -1'; node.style.gridRow = ''; }
     }
 
-    // A corner drag-resize handle (edit mode) that SNAPS to whole grid cells, so
-    // an item is always a clean 1x1 / 2x1 / 2x2 rectangle and the board stays
-    // aligned. axes 'both' sizes columns + rows (tiles); 'x' sizes columns only
-    // (widgets keep content height).
-    function attachResize(node, id, axes) {
-      var handle = el('span.rb-home-resize', { title: 'Drag to resize (snaps to the grid)' });
+    // A corner drag-resize handle (edit mode). Tiles ('both') snap to whole grid
+    // cells, so a tile is always a clean 1x1 / 2x1 / 2x2 rectangle. Widgets
+    // ('widget') snap their WIDTH to columns but take a free pixel HEIGHT, so you
+    // can drag a widget taller or shorter and its content fills that height.
+    function attachResize(node, id, mode) {
+      var handle = el('span.rb-home-resize', { title: 'Drag to resize' });
       handle.addEventListener('pointerdown', function (e) {
         e.preventDefault(); e.stopPropagation();
         var gcs = window.getComputedStyle(grid);
@@ -114,17 +114,25 @@
         try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
         function mv(ev) {
           var c = Math.max(1, Math.min(cols, Math.round((ev.clientX - left) / (cellW + gap))));
-          var r = (axes === 'both') ? Math.max(1, Math.min(6, Math.round((ev.clientY - top) / (cellH + rgap)))) : 1;
-          node.style.gridColumn = 'span ' + c;
-          if (axes === 'both') node.style.gridRow = 'span ' + r;
-          drafted = { c: c, r: r };
+          if (mode === 'widget') {
+            var h = Math.max(120, Math.round(ev.clientY - top));
+            node.style.gridColumn = 'span ' + c;
+            node.style.height = h + 'px';
+            node.classList.add('is-sized');
+            drafted = { c: c, h: h };
+          } else {
+            var r = Math.max(1, Math.min(6, Math.round((ev.clientY - top) / (cellH + rgap))));
+            node.style.gridColumn = 'span ' + c;
+            node.style.gridRow = 'span ' + r;
+            drafted = { c: c, r: r };
+          }
         }
         function up() {
           handle.removeEventListener('pointermove', mv);
           handle.removeEventListener('pointerup', up);
           node.classList.remove('is-resizing');
           if (drafted) {
-            if (drafted.c === 1 && drafted.r === 1) delete spans[id]; else spans[id] = drafted;
+            if (mode !== 'widget' && drafted.c === 1 && drafted.r === 1) delete spans[id]; else spans[id] = drafted;
             persist(); render();
           }
         }
@@ -508,7 +516,7 @@
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
-      attachResize(card, action.id, 'x');
+      attachResize(card, action.id, 'widget');
       widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn };
       return card;
     }
@@ -521,8 +529,14 @@
       card.classList.toggle('is-collapsed', collapsedOf(action.id));
       card.classList.toggle('is-maximized', maximizedId === action.id);
       card.setAttribute('draggable', editing ? 'true' : 'false');
-      card.style.gridColumn = ''; card.style.gridRow = '';
-      if (maximizedId !== action.id) applySpan(card, action.id, true);
+      // Width snaps to columns (full by default); height is the user's free size.
+      card.style.gridColumn = ''; card.style.gridRow = ''; card.style.height = '';
+      card.classList.remove('is-sized');
+      if (maximizedId !== action.id) {
+        var s = spans[action.id];
+        card.style.gridColumn = (s && s.c && s.c < cols) ? ('span ' + s.c) : '1 / -1';
+        if (s && s.h) { card.style.height = s.h + 'px'; card.classList.add('is-sized'); }
+      }
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
     }

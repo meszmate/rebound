@@ -231,9 +231,13 @@
 .rb-home-widget {
   position: relative;
   grid-column: 1 / -1;
+  display: flex; flex-direction: column;
   border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
   background: var(--rb-bg-raised, var(--rb-bg-sunken)); overflow: hidden;
 }
+.rb-home-widget-head, .rb-home-widget .rb-action-bar { flex: none; }
+/* When the user has given a widget an explicit height, its body fills it. */
+.rb-home-widget.is-sized .rb-home-widget-body { flex: 1 1 auto; max-height: none; min-height: 0; }
 
 /* Collapse to just the header. */
 .rb-home-widget.is-collapsed .rb-home-widget-body,
@@ -284,6 +288,16 @@
 .rb-home-widget-body .rb-anchor-box { max-height: 150px; }
 .rb-home-widget-body .rb-anchor-readout,
 .rb-home-widget-body .rb-readout { font-size: calc(var(--rb-font-size) - 2px); }
+
+/* The Anchor widget is just its clickable box, filling the widget. Drag the
+   widget taller for a bigger box. (The full Anchor tab keeps every control.) */
+.rb-home-widget[data-id="widget-anchor"] .rb-home-widget-body { display: flex; padding: var(--rb-gap-2); }
+.rb-home-widget[data-id="widget-anchor"] .rb-home-widget-body > .rb-col { flex: 1 1 auto; height: 100%; min-height: 0; gap: 0; }
+.rb-home-widget[data-id="widget-anchor"] .rb-home-widget-body > .rb-col > *:not(.rb-anchor-stage) { display: none; }
+.rb-home-widget[data-id="widget-anchor"] .rb-anchor-stage { flex: 1 1 auto; min-height: 0; padding: 0; display: flex; }
+.rb-home-widget[data-id="widget-anchor"] .rb-anchor-box { width: 100%; max-height: none; }
+.rb-home-widget[data-id="widget-anchor"].is-sized .rb-anchor-box { height: 100%; aspect-ratio: auto; }
+.rb-home-widget[data-id="widget-anchor"] .rb-action-bar { display: none; }
 /* Preview graphs stretch to fill the widget width (no letterboxed empty space);
    set by JS via preserveAspectRatio on non-editor previews. Keep them compact. */
 .rb-home-widget-body svg[preserveAspectRatio="none"] { max-height: 80px; }
