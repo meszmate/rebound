@@ -97,14 +97,32 @@
    sit side by side, and on a narrow panel the min-width wraps it to its own row
    so it never gets too cramped. */
 .rb-home-widget.is-half { flex: 0 1 calc(50% - var(--rb-gap-2)); min-width: 220px; }
+.rb-home-widget.is-twothirds { flex: 1 1 calc(66.667% - var(--rb-gap-2)); min-width: 280px; }
+.rb-home-widget.is-third { flex: 0 1 calc(33.333% - var(--rb-gap-2)); min-width: 168px; }
+
+/* Collapse to just the header. */
+.rb-home-widget.is-collapsed .rb-home-widget-body,
+.rb-home-widget.is-collapsed .rb-action-bar,
+.rb-home-widget.is-collapsed .rb-home-widget-shield { display: none; }
+
+/* Maximize a single widget to fill the whole panel. */
+.rb-home-widget.is-maximized {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 80;
+  flex: none; border-radius: 0; display: flex; flex-direction: column; min-width: 0;
+}
+.rb-home-widget.is-maximized .rb-home-widget-body { flex: 1 1 auto; overflow-y: auto; }
 
 .rb-home-wbtn {
-  display: none; flex: none; min-width: 22px; height: 20px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none; min-width: 22px; height: 20px; padding: 0 5px;
   border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
   background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; line-height: 1;
+  transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), color var(--rb-transition), border-color var(--rb-transition);
 }
-.rb-home-widget.is-editmode .rb-home-wbtn { display: inline-flex; align-items: center; justify-content: center; }
-.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); }
+.rb-home-wbtn-edit { display: none; }
+.rb-home-widget.is-editmode .rb-home-wbtn-edit { display: inline-flex; }
+.rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); transform: scale(1.12); }
+.rb-home-wbtn:active { transform: scale(0.9); }
 .rb-home-widget-head {
   display: flex; align-items: center; gap: var(--rb-gap-2);
   padding: 6px 8px; border-bottom: 1px solid var(--rb-border);
@@ -158,4 +176,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rb-anim-in { animation: none; }
+}
+
+/* ---- Responsive: adapt the board to the panel/dock size ------------------ */
+/* Narrow (thin vertical dock): stack widgets full width, smaller tiles. */
+@media (max-width: 360px) {
+  .rb-home-tile { flex: 1 1 70px; max-width: none; min-height: 76px; }
+  .rb-home-widget.is-half,
+  .rb-home-widget.is-third,
+  .rb-home-widget.is-twothirds { flex: 1 1 100%; min-width: 0; }
+}
+/* Wide (horizontal dock): roomier tiles so they do not look lost. */
+@media (min-width: 680px) {
+  .rb-home-tile { flex: 1 1 104px; max-width: 156px; }
+}
+@media (min-width: 1000px) {
+  .rb-home-tile { flex: 1 1 120px; max-width: 168px; }
 }

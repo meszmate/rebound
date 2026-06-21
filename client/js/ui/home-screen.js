@@ -27,8 +27,8 @@
 
   function load() {
     var d = R.disk.read('home-layout', null);
-    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {} };
-    return { items: R.homeActions.DEFAULT.slice(), widths: {} };
+    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {}, collapsed: d.collapsed || {} };
+    return { items: R.homeActions.DEFAULT.slice(), widths: {}, collapsed: {} };
   }
 
   // Stretch a widget's schematic preview graphs to fill its width so there is no
@@ -48,12 +48,25 @@
     var saved = load();
     var ids = saved.items;
     var widths = saved.widths || {};
+    var collapsed = saved.collapsed || {};
+    var maximizedId = null;
     var editing = false;
     var dragId = null;
-    var widgetCache = {}; // id -> { card, destroy, widthBtn }
+    var widgetCache = {}; // id -> { card, destroy, widthBtn, collapseBtn, maxBtn }
 
-    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths }); }
-    function widthOf(id) { return widths[id] === 'half' ? 'half' : 'full'; }
+    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed }); }
+
+    var WIDTHS = ['full', 'half', 'twothirds', 'third'];
+    function widthOf(id) { return widths[id] || 'full'; }
+    function widthGlyph(id) { var w = widthOf(id); return w === 'half' ? '½' : w === 'third' ? '⅓' : w === 'twothirds' ? '⅔' : '▭'; }
+    function cycleWidth(id) {
+      var next = WIDTHS[(WIDTHS.indexOf(widthOf(id)) + 1) % WIDTHS.length];
+      if (next === 'full') delete widths[id]; else widths[id] = next;
+      persist(); render();
+    }
+    function collapsedOf(id) { return !!collapsed[id]; }
+    function toggleCollapse(id) { if (collapsed[id]) delete collapsed[id]; else collapsed[id] = true; persist(); render(); }
+    function toggleMaximize(id) { maximizedId = (maximizedId === id) ? null : id; render(); }
 
     var grid = el('div.rb-home-grid');
 
@@ -93,7 +106,8 @@
 
     function removeItem(id) {
       ids = ids.filter(function (x) { return x !== id; });
-      delete widths[id];
+      delete widths[id]; delete collapsed[id];
+      if (maximizedId === id) maximizedId = null;
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
       persist(); render();
     }
@@ -105,7 +119,6 @@
       ids.splice(ids.indexOf(toId) + (from < to ? 1 : 0), 0, fromId);
       persist(); render();
     }
-    function setWidth(id, w) { if (w === 'full') delete widths[id]; else widths[id] = w; persist(); render(); }
 
     function wireDrag(node, id) {
       node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
@@ -170,29 +183,40 @@
       var toolDestroy = destroy;
       destroy = function () { if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
 
-      var widthBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Toggle widget width',
-        onclick: function (e) { e.stopPropagation(); setWidth(action.id, widthOf(action.id) === 'half' ? 'full' : 'half'); } }, [widthOf(action.id) === 'half' ? '½' : '▭']);
+      var collapseBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Collapse / expand',
+        onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
+      var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
+        onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
+      var widthBtn = el('button.rb-home-wbtn.rb-home-wbtn-edit', { type: 'button', title: 'Cycle width (full, half, two-thirds, third)',
+        onclick: function (e) { e.stopPropagation(); cycleWidth(action.id); } }, [widthGlyph(action.id)]);
       var header = el('div.rb-home-widget-head', null, [
         el('span.rb-home-grip', { title: 'Drag to move' }, ['⠿']),
         iconSpan(action.toolId, 'rb-home-ico-sm'),
         el('span.rb-grow', { text: action.label }),
-        widthBtn,
+        collapseBtn, maxBtn, widthBtn,
         el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×'])
       ]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
-      widgetCache[action.id] = { card: card, destroy: destroy, widthBtn: widthBtn };
+      widgetCache[action.id] = { card: card, destroy: destroy, widthBtn: widthBtn, collapseBtn: collapseBtn, maxBtn: maxBtn };
       return card;
     }
 
     function decorateWidget(action) {
       var entry = widgetCache[action.id];
       if (!entry) return;
-      entry.card.classList.toggle('is-editmode', editing);
-      entry.card.classList.toggle('is-half', widthOf(action.id) === 'half');
-      entry.card.setAttribute('draggable', editing ? 'true' : 'false');
-      entry.widthBtn.textContent = widthOf(action.id) === 'half' ? '½' : '▭';
+      var card = entry.card, w = widthOf(action.id);
+      card.classList.toggle('is-editmode', editing);
+      card.classList.toggle('is-half', w === 'half');
+      card.classList.toggle('is-third', w === 'third');
+      card.classList.toggle('is-twothirds', w === 'twothirds');
+      card.classList.toggle('is-collapsed', collapsedOf(action.id));
+      card.classList.toggle('is-maximized', maximizedId === action.id);
+      card.setAttribute('draggable', editing ? 'true' : 'false');
+      entry.widthBtn.textContent = widthGlyph(action.id);
+      entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
+      entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
     }
 
     function addTile() {
