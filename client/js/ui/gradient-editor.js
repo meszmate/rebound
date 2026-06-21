@@ -52,10 +52,22 @@
     return { a: { x: 0.5 - h * Math.cos(ang), y: 0.5 - h * Math.sin(ang) }, b: { x: 0.5 + h * Math.cos(ang), y: 0.5 + h * Math.sin(ang) } };
   }
   function gradCss(m) {
-    var cs = stopsCss(m.stops);
-    var L = lineOf(m);
-    if (m.type === 'radial') return 'radial-gradient(circle at ' + (L.a.x * 100).toFixed(1) + '% ' + (L.a.y * 100).toFixed(1) + '%, ' + cs + ')';
-    var ang = Math.atan2(L.b.x - L.a.x, -(L.b.y - L.a.y)) * 180 / Math.PI;
+    var L = lineOf(m), a = L.a, b = L.b;
+    if (m.type === 'radial') return 'radial-gradient(circle at ' + (a.x * 100).toFixed(1) + '% ' + (a.y * 100).toFixed(1) + '%, ' + stopsCss(m.stops) + ')';
+    // Remap the stops onto the box so the line's actual length and position
+    // matter: dragging an endpoint outside the box zooms/offsets the ramp, the
+    // same way Figma shows the gradient line extending past the shape.
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var len = Math.sqrt(dx * dx + dy * dy) || 1e-6;
+    var ux = dx / len, uy = dy / len;
+    var pmin = Infinity, pmax = -Infinity;
+    [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (c) { var p = c[0] * ux + c[1] * uy; if (p < pmin) pmin = p; if (p > pmax) pmax = p; });
+    var plen = (pmax - pmin) || 1;
+    var sproj = a.x * ux + a.y * uy;
+    var ang = Math.atan2(dx, -dy) * 180 / Math.PI;
+    var cs = sortedStops(m.stops).map(function (s) {
+      return s.color + ' ' + (((sproj + s.pos * len - pmin) / plen) * 100).toFixed(1) + '%';
+    }).join(', ');
     return 'linear-gradient(' + ang.toFixed(1) + 'deg, ' + cs + ')';
   }
 
@@ -98,9 +110,10 @@
     var barChips = el('div.rb-grad-bar-chips');
     var bar = el('div.rb-grad-bar', null, [barFill, barChips]);
 
+    function clampR(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
     function ptFromEvent(e) {
       var r = stage.getBoundingClientRect();
-      return { x: clamp01((e.clientX - r.left) / (r.width || 1)), y: clamp01((e.clientY - r.top) / (r.height || 1)) };
+      return { x: (e.clientX - r.left) / (r.width || 1), y: (e.clientY - r.top) / (r.height || 1) };
     }
 
     function renderStage() {
@@ -140,7 +153,9 @@
     }
 
     function dragEndpoint(which) {
-      function move(ev) { model[which] = ptFromEvent(ev); renderStage(); }
+      // Allow the endpoints a little past the box edges (Figma-style), so the
+      // line can extend beyond the shape; the remapped fill reflects it.
+      function move(ev) { var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, -0.12, 1.12), y: clampR(p.y, -0.12, 1.12) }; renderStage(); }
       function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);

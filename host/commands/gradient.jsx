@@ -113,11 +113,19 @@
     }
     var colorsData = nStopData(stops);
 
-    // Rotate the ramp endpoints by the chosen angle (0 = left-to-right).
-    var ang = (args && args.angle != null) ? args.angle : 0;
-    var t = ang * Math.PI / 180;
-    var sp = [Math.cos(t) * -100, Math.sin(t) * -100];
-    var ep = [Math.cos(t) * 100, Math.sin(t) * 100];
+    // Ramp endpoints. Prefer the explicit line (normalized 0..1, mapped to a
+    // +/-100 box so a line dragged outside the shape extends past it); fall back
+    // to rotating a centered line by the angle for older callers.
+    var sp, ep;
+    if (args && args.start && args.end) {
+      sp = [(args.start.x - 0.5) * 200, (args.start.y - 0.5) * 200];
+      ep = [(args.end.x - 0.5) * 200, (args.end.y - 0.5) * 200];
+    } else {
+      var ang = (args && args.angle != null) ? args.angle : 0;
+      var t = ang * Math.PI / 180;
+      sp = [Math.cos(t) * -100, Math.sin(t) * -100];
+      ep = [Math.cos(t) * 100, Math.sin(t) * 100];
+    }
 
     var applied = 0;
     var skipped = 0;
