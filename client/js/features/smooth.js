@@ -1,14 +1,19 @@
 /*
  * Rebound, Smooth tool.
- * Smooths the selected keyframes into a flowing curve by switching them to
- * bezier interpolation, with optional auto-bezier shaping and roving of the
- * interior keys so they redistribute by velocity.
+ * Reshapes the selected keyframes so motion flows smoothly through them instead
+ * of changing direction abruptly (bezier + optional auto-bezier and roving).
+ * It is a one-shot operation, so instead of a live curve it shows a before/after
+ * sketch that reacts to the two options, making clear what each one does.
  */
 ;(function (R) {
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // A jagged sample path (keyframe values over time) used by the before/after.
+  var PTS = [{ x: 10, y: 44 }, { x: 44, y: 12 }, { x: 78, y: 40 }, { x: 112, y: 14 }];
 
   R.tools.register({
     id: 'smooth',
@@ -19,17 +24,68 @@
     mount: mount
   });
 
+  function linearPath(pts) {
+    return 'M' + pts.map(function (p) { return p.x + ' ' + p.y; }).join(' L');
+  }
+  // Catmull-Rom through the points, as cubic beziers, for the smooth version.
+  function smoothPath(pts) {
+    var d = 'M' + pts[0].x + ' ' + pts[0].y;
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || pts[i + 1];
+      var c1x = p1.x + (p2.x - p0.x) / 6, c1y = p1.y + (p2.y - p0.y) / 6;
+      var c2x = p2.x - (p3.x - p1.x) / 6, c2y = p2.y - (p3.y - p1.y) / 6;
+      d += ' C' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ' ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) +
+        ' ' + p2.x + ' ' + p2.y;
+    }
+    return d;
+  }
+  // Roving redistributes the interior keys in time, so even out their x spacing.
+  function rove(pts) {
+    var n = pts.length, x0 = pts[0].x, xn = pts[n - 1].x;
+    return pts.map(function (p, i) { return { x: x0 + (xn - x0) * i / (n - 1), y: p.y }; });
+  }
+
+  function sketch(pts, smoothed, stroke) {
+    var d = smoothed ? smoothPath(pts) : linearPath(pts);
+    var kids = [svg('path', { d: d, fill: 'none', stroke: stroke, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })];
+    pts.forEach(function (p) { kids.push(svg('circle', { cx: p.x, cy: p.y, r: 2.6, fill: stroke })); });
+    return svg('svg', { viewBox: '0 0 122 56', width: '100%', height: 56 }, kids);
+  }
+
   function mount(ctx) {
     var roving = true;
     var autoBezier = true;
 
-    var rovingToggle = ui.toggle({ label: 'Roving interior keys', value: roving,
-      onChange: function (v) { roving = v; } });
-    var autoBezierToggle = ui.toggle({ label: 'Auto-bezier', value: autoBezier,
-      onChange: function (v) { autoBezier = v; } });
+    var afterHost = el('div');
+    function renderAfter() {
+      R.dom.clear(afterHost);
+      var pts = roving ? rove(PTS) : PTS;
+      afterHost.appendChild(sketch(pts, autoBezier, 'var(--rb-accent)'));
+    }
+    renderAfter();
+
+    function panel(cap, node) {
+      return el('div', { style: { flex: '1 1 0', minWidth: '0', border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } }, [
+        el('div', { text: cap, style: { color: 'var(--rb-text-faint)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '4px' } }),
+        node
+      ]);
+    }
+    var beforeAfter = el('div.rb-row', { style: { gap: '8px', alignItems: 'stretch' } }, [
+      panel('Before', sketch(PTS, false, 'var(--rb-text-faint)')),
+      panel('After', afterHost)
+    ]);
+
+    var autoBezierToggle = ui.toggle({ label: 'Smooth the curve (auto-bezier)', value: autoBezier,
+      title: 'Rounds the motion so it curves through each keyframe instead of snapping to a sharp corner. Turn off to keep the keyframes angular.',
+      onChange: function (v) { autoBezier = v; renderAfter(); } });
+    var rovingToggle = ui.toggle({ label: 'Even out timing (roving)', value: roving,
+      title: 'Lets the middle keyframes slide in time so the speed stays even across the move. The first and last keys stay put.',
+      onChange: function (v) { roving = v; renderAfter(); } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Eases the selected keyframes into a flowing curve. Roving lets the interior keys redistribute by velocity.' }),
+      el('div.rb-faint', { text: 'Reshapes the selected keyframes so motion flows smoothly through them instead of changing direction abruptly. Good for fixing robotic or jerky movement. Select the keyframes, choose the options below, then Apply.' }),
+      beforeAfter,
+      el('div.rb-section-label', { text: 'Options' }),
       autoBezierToggle.el,
       rovingToggle.el
     ]));
@@ -47,32 +103,7 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not smooth', { kind: 'error' }); });
     }
 
-    function getState() {
-      return { roving: roving, autoBezier: autoBezier };
-    }
-
-    function applyState(s) {
-      if (!s) return;
-      if (s.roving != null) { roving = s.roving; rovingToggle.set(s.roving); }
-      if (s.autoBezier != null) { autoBezier = s.autoBezier; autoBezierToggle.set(s.autoBezier); }
-    }
-
-    return {
-      presets: {
-        toolId: 'smooth',
-        // Smooth has no single fixed curve (it depends on the keyframes); show
-        // the flowing ease-in-out shape it produces, so the tiles read as curves.
-        previewFor: function () { return { type: 'bezier', x1: 0.37, y1: 0, x2: 0.63, y2: 1 }; },
-        get: getState,
-        set: applyState,
-        defaults: [
-          { name: 'Smooth', state: { roving: false, autoBezier: true } },
-          { name: 'Smooth + rove', state: { roving: true, autoBezier: true } },
-          { name: 'Auto bezier', state: { roving: false, autoBezier: true } }
-        ]
-      },
-      destroy: off
-    };
+    return { destroy: off };
   }
 
   function describe(sel) {
