@@ -51,21 +51,27 @@
     var outFrames = 12;
     var ease = 'smooth';
 
+    // Live opacity-over-time graph that reacts to the toggles, frames, and ease.
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } });
+    function renderFade() { R.dom.clear(previewHost); previewHost.appendChild(fadeThumb({ doIn: doIn, doOut: doOut, inFrames: inFrames, outFrames: outFrames, ease: ease }, 72)); }
+
     var inToggle = ui.toggle({ label: 'Fade in', value: doIn,
-      onChange: function (v) { doIn = v; } });
+      onChange: function (v) { doIn = v; renderFade(); } });
     var inField = ui.numberField({ label: 'Fade in', value: inFrames, min: 0, step: 1, decimals: 0,
-      suffix: 'fr', width: '110px', onChange: function (v) { inFrames = v; } });
+      suffix: 'fr', width: '110px', onChange: function (v) { inFrames = v; renderFade(); } });
     var outToggle = ui.toggle({ label: 'Fade out', value: doOut,
-      onChange: function (v) { doOut = v; } });
+      onChange: function (v) { doOut = v; renderFade(); } });
     var outField = ui.numberField({ label: 'Fade out', value: outFrames, min: 0, step: 1, decimals: 0,
-      suffix: 'fr', width: '110px', onChange: function (v) { outFrames = v; } });
+      suffix: 'fr', width: '110px', onChange: function (v) { outFrames = v; renderFade(); } });
     var easeCtl = ui.segmented([
       { value: 'linear', label: 'Linear', title: 'Constant-rate fade' },
       { value: 'smooth', label: 'Smooth', title: 'Ease the fade in and out' }
-    ], { value: ease, onChange: function (v) { ease = v; } });
+    ], { value: ease, onChange: function (v) { ease = v; renderFade(); } });
 
+    renderFade();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Keyframes opacity from transparent up at the layer in point and back down at the out point. Layers with an opacity expression are skipped.' }),
+      previewHost,
       inToggle.el,
       ui.row('Fade in', inField.el),
       outToggle.el,
@@ -104,6 +110,7 @@
       if (s.inFrames != null) { inFrames = s.inFrames; inField.set(s.inFrames); }
       if (s.outFrames != null) { outFrames = s.outFrames; outField.set(s.outFrames); }
       if (s.ease != null) { ease = s.ease; easeCtl.set(s.ease); }
+      renderFade();
     }
 
     return {
