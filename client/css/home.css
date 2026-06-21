@@ -73,3 +73,55 @@
 .rb-home-ico-sm svg { width: 17px; height: 17px; }
 .rb-home-pin { flex: none; width: 18px; text-align: center; color: var(--rb-text-muted); font-weight: 700; }
 .rb-home-browser-row.is-pinned .rb-home-pin { color: var(--rb-accent); }
+.rb-home-badge.is-widget { background: color-mix(in srgb, var(--rb-accent) 30%, transparent); color: var(--rb-accent); }
+
+/* ---- Live tool widgets --------------------------------------------------- */
+.rb-home-widget {
+  position: relative;
+  grid-column: 1 / -1;                 /* span the whole board */
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-raised, var(--rb-bg-sunken)); overflow: hidden;
+}
+.rb-home-widget-head {
+  display: flex; align-items: center; gap: var(--rb-gap-2);
+  padding: 6px 8px; border-bottom: 1px solid var(--rb-border);
+  background: var(--rb-bg-sunken); color: var(--rb-text-muted);
+  font-size: calc(var(--rb-font-size) - 1px);
+}
+.rb-home-widget-body { padding: var(--rb-gap-3); }
+.rb-home-widget .rb-action-bar {
+  display: flex; align-items: center; gap: var(--rb-gap-2);
+  padding: var(--rb-gap-2) var(--rb-gap-3); border-top: 1px solid var(--rb-border);
+  background: var(--rb-bg-sunken);
+}
+
+/* Drag grip + remove live in the header, shown only while editing. */
+.rb-home-grip { display: none; color: var(--rb-text-faint); letter-spacing: -2px; cursor: grab; user-select: none; }
+.rb-home-widget.is-editmode .rb-home-grip { display: inline-flex; }
+.rb-home-widget-head .rb-home-remove { position: static; display: none; }
+.rb-home-widget.is-editmode .rb-home-widget-head .rb-home-remove { display: inline-flex; }
+.rb-home-widget.is-editmode { border-style: dashed; }
+
+/* In edit mode a shield covers the tool so dragging/removing never triggers its
+   controls; out of edit mode the widget is fully interactive. */
+.rb-home-widget-shield { display: none; }
+.rb-home-widget.is-editmode .rb-home-widget-shield {
+  display: block; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 4;
+  background: color-mix(in srgb, var(--rb-bg) 30%, transparent); cursor: grab;
+}
+.rb-home-widget.is-dragging { opacity: 0.4; }
+.rb-home-widget.is-droptarget { border-color: var(--rb-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 35%, transparent); }
+
+/* ---- Focus mode (hide the rail + topbar, fill the panel) ----------------- */
+#rb-app.is-focus .rb-rail,
+#rb-app.is-focus .rb-topbar { display: none; }
+.rb-focus-exit {
+  display: none; position: fixed; top: 8px; right: 10px; z-index: 60;
+  align-items: center; gap: 6px; padding: 5px 10px;
+  border: 1px solid var(--rb-border-strong); border-radius: 999px;
+  background: var(--rb-bg-raised, var(--rb-bg-sunken)); color: var(--rb-text-muted);
+  cursor: pointer; font: inherit; font-size: calc(var(--rb-font-size) - 1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+#rb-app.is-focus .rb-focus-exit { display: inline-flex; }
+.rb-focus-exit:hover { color: var(--rb-text); border-color: var(--rb-accent); }

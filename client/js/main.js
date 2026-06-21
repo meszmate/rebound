@@ -76,7 +76,9 @@
       invoke: function (m, a) { return R.bridge.invoke(m, a); },
       openTool: openToolById,
       toast: R.ui.toast,
-      refreshSelection: pollSelection
+      refreshSelection: pollSelection,
+      onSelection: function (fn) { return appStore.select(function (s) { return s.selection; }, fn); },
+      getSelection: function () { return appStore.get().selection; }
     });
     homeScreenEl = homeScreenApi.el;
     homeScreenEl.classList.add('rb-hidden');
@@ -88,9 +90,15 @@
     ]);
     app.appendChild(main);
 
+    // Floating control to leave focus mode (the rail/topbar are hidden then).
+    var focusExit = el('button.rb-focus-exit', { title: 'Show the menu', onclick: function () { setFocus(false); } },
+      [icon('<path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>'), 'Show menu']);
+    app.appendChild(focusExit);
+
     ctx = makeContext();
     setupKeyboard();
     home.update(appStore.get().selection);
+    if (R.disk.read('focus-mode', false)) setFocus(true);
 
     if (R.bridge.available) {
       pollSelection();
@@ -231,8 +239,14 @@
            ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
     });
 
+    var focusBtn = el('button.rb-btn.is-ghost.is-icon', {
+      title: 'Focus mode — hide the sidebar and fill the panel', 'aria-label': 'Focus mode',
+      onclick: function () { setFocus(); }
+    });
+    focusBtn.innerHTML = R.toolMeta.svg('<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>');
+
     // The mark already lives on the rail, so the topbar leads with search.
-    var children = [search, el('span.rb-selchip', null, [selDot, selText])];
+    var children = [search, el('span.rb-selchip', null, [selDot, selText]), focusBtn];
     if (R.bridge.available) {
       children.push(el('button.rb-btn.is-ghost.is-icon', {
         title: 'Reload host (dev)', 'aria-label': 'Reload host',
@@ -281,6 +295,16 @@
     if (homeScreenEl) homeScreenEl.classList.remove('rb-hidden');
     highlightRail(null);
     if (homeRailBtn) homeRailBtn.classList.add('is-active');
+  }
+
+  // Focus mode hides the rail and topbar so the current view fills the panel;
+  // a floating button (and the same shortcut) brings the chrome back.
+  function setFocus(on) {
+    var app = document.getElementById('rb-app');
+    if (!app) return;
+    var next = (on == null) ? !app.classList.contains('is-focus') : !!on;
+    app.classList.toggle('is-focus', next);
+    try { R.disk.write('focus-mode', next); } catch (e) { /* ignore */ }
   }
 
   function showCategory(catId) {
@@ -495,6 +519,9 @@
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         if (triggerPrimaryAction()) e.preventDefault();
         return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault(); setFocus(); return;
       }
       if (e.key === '/' && !inInput) { e.preventDefault(); if (searchInput) searchInput.focus(); return; }
 

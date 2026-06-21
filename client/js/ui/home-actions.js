@@ -1,11 +1,13 @@
 /*
  * Rebound, home action catalog.
  *
- * The set of one-click actions the configurable Home screen can pin. An action
- * is either kind 'apply' (invokes a host command directly with fixed args, so a
- * single click does the thing) or kind 'open' (opens a tool that needs more
- * interaction). Every registered tool also gets a generated 'open-<id>' action,
- * so anything in Rebound is one pin away. Each action borrows its tool's icon.
+ * The set of items the configurable Home screen can pin. An item is one of:
+ *   kind 'apply'  - invokes a host command directly with fixed args (one click).
+ *   kind 'open'   - opens a tool in the full detail view.
+ *   kind 'widget' - embeds a tool's whole live UI right on the Home, so you can
+ *                   use the actual controller (Align grid, Ease curve...) inline.
+ * Every registered tool gets a generated open-<id> and widget-<id>, so anything
+ * in Rebound is one pin away. Each item borrows its tool's icon.
  */
 ;(function (R) {
   'use strict';
@@ -45,7 +47,14 @@
     });
   }
 
-  function all() { return applyActions().concat(openActions()); }
+  // Every tool, as an embeddable widget (its whole live UI on the Home).
+  function widgetActions() {
+    return (R.tools.list() || []).filter(function (t) { return typeof t.mount === 'function'; }).map(function (t) {
+      return { id: 'widget-' + t.id, label: t.title, toolId: t.id, group: t.group || 'Tools', kind: 'widget' };
+    });
+  }
+
+  function all() { return applyActions().concat(widgetActions()).concat(openActions()); }
 
   function byId(id) {
     var a = all();
@@ -53,12 +62,14 @@
     return null;
   }
 
-  // A sensible starter set for a first run.
+  // A sensible starter set for a first run: a row of one-click actions, a live
+  // Align widget to show the concept, then more actions and quick tool jumps.
   var DEFAULT = [
     'easy-ease', 'center-anchor', 'align-center', 'add-null',
+    'widget-align',
     'shape-rect', 'grid-thirds', 'expr-wiggle', 'reverse-keys',
     'open-ease', 'open-spring', 'open-scatter', 'open-gradient'
   ];
 
-  R.homeActions = { applyActions: applyActions, openActions: openActions, all: all, byId: byId, DEFAULT: DEFAULT };
+  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, all: all, byId: byId, DEFAULT: DEFAULT };
 })(window.Rebound = window.Rebound || {});
