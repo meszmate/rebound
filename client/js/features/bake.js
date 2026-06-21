@@ -8,7 +8,28 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // A smooth source curve sampled into keyframe ticks spaced by the step: a small
+  // step hugs the curve densely, a large step samples it coarsely.
+  function bakeSvg(state, h) {
+    var W = 160, H = 80, pad = 10, trackW = W - 2 * pad, total = 48;
+    var step = Math.max(1, Math.min(60, state.stepFrames || 1));
+    function cy(u) { return H / 2 - Math.sin(u * Math.PI * 1.7) * (H / 2 - pad) * 0.72; }
+    var d = '', i;
+    for (i = 0; i <= 60; i++) { var u = i / 60, x = pad + u * trackW; d += (i ? 'L' : 'M') + x.toFixed(1) + ' ' + cy(u).toFixed(1); }
+    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      svg('path', { d: d, fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1.5 })];
+    var n = Math.floor(total / step);
+    for (var k = 0; k <= n; k++) {
+      var fr = k * step; if (fr > total) break;
+      var uu = fr / total, xx = pad + uu * trackW, yy = cy(uu);
+      kids.push(svg('line', { x1: xx.toFixed(1), y1: H - pad, x2: xx.toFixed(1), y2: yy.toFixed(1), stroke: 'var(--rb-accent)', 'stroke-width': 1, opacity: '0.35' }));
+      kids.push(svg('circle', { cx: xx.toFixed(1), cy: yy.toFixed(1), r: 2.3, fill: 'var(--rb-accent)' }));
+    }
+    return svg('svg', { viewBox: '0 0 160 80', width: '100%', height: h }, kids);
+  }
 
   R.tools.register({
     id: 'bake',
@@ -24,6 +45,9 @@
     var stepFrames = 1;
     var includeExpressions = false;
 
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(bakeSvg({ stepFrames: stepFrames }, 80)); }
+
     var rangeCtl = ui.segmented([
       { value: 'work', label: 'Work area', title: 'Sample across the composition work area' },
       { value: 'layer', label: 'Layer duration', title: 'Sample across each layer’s in-to-out span' }
@@ -38,7 +62,7 @@
       decimals: 0,
       suffix: 'f',
       width: '110px',
-      onChange: function (v) { stepFrames = v; }
+      onChange: function (v) { stepFrames = v; renderPreview(); }
     });
 
     var exprToggle = ui.toggle({
@@ -48,8 +72,10 @@
       onChange: function (v) { includeExpressions = v; }
     });
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Samples each selected property’s animation into clean keyframes, one every few frames. Works on expression-driven and keyframed properties alike.' }),
+      previewHost,
       el('div.rb-section-label', { text: 'Range' }),
       rangeCtl.el,
       el('div.rb-section-label', { text: 'Sample step' }),
@@ -87,6 +113,7 @@
       if (s.range != null) { range = s.range; rangeCtl.set(s.range); }
       if (s.stepFrames != null) { stepFrames = s.stepFrames; stepField.set(s.stepFrames); }
       if (s.includeExpressions != null) { includeExpressions = s.includeExpressions; exprToggle.set(s.includeExpressions); }
+      renderPreview();
     }
 
     return {
@@ -94,6 +121,7 @@
         toolId: 'bake',
         get: getState,
         set: applyState,
+        thumbFor: function (st, opts) { return bakeSvg(st, (opts && opts.height) || 30); },
         defaults: [
           { name: 'Every frame', state: { range: 'work', stepFrames: 1, includeExpressions: false } },
           { name: 'Coarse sample', state: { range: 'work', stepFrames: 4, includeExpressions: false } },
