@@ -61,7 +61,8 @@
     function metaOf(id) { return meta[id] || {}; }
     function setMeta(id, m) {
       // Drop the override entirely when it is all defaults, to keep storage clean.
-      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.icon);
+      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.icon)
+        && (!m.iconKey) && (m.iconBg !== false) && (!m.layout || m.layout === 'vertical');
       if (isDefault) delete meta[id]; else meta[id] = m;
       persist(); render();
     }
@@ -240,9 +241,19 @@
       node.addEventListener('drop', function (e) { if (!editing) return; e.preventDefault(); node.classList.remove('is-droptarget'); if (dragId && dragId !== id) reorder(dragId, id); });
     }
 
+    function iconInnerFor(action, m) {
+      var ICONS = R.toolMeta && R.toolMeta.ICONS;
+      if (m && m.iconKey && ICONS && ICONS[m.iconKey]) return ICONS[m.iconKey];
+      var meta = (R.toolMeta && R.toolMeta.forTool(action.toolId)) || {};
+      return meta.icon || (ICONS && ICONS.curve) || '';
+    }
     function tileIcon(action, m) {
-      if (m && m.icon) return el('span.rb-home-ico.is-custom', null, [el('img', { src: m.icon, alt: '' })]);
-      return iconSpan(action.toolId);
+      m = m || {};
+      var sel = 'span.rb-home-ico' + (m.iconBg === false ? '.is-nobg' : '');
+      if (m.icon) return el(sel + '.is-custom', null, [el('img', { src: m.icon, alt: '' })]);
+      var span = el(sel);
+      span.innerHTML = R.toolMeta ? R.toolMeta.svg(iconInnerFor(action, m)) : '';
+      return span;
     }
     // Unique easing visuals: each curve type draws its own shape and a dot that
     // travels the baseline with that exact easing, so Linear, Hold, Ease In/Out
@@ -297,6 +308,7 @@
       var c = base;
       if (action && action.id === lastAddedId) c += '.rb-pop';
       c += '.is-disp-' + displayFor(action, m);
+      if (m && m.layout === 'horizontal') c += '.is-lay-h';
       return c;
     }
     function tile(action) {
@@ -322,12 +334,16 @@
       return el(tileClass(action, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
     }
 
-    // The full tile customizer: label, display (icon / visual / text / icon only),
-    // badge, size, and a custom uploaded icon, with a live tile preview.
+    // The full tile customizer: label, display mode, layout (icon above or beside
+    // the text), a pick-an-icon gallery (or upload your own), the icon background,
+    // and the badge, all with a live tile preview.
     function customizeTile(action) {
       if (!R.ui.modal) return;
       var b = metaOf(action.id);
-      var draft = { label: b.label || '', display: b.display || 'icon', badge: b.badge === true, icon: b.icon || null };
+      var draft = {
+        label: b.label || '', display: b.display || 'icon', badge: b.badge === true,
+        icon: b.icon || null, iconKey: b.iconKey || null, iconBg: b.iconBg !== false, layout: b.layout || 'vertical'
+      };
 
       var previewHost = el('div.rb-home-cust-preview');
       function renderPrev() { R.dom.clear(previewHost); previewHost.appendChild(previewTile(action, draft)); }
@@ -337,32 +353,64 @@
       var displayCtl = R.ui.segmented([
         { value: 'icon', label: 'Icon' }, { value: 'visual', label: 'Visual' }, { value: 'text', label: 'Text' }, { value: 'icononly', label: 'Icon only' }
       ], { value: draft.display, onChange: function (v) { draft.display = v; renderPrev(); } });
+      var layoutCtl = R.ui.segmented([
+        { value: 'vertical', label: 'Stacked' }, { value: 'horizontal', label: 'Side by side' }
+      ], { value: draft.layout, onChange: function (v) { draft.layout = v; renderPrev(); } });
+      var bgToggle = R.ui.toggle({ label: 'Icon background', value: draft.iconBg, onChange: function (v) { draft.iconBg = v; renderPrev(); renderIcons(); } });
       var badgeToggle = R.ui.toggle({ label: 'Show badge', value: draft.badge, onChange: function (v) { draft.badge = v; renderPrev(); } });
+
+      // ---- Icon picker: tool default, the icon library, or an upload ----
+      var iconGrid = el('div.rb-home-iconpick-grid');
+      function iconBtn(opts) {
+        var bcls = 'button.rb-home-iconpick' + (opts.selected ? '.is-sel' : '') + (draft.iconBg === false ? '.is-nobg' : '');
+        var node = el(bcls, { type: 'button', title: opts.title, onclick: opts.onclick });
+        if (opts.img) node.appendChild(el('img', { src: opts.img, alt: '' }));
+        else node.innerHTML = R.toolMeta.svg(opts.inner);
+        return node;
+      }
+      function renderIcons() {
+        R.dom.clear(iconGrid);
+        var usingDefault = !draft.iconKey && !draft.icon;
+        iconGrid.appendChild(iconBtn({ title: 'Tool default', inner: iconInnerFor(action, { iconKey: null }), selected: usingDefault,
+          onclick: function () { draft.iconKey = null; draft.icon = null; renderPrev(); renderIcons(); } }));
+        if (draft.icon) {
+          iconGrid.appendChild(iconBtn({ title: 'Your uploaded icon', img: draft.icon, selected: true, onclick: function () {} }));
+        }
+        var ICONS = (R.toolMeta && R.toolMeta.ICONS) || {};
+        Object.keys(ICONS).forEach(function (k) {
+          iconGrid.appendChild(iconBtn({ title: k, inner: ICONS[k], selected: !draft.icon && draft.iconKey === k,
+            onclick: function () { draft.iconKey = k; draft.icon = null; renderPrev(); renderIcons(); } }));
+        });
+      }
 
       var fileInput = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' },
         onchange: function () {
           var f = this.files && this.files[0];
           if (!f) return;
           var r = new window.FileReader();
-          r.onload = function () { draft.icon = r.result; renderPrev(); };
+          r.onload = function () { draft.icon = r.result; draft.iconKey = null; renderPrev(); renderIcons(); };
           r.readAsDataURL(f);
         } });
-      var uploadBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { fileInput.click(); } }, ['Upload icon…']);
-      var clearIconBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { draft.icon = null; renderPrev(); } }, ['Default icon']);
+      var uploadBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { fileInput.click(); } }, ['Upload your own…']);
 
       renderPrev();
+      renderIcons();
       var body = el('div.rb-home-cust', null, [
         previewHost,
         R.ui.row('Label', labelInput),
         R.ui.row('Display', displayCtl.el),
+        R.ui.row('Layout', layoutCtl.el),
+        bgToggle.el,
         badgeToggle.el,
-        el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, clearIconBtn, fileInput])
+        el('div.rb-section-label', { text: 'Icon' }),
+        iconGrid,
+        el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, fileInput])
       ]);
 
       var resetBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { delete meta[action.id]; persist(); render(); handle.close('confirm'); } }, ['Reset']);
       var cancelBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { handle.close('close'); } }, ['Cancel']);
       var saveBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { setMeta(action.id, draft); handle.close('confirm'); } }, ['Save']);
-      var handle = R.ui.modal({ title: 'Customize tile', width: 380, className: 'rb-modal-home', body: body, footer: [resetBtn, cancelBtn, saveBtn], initialFocus: labelInput });
+      var handle = R.ui.modal({ title: 'Customize tile', width: 400, className: 'rb-modal-home', body: body, footer: [resetBtn, cancelBtn, saveBtn], initialFocus: labelInput });
     }
 
     function buildWidget(action) {
