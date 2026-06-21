@@ -396,6 +396,15 @@
 }
 .rb-home-sizebtn.is-active { border-color: var(--rb-accent); color: var(--rb-accent); }
 .rb-home-sizebtn:hover { color: var(--rb-text); }
+/* Board accent picker in the edit bar, and the per-widget colour swatch. */
+.rb-home-boardcolor { width: 26px; height: 20px; }
+.rb-home-wcolor {
+  display: none; width: 22px; height: 20px; padding: 0; flex: none; cursor: pointer;
+  border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1); background: none;
+}
+.rb-home-wcolor::-webkit-color-swatch-wrapper { padding: 2px; }
+.rb-home-wcolor::-webkit-color-swatch { border: none; border-radius: 2px; }
+.rb-home-widget.is-editmode .rb-home-wcolor { display: inline-block; }
 
 /* Drag-to-resize handle (bottom-right). Big and accent-coloured, revealed on
    tile hover (see the affordance reveal rules above). */

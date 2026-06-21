@@ -32,7 +32,7 @@
       name: name,
       items: (d.items && d.items.length) ? d.items.slice() : (emptyItems ? [] : R.homeActions.DEFAULT.slice()),
       spans: d.spans || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, filled: d.filled || {},
-      board: d.board || 'md', cols: d.cols || 4
+      board: d.board || 'md', cols: d.cols || 4, theme: d.theme || null
     };
   }
   function load() {
@@ -146,7 +146,14 @@
       ids = b.items; collapsed = b.collapsed; meta = b.meta; spans = b.spans; filled = b.filled; board = b.board; cols = b.cols;
       grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + board);
       grid.style.setProperty('--rb-home-cols', cols);
-      syncBoardBtns(); syncColsBtns();
+      syncBoardBtns(); syncColsBtns(); applyBoardTheme();
+    }
+    // Per-board (per-grid) theme: scope the accent to the active board's grid, so
+    // each board can have its own colour. Cards and widgets inherit it.
+    function applyBoardTheme() {
+      var th = boards[activeIdx].theme;
+      if (th && th.accent) grid.style.setProperty('--rb-accent', th.accent); else grid.style.removeProperty('--rb-accent');
+      if (boardColorInput) boardColorInput.value = (th && th.accent) || accentHex();
     }
     function destroyAllWidgets() {
       Object.keys(widgetCache).forEach(function (id) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; });
@@ -301,8 +308,12 @@
     var colsBtns = {};
     function colsBtn(n) { var x = el('button.rb-home-sizebtn', { type: 'button', title: n + ' columns', onclick: function () { setCols(n); } }, [String(n)]); colsBtns[n] = x; return x; }
     var colsControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Columns' }), colsBtn(3), colsBtn(4), colsBtn(5), colsBtn(6)]);
+    var boardColorInput = el('input.rb-appe-color.rb-home-boardcolor', { type: 'color', title: 'Board accent colour' });
+    boardColorInput.addEventListener('input', function () { boards[activeIdx].theme = { accent: boardColorInput.value }; grid.style.setProperty('--rb-accent', boardColorInput.value); persist(); });
+    var boardColorClear = el('button.rb-home-sizebtn', { type: 'button', title: 'Use the global theme', onclick: function () { boards[activeIdx].theme = null; grid.style.removeProperty('--rb-accent'); boardColorInput.value = accentHex(); persist(); } }, ['Auto']);
+    var boardThemeControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Board' }), boardColorInput, boardColorClear]);
     var hintText = el('span.rb-grow', { text: '' });
-    var hint = el('div.rb-home-hint', null, [hintText, colsControl, boardControl]);
+    var hint = el('div.rb-home-hint', null, [hintText, boardThemeControl, colsControl, boardControl]);
 
     // Board tabs: switch panels; in edit mode add / rename (double-click) / delete.
     var tabsBar = el('div.rb-home-tabs');
@@ -335,6 +346,7 @@
     grid.style.setProperty('--rb-home-cols', cols);
     syncBoardBtns();
     syncColsBtns();
+    applyBoardTheme();
 
     function syncEdit() {
       editBtn.classList.toggle('is-active', editing);
@@ -665,18 +677,21 @@
         onclick: function (e) { e.stopPropagation(); toggleFill(action.id); } }, [filledOf(action.id) ? '▣' : '▢']);
       var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
+      var wColor = el('input.rb-home-wcolor', { type: 'color', title: 'Widget colour (double-click to clear)' });
+      wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; card.style.setProperty('--rb-accent', wColor.value); persist(); });
+      wColor.addEventListener('dblclick', function () { if (meta[action.id]) delete meta[action.id].color; card.style.removeProperty('--rb-accent'); persist(); });
       var header = el('div.rb-home-widget-head', null, [
         el('span.rb-home-grip', { title: 'Drag to move' }, ['⠿']),
         iconSpan(action.toolId, 'rb-home-ico-sm'),
         el('span.rb-grow', { text: action.label }),
-        fillBtn, collapseBtn, maxBtn,
+        wColor, fillBtn, collapseBtn, maxBtn,
         el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×'])
       ]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
       attachResize(card, action.id, 'widget');
-      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, fillBtn: fillBtn };
+      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, fillBtn: fillBtn, wColor: wColor };
       return card;
     }
 
@@ -722,6 +737,9 @@
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
       if (entry.fillBtn) { entry.fillBtn.textContent = filledOf(action.id) ? '▣' : '▢'; entry.fillBtn.classList.toggle('is-active', filledOf(action.id)); }
+      var mc = (meta[action.id] || {}).color;
+      if (mc) card.style.setProperty('--rb-accent', mc); else card.style.removeProperty('--rb-accent');
+      if (entry.wColor) entry.wColor.value = mc || accentHex();
       applyFocus(action);
     }
 
