@@ -10,6 +10,21 @@
   var el = R.dom.el;
   var ui = R.ui;
 
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function clampY(v) { return v < -0.3 ? -0.3 : v > 1.3 ? 1.3 : v; }
+
+  // The ease curve the current fields describe: influence sets the handle
+  // x-positions (flatness), speed lifts the handles (slope / overshoot).
+  function velocityCurve(st) {
+    return {
+      type: 'bezier',
+      x1: clamp01((st.outInfluence || 0) / 100),
+      y1: st.setSpeed ? clampY((st.outSpeed || 0) * 0.004) : 0,
+      x2: clamp01(1 - (st.inInfluence || 0) / 100),
+      y2: st.setSpeed ? clampY(1 - (st.inSpeed || 0) * 0.004) : 1
+    };
+  }
+
   R.tools.register({
     id: 'velocity',
     title: 'Velocity',
@@ -30,23 +45,36 @@
     // value to the matching "out" field so the ease stays symmetric.
     var inInfluence = ui.numberField({ label: 'Influence In', value: 33.33, min: 0.1, max: 100,
       step: 0.1, decimals: 2, suffix: '%', width: '100%',
-      onChange: function (v) { if (linked) outInfluence.set(v); } });
+      onChange: function (v) { if (linked) outInfluence.set(v); renderPreview(); } });
     var outInfluence = ui.numberField({ label: 'Influence Out', value: 33.33, min: 0.1, max: 100,
-      step: 0.1, decimals: 2, suffix: '%', width: '100%' });
+      step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function () { renderPreview(); } });
     var inSpeed = ui.numberField({ label: 'Speed In', value: 0, step: 1, decimals: 2, width: '100%',
-      onChange: function (v) { if (linked) outSpeed.set(v); } });
-    var outSpeed = ui.numberField({ label: 'Speed Out', value: 0, step: 1, decimals: 2, width: '100%' });
+      onChange: function (v) { if (linked) outSpeed.set(v); renderPreview(); } });
+    var outSpeed = ui.numberField({ label: 'Speed Out', value: 0, step: 1, decimals: 2, width: '100%', onChange: function () { renderPreview(); } });
+
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    var curveLabel = el('div.rb-faint', { style: { textAlign: 'center', fontSize: '11px', marginTop: '2px' }, text: '' });
+    function curState() { return { inInfluence: inInfluence.get(), outInfluence: outInfluence.get(), inSpeed: inSpeed.get(), outSpeed: outSpeed.get(), setInfluence: setInfluence, setSpeed: setSpeed }; }
+    function renderPreview() {
+      var c = velocityCurve(curState());
+      R.dom.clear(previewHost);
+      var chip = R.ui.curveChip(c, { width: 240, height: 92, pad: 8 });
+      chip.setAttribute('width', '100%'); chip.style.height = 'auto';
+      previewHost.appendChild(chip);
+      curveLabel.textContent = R.ui.curveName(c);
+    }
 
     var linkToggle = ui.toggle({ label: 'Link in and out', value: linked,
       title: 'Mirror the in values to the out side so the ease stays symmetric.',
       onChange: function (v) {
         linked = v;
         if (linked) { outInfluence.set(inInfluence.get()); outSpeed.set(inSpeed.get()); }
+        renderPreview();
       } });
     var influenceToggle = ui.toggle({ label: 'Set influence', value: setInfluence,
-      onChange: function (v) { setInfluence = v; } });
+      onChange: function (v) { setInfluence = v; renderPreview(); } });
     var speedToggle = ui.toggle({ label: 'Set speed', value: setSpeed,
-      onChange: function (v) { setSpeed = v; } });
+      onChange: function (v) { setSpeed = v; renderPreview(); } });
     var inSideToggle = ui.toggle({ label: 'Apply to in side', value: applyIn,
       onChange: function (v) { applyIn = v; } });
     var outSideToggle = ui.toggle({ label: 'Apply to out side', value: applyOut,
@@ -56,8 +84,11 @@
       return el('div', { style: { flex: '1 1 96px', minWidth: '96px' } }, [node]);
     }
 
+    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Sets the incoming and outgoing influence (and optionally speed) of the selected keyframes directly.' }),
+      previewHost,
+      curveLabel,
       el('div.rb-section-label', { text: 'Influence' }),
       el('div.rb-row.rb-wrap', null, [half(inInfluence.el), half(outInfluence.el)]),
       el('div.rb-section-label', { text: 'Speed' }),
@@ -119,6 +150,7 @@
       if (s.linked != null) { linked = s.linked; linkToggle.set(s.linked); }
       if (s.applyIn != null) { applyIn = s.applyIn; inSideToggle.set(s.applyIn); }
       if (s.applyOut != null) { applyOut = s.applyOut; outSideToggle.set(s.applyOut); }
+      renderPreview();
     }
 
     function doRead() {
