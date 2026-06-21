@@ -27,8 +27,8 @@
 
   function load() {
     var d = R.disk.read('home-layout', null);
-    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {}, collapsed: d.collapsed || {}, meta: d.meta || {} };
-    return { items: R.homeActions.DEFAULT.slice(), widths: {}, collapsed: {}, meta: {} };
+    if (d && d.items && d.items.length) return { items: d.items.slice(), widths: d.widths || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, sizes: d.sizes || {}, board: d.board || 'md' };
+    return { items: R.homeActions.DEFAULT.slice(), widths: {}, collapsed: {}, meta: {}, sizes: {}, board: 'md' };
   }
 
   // Stretch a widget's schematic preview graphs to fill its width so there is no
@@ -50,6 +50,8 @@
     var widths = saved.widths || {};
     var collapsed = saved.collapsed || {};
     var meta = saved.meta || {};            // per-tile look: label, display, badge, size, icon
+    var sizes = saved.sizes || {};          // per-item drag-resized pixel size { w, h }
+    var board = saved.board || 'md';        // global density: sm | md | lg
     var maximizedId = null;
     var editing = false;
     var dragId = null;
@@ -59,7 +61,7 @@
     function metaOf(id) { return meta[id] || {}; }
     function setMeta(id, m) {
       // Drop the override entirely when it is all defaults, to keep storage clean.
-      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.size || m.size === 'normal') && (!m.icon);
+      var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.icon);
       if (isDefault) delete meta[id]; else meta[id] = m;
       persist(); render();
     }
@@ -73,7 +75,44 @@
       node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
     }
 
-    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed, meta: meta }); }
+    function persist() { R.disk.write('home-layout', { schemaVersion: 1, items: ids, widths: widths, collapsed: collapsed, meta: meta, sizes: sizes, board: board }); }
+
+    function setBoard(b) { board = b; grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + b); persist(); syncBoardBtns(); }
+    function syncBoardBtns() {
+      if (!boardBtns) return;
+      ['sm', 'md', 'lg'].forEach(function (b) { boardBtns[b].classList.toggle('is-active', board === b); });
+    }
+
+    // A corner drag-resize handle (edit mode), MTP-style: drag to size an item.
+    // axes 'both' resizes width + height (tiles); 'x' width only (widgets).
+    function attachResize(node, id, axes, minW, minH) {
+      var handle = el('span.rb-home-resize', { title: 'Drag to resize' });
+      handle.addEventListener('pointerdown', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var r = node.getBoundingClientRect();
+        var sx = e.clientX, sy = e.clientY, sw = r.width, sh = r.height, drafted = null;
+        try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        function mv(ev) {
+          var w = Math.max(minW, Math.round(sw + (ev.clientX - sx)));
+          var h = Math.max(minH, Math.round(sh + (ev.clientY - sy)));
+          node.style.flex = '0 0 auto';
+          node.style.width = w + 'px';
+          node.style.maxWidth = 'none';
+          if (axes === 'both') { node.style.height = h + 'px'; node.style.minHeight = h + 'px'; }
+          drafted = (axes === 'both') ? { w: w, h: h } : { w: w };
+        }
+        function up() {
+          handle.removeEventListener('pointermove', mv);
+          handle.removeEventListener('pointerup', up);
+          if (drafted) { sizes[id] = drafted; persist(); render(); }
+        }
+        handle.addEventListener('pointermove', mv);
+        handle.addEventListener('pointerup', up);
+      });
+      // Double-click the handle to reset to the default size.
+      handle.addEventListener('dblclick', function (e) { e.preventDefault(); e.stopPropagation(); delete sizes[id]; persist(); render(); });
+      node.appendChild(handle);
+    }
 
     var WIDTHS = ['full', 'half', 'twothirds', 'third'];
     function widthOf(id) { return widths[id] || 'full'; }
@@ -81,6 +120,7 @@
     function cycleWidth(id) {
       var next = WIDTHS[(WIDTHS.indexOf(widthOf(id)) + 1) % WIDTHS.length];
       if (next === 'full') delete widths[id]; else widths[id] = next;
+      delete sizes[id]; // a width preset overrides a drag size
       persist(); render();
     }
     function collapsedOf(id) { return !!collapsed[id]; }
@@ -101,7 +141,12 @@
 
     var addBtn = iconBtn(ICON_ADD, 'Add to Home', openBrowser);
     var editBtn = iconBtn(ICON_EDIT, 'Edit board', function () { editing = !editing; syncEdit(); render(); });
-    var hint = el('div.rb-home-hint', { text: '' });
+
+    var boardBtns = {};
+    function boardBtn(b, lbl) { var x = el('button.rb-home-sizebtn', { type: 'button', title: 'Tile size ' + lbl, onclick: function () { setBoard(b); } }, [lbl]); boardBtns[b] = x; return x; }
+    var boardControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Size' }), boardBtn('sm', 'S'), boardBtn('md', 'M'), boardBtn('lg', 'L')]);
+    var hintText = el('span.rb-grow', { text: '' });
+    var hint = el('div.rb-home-hint', null, [hintText, boardControl]);
 
     var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
     var actions = [addBtn, editBtn];
@@ -110,11 +155,13 @@
     var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 
     var root = el('div.rb-home', null, [head, hint, grid]);
+    grid.classList.add('is-' + board);
+    syncBoardBtns();
 
     function syncEdit() {
       editBtn.classList.toggle('is-active', editing);
       editBtn.title = editing ? 'Done editing' : 'Edit board';
-      hint.textContent = editing ? 'Drag to arrange, ▭ / ½ to resize a widget, × to remove, + to add.' : '';
+      hintText.textContent = editing ? 'Drag to arrange · drag a tile corner to resize · × to remove' : '';
       root.classList.toggle('is-editing', editing);
     }
 
@@ -127,7 +174,7 @@
 
     function removeItem(id) {
       ids = ids.filter(function (x) { return x !== id; });
-      delete widths[id]; delete collapsed[id];
+      delete widths[id]; delete collapsed[id]; delete sizes[id]; delete meta[id];
       if (maximizedId === id) maximizedId = null;
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
       persist(); render();
@@ -174,9 +221,15 @@
     function tileClass(action, m, base) {
       var c = base;
       if (action && action.id === lastAddedId) c += '.rb-pop';
-      if (m.size === 'wide') c += '.is-wide';
       c += '.is-disp-' + (m.display || 'icon');
       return c;
+    }
+    function applySize(node, id, both) {
+      var sz = sizes[id];
+      if (sz) {
+        node.style.flex = '0 0 auto'; node.style.width = sz.w + 'px'; node.style.maxWidth = 'none';
+        if (both && sz.h) { node.style.height = sz.h + 'px'; node.style.minHeight = sz.h + 'px'; }
+      }
     }
     function tile(action) {
       var m = metaOf(action.id);
@@ -185,12 +238,14 @@
         title: action.kind === 'apply' ? ('Apply ' + (m.label || action.label)) : ('Open ' + (m.label || action.label)),
         onclick: function () { if (editing) return; runAction(action); if (action.kind === 'apply') playOnce(node, 'rb-pulse'); }
       }, tileContent(action, m));
+      applySize(node, action.id, true);
       if (editing) {
         node.classList.add('is-editmode');
         node.setAttribute('draggable', 'true');
         node.appendChild(el('span.rb-home-cog', { title: 'Customize tile', onclick: function (e) { e.stopPropagation(); customizeTile(action); } }, ['✎']));
         node.appendChild(el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']));
         wireDrag(node, action.id);
+        attachResize(node, action.id, 'both', 44, 40);
       }
       return node;
     }
@@ -203,7 +258,7 @@
     function customizeTile(action) {
       if (!R.ui.modal) return;
       var b = metaOf(action.id);
-      var draft = { label: b.label || '', display: b.display || 'icon', badge: b.badge === true, size: b.size || 'normal', icon: b.icon || null };
+      var draft = { label: b.label || '', display: b.display || 'icon', badge: b.badge === true, icon: b.icon || null };
 
       var previewHost = el('div.rb-home-cust-preview');
       function renderPrev() { R.dom.clear(previewHost); previewHost.appendChild(previewTile(action, draft)); }
@@ -213,9 +268,6 @@
       var displayCtl = R.ui.segmented([
         { value: 'icon', label: 'Icon' }, { value: 'visual', label: 'Visual' }, { value: 'text', label: 'Text' }, { value: 'icononly', label: 'Icon only' }
       ], { value: draft.display, onChange: function (v) { draft.display = v; renderPrev(); } });
-      var sizeCtl = R.ui.segmented([
-        { value: 'normal', label: 'Normal' }, { value: 'wide', label: 'Wide' }
-      ], { value: draft.size, onChange: function (v) { draft.size = v; renderPrev(); } });
       var badgeToggle = R.ui.toggle({ label: 'Show badge', value: draft.badge, onChange: function (v) { draft.badge = v; renderPrev(); } });
 
       var fileInput = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' },
@@ -234,7 +286,6 @@
         previewHost,
         R.ui.row('Label', labelInput),
         R.ui.row('Display', displayCtl.el),
-        R.ui.row('Size', sizeCtl.el),
         badgeToggle.el,
         el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, clearIconBtn, fileInput])
       ]);
@@ -297,6 +348,7 @@
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [header, shield, host, footer]);
       wireDrag(card, action.id);
+      attachResize(card, action.id, 'x', 200, 0);
       widgetCache[action.id] = { card: card, destroy: destroy, widthBtn: widthBtn, collapseBtn: collapseBtn, maxBtn: maxBtn };
       return card;
     }
@@ -312,6 +364,9 @@
       card.classList.toggle('is-collapsed', collapsedOf(action.id));
       card.classList.toggle('is-maximized', maximizedId === action.id);
       card.setAttribute('draggable', editing ? 'true' : 'false');
+      var sz = sizes[action.id];
+      if (sz && maximizedId !== action.id) { card.style.flex = '0 0 ' + sz.w + 'px'; card.style.width = sz.w + 'px'; card.style.maxWidth = 'none'; }
+      else { card.style.flex = ''; card.style.width = ''; card.style.maxWidth = ''; }
       entry.widthBtn.textContent = widthGlyph(action.id);
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';

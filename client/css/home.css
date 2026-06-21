@@ -21,11 +21,15 @@
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
 }
 
+.rb-home-grid.is-sm { --rb-home-cell: 50px; }
+.rb-home-grid.is-md { --rb-home-cell: 62px; }
+.rb-home-grid.is-lg { --rb-home-cell: 80px; }
+
 .rb-home-tile {
   position: relative;
-  flex: 1 1 58px; max-width: 86px;
+  flex: 1 1 var(--rb-home-cell, 62px); max-width: calc(var(--rb-home-cell, 62px) * 1.45);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-  min-height: 54px; padding: 6px 4px;
+  min-height: var(--rb-home-cell, 62px); padding: 6px 4px;
   border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
   background: var(--rb-bg-raised, var(--rb-bg-sunken)); color: var(--rb-text);
   cursor: pointer; font: inherit; text-align: center;
@@ -234,17 +238,33 @@
 }
 
 /* ---- Responsive: adapt the board to the panel/dock size ------------------ */
-/* Narrow (thin vertical dock): stack widgets full width, smaller tiles. */
+/* Narrow (thin vertical dock): stack widgets full width. Tile density is set by
+   the board Size control (S / M / L), and the grid reflows to the panel width. */
 @media (max-width: 360px) {
-  .rb-home-tile { flex: 1 1 52px; max-width: 80px; min-height: 50px; }
   .rb-home-widget.is-half,
   .rb-home-widget.is-third,
   .rb-home-widget.is-twothirds { flex: 1 1 100%; min-width: 0; }
 }
-/* Wide (horizontal dock): a little roomier, still dense. */
-@media (min-width: 680px) {
-  .rb-home-tile { flex: 1 1 72px; max-width: 104px; }
+
+/* ---- Board Size control + drag-resize handle ----------------------------- */
+.rb-home-hint { display: flex; align-items: center; gap: var(--rb-gap-2); }
+.rb-home-sizectl { display: none; align-items: center; gap: 3px; }
+.rb-home.is-editing .rb-home-sizectl { display: inline-flex; }
+.rb-home-sizectl .rb-faint { font-size: calc(var(--rb-font-size) - 1px); }
+.rb-home-sizebtn {
+  width: 22px; height: 20px; border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
+  background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; font-size: 11px;
+  transition: color var(--rb-transition), border-color var(--rb-transition);
 }
-@media (min-width: 1000px) {
-  .rb-home-tile { flex: 1 1 84px; max-width: 116px; }
+.rb-home-sizebtn.is-active { border-color: var(--rb-accent); color: var(--rb-accent); }
+.rb-home-sizebtn:hover { color: var(--rb-text); }
+
+/* Drag-to-resize handle (bottom-right), only visible in edit mode. */
+.rb-home-resize { display: none; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; z-index: 5; touch-action: none; }
+.rb-home-resize::after {
+  content: ''; position: absolute; right: 3px; bottom: 3px; width: 7px; height: 7px;
+  border-right: 2px solid var(--rb-text-faint); border-bottom: 2px solid var(--rb-text-faint); border-radius: 0 0 2px 0;
 }
+.rb-home.is-editing .rb-home-tile.is-editmode .rb-home-resize,
+.rb-home.is-editing .rb-home-widget.is-editmode .rb-home-resize { display: block; }
+.rb-home-resize:hover::after { border-color: var(--rb-accent); }
