@@ -1,0 +1,25 @@
+/*
+ * Rebound, tooltip. A small themed bubble that replaces the native title popup.
+ */
+.rb-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1400;
+  max-width: 240px;
+  padding: 5px 9px;
+  background: var(--rb-bg-raised);
+  color: var(--rb-text);
+  border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  font-size: calc(var(--rb-font-size) - 1px);
+  line-height: 1.3;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(2px);
+  transition: opacity 120ms var(--rb-ease-standard), transform 120ms var(--rb-ease-standard);
+}
+.rb-tooltip.is-visible { opacity: 1; transform: none; }
+.rb-tooltip[data-placement='right'] { transform: translateX(-2px); }
+.rb-tooltip[data-placement='right'].is-visible { transform: none; }
