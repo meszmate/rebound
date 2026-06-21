@@ -25,10 +25,24 @@
     return span;
   }
 
+  // One board's full state. Several boards live side by side, switched via tabs.
+  function boardFrom(name, d, emptyItems) {
+    d = d || {};
+    return {
+      name: name,
+      items: (d.items && d.items.length) ? d.items.slice() : (emptyItems ? [] : R.homeActions.DEFAULT.slice()),
+      spans: d.spans || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, filled: d.filled || {},
+      board: d.board || 'md', cols: d.cols || 4
+    };
+  }
   function load() {
     var d = R.disk.read('home-layout', null);
-    if (d && d.items && d.items.length) return { items: d.items.slice(), collapsed: d.collapsed || {}, meta: d.meta || {}, spans: d.spans || {}, filled: d.filled || {}, board: d.board || 'md', cols: d.cols || 4 };
-    return { items: R.homeActions.DEFAULT.slice(), collapsed: {}, meta: {}, spans: {}, filled: {}, board: 'md', cols: 4 };
+    if (d && d.boards && d.boards.length) {
+      var idx = (typeof d.activeIdx === 'number' && d.activeIdx >= 0 && d.activeIdx < d.boards.length) ? d.activeIdx : 0;
+      return { boards: d.boards.map(function (b) { return boardFrom(b.name || 'Board', b); }), activeIdx: idx };
+    }
+    // Migrate a single saved layout (schema <= 2), or start fresh, as Board 1.
+    return { boards: [boardFrom('Board 1', d)], activeIdx: 0 };
   }
 
   // The primary, full-bleed element of a tool's widget when "Fill" is on, and the
@@ -81,13 +95,17 @@
 
   function create(opts) {
     var saved = load();
-    var ids = saved.items;
-    var collapsed = saved.collapsed || {};
-    var meta = saved.meta || {};            // per-tile look: label, display, badge, icon
-    var spans = saved.spans || {};          // per-item grid span { c, r } (cells)
-    var filled = saved.filled || {};        // per-widget Fill (just the main control) state
-    var board = saved.board || 'md';        // cell size: sm | md | lg
-    var cols = saved.cols || 4;             // number of grid columns
+    var boards = saved.boards;              // all boards (panels)
+    var activeIdx = saved.activeIdx;        // which board is showing
+    // The live working set IS the active board's data; switchBoard swaps it.
+    var act = boards[activeIdx];
+    var ids = act.items;
+    var collapsed = act.collapsed;
+    var meta = act.meta;                    // per-tile look: label, display, badge, icon
+    var spans = act.spans;                  // per-item grid span { c, r } (cells)
+    var filled = act.filled;                // per-widget Fill (just the main control) state
+    var board = act.board;                  // cell size: sm | md | lg
+    var cols = act.cols;                    // number of grid columns
     var maximizedId = null;
     var editing = false;
     var dragId = null;
@@ -114,7 +132,49 @@
       node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
     }
 
-    function persist() { R.disk.write('home-layout', { schemaVersion: 2, items: ids, collapsed: collapsed, meta: meta, spans: spans, filled: filled, board: board, cols: cols }); }
+    function syncToBoard() {
+      var b = boards[activeIdx];
+      b.items = ids; b.collapsed = collapsed; b.meta = meta; b.spans = spans; b.filled = filled; b.board = board; b.cols = cols;
+    }
+    function persist() { syncToBoard(); R.disk.write('home-layout', { schemaVersion: 3, boards: boards, activeIdx: activeIdx }); }
+
+    // ---- Multiple boards (panels) ----
+    function loadActive() {
+      var b = boards[activeIdx];
+      ids = b.items; collapsed = b.collapsed; meta = b.meta; spans = b.spans; filled = b.filled; board = b.board; cols = b.cols;
+      grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + board);
+      grid.style.setProperty('--rb-home-cols', cols);
+      syncBoardBtns(); syncColsBtns();
+    }
+    function destroyAllWidgets() {
+      Object.keys(widgetCache).forEach(function (id) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; });
+    }
+    function switchBoard(idx) {
+      if (idx === activeIdx || idx < 0 || idx >= boards.length) return;
+      syncToBoard(); destroyAllWidgets(); maximizedId = null;
+      activeIdx = idx; loadActive();
+      persist(); renderTabs(); render();
+    }
+    function addBoard() {
+      syncToBoard();
+      boards.push(boardFrom('Board ' + (boards.length + 1), null, true));
+      switchBoard(boards.length - 1);
+    }
+    function deleteBoard(idx) {
+      if (boards.length <= 1) return;
+      var wasActive = (idx === activeIdx);
+      if (wasActive) destroyAllWidgets();
+      boards.splice(idx, 1);
+      if (idx < activeIdx || activeIdx >= boards.length) activeIdx = Math.max(0, Math.min(activeIdx - (idx < activeIdx ? 1 : 0), boards.length - 1));
+      if (wasActive) { maximizedId = null; loadActive(); render(); }
+      persist(); renderTabs();
+    }
+    function renameBoard(idx) {
+      if (!R.ui.modal) return;
+      var input = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: boards[idx].name });
+      var saveB = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { var v = (input.value || '').trim(); if (v) { boards[idx].name = v; persist(); renderTabs(); } h.close('confirm'); } }, ['Rename']);
+      var h = R.ui.modal({ title: 'Rename board', width: 320, className: 'rb-modal-home', body: R.ui.row('Name', input), footer: [saveB], initialFocus: input });
+    }
 
     function filledOf(id) { return (id in filled) ? !!filled[id] : !!DEFAULT_FILLED[id]; }
     function toggleFill(id) { filled[id] = !filledOf(id); persist(); render(); }
@@ -237,6 +297,23 @@
     var hintText = el('span.rb-grow', { text: '' });
     var hint = el('div.rb-home-hint', null, [hintText, colsControl, boardControl]);
 
+    // Board tabs: switch panels; in edit mode add / rename (double-click) / delete.
+    var tabsBar = el('div.rb-home-tabs');
+    function renderTabs() {
+      R.dom.clear(tabsBar);
+      var show = boards.length > 1 || editing;
+      tabsBar.style.display = show ? '' : 'none';
+      if (!show) return;
+      boards.forEach(function (b, i) {
+        var tab = el('button.rb-home-tab' + (i === activeIdx ? '.is-active' : ''), { type: 'button', title: editing ? (b.name + ' (double-click to rename)') : b.name,
+          onclick: function () { switchBoard(i); } }, [el('span.rb-home-tab-name', { text: b.name })]);
+        tab.addEventListener('dblclick', function () { if (editing) renameBoard(i); });
+        if (editing && boards.length > 1) tab.appendChild(el('span.rb-home-tab-x', { title: 'Delete board', onclick: function (e) { e.stopPropagation(); deleteBoard(i); } }, ['×']));
+        tabsBar.appendChild(tab);
+      });
+      if (editing) tabsBar.appendChild(el('button.rb-home-tab.rb-home-tab-add', { type: 'button', title: 'New board', onclick: addBoard }, ['+']));
+    }
+
     var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
     var actions = [addBtn, editBtn];
     if (opts.onBrowse) actions.push(iconBtn(ICON_BROWSE, 'Browse all tools', opts.onBrowse));
@@ -246,7 +323,7 @@
     if (opts.openSettings) actions.push(iconBtn(ICON_GEAR, 'Settings', opts.openSettings));
     var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 
-    var root = el('div.rb-home', null, [head, hint, grid, tip]);
+    var root = el('div.rb-home', null, [head, tabsBar, hint, grid, tip]);
     grid.classList.add('is-' + board);
     grid.style.setProperty('--rb-home-cols', cols);
     syncBoardBtns();
@@ -258,6 +335,7 @@
       editBtn.setAttribute('aria-label', editing ? 'Done editing' : 'Edit board');
       hintText.textContent = editing ? 'Drag to arrange · drag a tile corner to resize · × to remove' : '';
       root.classList.toggle('is-editing', editing);
+      renderTabs();
       if (editing) hideTip();
     }
 

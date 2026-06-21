@@ -18,6 +18,22 @@
 .rb-home-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 700; color: var(--rb-text); }
 .rb-home-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); min-height: 0; flex: none; }
 
+/* ---- Board tabs (multi-panel) -------------------------------------------- */
+.rb-home-tabs { display: flex; align-items: center; gap: 4px; flex: none; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+.rb-home-tab {
+  display: inline-flex; align-items: center; gap: 4px; flex: none;
+  padding: 4px 10px; border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken); color: var(--rb-text-muted); cursor: pointer; font: inherit;
+  font-size: calc(var(--rb-font-size) - 1px);
+  transition: color var(--rb-transition), border-color var(--rb-transition), background var(--rb-transition);
+}
+.rb-home-tab:hover { color: var(--rb-text); border-color: var(--rb-border-strong); }
+.rb-home-tab.is-active { color: var(--rb-accent); border-color: var(--rb-accent); background: color-mix(in srgb, var(--rb-accent) 12%, transparent); }
+.rb-home-tab-name { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.rb-home-tab-x { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-right: -3px; border-radius: 999px; color: var(--rb-text-faint); font-size: 13px; }
+.rb-home-tab-x:hover { color: #fff; background: var(--rb-danger); }
+.rb-home-tab-add { color: var(--rb-text-muted); font-size: 15px; padding: 4px 9px; }
+
 /* A real rectangular grid: a fixed number of equal columns the user picks, with
    uniform cells. Items span whole cells (1x1, 2x1, 2x2...), so the board always
    stays aligned. Dense flow backfills gaps left by wider/taller tiles. */
