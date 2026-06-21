@@ -56,6 +56,16 @@
     return keys.filter(function (k) { return ICONS[k]; });
   }
 
+  // Current theme accent as a hex, for seeding the per-tile colour picker.
+  function accentHex() {
+    var v = window.getComputedStyle(document.documentElement).getPropertyValue('--rb-accent').trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
+    var m = /rgba?\(\s*([0-9.]+)[,\s]+([0-9.]+)[,\s]+([0-9.]+)/i.exec(v);
+    if (!m) return '#5496fa';
+    function h(n) { var x = Math.max(0, Math.min(255, Math.round(parseFloat(n)))).toString(16); return x.length < 2 ? '0' + x : x; }
+    return '#' + h(m[1]) + h(m[2]) + h(m[3]);
+  }
+
   // Stretch a widget's schematic preview graphs to fill its width so there is no
   // letterboxed empty space. Interactive curve editors and curve chips are left
   // alone so their shape is not distorted.
@@ -90,7 +100,7 @@
       var noArgs = true;
       if (m.args) for (var ak in m.args) { if (m.args.hasOwnProperty(ak)) { noArgs = false; break; } }
       var isDefault = (!m.label) && (!m.display || m.display === 'icon') && (!m.badge) && (!m.icon)
-        && (!m.iconKey) && (m.iconBg !== false) && (!m.layout || m.layout === 'vertical') && noArgs;
+        && (!m.iconKey) && (!m.svg) && (!m.color) && (m.iconBg !== false) && (!m.layout || m.layout === 'vertical') && noArgs;
       if (isDefault) delete meta[id]; else meta[id] = m;
       persist(); render();
     }
@@ -296,9 +306,14 @@
       var meta = (R.toolMeta && R.toolMeta.forTool(action.toolId)) || {};
       return meta.icon || (ICONS && ICONS.curve) || '';
     }
+    // Accept a pasted full <svg> as-is, or wrap pasted inner markup in our frame.
+    function customSvgMarkup(svg) {
+      return /<svg[\s>]/i.test(svg) ? svg : (R.toolMeta ? R.toolMeta.svg(svg) : svg);
+    }
     function tileIcon(action, m) {
       m = m || {};
       var sel = 'span.rb-home-ico' + (m.iconBg === false ? '.is-nobg' : '');
+      if (m.svg) { var sv = el(sel + '.is-custom'); sv.innerHTML = customSvgMarkup(m.svg); return sv; }
       if (m.icon) return el(sel + '.is-custom', null, [el('img', { src: m.icon, alt: '' })]);
       var span = el(sel);
       span.innerHTML = R.toolMeta ? R.toolMeta.svg(iconInnerFor(action, m)) : '';
@@ -371,6 +386,7 @@
         type: 'button', 'data-id': action.id,
         onclick: function () { if (editing) return; runAction(action); if (action.kind === 'apply') playOnce(node, 'rb-pulse'); }
       }, tileContent(action, m));
+      if (m.color) node.style.setProperty('--rb-accent', m.color);
       applySpan(node, action.id, false);
       attachTip(node, label, action.desc || (action.kind === 'open' ? 'Opens the full tool' : 'One-click action'));
       if (editing) {
@@ -384,7 +400,9 @@
       return node;
     }
     function previewTile(action, m) {
-      return el(tileClass(action, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
+      var node = el(tileClass(action, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
+      if (m && m.color) node.style.setProperty('--rb-accent', m.color);
+      return node;
     }
 
     // The full tile customizer: label, display mode, layout (icon above or beside
@@ -395,8 +413,8 @@
       var b = metaOf(action.id);
       var draft = {
         label: b.label || '', display: displayFor(action, b), badge: b.badge === true,
-        icon: b.icon || null, iconKey: b.iconKey || null, iconBg: b.iconBg !== false, layout: b.layout || 'vertical',
-        args: {}
+        icon: b.icon || null, iconKey: b.iconKey || null, svg: b.svg || '', color: b.color || null,
+        iconBg: b.iconBg !== false, layout: b.layout || 'vertical', args: {}
       };
       if (b.args) for (var ak in b.args) if (b.args.hasOwnProperty(ak)) draft.args[ak] = b.args[ak];
 
@@ -447,21 +465,21 @@
         var bcls = 'button.rb-home-iconpick' + (opts.selected ? '.is-sel' : '') + (draft.iconBg === false ? '.is-nobg' : '');
         var node = el(bcls, { type: 'button', title: opts.title, onclick: opts.onclick });
         if (opts.img) node.appendChild(el('img', { src: opts.img, alt: '' }));
+        else if (opts.raw) node.innerHTML = customSvgMarkup(opts.raw);
         else node.innerHTML = R.toolMeta.svg(opts.inner);
         return node;
       }
       function renderIcons() {
         R.dom.clear(iconGrid);
-        var usingDefault = !draft.iconKey && !draft.icon;
+        var usingDefault = !draft.iconKey && !draft.icon && !draft.svg;
         iconGrid.appendChild(iconBtn({ title: 'Tool default', inner: iconInnerFor(action, { iconKey: null }), selected: usingDefault,
-          onclick: function () { draft.iconKey = null; draft.icon = null; renderPrev(); renderIcons(); } }));
-        if (draft.icon) {
-          iconGrid.appendChild(iconBtn({ title: 'Your uploaded icon', img: draft.icon, selected: true, onclick: function () {} }));
-        }
+          onclick: function () { draft.iconKey = null; draft.icon = null; draft.svg = ''; if (svgInput) svgInput.value = ''; renderPrev(); renderIcons(); } }));
+        if (draft.icon) iconGrid.appendChild(iconBtn({ title: 'Your uploaded icon', img: draft.icon, selected: true, onclick: function () {} }));
+        if (draft.svg) iconGrid.appendChild(iconBtn({ title: 'Your pasted SVG', raw: draft.svg, selected: true, onclick: function () {} }));
         var ICONS = (R.toolMeta && R.toolMeta.ICONS) || {};
         relatedIconKeys(action).forEach(function (k) {
-          iconGrid.appendChild(iconBtn({ title: k, inner: ICONS[k], selected: !draft.icon && draft.iconKey === k,
-            onclick: function () { draft.iconKey = k; draft.icon = null; renderPrev(); renderIcons(); } }));
+          iconGrid.appendChild(iconBtn({ title: k, inner: ICONS[k], selected: !draft.icon && !draft.svg && draft.iconKey === k,
+            onclick: function () { draft.iconKey = k; draft.icon = null; draft.svg = ''; if (svgInput) svgInput.value = ''; renderPrev(); renderIcons(); } }));
         });
       }
 
@@ -470,10 +488,20 @@
           var f = this.files && this.files[0];
           if (!f) return;
           var r = new window.FileReader();
-          r.onload = function () { draft.icon = r.result; draft.iconKey = null; renderPrev(); renderIcons(); };
+          r.onload = function () { draft.icon = r.result; draft.iconKey = null; draft.svg = ''; if (svgInput) svgInput.value = ''; renderPrev(); renderIcons(); };
           r.readAsDataURL(f);
         } });
       var uploadBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { fileInput.click(); } }, ['Upload your own…']);
+
+      // Paste raw SVG markup as the icon (a full <svg> or just the inner shapes).
+      var svgInput = el('textarea.rb-cfg-text.rb-home-svgin', { spellcheck: 'false', rows: '2', placeholder: 'Paste SVG markup…' });
+      svgInput.value = draft.svg || '';
+      svgInput.addEventListener('input', function () { draft.svg = svgInput.value.trim(); if (draft.svg) { draft.icon = null; draft.iconKey = null; } renderPrev(); renderIcons(); });
+
+      // Per-tile colour: scopes the accent to just this tile.
+      var colorInput = el('input.rb-appe-color', { type: 'color', value: draft.color || accentHex() });
+      colorInput.addEventListener('input', function () { draft.color = colorInput.value; renderPrev(); });
+      var colorClear = el('button.rb-appe-clear', { type: 'button', title: 'Use the theme accent', onclick: function () { draft.color = null; colorInput.value = accentHex(); renderPrev(); } }, ['Auto']);
 
       renderPrev();
       renderIcons();
@@ -483,11 +511,13 @@
         R.ui.row('Label', labelInput),
         R.ui.row('Display', displayCtl.el),
         R.ui.row('Layout', layoutCtl.el),
+        R.ui.row('Tile colour', el('div.rb-appe-cf', null, [colorInput, colorClear])),
         bgToggle.el,
         badgeToggle.el,
         el('div.rb-section-label', { text: 'Icon' }),
         iconGrid,
-        el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, fileInput])
+        el('div.rb-row', { style: { gap: '6px' } }, [uploadBtn, fileInput]),
+        svgInput
       );
       var body = el('div.rb-home-cust', null, bodyKids);
 
