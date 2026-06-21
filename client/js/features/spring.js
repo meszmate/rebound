@@ -12,16 +12,6 @@
   var el = R.dom.el;
   var ui = R.ui;
 
-  // Tuned to match Apple's SwiftUI springs (bounce = 1 - dampingFraction):
-  // Smooth = critically damped (no overshoot), Snappy = the buttery default,
-  // Bouncy = visible overshoot. Response is the perceptual duration.
-  var PRESETS = {
-    smooth: { label: 'Smooth', response: 0.5, bounce: 0 },
-    snappy: { label: 'Snappy', response: 0.42, bounce: 0.15 },
-    bouncy: { label: 'Bouncy', response: 0.5, bounce: 0.3 },
-    gentle: { label: 'Gentle', response: 0.7, bounce: 0.1 }
-  };
-
   R.tools.register({
     id: 'spring',
     title: 'Spring',
@@ -125,23 +115,7 @@
       physicalBox.classList.toggle('rb-hidden', v !== 'physical');
       refresh();
     } });
-
-    // --- Preset triplet ---
-    var presetRow = el('div.rb-row', null, Object.keys(PRESETS).map(function (key) {
-      var pre = PRESETS[key];
-      return el('button.rb-btn.is-ghost', { onclick: function () {
-        mode = 'simple';
-        modeCtl.set('simple');
-        simpleBox.classList.remove('rb-hidden');
-        physicalBox.classList.add('rb-hidden');
-        simple.response = pre.response;
-        simple.bounce = pre.bounce;
-        bounceSlider.set(pre.bounce);
-        settleSlider.set(pre.response);
-        refresh();
-      } }, [pre.label]);
-    }));
-
+    // Presets live in the gallery the shell mounts at the top of the tool.
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
@@ -150,9 +124,7 @@
       modeCtl.el,
       simpleBox,
       physicalBox,
-      velSlider.el,
-      el('div.rb-section-label', { text: 'Presets' }),
-      presetRow
+      velSlider.el
     ]));
 
     // --- Footer ---
@@ -207,6 +179,12 @@
         toolId: 'spring',
         get: getState,
         set: applyState,
+        previewFor: function (s) {
+          var c = s.mode === 'physical'
+            ? { type: 'spring', mass: s.mass, stiffness: s.stiffness, damping: s.damping, velocity: s.velocity || 0 }
+            : { type: 'spring', response: s.response, bounce: s.bounce, velocity: s.velocity || 0 };
+          return R.easing.sampler.toFunction(c);
+        },
         defaults: [
           { name: 'Smooth', state: { mode: 'simple', response: 0.5, bounce: 0, velocity: 0 } },
           { name: 'Snappy', state: { mode: 'simple', response: 0.42, bounce: 0.15, velocity: 0 } },

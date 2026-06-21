@@ -129,6 +129,7 @@
         toolId: 'bounce',
         get: getState,
         set: applyState,
+        previewFor: function (s) { return makeBounce(s.elasticity, s.maxBounces); },
         defaults: [
           { name: 'Rubber Ball', state: { elasticity: 0.8, gravity: 6, maxBounces: 6, eachKey: false } },
           { name: 'Heavy Drop', state: { elasticity: 0.4, gravity: 12, maxBounces: 3, eachKey: false } },

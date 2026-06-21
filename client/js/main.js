@@ -379,11 +379,16 @@
         demoNode = buildDemo(R.toolDemos[tool.id]);
         host.insertBefore(demoNode, host.firstChild);
       }
-      // A preset bar for tools that expose one (save/recall their settings).
-      if (api && api.presets && R.ui.presetBar) {
-        var bar = R.ui.presetBar(api.presets);
-        if (demoNode) host.insertBefore(bar, demoNode.nextSibling);
-        else host.insertBefore(bar, host.firstChild);
+      // A preset gallery (animated, named previews) when the tool can preview a
+      // preset; otherwise the compact save/recall bar.
+      if (api && api.presets) {
+        var bar = null;
+        if (api.presets.previewFor && R.ui.presetGallery) bar = R.ui.presetGallery(api.presets);
+        else if (R.ui.presetBar) bar = R.ui.presetBar(api.presets);
+        if (bar) {
+          if (demoNode) host.insertBefore(bar, demoNode.nextSibling);
+          else host.insertBefore(bar, host.firstChild);
+        }
       }
       // A "what we do differently" note, pinned above everything else.
       var meta = R.toolMeta.forTool(tool.id);

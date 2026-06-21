@@ -120,6 +120,13 @@
         toolId: 'recoil',
         get: getState,
         set: applyState,
+        previewFor: function (s) {
+          return makeRecoil(
+            R.units.clamp(s.overshoot / 150, 0.08, 0.5),
+            R.units.clamp(s.bounce, 1.2, 4),
+            R.units.clamp(s.friction / 3, 0.8, 4)
+          );
+        },
         defaults: [
           { name: 'Snappy', state: { overshoot: 80, bounce: 4, friction: 10, eachKey: true } },
           { name: 'Soft Settle', state: { overshoot: 40, bounce: 1.5, friction: 5, eachKey: false } },
