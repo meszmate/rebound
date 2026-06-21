@@ -32,24 +32,32 @@
     return [clamp01(rgb[0]), clamp01(rgb[1]), clamp01(rgb[2])];
   }
 
-  // Encode a two-stop gradient (start color at 0, end color at 1, both fully
-  // opaque) into the flat array the Grad Colors property expects:
-  //   4 numbers per color stop  (position, r, g, b)
-  //   2 numbers per alpha stop   (position, alpha)
-  function twoStopData(c0, c1) {
-    return [
-      0, c0[0], c0[1], c0[2],
-      1, c1[0], c1[1], c1[2],
-      0, 1,
-      1, 1
-    ];
+  function clampPos(v) {
+    if (v == null || isNaN(v)) return 0;
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+
+  // Encode N opaque color stops into the flat array the Grad Colors property
+  // expects: 4 numbers per color stop (position, r, g, b), then 2 numbers per
+  // alpha stop (position, alpha). Stops are sorted by position.
+  function nStopData(stops) {
+    var s = stops.slice().sort(function (a, b) { return a.pos - b.pos; });
+    var arr = [];
+    var i;
+    for (i = 0; i < s.length; i++) {
+      arr.push(s[i].pos, s[i].color[0], s[i].color[1], s[i].color[2]);
+    }
+    for (i = 0; i < s.length; i++) {
+      arr.push(s[i].pos, 1);
+    }
+    return arr;
   }
 
   // Add a gradient fill to a shape group's contents collection: ramp type,
   // point spread, and the two chosen color stops. Some builds name the points
   // differently and the colors array can be version-sensitive, so guard each.
   // Returns the number of gradient fills added.
-  function addGradientFill(contents, gradType, c0, c1, sp, ep) {
+  function addGradientFill(contents, gradType, colorsData, sp, ep) {
     var gfill = contents.addProperty(GFILL);
     gfill.property(GRAD_TYPE).setValue(gradType);
     try {
@@ -57,7 +65,7 @@
       gfill.property(GRAD_END).setValue(ep);
     } catch (e) {}
     try {
-      gfill.property(GRAD_COLORS).setValue(twoStopData(c0, c1));
+      gfill.property(GRAD_COLORS).setValue(colorsData);
     } catch (e2) {}
     return 1;
   }
@@ -65,7 +73,7 @@
   // Walk a vectors group. Every nested shape group's contents collection
   // ('ADBE Vectors Group') receives a gradient fill; nested groups recurse.
   // Returns the number of gradient fills added in this subtree.
-  function fillGroups(group, gradType, c0, c1, sp, ep) {
+  function fillGroups(group, gradType, colorsData, sp, ep) {
     // Snapshot the nested contents collections first; adding a G-Fill mutates
     // a collection while we iterate over its siblings.
     var nested = [];
@@ -78,8 +86,8 @@
 
     var added = 0;
     for (var k = 0; k < nested.length; k++) {
-      added += addGradientFill(nested[k], gradType, c0, c1, sp, ep);
-      added += fillGroups(nested[k], gradType, c0, c1, sp, ep);
+      added += addGradientFill(nested[k], gradType, colorsData, sp, ep);
+      added += fillGroups(nested[k], gradType, colorsData, sp, ep);
     }
     return added;
   }
@@ -90,8 +98,20 @@
     if (!layers || !layers.length) throw new Error('Select one or more shape layers to fill.');
 
     var gradType = (args && args.type === 'radial') ? 2 : 1;
-    var c0 = readColor(args && args.startColor, [0, 0, 0]);
-    var c1 = readColor(args && args.endColor, [1, 1, 1]);
+
+    // Multi-stop: args.stops = [{ pos, color:[r,g,b] }]. Fall back to a two-stop
+    // gradient from startColor/endColor for older callers.
+    var stops = [];
+    if (args && args.stops && args.stops.length >= 2) {
+      for (var si = 0; si < args.stops.length; si++) {
+        var st = args.stops[si];
+        stops.push({ pos: clampPos(st.pos), color: readColor(st.color, [0, 0, 0]) });
+      }
+    } else {
+      stops.push({ pos: 0, color: readColor(args && args.startColor, [0, 0, 0]) });
+      stops.push({ pos: 1, color: readColor(args && args.endColor, [1, 1, 1]) });
+    }
+    var colorsData = nStopData(stops);
 
     // Rotate the ramp endpoints by the chosen angle (0 = left-to-right).
     var ang = (args && args.angle != null) ? args.angle : 0;
@@ -109,7 +129,7 @@
         skipped++;
         continue;
       }
-      fillGroups(root, gradType, c0, c1, sp, ep);
+      fillGroups(root, gradType, colorsData, sp, ep);
       applied++;
     }
 
