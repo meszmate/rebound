@@ -126,39 +126,16 @@
       }
     }, ['Paste']);
 
-    var saveBtn = el('button.rb-btn.is-ghost', {
-      title: 'Save the current curve to your library',
-      onclick: function () {
-        var name = typeof prompt === 'function' ? prompt('Preset name', suggestName(curve)) : suggestName(curve);
-        if (!name) return;
-        var preset = R.presets.saveCustom(JSON.parse(JSON.stringify(curve)), name);
-        ctx.toast('Saved "' + preset.name + '" to the library', { kind: 'success' });
-      }
-    }, ['★ Save']);
-
-    // --- Compact preset strip ---
-    var presetStrip = el('div.rb-row.rb-wrap', { style: { gap: '6px' } });
-    (R.presets.defaults || []).slice(0, 12).forEach(function (preset) {
-      presetStrip.appendChild(presetTile(preset, function () {
-        curve = { type: 'bezier', x1: preset.curve.x1, y1: preset.curve.y1, x2: preset.curve.x2, y2: preset.curve.y2 };
-        editor.setCurve(curve);
-        syncFields();
-        updateReadout();
-      }));
-    });
-
     // --- Assemble body ---
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
-      el('div.rb-row', null, [copyBtn, pasteBtn, saveBtn]),
+      el('div.rb-row', null, [copyBtn, pasteBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
-      allToggle.el,
-      el('div.rb-section-label', { text: 'Presets' }),
-      presetStrip
+      allToggle.el
     ]));
 
     // --- Footer actions ---
@@ -213,9 +190,25 @@
         });
     }
 
+    function getState() { return { curve: JSON.parse(JSON.stringify(curve)) }; }
+    function applyState(s) {
+      if (!s || !s.curve) return;
+      curve = JSON.parse(JSON.stringify(s.curve));
+      editor.setCurve(curve);
+      syncFields();
+      updateReadout();
+    }
+
     updateReadout();
 
     return {
+      presets: {
+        toolId: 'ease',
+        get: getState,
+        set: applyState,
+        previewFor: function (s) { return s.curve; },
+        defaults: easeDefaults()
+      },
       destroy: function () {
         off();
         preview.destroy();
@@ -224,36 +217,20 @@
     };
   }
 
+  // A curated spread of the built-in easing library for the preset gallery.
+  function easeDefaults() {
+    var pick = ['linear', 'sine-inout', 'cubic-in', 'cubic-out', 'cubic-inout', 'quart-out', 'expo-inout', 'circ-out', 'back-out', 'back-inout'];
+    var byId = {};
+    (R.presets.defaults || []).forEach(function (p) { byId[p.id] = p; });
+    return pick.map(function (id) {
+      var p = byId[id];
+      return p ? { name: p.name, state: { curve: p.curve } } : null;
+    }).filter(Boolean);
+  }
+
   // --- helpers --------------------------------------------------------------
 
-  function presetTile(preset, onClick) {
-    var pts = R.easing.sampler.samplePoints(preset.curve, 40);
-    var w = 56, h = 30, pad = 4;
-    var range = R.easing.sampler.range(preset.curve, 60);
-    var lo = Math.min(0, range.min), hi = Math.max(1, range.max), span = (hi - lo) || 1;
-    var d = pts.map(function (pt, i) {
-      var x = pad + pt.x * (w - 2 * pad);
-      var y = (h - pad) - ((pt.y - lo) / span) * (h - 2 * pad);
-      return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
-    }).join(' ');
-    var svg = R.dom.svg('svg', { viewBox: '0 0 ' + w + ' ' + h, width: w, height: h }, [
-      R.dom.svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5 })
-    ]);
-    return el('div.rb-tile', { title: preset.name, onclick: onClick, style: { width: '64px', padding: '6px' } }, [
-      svg,
-      el('div.rb-tile-name', { text: preset.name })
-    ]);
-  }
-
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-
-  function suggestName(curve) {
-    var startFlat = curve.y1 <= 0.05;
-    var endFlat = curve.y2 >= 0.95;
-    var kind = startFlat && endFlat ? 'In Out' : startFlat ? 'In' : endFlat ? 'Out' : 'Custom';
-    var overshoot = curve.y1 < -0.02 || curve.y2 > 1.02;
-    return (overshoot ? 'Overshoot ' : 'Ease ') + kind;
-  }
 
   function parseCubicBezier(text) {
     if (!text) return null;
