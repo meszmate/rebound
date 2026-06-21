@@ -11,7 +11,8 @@
 
   var el = R.dom.el;
 
-  var PREVIEW_TOOLS = { ease: 1, spring: 1, recoil: 1, bounce: 1 };
+  // Tools that render their own live preview, so the shell skips the demo card.
+  var PREVIEW_TOOLS = { ease: 1, spring: 1, recoil: 1, bounce: 1, gradient: 1 };
   var STAR_ICON = '<path d="M12 3l2.6 6.3L21 10l-4.8 4.2L17.5 21 12 17.3 6.5 21l1.3-6.8L3 10l6.4-.7z"/>';
 
   var appStore = R.createStore({
