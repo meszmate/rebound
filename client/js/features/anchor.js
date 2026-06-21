@@ -8,6 +8,7 @@
   'use strict';
 
   var el = R.dom.el;
+  var ui = R.ui;
 
   var POINTS = [
     [0, 0], [0.5, 0], [1, 0],
@@ -30,6 +31,7 @@
 
   function mountAnchor(ctx) {
     var target = { x: 0.5, y: 0.5 };
+    var extents = false;
 
     var box = el('div.rb-anchor-box');
     box.appendChild(el('div.rb-anchor-cross'));
@@ -38,11 +40,14 @@
 
     POINTS.forEach(function (pt) {
       var d = el('button.rb-anchor-dot', { style: { left: (pt[0] * 100) + '%', top: (pt[1] * 100) + '%' }, title: labelFor(pt) });
-      d.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); setTarget(pt[0], pt[1]); move(ctx, pt[0], pt[1]); });
+      d.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); setTarget(pt[0], pt[1]); move(ctx, pt[0], pt[1], extents); });
       box.appendChild(d);
     });
 
     var readout = el('div.rb-anchor-readout', { text: '' });
+    var extentsToggle = ui.toggle({ label: 'Include masks & effects', value: extents,
+      title: 'Use the bounds grown to include masks, strokes, and effects, instead of the raw layer geometry.',
+      onChange: function (v) { extents = v; } });
 
     function place() {
       crosshair.style.left = (target.x * 100) + '%';
@@ -69,7 +74,7 @@
       }
       setFromEvent(e);
       function mv(ev) { setFromEvent(ev); }
-      function up() { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); move(ctx, target.x, target.y); }
+      function up() { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); move(ctx, target.x, target.y, extents); }
       document.addEventListener('pointermove', mv);
       document.addEventListener('pointerup', up);
     });
@@ -85,6 +90,7 @@
       el('div.rb-faint', { text: 'Click a handle or drag anywhere in the box to move the anchor without moving the layer. Position keyframes are compensated.' }),
       el('div.rb-anchor-stage', null, [box]),
       readout,
+      extentsToggle.el,
       el('div.rb-section-label', { text: 'Center layer in composition' }),
       centerRow
     ]));
@@ -111,8 +117,8 @@
     return ny + ' ' + nx;
   }
 
-  function move(ctx, gx, gy) {
-    ctx.invoke('anchor.move', { gx: gx, gy: gy })
+  function move(ctx, gx, gy, extents) {
+    ctx.invoke('anchor.move', { gx: gx, gy: gy, extents: !!extents })
       .then(function (res) {
         var msg = 'Moved anchor on ' + res.moved + ' layer' + (res.moved === 1 ? '' : 's');
         if (res.skipped && res.skipped.length) {

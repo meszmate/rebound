@@ -68,7 +68,9 @@
         continue;
       }
 
-      var rect = layer.sourceRectAtTime(time, false);
+      // extents=true grows the box to include masks, strokes, and effects, for
+      // a result closer to the visible content bounds than raw geometry.
+      var rect = layer.sourceRectAtTime(time, !!args.extents);
       var is3d = anchorProp.value.length > 2;
       var a0 = anchorProp.value;
       var a1 = [rect.left + gx * rect.width, rect.top + gy * rect.height];
