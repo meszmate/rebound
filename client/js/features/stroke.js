@@ -89,10 +89,23 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn', { title: 'Read the selected shape stroke into the fields', onclick: doRead }, ['Read']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+
+    // Scan the selected shape layer's current stroke (width + colour) into the
+    // fields, so you tweak the existing stroke instead of rebuilding it.
+    function doRead() {
+      ctx.invoke('stroke.read', {})
+        .then(function (res) {
+          if (!res || !res.found) { ctx.toast('Select a shape layer with a stroke to read', { kind: 'error' }); return; }
+          applyState({ width: res.width, hex: rgb01ToHex(res.rgb) });
+          ctx.toast('Read stroke from ' + (res.layerName || 'layer'), { kind: 'info' });
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not read stroke', { kind: 'error' }); });
+    }
 
     function doApply() {
       ctx.invoke('stroke.apply', { rgb: rgb, width: width })
@@ -155,6 +168,11 @@
     var g = parseInt(h.substring(2, 4), 16);
     var b = parseInt(h.substring(4, 6), 16);
     return [r / 255, g / 255, b / 255];
+  }
+  // 0..1 RGB triplet (from the host) back to '#rrggbb'.
+  function rgb01ToHex(c) {
+    function h(v) { var x = Math.max(0, Math.min(255, Math.round((v || 0) * 255))).toString(16); return x.length < 2 ? '0' + x : x; }
+    return '#' + h(c[0]) + h(c[1]) + h(c[2]);
   }
 
   function describe(sel) {

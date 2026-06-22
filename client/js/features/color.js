@@ -136,9 +136,26 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn', { title: 'Read the selected layer colour into the sliders', onclick: doRead }, ['Read']));
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+
+    // Scan the selected layer's current colour into the sliders, so you tune the
+    // existing colour instead of dialing one from scratch.
+    function doRead() {
+      ctx.invoke('color.read', {})
+        .then(function (res) {
+          if (!res || !res.found) { ctx.toast('Select a layer with a colour to read', { kind: 'error' }); return; }
+          var hsl = rgbToHsl(res.rgb);
+          hue = hsl[0]; saturation = hsl[1]; lightness = hsl[2];
+          hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
+          if (res.target) { target = res.target; targetCtl.set(res.target); }
+          updatePreview();
+          ctx.toast('Read colour from ' + (res.layerName || 'layer'), { kind: 'info' });
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not read colour', { kind: 'error' }); });
+    }
 
     function apply(rgb) {
       ctx.invoke('color.apply', { rgb: rgb, target: target })

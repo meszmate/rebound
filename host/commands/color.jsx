@@ -147,5 +147,54 @@
     return { colored: colored, skipped: skipped };
   }
 
+  // ---- Read the current colour off the selected layer -----------------------
+
+  // First operator colour (Fill or Stroke) found in a vectors tree, as [r,g,b].
+  function firstOpColor(group, opMatch, colorMatch) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var child = group.property(i);
+      if (child.matchName === opMatch) {
+        var cp = child.property(colorMatch);
+        if (cp && cp.value) return [cp.value[0], cp.value[1], cp.value[2]];
+      } else if (child.matchName === GROUP_CONTENTS) {
+        var r = firstOpColor(child, opMatch, colorMatch);
+        if (r) return r;
+      }
+    }
+    return null;
+  }
+
+  function read() {
+    var comp = util.activeComp();
+    var layers = comp.selectedLayers;
+    if (!layers || !layers.length) return { found: false };
+    var layer = layers[0];
+    var root = layer.property(ROOT);
+    if (root) {
+      var f = firstOpColor(root, FILL, FILL_COLOR);
+      if (f) return { found: true, layerName: layer.name, rgb: f, target: 'fill' };
+      var s = firstOpColor(root, STROKE, STROKE_COLOR);
+      if (s) return { found: true, layerName: layer.name, rgb: s, target: 'stroke' };
+      return { found: false };
+    }
+    if (isSolid(layer)) {
+      var c = layer.source.mainSource.color;
+      return { found: true, layerName: layer.name, rgb: [c[0], c[1], c[2]], target: 'fill' };
+    }
+    var fx = layer.property(EFFECT_PARADE);
+    if (fx) {
+      var fill = R.rig.findByName(layer, 'Rebound Fill');
+      if (!fill) {
+        for (var i = 1; i <= fx.numProperties; i++) { if (fx.property(i).matchName === FILL_EFFECT) { fill = fx.property(i); break; } }
+      }
+      if (fill) {
+        var cp = fillColorParam(fill);
+        if (cp && cp.value) return { found: true, layerName: layer.name, rgb: [cp.value[0], cp.value[1], cp.value[2]], target: 'fill' };
+      }
+    }
+    return { found: false };
+  }
+
   R.register('color.apply', apply, 'Rebound: Color');
+  R.register('color.read', read); // read-only, no undo group
 })();

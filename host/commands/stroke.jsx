@@ -136,6 +136,43 @@
     return { removed: removed };
   }
 
+  // ---- Read the current stroke off the selected shape layer -----------------
+
+  // The first Stroke operator anywhere in a vectors tree, or null.
+  function findFirstStroke(contents) {
+    for (var i = 1; i <= contents.numProperties; i++) {
+      var child = contents.property(i);
+      if (child.matchName === GROUP) {
+        var inner = child.property(GROUP_CONTENTS);
+        if (inner) {
+          var s = findStroke(inner);
+          if (s) return s;
+          var deeper = findFirstStroke(inner);
+          if (deeper) return deeper;
+        }
+      }
+    }
+    return null;
+  }
+
+  function read() {
+    var comp = util.activeComp();
+    var layers = comp.selectedLayers;
+    if (!layers || !layers.length) return { found: false };
+    for (var i = 0; i < layers.length; i++) {
+      var root = layers[i].property(ROOT);
+      if (!root) continue;
+      var stroke = findFirstStroke(root);
+      if (!stroke) continue;
+      var col = [0, 0, 0], w = 4;
+      try { var c = stroke.property(STROKE_COLOR).value; col = [c[0], c[1], c[2]]; } catch (e) {}
+      try { w = stroke.property(STROKE_WIDTH).value; } catch (e2) {}
+      return { found: true, layerName: layers[i].name, rgb: col, width: w };
+    }
+    return { found: false };
+  }
+
   R.register('stroke.apply', apply, 'Rebound: Stroke');
   R.register('stroke.remove', remove, 'Rebound: Remove Stroke');
+  R.register('stroke.read', read); // read-only, no undo group
 })();
