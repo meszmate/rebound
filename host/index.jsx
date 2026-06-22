@@ -57,6 +57,7 @@
   loadAbs(extRoot + '/shared/lib/bezier.js');
   loadAbs(extRoot + '/shared/lib/validate.js');
   loadAbs(extRoot + '/shared/lib/grad.js');
+  loadAbs(extRoot + '/shared/lib/effects.js');
   load('lib/ir.jsx');
   load('lib/grad.jsx');
 
