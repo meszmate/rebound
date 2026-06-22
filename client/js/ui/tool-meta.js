@@ -146,8 +146,7 @@
     textbreak: t('shapes', ICONS.shape, 'Split text into letters / words / lines'),
 
     // Convert & import
-    import: t('convert', ICONS.importIn, 'Bring a Figma or Illustrator design in as native, editable layers',
-      'Overlord is paid and flattens text to shapes. Rebound is free and keeps text as editable text with every parameter, rebuilds native gradients and shapes, and shows a fidelity report of exactly what transferred.'),
+    import: t('convert', ICONS.importIn, 'Bring a Figma, Illustrator, or Photoshop design in as native, editable layers'),
 
     // Color
     color: t('color', ICONS.droplet, 'Set fill, solid, or effect color'),

@@ -351,7 +351,8 @@
     var reportEl = el('div.rb-report-host');
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Bring a design from Figma or Illustrator into After Effects as native, editable layers. Send it from the design app, or import a .rbir file or pasted IR here.' }),
+      el('div.rb-faint', { text: 'Bring a design from Figma, Illustrator, or Photoshop into After Effects as native, editable layers. Text stays editable, gradients and shapes are rebuilt, and a fidelity report shows exactly what transferred.' }),
+      el('div.rb-faint', { text: 'Install the free Rebound plugin for Figma, Illustrator, or Photoshop and send straight here, or import a .rbir file or pasted IR below.' }),
       statusRow,
       el('div.rb-row.rb-wrap', null, [fileBtn, toggleBtn]),
       el('div.rb-faint', { text: 'Open a composition first; imported frames are dropped into it.' }),
