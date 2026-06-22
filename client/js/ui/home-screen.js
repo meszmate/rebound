@@ -51,7 +51,13 @@
   // widgets that fill by default (their box IS the tool).
   var WIDGET_FOCUS = {
     anchor: '.rb-anchor-stage', ease: '.rb-curve', velocity: '.rb-curve', copyease: '.rb-curve',
-    spring: '.rb-preview-stage', bounce: '.rb-preview-stage', recoil: '.rb-preview-stage', drift: '.rb-preview-stage', smooth: '.rb-curve'
+    spring: '.rb-preview-stage', bounce: '.rb-preview-stage', recoil: '.rb-preview-stage', drift: '.rb-preview-stage', smooth: '.rb-curve',
+    gradient: '.rb-grad-editor'
+  };
+  // Inside the focused element, drop these so the widget keeps just the essential
+  // control (its secondary panel lives in the full tool, via the open control).
+  var WIDGET_HIDE = {
+    gradient: ['.rb-grad-panel']
   };
 
   // Only offer icons that fit the action, by group, so the picker stays relevant.
@@ -788,6 +794,10 @@
         Array.prototype.forEach.call(parent.children, function (ch) { if (ch !== node) ch.classList.add('rb-focus-hidden'); });
         node = parent;
       }
+      // Drop the tool's secondary panel so the widget keeps only the essential
+      // control (the rest stays in the full tool, via the open control).
+      var hide = WIDGET_HIDE[action.toolId];
+      if (hide) hide.forEach(function (h) { Array.prototype.forEach.call(target.querySelectorAll(h), function (n) { n.classList.add('rb-focus-hidden'); }); });
     }
 
     function decorateWidget(action) {
