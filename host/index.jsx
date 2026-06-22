@@ -23,10 +23,23 @@
 
   var dir = hostDir();
 
+  // The extension root is the parent of the host folder; shared/ lives there.
+  var extRoot = (function () {
+    try { return File(dir).parent.fsName; } catch (e) { return dir + '/..'; }
+  })();
+
   function load(relative) {
     var f = new File(dir + '/' + relative);
     if (!f.exists) {
       throw new Error('Rebound host file missing: ' + relative);
+    }
+    $.evalFile(f);
+  }
+
+  function loadAbs(absPath) {
+    var f = new File(absPath);
+    if (!f.exists) {
+      throw new Error('Rebound host file missing: ' + absPath);
     }
     $.evalFile(f);
   }
@@ -37,6 +50,13 @@
   load('lib/core.jsx');
   load('lib/util.jsx');
   load('lib/rig.jsx');
+
+  // Shared, app-agnostic IR libraries (the same files the panel and the
+  // exporters use), then the host-side handle onto them.
+  loadAbs(extRoot + '/shared/lib/normalize.js');
+  loadAbs(extRoot + '/shared/lib/bezier.js');
+  loadAbs(extRoot + '/shared/lib/validate.js');
+  load('lib/ir.jsx');
 
   load('commands/system.jsx');
   load('commands/ease.jsx');
@@ -88,6 +108,9 @@
   load('commands/stroke.jsx');
   load('commands/textbreak.jsx');
   load('commands/gradient.jsx');
+
+  // Import / receive (rebuild a design from another app as native AE layers).
+  load('commands/import/build.jsx');
 
   $.__rebound.loaded = true;
 })();
