@@ -33,7 +33,7 @@
       }
       kids.push(svg('rect', { x: x.toFixed(1), y: y.toFixed(1), width: w, height: hh, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.85' }));
     }
-    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
+    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h, 'class': 'rb-keep-aspect' }, kids);
   }
 
   var ICON = {
@@ -65,8 +65,10 @@
     var group = false;
     var previewAlign = 'centerH';
 
-    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(alignSvg({ align: previewAlign, relativeTo: relativeTo }, 90)); }
+    var previewHost = ctx.widget
+      ? el('div.rb-wgt-hero')
+      : el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(alignSvg({ align: previewAlign, relativeTo: relativeTo }, ctx.widget ? '100%' : 90)); }
 
     // An icon align button that also previews its alignment on hover.
     function aBtn(iconKey, alignKey, title, onClick) {
@@ -102,23 +104,33 @@
     var gapField = ui.numberField({ label: 'Gap', value: 0, step: 1, decimals: 0, suffix: 'px', width: '110px' });
 
     renderPreview();
-    ctx.body.appendChild(el('div.rb-col', null, [
-      previewHost,
-      el('div.rb-section-label', { text: 'Align to' }),
-      relCtl.el,
-      el('div.rb-row.rb-wrap', { style: { gap: '10px' } }, [hBar, vBar]),
-      groupToggle.el,
-      el('div.rb-section-label', { text: 'Distribute' }),
-      el('div.rb-row.rb-wrap', null, [
-        distBtn('Horizontal', false, 'x', 'auto', 'distH'),
-        distBtn('Vertical', false, 'y', 'auto', 'distV')
-      ]),
-      el('div.rb-row.rb-wrap', null, [
-        gapField.el,
-        distBtn('H by gap', true, 'x', 'gap', 'distH'),
-        distBtn('V by gap', true, 'y', 'gap', 'distV')
-      ])
-    ]));
+    if (ctx.widget) {
+      // The align widget is the live preview plus the six one-click align
+      // buttons (to the composition). Relative-to, group, distribute and gap
+      // live in the full tool, via the widget's open control.
+      ctx.body.appendChild(el('div.rb-wgt', null, [
+        previewHost,
+        el('div.rb-wgt-ctl.rb-wgt-alignbar', null, [hBar, vBar])
+      ]));
+    } else {
+      ctx.body.appendChild(el('div.rb-col', null, [
+        previewHost,
+        el('div.rb-section-label', { text: 'Align to' }),
+        relCtl.el,
+        el('div.rb-row.rb-wrap', { style: { gap: '10px' } }, [hBar, vBar]),
+        groupToggle.el,
+        el('div.rb-section-label', { text: 'Distribute' }),
+        el('div.rb-row.rb-wrap', null, [
+          distBtn('Horizontal', false, 'x', 'auto', 'distH'),
+          distBtn('Vertical', false, 'y', 'auto', 'distV')
+        ]),
+        el('div.rb-row.rb-wrap', null, [
+          gapField.el,
+          distBtn('H by gap', true, 'x', 'gap', 'distH'),
+          distBtn('V by gap', true, 'y', 'gap', 'distV')
+        ])
+      ]));
+    }
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
