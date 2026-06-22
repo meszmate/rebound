@@ -31,6 +31,31 @@
     var applyToAll = false;
     var favorites = loadFavorites();
 
+    // Widget: a quick curve-preset picker. Your favourites first (or the built-in
+    // curves), as clickable thumbnails; click one to apply that easing to the
+    // selection. Search, filters, custom-preset management and the scope / every-key
+    // options live in the full Library, via the widget's open control.
+    if (ctx.widget) {
+      var wGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(0, 88px))', gridAutoRows: 'minmax(0, 58px)' } });
+      widgetPicks().forEach(function (p) {
+        wGrid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
+          onclick: function () { apply(p); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]));
+      });
+      ctx.body.appendChild(el('div.rb-wgt', null, [wGrid]));
+      return { destroy: function () {} };
+    }
+
+    // Favourites first, then built-ins, deduped and capped, so the widget always
+    // shows a useful, priority-ordered set that fits without scrolling.
+    function widgetPicks() {
+      var all = allPresets(), byId = {}, seen = {}, list = [];
+      all.forEach(function (p) { byId[p.id] = p; });
+      function add(p) { if (p && !seen[p.id]) { seen[p.id] = 1; list.push(p); } }
+      favorites.forEach(function (id) { add(byId[id]); });
+      for (var i = 0; i < all.length && list.length < 12; i++) if (all[i].builtin) add(all[i]);
+      return list.slice(0, 12);
+    }
+
     var searchInput = el('input', { type: 'text', placeholder: 'Search presets…',
       oninput: function () { query = this.value.toLowerCase(); render(); } });
     var search = el('div.rb-search', null, [searchInput]);

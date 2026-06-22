@@ -46,6 +46,22 @@
     var outInfluence = 33.33;
     var allKeys = false;
 
+    // Widget: the interpolation types as a 3x3 grid of buttons that fills the box;
+    // click one to set the selected keyframes. The curve preview, influence fields
+    // and the All-keys toggle live in the full tool, via the open control.
+    if (ctx.widget) {
+      var types = [];
+      GROUPS.forEach(function (g) { g.types.forEach(function (t) { types.push(t); }); });
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(3, minmax(0, 132px))', gridAutoRows: 'minmax(0, 60px)' } });
+      types.forEach(function (t) {
+        grid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: 'Set ' + t.label,
+          onclick: function () { set(ctx, t.type, { inInfluence: inInfluence, outInfluence: outInfluence, allKeys: allKeys }); } },
+        [el('span.rb-wgt-picktile-name', { text: t.label })]));
+      });
+      ctx.body.appendChild(el('div.rb-wgt', null, [grid]));
+      return { destroy: function () {} };
+    }
+
     // A preview of how the keyframe interpolation behaves. It shows the easy-ease
     // shape the influences produce, and previews any type you hover so you can
     // see how it animates before applying.
