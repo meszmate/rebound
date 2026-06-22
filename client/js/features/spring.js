@@ -41,12 +41,11 @@
     });
 
     // Live preview, springs read best on Scale (the overshoot pops).
-    var previewHost = el('div' + (ctx.widget ? '.rb-wgt-hero' : ''));
+    var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, {
       getCurve: curve,
       property: 'position',
-      sample: 'shape',
-      controls: !ctx.widget
+      sample: 'shape'
     });
 
     var overshootChip = el('span.rb-chip', { text: '' });
@@ -117,26 +116,16 @@
       refresh();
     } });
     // Presets live in the gallery the shell mounts at the top of the tool.
-    if (ctx.widget) {
-      // The spring widget is its live motion plus the two controls that shape
-      // the feel (bounce and response). Mode, initial velocity, the read-only
-      // curve and the chips live in the full tool, via the widget's open control.
-      ctx.body.appendChild(el('div.rb-wgt', null, [
-        previewHost,
-        el('div.rb-wgt-ctl', null, [bounceSlider.el, settleSlider.el])
-      ]));
-    } else {
-      ctx.body.appendChild(el('div.rb-col', null, [
-        previewHost,
-        editorHost,
-        el('div.rb-row', null, [overshootChip, settleChip, regimeChip]),
-        el('div.rb-section-label', { text: 'Spring' }),
-        modeCtl.el,
-        simpleBox,
-        physicalBox,
-        velSlider.el
-      ]));
-    }
+    ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
+      editorHost,
+      el('div.rb-row', null, [overshootChip, settleChip, regimeChip]),
+      el('div.rb-section-label', { text: 'Spring' }),
+      modeCtl.el,
+      simpleBox,
+      physicalBox,
+      velSlider.el
+    ]));
 
     // --- Footer ---
     var scopeText = el('span.rb-scope', { text: '' });

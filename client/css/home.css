@@ -427,30 +427,15 @@
 .rb-home-widget.is-filled .rb-curve svg { width: 100%; height: 100%; }
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
 
-/* ---- Compact tool widgets (a hero visual + one or two slim controls) ----
-   A tool that is a live design surface (e.g. Spring) builds a purpose-made
-   widget from its own ctx.widget branch instead of cropping the full tool tab:
-   a hero that fills the box, with just the controls that shape the result
-   pinned underneath, themed like the rest of the panel. Apply-and-forget tools
-   skip the widget entirely (they are one-click tiles), so this stays small. */
+/* ---- Compact tool widgets ----
+   Widgets are a curated few: tools with a real live surface (the curves, the
+   anchor stage, the gradient bar) crop their primary element via WIDGET_FOCUS;
+   Align builds the purpose-made button grid below. Apply-and-forget tools are
+   never widgets (they are one-click tiles), so there is little here. */
 .rb-home-widget .rb-wgt {
   display: flex; flex-direction: column; gap: var(--rb-gap-2);
   flex: 1 1 auto; min-height: 0; padding: var(--rb-gap-2);
 }
-.rb-home-widget .rb-wgt-hero {
-  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
-  border-radius: var(--rb-radius-2); overflow: hidden;
-}
-/* A live preview hero (Spring): the stage grows to fill. */
-.rb-home-widget .rb-wgt-hero.rb-preview { gap: 4px; }
-.rb-home-widget .rb-wgt-hero.rb-preview .rb-preview-stage {
-  flex: 1 1 auto; height: auto; min-height: 0; border-radius: var(--rb-radius-2);
-}
-.rb-home-widget .rb-wgt-hero.rb-preview .rb-preview-readout { padding: 0 2px; }
-/* Slim controls under the hero. */
-.rb-home-widget .rb-wgt-ctl { flex: none; display: flex; flex-direction: column; gap: var(--rb-gap-2); }
-.rb-home-widget .rb-wgt-ctl .rb-slider { gap: 2px; }
-.rb-home-widget .rb-wgt-ctl .rb-slider-head { font-size: calc(var(--rb-font-size) - 2px); }
 
 /* The Align widget is purely its six align buttons, big and filling the box so
    you can align the selection perfectly with one click. */
