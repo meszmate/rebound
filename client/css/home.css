@@ -421,7 +421,7 @@
 /* The gradient widget is the pure gradient: the hero canvas fills the whole box
    (bigger widget, bigger gradient) with the stop bar fused at the very bottom and
    nothing else. Editing a stop's colour/position lives in the full tool. */
-.rb-home-widget.is-filled .rb-grad-editor { height: 100%; gap: 0; }
+.rb-home-widget.is-filled .rb-grad-editor { height: 100%; gap: 0; overflow: hidden; }
 .rb-home-widget.is-filled .rb-grad-canvas { flex: 1 1 auto; height: auto; min-height: 90px; margin: 0; border-radius: 0; }
 .rb-home-widget.is-filled .rb-grad-bar { margin: 0; border-radius: 0; }
 .rb-home-widget.is-filled .rb-curve svg { width: 100%; height: 100%; }

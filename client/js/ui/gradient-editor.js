@@ -86,6 +86,7 @@
     var onChange = opts.onChange || function () {};
     var selected = model.stops[0];
     var previewMode = 'shape';
+    var compact = !!opts.compact;
 
     function emit() { onChange(clone(model)); }
     function selIndex() { return model.stops.indexOf(selected); }
@@ -143,35 +144,51 @@
     }
     function stopHandle(s, pt) {
       var h = el('div.rb-grad-h.is-stop' + (s === selected ? '.is-selected' : ''), { style: { left: (pt.x * 100) + '%', top: (pt.y * 100) + '%', background: s.color }, title: Math.round(s.pos * 100) + '%' });
-      h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragStop(s); });
+      h.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragStop(s, true); });
       return h;
     }
     function barChip(s) {
       var c = el('div.rb-grad-chip' + (s === selected ? '.is-selected' : ''), { style: { left: (s.pos * 100) + '%', background: s.color }, title: Math.round(s.pos * 100) + '%' });
-      c.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragChip(s); });
+      c.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); dragChip(s, true); });
       return c;
     }
 
+    // Open a native colour picker for a stop (used when a stop is tapped in a
+    // compact/widget editor, which has no colour field).
+    function openColor(s) {
+      var inp = el('input', { type: 'color', value: s.color,
+        style: { position: 'fixed', left: '0', bottom: '0', width: '1px', height: '1px', opacity: '0', border: '0', padding: '0' } });
+      function done() { try { if (inp.parentNode) inp.parentNode.removeChild(inp); } catch (e) { /* ignore */ } }
+      inp.addEventListener('input', function () { s.color = inp.value; renderStage(); renderSelected(); emit(); });
+      inp.addEventListener('change', done);
+      inp.addEventListener('blur', done);
+      document.body.appendChild(inp);
+      inp.focus(); inp.click();
+    }
+
     function dragEndpoint(which) {
-      // Allow the endpoints a little past the box edges (Figma-style) but only
-      // as far as the canvas margin, so a handle dragged out stays visible and
-      // grabbable (never clipped by the panel) and can always be dragged back.
-      function move(ev) { var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, -0.07, 1.07), y: clampR(p.y, -0.07, 1.07) }; renderStage(); }
+      // A little past the box edges (Figma-style) in the full editor, but inside
+      // the box when compact, so a handle dragged out stays grabbable and can
+      // always be dragged back (and never causes the widget to scroll).
+      var lo = compact ? 0 : -0.07, hi = compact ? 1 : 1.07;
+      function move(ev) { var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, lo, hi), y: clampR(p.y, lo, hi) }; renderStage(); }
       function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     }
-    function dragStop(s) {
+    function dragStop(s, fromHandle) {
       selected = s; renderStage(); renderSelected();
-      function move(ev) { s.pos = projectT(ptFromEvent(ev), model.start, model.end); renderStage(); renderSelected(); }
-      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
+      var moved = false;
+      function move(ev) { moved = true; s.pos = clamp01(projectT(ptFromEvent(ev), model.start, model.end)); renderStage(); renderSelected(); }
+      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); if (compact && fromHandle && !moved) openColor(s); else emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     }
-    function dragChip(s) {
+    function dragChip(s, fromHandle) {
       selected = s; renderStage(); renderSelected();
-      function move(ev) { var r = bar.getBoundingClientRect(); s.pos = clamp01((ev.clientX - r.left) / (r.width || 1)); renderStage(); renderSelected(); }
-      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
+      var moved = false;
+      function move(ev) { moved = true; var r = bar.getBoundingClientRect(); s.pos = clamp01((ev.clientX - r.left) / (r.width || 1)); renderStage(); renderSelected(); }
+      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); if (compact && fromHandle && !moved) openColor(s); else emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
     }

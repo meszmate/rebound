@@ -35,7 +35,10 @@
   });
 
   function mount(ctx) {
-    var editor = R.ui.gradientEditor({ value: DEFAULT });
+    // In a Home widget the editor is compact: handles stay inside the box (so a
+    // handle dragged out can always be dragged back, with no horizontal scroll),
+    // and clicking a stop opens its colour picker (the panel lives in the full tool).
+    var editor = R.ui.gradientEditor({ value: DEFAULT, compact: !!ctx.widget });
 
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Build a multi-stop gradient and fill the selected shape layers. Click the bar to add a stop, drag to move it, select one to recolor or reposition. Non-shape layers are skipped.' }),
