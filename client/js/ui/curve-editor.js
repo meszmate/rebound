@@ -162,11 +162,16 @@
     var swatchDot = null;
 
     function drawHandle(anchorX, anchorY, hx, hy, key) {
+      // Keep the handle on-screen even in extreme overshoot, so it is always
+      // grabbable and you can drag it straight back; only the dot is clamped, the
+      // value it carries is untouched.
+      var hxPix = mapX(hx);
+      var hyPix = clamp(mapV(hy), 9, H - 9);
       svgEl.appendChild(svg('line', {
-        x1: mapX(anchorX), y1: mapV(anchorY), x2: mapX(hx), y2: mapV(hy), class: 'rb-tangent'
+        x1: mapX(anchorX), y1: mapV(anchorY), x2: hxPix, y2: hyPix, class: 'rb-tangent'
       }));
       var circle = svg('circle', {
-        cx: mapX(hx), cy: mapV(hy), r: 7, class: 'rb-handle', 'data-handle': key,
+        cx: hxPix, cy: hyPix, r: 7, class: 'rb-handle', 'data-handle': key,
         tabindex: 0, role: 'slider', 'aria-label': key === 'h1' ? 'Out handle' : 'In handle'
       });
       circle.addEventListener('pointerdown', startDrag(key, circle));
