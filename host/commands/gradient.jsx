@@ -144,5 +144,61 @@
     return { applied: applied, skipped: skipped };
   }
 
+  // ---- Read the current gradient off the selected layer ---------------------
+
+  // Find the first Gradient Fill anywhere in a vectors tree (depth first).
+  function findFirstGFill(group) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var child = group.property(i);
+      if (child.matchName === GFILL) return child;
+      if (child.matchName === GROUP_CONTENTS) {
+        var found = findFirstGFill(child);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+
+  // Decode the flat Grad Colors array back to [{ pos, color:[r,g,b] }]. The array
+  // is N color stops (4 numbers each: pos,r,g,b) then N alpha stops (2 each), so a
+  // well-formed value length is divisible by 6; we take the first 4N as colours.
+  function decodeStops(data) {
+    if (!data || !data.length || data.length % 6 !== 0) return null;
+    var n = data.length / 6, stops = [];
+    for (var i = 0; i < n; i++) {
+      var o = i * 4;
+      stops.push({ pos: clampPos(data[o]), color: [clamp01(data[o + 1]), clamp01(data[o + 2]), clamp01(data[o + 3])] });
+    }
+    return stops;
+  }
+
+  function read() {
+    var comp = util.activeComp();
+    var layers = comp.selectedLayers;
+    if (!layers || !layers.length) return { found: false };
+    for (var i = 0; i < layers.length; i++) {
+      var root = layers[i].property(ROOT);
+      if (!root) continue;
+      var gfill = findFirstGFill(root);
+      if (!gfill) continue;
+      var type = (gfill.property(GRAD_TYPE).value === 2) ? 'radial' : 'linear';
+      var sp = [-100, 0], ep = [100, 0], stops = null;
+      try { sp = gfill.property(GRAD_START).value; ep = gfill.property(GRAD_END).value; } catch (e) {}
+      try { stops = decodeStops(gfill.property(GRAD_COLORS).value); } catch (e2) {}
+      if (!stops || stops.length < 2) stops = [{ pos: 0, color: [0, 0, 0] }, { pos: 1, color: [1, 1, 1] }];
+      return {
+        found: true,
+        layerName: layers[i].name,
+        type: type,
+        angle: Math.atan2(ep[1] - sp[1], ep[0] - sp[0]) * 180 / Math.PI,
+        start: { x: sp[0] / 200 + 0.5, y: sp[1] / 200 + 0.5 },
+        end: { x: ep[0] / 200 + 0.5, y: ep[1] / 200 + 0.5 },
+        stops: stops
+      };
+    }
+    return { found: false };
+  }
+
   R.register('gradient.apply', apply, 'Rebound: Gradient');
+  R.register('gradient.read', read); // read-only, no undo group
 })();

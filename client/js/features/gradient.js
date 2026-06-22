@@ -17,6 +17,11 @@
     if (isNaN(n)) return [0, 0, 0];
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
+  // 0..1 RGB triplet (from the host) back to '#rrggbb'.
+  function rgb01ToHex(c) {
+    function h(v) { var x = Math.max(0, Math.min(255, Math.round((v || 0) * 255))).toString(16); return x.length < 2 ? '0' + x : x; }
+    return '#' + h(c[0]) + h(c[1]) + h(c[2]);
+  }
 
   var DEFAULT = { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#1e63ff' }, { pos: 1, color: '#16e0c0' }] };
 
@@ -39,10 +44,26 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn', { title: 'Read the selected layer gradient into the editor', onclick: doRead }, ['Read']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+
+    // Scan the selected shape layer's current gradient fill into the editor, so you
+    // can tweak what is already there instead of rebuilding it.
+    function doRead() {
+      ctx.invoke('gradient.read', {})
+        .then(function (res) {
+          if (!res || !res.found) { ctx.toast('Select a shape layer with a gradient fill to read', { kind: 'error' }); return; }
+          editor.setValue({
+            type: res.type, angle: res.angle,
+            stops: res.stops.map(function (s) { return { pos: s.pos, color: rgb01ToHex(s.color) }; })
+          });
+          ctx.toast('Read gradient from ' + (res.layerName || 'layer'), { kind: 'info' });
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not read gradient', { kind: 'error' }); });
+    }
 
     function doApply() {
       var m = editor.getValue();
