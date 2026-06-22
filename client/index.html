@@ -19,6 +19,7 @@
   <link rel="stylesheet" href="css/curve-editor.css" />
   <link rel="stylesheet" href="css/preview.css" />
   <link rel="stylesheet" href="css/demo.css" />
+  <link rel="stylesheet" href="css/import.css" />
 </head>
 <body>
   <div id="rb-app"></div>
@@ -42,6 +43,10 @@
   <script src="js/core/theme.js"></script>
   <script src="js/core/store.js"></script>
   <script src="js/core/registry.js"></script>
+
+  <!-- Cross-app import: loopback receiver (the host validates IR authoritatively;
+       panel-side validation is vendored in a later phase). -->
+  <script src="js/core/ingest-server.js"></script>
 
   <!-- Easing engine -->
   <script src="js/easing/bezier.js"></script>
@@ -126,6 +131,7 @@
   <script src="js/features/textbreak.js"></script>
   <script src="js/features/gradient.js"></script>
   <script src="js/features/scripts.js"></script>
+  <script src="js/features/import.js"></script>
 
   <!-- Boot last -->
   <script src="js/main.js"></script>

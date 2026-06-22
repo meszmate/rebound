@@ -1,0 +1,31 @@
+/* Rebound, Import tool (receiver status). */
+
+.rb-recv-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--rb-text-2, #aaa);
+  padding: 6px 8px;
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2, 6px);
+  background: var(--rb-bg-sunken, rgba(0, 0, 0, 0.12));
+}
+
+.rb-recv-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rb-text-3, #777);
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.rb-recv-dot[data-state='running'] {
+  background: var(--rb-success, #46c46a);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rb-success, #46c46a) 22%, transparent);
+}
+.rb-recv-dot[data-state='starting'] { background: var(--rb-warn, #e0a92e); }
+.rb-recv-dot[data-state='error'] { background: var(--rb-error, #e0563e); }
+.rb-recv-dot[data-state='stopped'],
+.rb-recv-dot[data-state='unavailable'] { background: var(--rb-text-3, #777); }

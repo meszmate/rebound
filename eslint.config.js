@@ -30,6 +30,15 @@ const browserGlobals = {
   IntersectionObserver: 'readonly',
   performance: 'readonly',
   Promise: 'readonly',
+  // Web APIs used by the cross-app import path.
+  FileReader: 'readonly',
+  Blob: 'readonly',
+  File: 'readonly',
+  fetch: 'readonly',
+  FormData: 'readonly',
+  URL: 'readonly',
+  atob: 'readonly',
+  btoa: 'readonly',
   // CEP / vendored
   CSInterface: 'readonly',
   CSEvent: 'readonly',
