@@ -116,6 +116,14 @@
     var animToggle = R.ui.toggle({ label: 'Animate tiles', value: s.animateTiles !== false,
       onChange: function (v) { s.animateTiles = v; document.documentElement.classList.toggle('rb-tiles-static', !v); apply(); } });
 
+    // Card look: style + corner rounding.
+    var styleCtl = R.ui.segmented([
+      { value: 'soft', label: 'Soft' }, { value: 'raised', label: 'Raised' }, { value: 'flat', label: 'Flat' }, { value: 'outline', label: 'Outline' }
+    ], { value: s.cardStyle || 'soft', onChange: function (v) { s.cardStyle = v; applyCards(s); apply(); } });
+    var cornerCtl = R.ui.segmented([
+      { value: 6, label: 'Sharp' }, { value: 12, label: 'Rounded' }, { value: 18, label: 'Round' }, { value: 26, label: 'Extra' }
+    ], { value: s.cardRadius || 12, onChange: function (v) { s.cardRadius = v; applyCards(s); apply(); } });
+
     var body = el('div.rb-appe', null, [
       el('div.rb-section-label', { text: 'Theme' }),
       presets,
@@ -123,6 +131,9 @@
       accentField,
       bgField,
       animToggle.el,
+      el('div.rb-section-label', { text: 'Cards' }),
+      R.ui.row('Style', styleCtl.el),
+      R.ui.row('Corners', cornerCtl.el),
       el('div.rb-appe-advsec', null, [advToggle, advWrap])
     ]);
 
@@ -134,5 +145,14 @@
     var handle = R.ui.modal({ title: 'Appearance', width: 400, className: 'rb-modal-home', body: body, footer: [resetBtn, doneBtn] });
   }
 
-  R.appearance = { open: open };
+  // Apply the card style + corner rounding (also called on boot from main.js).
+  function applyCards(s) {
+    s = s || {};
+    var root = document.documentElement;
+    var st = s.cardStyle || 'soft';
+    if (st === 'soft') root.removeAttribute('data-cards'); else root.setAttribute('data-cards', st);
+    root.style.setProperty('--rb-card-radius', (s.cardRadius || 12) + 'px');
+  }
+
+  R.appearance = { open: open, applyCards: applyCards };
 })(window.Rebound = window.Rebound || {});

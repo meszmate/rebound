@@ -554,6 +554,7 @@
 
   function applyMiscPrefs(s) {
     document.documentElement.classList.toggle('rb-tiles-static', !!(s && s.animateTiles === false));
+    if (R.appearance && R.appearance.applyCards) R.appearance.applyCards(s || {});
   }
 
   function applySavedSettings() {

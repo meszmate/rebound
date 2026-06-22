@@ -52,17 +52,30 @@
 .rb-home-grid.is-md { --rb-home-cell: 78px; }
 .rb-home-grid.is-lg { --rb-home-cell: 98px; }
 
+/* Card look, configurable from Appearance (style + corner rounding). The default
+   is a soft, modern, rounded card; data-cards on :root selects other styles. */
+:root {
+  --rb-card-radius: 12px;
+  --rb-card-bg: color-mix(in srgb, var(--rb-bg-raised) 48%, var(--rb-bg));
+  --rb-card-border: color-mix(in srgb, var(--rb-border) 65%, transparent);
+  --rb-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --rb-card-hover-bg: var(--rb-bg-raised);
+}
+:root[data-cards="raised"] { --rb-card-bg: var(--rb-bg-raised); --rb-card-border: var(--rb-border); --rb-card-shadow: none; --rb-card-hover-bg: var(--rb-control, var(--rb-bg-raised)); }
+:root[data-cards="flat"] { --rb-card-bg: var(--rb-bg-sunken); --rb-card-border: var(--rb-border-strong); --rb-card-shadow: none; --rb-card-hover-bg: var(--rb-control, var(--rb-bg-raised)); }
+:root[data-cards="outline"] { --rb-card-bg: transparent; --rb-card-border: var(--rb-border-strong); --rb-card-shadow: none; --rb-card-hover-bg: var(--rb-bg-sunken); }
+
 .rb-home-tile {
   position: relative;
   grid-column: span 1; grid-row: span 1;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
   min-height: 0; min-width: 0; padding: 8px 6px; overflow: hidden;
-  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
-  background: var(--rb-bg-raised, var(--rb-bg-sunken)); color: var(--rb-text);
+  border: 1px solid var(--rb-card-border); border-radius: var(--rb-card-radius);
+  background: var(--rb-card-bg); color: var(--rb-text); box-shadow: var(--rb-card-shadow);
   cursor: pointer; font: inherit; text-align: center;
-  transition: border-color var(--rb-transition), background var(--rb-transition), color var(--rb-transition);
+  transition: border-color var(--rb-transition), background var(--rb-transition), color var(--rb-transition), box-shadow var(--rb-transition);
 }
-.rb-home-tile:hover { border-color: var(--rb-accent); background: var(--rb-control, var(--rb-bg-raised)); }
+.rb-home-tile:hover { border-color: var(--rb-accent); background: var(--rb-card-hover-bg); }
 .rb-home-tile:active { background: var(--rb-bg-sunken); }
 
 .rb-home-ico {
@@ -286,8 +299,8 @@
   position: relative;
   grid-column: 1 / -1;
   display: flex; flex-direction: column;
-  border: 1px solid var(--rb-border); border-radius: var(--rb-radius-2);
-  background: var(--rb-bg-raised, var(--rb-bg-sunken)); overflow: hidden;
+  border: 1px solid var(--rb-card-border); border-radius: var(--rb-card-radius);
+  background: var(--rb-card-bg); box-shadow: var(--rb-card-shadow); overflow: hidden;
 }
 .rb-home-widget .rb-action-bar { flex: none; }
 /* When the user has given a widget an explicit height, its body fills it. */
