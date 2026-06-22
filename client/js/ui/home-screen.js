@@ -642,7 +642,7 @@
       var host = el('div.rb-home-widget-body');
       var footer = el('div.rb-action-bar');
       var wctx = {
-        body: host, footer: footer, bridge: R.bridge,
+        body: host, footer: footer, bridge: R.bridge, widget: true,
         invoke: opts.invoke, openTool: opts.openTool, toast: opts.toast,
         refreshSelection: opts.refreshSelection || function () {},
         onSelection: opts.onSelection || function () { return function () {}; },

@@ -25,11 +25,17 @@
 
     // --- Curve editor ---
     var editorHost = el('div');
+    // In a Home widget the curve is the whole tool: fill edge to edge with no
+    // frame inset or headroom bands. In the full tool tab keep the framed look.
+    var fill = !!ctx.widget;
     var editor = ui.CurveEditor(editorHost, {
       value: curve,
       swatch: false,
       allowOvershoot: true,
       height: 300,
+      pad: fill ? 1 : 16,
+      marginFactor: fill ? 0.04 : 0.1,
+      marginMin: fill ? 0.04 : 0.14,
       onChange: function (c) {
         curve = c;
         syncFields();

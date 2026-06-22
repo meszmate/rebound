@@ -73,10 +73,12 @@
       var lo = Math.min(0, r.min);
       var hi = Math.max(1, r.max);
       var span = (hi - lo) || 1;
-      // A little headroom above/below so the curve does not touch the frame, but
-      // tight enough that the 0..1 curve fills most of the view (overshoot drags
-      // stay grabbable via the edge clamp).
-      var m = Math.max(span * 0.1, 0.14);
+      // Headroom above/below so the curve does not touch the frame. Full-bleed
+      // (widget) mode uses almost none so the curve fills edge to edge; overshoot
+      // drags stay grabbable via the edge clamp and the view re-expands on commit.
+      var mf = opts.marginFactor != null ? opts.marginFactor : 0.1;
+      var mm = opts.marginMin != null ? opts.marginMin : 0.14;
+      var m = Math.max(span * mf, mm);
       return { vMin: lo - m, vMax: hi + m };
     }
 

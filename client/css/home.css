@@ -403,9 +403,11 @@
 .rb-home-widget.is-filled .rb-action-bar .rb-btn { border-radius: 999px; height: 19px; padding: 0 9px; font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; }
 .rb-home-widget.is-filled .rb-action-bar .rb-btn.is-ghost { color: var(--rb-text-muted); }
 .rb-home-widget.is-filled .rb-action-bar:hover { background: var(--rb-bg-raised); }
-/* Apply/Read is a small persistent pill during use (not a hover popup); hidden
-   for tools that have no actions (e.g. Anchor), and while editing. */
-.rb-home-widget.is-filled:not(.is-editmode) .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
+/* The flow editor fills the whole widget; Apply/Read stays out of the way and
+   slides in only on hover (in the empty corner), so nothing sits over the curve
+   while you are just looking at or shaping it. Hidden for tools with no actions
+   (e.g. Anchor), and while editing. */
+.rb-home-widget.is-filled:not(.is-editmode):hover .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
 .rb-home-widget .rb-action-bar.is-empty { display: none; }
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
