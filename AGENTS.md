@@ -138,10 +138,13 @@ tool's `mount()`:
   Color, generators, one-shot actions) must **not** offer a widget that is just a
   panel of sliders and a button in a box. The widget-worthy set is the explicit
   allow-list `WIDGET_TOOLS` in `client/js/ui/home-actions.js`
-  (`['ease','velocity','copyease','smooth','anchor','gradient','align']`);
-  `widgetActions()` only emits widgets for those. Every other tool stays usable as
-  its generated **open tile** and, where a one-click default makes sense, a curated
-  **apply tile** in the `APPLY` array (e.g. `apply-bounce`). When in doubt, a button.
+  (`['ease','anchor','gradient','align']`); `widgetActions()` only emits widgets for
+  those. The test is strict: a widget must crop to **one element that fills the box
+  without scrolling** (widgets never scroll, see below). A control-panel tool
+  (Velocity, Copy Ease, Smooth, the physics rigs, Color) fails that test and stays a
+  button: its generated **open tile** plus, where a one-click default makes sense, a
+  curated **apply tile** in the `APPLY` array (e.g. `apply-bounce`). When in doubt, a
+  button.
 - **How a real widget is wired (two routes).** `mount(ctx)` receives
   `ctx.widget === true` when embedded on the Home. To make a new tool a widget,
   add it to `WIDGET_TOOLS`, then pick the route that fits:
@@ -165,6 +168,12 @@ tool's `mount()`:
   recolour, drag) appear only in edit mode (the pencil); the use-time footer
   (Apply/Read) sits at the bottom only for tools that have an action, and tools
   with no action show no footer.
+- **Widgets never scroll.** A widget body is `overflow: hidden`; the tool fills
+  and adapts to whatever size the box is. If a control cannot fit, it shrinks
+  (`min-height: 0` down the chain) or the layout restructures (e.g. the Align grid
+  caps its buttons and centres the cluster) - it never spills into a scrollbar.
+  This is *why* control-panel tools are not widgets: their controls cannot all fit
+  a small box without scrolling, so they are buttons instead.
 - **Grid-correct sizing.** Widgets size their height by whole grid rows (they
   store `{c, r}` and span `grid-row`), never a free pixel height, so a resized
   widget always reserves its track and can never overlap the items below.
