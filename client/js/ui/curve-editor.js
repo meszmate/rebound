@@ -38,7 +38,7 @@
     var readoutEl = R.dom.el('div.rb-curve-readout.rb-hidden');
     container.appendChild(readoutEl);
 
-    var pad = 26;
+    var pad = opts.pad != null ? opts.pad : 16;
     var W = 300;
     var H = height;
     var view = computeView(curve);
@@ -73,9 +73,10 @@
       var lo = Math.min(0, r.min);
       var hi = Math.max(1, r.max);
       var span = (hi - lo) || 1;
-      // Generous, stable headroom above and below so there is room to pull a
-      // handle into overshoot without the graph rescaling the instant you grab.
-      var m = Math.max(span * 0.22, 0.3);
+      // A little headroom above/below so the curve does not touch the frame, but
+      // tight enough that the 0..1 curve fills most of the view (overshoot drags
+      // stay grabbable via the edge clamp).
+      var m = Math.max(span * 0.1, 0.14);
       return { vMin: lo - m, vMax: hi + m };
     }
 

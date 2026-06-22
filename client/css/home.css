@@ -390,17 +390,19 @@
 /* Apply/Read stay reachable in full-bleed mode: the action bar floats at the
    bottom edge on hover (hidden while editing, where the shield is over the tool). */
 .rb-home-widget.is-filled .rb-action-bar {
-  position: absolute; left: auto; right: 7px; bottom: 7px; z-index: 6; width: auto;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 4px; border: 1px solid var(--rb-border-strong); border-radius: 999px;
-  background: color-mix(in srgb, var(--rb-bg-raised) 92%, transparent);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  position: absolute; left: auto; right: 6px; bottom: 6px; z-index: 6; width: auto;
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px; border: 1px solid var(--rb-border); border-radius: 999px;
+  background: color-mix(in srgb, var(--rb-bg-raised) 80%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
   opacity: 0; transform: translateY(6px); pointer-events: none;
   transition: opacity var(--rb-transition), transform var(--rb-transition);
 }
-/* Compact floating bar: drop the status text, small rounded buttons. */
+/* A little unobtrusive thing: drop the status text, tiny rounded buttons. */
 .rb-home-widget.is-filled .rb-action-bar .rb-scope { display: none; }
-.rb-home-widget.is-filled .rb-action-bar .rb-btn { border-radius: 999px; height: 22px; padding: 0 11px; font-size: calc(var(--rb-font-size) - 1px); }
+.rb-home-widget.is-filled .rb-action-bar .rb-btn { border-radius: 999px; height: 19px; padding: 0 9px; font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; }
+.rb-home-widget.is-filled .rb-action-bar .rb-btn.is-ghost { color: var(--rb-text-muted); }
+.rb-home-widget.is-filled .rb-action-bar:hover { background: var(--rb-bg-raised); }
 /* Apply/Read is a small persistent pill during use (not a hover popup); hidden
    for tools that have no actions (e.g. Anchor), and while editing. */
 .rb-home-widget.is-filled:not(.is-editmode) .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
