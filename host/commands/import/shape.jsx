@@ -139,8 +139,10 @@
     // Stroke before fill so the stroke paints on top, like the source.
     paint.applyStroke(sl.contents, node, report);
     paint.applyFills(sl.contents, node, report);
-    util.placeLocal(sl.layer, node);
+    R.importer.transform.apply(sl.layer, node, report);
+    R.importer.effect.apply(sl.layer, node, report);
     report.layersBuilt++;
+    return sl.layer;
   }
 
   function mergeType(op) {
@@ -174,8 +176,10 @@
     try { merge.property('ADBE Vector Merge Type').setValue(mergeType(boolOp)); } catch (e) {}
     paint.applyStroke(sl.contents, node, report);
     paint.applyFills(sl.contents, node, report);
-    util.placeLocal(sl.layer, node);
+    R.importer.transform.apply(sl.layer, node, report);
+    R.importer.effect.apply(sl.layer, node, report);
     report.layersBuilt++;
+    return sl.layer;
   }
 
   var builders = R.importer.builders;

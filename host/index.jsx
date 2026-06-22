@@ -112,8 +112,11 @@
   load('commands/gradient.jsx');
 
   // Import / receive (rebuild a design from another app as native AE layers).
-  // build.jsx defines the importer namespace + walk; the rest register builders.
+  // build.jsx defines the importer namespace + walk; the rest add builders and
+  // the transform / paint / effect helpers they use.
   load('commands/import/build.jsx');
+  load('commands/import/transform.jsx');
+  load('commands/import/effect.jsx');
   load('commands/import/paint.jsx');
   load('commands/import/shape.jsx');
 
