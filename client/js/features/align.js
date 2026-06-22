@@ -33,7 +33,7 @@
       }
       kids.push(svg('rect', { x: x.toFixed(1), y: y.toFixed(1), width: w, height: hh, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.85' }));
     }
-    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h, 'class': 'rb-keep-aspect' }, kids);
+    return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
   }
 
   var ICON = {
@@ -65,10 +65,8 @@
     var group = false;
     var previewAlign = 'centerH';
 
-    var previewHost = ctx.widget
-      ? el('div.rb-wgt-hero')
-      : el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(alignSvg({ align: previewAlign, relativeTo: relativeTo }, ctx.widget ? '100%' : 90)); }
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(alignSvg({ align: previewAlign, relativeTo: relativeTo }, 90)); }
 
     // An icon align button that also previews its alignment on hover.
     function aBtn(iconKey, alignKey, title, onClick) {
@@ -103,16 +101,26 @@
 
     var gapField = ui.numberField({ label: 'Gap', value: 0, step: 1, decimals: 0, suffix: 'px', width: '110px' });
 
-    renderPreview();
+    // The align widget is just the six align buttons, big and filling the box:
+    // click to align the selection perfectly (to the composition). Relative-to,
+    // group, distribute and gap live in the full tool, via the open control.
+    function wBtn(iconKey, args, title) {
+      var b = el('button.rb-wgt-alignbtn', { type: 'button', title: title, 'aria-label': title, onclick: function () { doAlign(args); } });
+      b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="none">' + ICON[iconKey] + '</svg>';
+      return b;
+    }
+
     if (ctx.widget) {
-      // The align widget is the live preview plus the six one-click align
-      // buttons (to the composition). Relative-to, group, distribute and gap
-      // live in the full tool, via the widget's open control.
-      ctx.body.appendChild(el('div.rb-wgt', null, [
-        previewHost,
-        el('div.rb-wgt-ctl.rb-wgt-alignbar', null, [hBar, vBar])
+      ctx.body.appendChild(el('div.rb-wgt.rb-wgt-aligngrid', null, [
+        wBtn('left', { gx: 0, axes: 'x' }, 'Align left'),
+        wBtn('centerH', { gx: 0.5, axes: 'x' }, 'Align horizontal center'),
+        wBtn('right', { gx: 1, axes: 'x' }, 'Align right'),
+        wBtn('top', { gy: 0, axes: 'y' }, 'Align top'),
+        wBtn('middleV', { gy: 0.5, axes: 'y' }, 'Align vertical middle'),
+        wBtn('bottom', { gy: 1, axes: 'y' }, 'Align bottom')
       ]));
     } else {
+      renderPreview();
       ctx.body.appendChild(el('div.rb-col', null, [
         previewHost,
         el('div.rb-section-label', { text: 'Align to' }),

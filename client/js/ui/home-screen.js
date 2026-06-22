@@ -97,9 +97,7 @@
     var svgs = host.querySelectorAll('svg[width="100%"]');
     for (var i = 0; i < svgs.length; i++) {
       var s = svgs[i];
-      // Curve chips keep their shape; a hero marked rb-keep-aspect (e.g. the
-      // Align widget preview) stays undistorted, centred in its box.
-      if (/rb-curve-chip|rb-keep-aspect/.test(s.getAttribute('class') || '')) continue;
+      if ((s.getAttribute('class') || '').indexOf('rb-curve-chip') !== -1) continue;
       if (s.querySelector('.rb-curve-path, .rb-handle, .rb-swatch-dot')) continue;
       s.setAttribute('preserveAspectRatio', 'none');
     }

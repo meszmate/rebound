@@ -428,11 +428,11 @@
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
 
 /* ---- Compact tool widgets (a hero visual + one or two slim controls) ----
-   Spring, Bounce, Recoil, Drift and Align build a purpose-made widget from
-   their own ctx.widget branch instead of cropping the full tool tab: a hero
-   that fills the box, with just the controls that shape the result pinned
-   underneath, themed like the rest of the panel. Secondary options stay in the
-   full tool (reached via the widget's open control). */
+   A tool that is a live design surface (e.g. Spring) builds a purpose-made
+   widget from its own ctx.widget branch instead of cropping the full tool tab:
+   a hero that fills the box, with just the controls that shape the result
+   pinned underneath, themed like the rest of the panel. Apply-and-forget tools
+   skip the widget entirely (they are one-click tiles), so this stays small. */
 .rb-home-widget .rb-wgt {
   display: flex; flex-direction: column; gap: var(--rb-gap-2);
   flex: 1 1 auto; min-height: 0; padding: var(--rb-gap-2);
@@ -441,22 +441,32 @@
   flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
   border-radius: var(--rb-radius-2); overflow: hidden;
 }
-/* A live preview hero (Spring / Bounce / Recoil): the stage grows to fill. */
+/* A live preview hero (Spring): the stage grows to fill. */
 .rb-home-widget .rb-wgt-hero.rb-preview { gap: 4px; }
 .rb-home-widget .rb-wgt-hero.rb-preview .rb-preview-stage {
   flex: 1 1 auto; height: auto; min-height: 0; border-radius: var(--rb-radius-2);
 }
 .rb-home-widget .rb-wgt-hero.rb-preview .rb-preview-readout { padding: 0 2px; }
-/* A schematic-SVG hero (Drift / Align): the graphic fills the hero. */
-.rb-home-widget .rb-wgt-hero > svg {
-  flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-height: none; display: block;
-}
 /* Slim controls under the hero. */
 .rb-home-widget .rb-wgt-ctl { flex: none; display: flex; flex-direction: column; gap: var(--rb-gap-2); }
 .rb-home-widget .rb-wgt-ctl .rb-slider { gap: 2px; }
 .rb-home-widget .rb-wgt-ctl .rb-slider-head { font-size: calc(var(--rb-font-size) - 2px); }
-/* The Align widget's six one-click buttons, centred under the preview. */
-.rb-home-widget .rb-wgt-alignbar { flex-direction: row; justify-content: center; align-items: center; gap: 10px; }
+
+/* The Align widget is purely its six align buttons, big and filling the box so
+   you can align the selection perfectly with one click. */
+.rb-home-widget .rb-wgt-aligngrid {
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
+  gap: var(--rb-gap-2);
+}
+.rb-home-widget .rb-wgt-alignbtn {
+  display: flex; align-items: center; justify-content: center; min-height: 0;
+  border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-2);
+  background: var(--rb-control); color: var(--rb-text-muted); cursor: pointer;
+  transition: background var(--rb-transition), color var(--rb-transition), border-color var(--rb-transition);
+}
+.rb-home-widget .rb-wgt-alignbtn:hover { background: var(--rb-control-hover); color: var(--rb-text); border-color: var(--rb-accent); }
+.rb-home-widget .rb-wgt-alignbtn:active { background: var(--rb-accent); color: var(--rb-accent-text); border-color: var(--rb-accent); }
+.rb-home-widget .rb-wgt-alignbtn svg { width: 30px; height: 30px; }
 /* Edge-to-edge: the box IS the widget, so drop its own frame and rounding. */
 .rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; border: 0; border-radius: 0; }
 /* Preview graphs stretch to fill the widget width (no letterboxed empty space);
