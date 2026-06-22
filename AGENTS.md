@@ -131,35 +131,44 @@ tool's `mount()`:
   full tool's panel of secondary controls inside a widget. If a tool has several
   controls, the widget shows only the essential one; the rest are reachable in the
   full tool.
-- **Widgets are a curated few, not every tool.** A live widget is only worth it
-  for tools with a genuine direct-manipulation surface: a curve you drag, the
-  anchor stage, the gradient bar, the align buttons. A tool whose interaction is
-  "set some sliders, press Apply" (Spring, the physics rigs Bounce/Recoil/Drift,
-  Color, generators, one-shot actions) must **not** offer a widget that is just a
-  panel of sliders and a button in a box. The widget-worthy set is the explicit
-  allow-list `WIDGET_TOOLS` in `client/js/ui/home-actions.js`
-  (`['ease','anchor','gradient','align']`); `widgetActions()` only emits widgets for
-  those. The test is strict: a widget must crop to **one element that fills the box
-  without scrolling** (widgets never scroll, see below). A control-panel tool
-  (Velocity, Copy Ease, Smooth, the physics rigs, Color) fails that test and stays a
+- **Widgets are a curated set, not every tool.** A live widget is only worth it
+  for a tool that fills the box without scrolling. Two families qualify: a
+  **direct-manipulation surface** (a curve you drag, the anchor stage, the gradient
+  bar) and a **click-to-apply picker** (a grid of swatches / thumbnails / labels /
+  buttons where one click applies). A tool whose interaction is "set some sliders,
+  press Apply" (Velocity, Copy Ease, Smooth, the physics rigs Spring/Bounce/Recoil/
+  Drift, generators, one-shot actions) must **not** offer a widget that is just a
+  panel of sliders and a button. The widget-worthy set is the explicit allow-list
+  `WIDGET_TOOLS` in `client/js/ui/home-actions.js`
+  (`['ease','anchor','gradient','align','library','palette','color','tags','keys','shapes']`);
+  `widgetActions()` only emits widgets for those. A control-panel tool stays a
   button: its generated **open tile** plus, where a one-click default makes sense, a
   curated **apply tile** in the `APPLY` array (e.g. `apply-bounce`). When in doubt, a
   button.
-- **How a real widget is wired (two routes).** `mount(ctx)` receives
+- **How a real widget is wired (three routes).** `mount(ctx)` receives
   `ctx.widget === true` when embedded on the Home. To make a new tool a widget,
   add it to `WIDGET_TOOLS`, then pick the route that fits:
   1. **Crop the full tool.** If the tool already has one obvious primary element
-     (the Ease/Velocity/Smooth curve, the Anchor stage, the gradient bar), list it
-     in `WIDGET_FOCUS` (toolId -> primary selector) and optionally `WIDGET_HIDE`
-     (toolId -> selectors to drop) in `client/js/ui/home-screen.js`: `applyFocus`
-     keeps that element full-bleed and hides the rest.
-  2. **Build a purpose-made compact widget.** If the tool has no single croppable
-     element but is still a genuine live surface (Align: the six align buttons),
-     branch on `ctx.widget` in the mount and build a deliberate `.rb-wgt` layout
-     instead of cropping the tab. Align uses `.rb-wgt-aligngrid` of big icon buttons
-     that fill the box and act on click, with no preview. Such a tool is absent from
-     `WIDGET_FOCUS` but present in `WIDGET_TOOLS`. CSS lives under "Compact tool
-     widgets" in `client/css/home.css`.
+     (the Ease curve, the Anchor stage, the gradient bar), list it in `WIDGET_FOCUS`
+     (toolId -> primary selector) and optionally `WIDGET_HIDE` (toolId -> selectors
+     to drop) in `client/js/ui/home-screen.js`: `applyFocus` keeps that element
+     full-bleed and hides the rest.
+  2. **Build a purpose-made surface.** If the tool has no single croppable element
+     but is still a live surface (Align: the six align buttons), branch on
+     `ctx.widget` in the mount and build a deliberate `.rb-wgt` layout. Align uses
+     `.rb-wgt-aligngrid` of big icon buttons that fill the box and act on click.
+  3. **Build a click-to-apply picker.** If the tool is a grid of items where one
+     click applies (Library presets, Palette/Color swatches, Tag labels, Keyframe
+     interpolation, Shape primitives), branch on `ctx.widget` and build a
+     `.rb-wgt` > `.rb-wgt-pick` grid of `.rb-wgt-picktile` (thumbnail+name) or
+     `.rb-wgt-swatch` (colour) items, wired to the tool's existing apply path
+     (`ctx.invoke(...)`). Keep it no-scroll: cap tile size with `minmax(0, <max>)`,
+     centre the cluster (`justify/align-content:center`), `overflow:hidden`, and for
+     a many-item source show a bounded, priority-ordered subset (Library shows
+     favourites-first, capped). A header strip (`.rb-wgt-pickhead`) holds a switcher
+     or a required field (Palette prev/next, the Tag-name input).
+  Routes 2-3 are absent from `WIDGET_FOCUS` but present in `WIDGET_TOOLS`. CSS lives
+  under "Compact tool widgets" in `client/css/home.css`.
 - **Secondary options: accessible, never in the way.** Anything that is not the
   primary control lives in the full tool, opened by the widget's open control (the
   arrow). It must not occupy widget space or float over the tool during use.
