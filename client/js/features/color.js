@@ -56,14 +56,14 @@
     var target = 'fill';
 
     // Widget: YOUR own quick-colour set (not a fixed palette). Click a swatch to
-    // recolour the selection's fill; the + tile adds a colour, and the edit
-    // toggle lets you change or remove each one. One colour or many, as you set.
-    // Stored per instance, so each Colour widget is your own set.
+    // recolour the selection's fill. Entering edit mode (hover Edit) reveals a + to
+    // add and a × on each swatch to remove or change. One colour or many, as you
+    // set, stored per instance. The grid is size-aware: it shows only as many
+    // colours as comfortably fit, so it never crams or scrolls.
     if (ctx.widget) {
       var DEFAULT_COLORS = ['#f4453a', '#54c245', '#1fa6e0', '#f0f1f5'];
       var colors = (ctx.config && ctx.config.colors && ctx.config.colors.length) ? ctx.config.colors.slice() : DEFAULT_COLORS.slice();
       var editing = false;
-      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: '1fr' } });
       var persistColors = function () { ctx.setConfig({ colors: colors.slice() }); };
       // A REAL in-place colour input (not an off-screen one, which never opens the
       // native picker in CEP): it fills its tile invisibly, so a click on the tile
@@ -74,42 +74,93 @@
         inp.addEventListener('change', function () { if (onCommit) onCommit(inp.value); });
         return inp;
       };
-      var renderColors = function () {
+
+      // Capacity: how many cells of ~one swatch fit the box, and a balanced
+      // cols x rows grid for n items that fills both dimensions at any size (so a
+      // single row never stretches into tall thin bars).
+      var CELL = 32, GAP = 6;
+      var capacity = function (W, H) {
+        return { cols: Math.max(1, Math.floor((W + GAP) / (CELL + GAP))), rows: Math.max(1, Math.floor((H + GAP) / (CELL + GAP))) };
+      };
+      var gridFor = function (n, W, H, capCols, capRows) {
+        if (n < 1) return { cols: 1, rows: 1 };
+        var aspect = (W > 0 && H > 0) ? (W / H) : 1;
+        var cols = Math.max(1, Math.min(Math.round(Math.sqrt(n * aspect)), capCols, n));
+        var rows = Math.min(capRows, Math.ceil(n / cols));
+        while (cols * rows < n && cols < capCols) { cols++; rows = Math.min(capRows, Math.ceil(n / cols)); }
+        return { cols: cols, rows: rows };
+      };
+
+      var grid = el('div.rb-wgt-pick');
+      var render = function () {
+        var r = grid.getBoundingClientRect();
+        var W = r.width || root.getBoundingClientRect().width || 220;
+        var H = r.height || 110;
+        var cap = capacity(W, H);
+        var max = cap.cols * cap.rows;
+        // Priority is your colours: show as many as fit. The + add tile is lowest
+        // priority, so when the box is too small for the colours it is dropped
+        // rather than pushing a colour out.
+        var shown, showAdd;
+        if (editing && colors.length < max) { shown = colors.length; showAdd = true; }
+        else { shown = Math.min(colors.length, max); showAdd = false; }
+        var total = shown + (showAdd ? 1 : 0);
+        var g = gridFor(total, W, H, cap.cols, cap.rows);
+        grid.style.gridTemplateColumns = 'repeat(' + g.cols + ', 1fr)';
+        grid.style.gridTemplateRows = 'repeat(' + g.rows + ', 1fr)';
+        grid.classList.toggle('is-editing', editing);
         R.dom.clear(grid);
-        colors.forEach(function (hex, idx) {
-          if (editing) {
-            // Edit mode: the swatch IS a colour input (click to change) with a
-            // remove badge.
-            var cell = el('label.rb-wgt-swatch.rb-wgt-swatchedit', { title: 'Click to change this colour', style: { background: hex } });
-            cell.appendChild(colorInput(hex,
-              function (v) { colors[idx] = v; cell.style.background = v; },
-              function (v) { colors[idx] = v; cell.style.background = v; persistColors(); }));
-            cell.appendChild(el('span.rb-wgt-swx', { title: 'Remove colour',
-              onclick: function (e) { e.preventDefault(); e.stopPropagation(); colors.splice(idx, 1); persistColors(); renderColors(); } }, ['×']));
-            grid.appendChild(cell);
-          } else {
-            var sw = el('button.rb-wgt-swatch', { type: 'button', title: 'Set ' + hex, style: { background: hex } });
-            sw.addEventListener('click', function () { apply(hexToRgb(hex)); });
-            grid.appendChild(sw);
-          }
-        });
-        // Add tile only in edit mode: pick a colour and it joins your set. When
-        // you are just using the widget there is no spare tile, only your colours.
-        if (editing) {
+        for (var i = 0; i < shown; i++) {
+          (function (idx) {
+            var hex = colors[idx];
+            if (editing) {
+              var cell = el('label.rb-wgt-swatch.rb-wgt-swatchedit', { title: 'Click to change this colour', style: { background: hex } });
+              cell.appendChild(colorInput(hex,
+                function (v) { colors[idx] = v; cell.style.background = v; },
+                function (v) { colors[idx] = v; cell.style.background = v; persistColors(); }));
+              cell.appendChild(el('span.rb-wgt-swx', { title: 'Remove colour',
+                onclick: function (e) { e.preventDefault(); e.stopPropagation(); colors.splice(idx, 1); persistColors(); render(); } }, ['×']));
+              grid.appendChild(cell);
+            } else {
+              var sw = el('button.rb-wgt-swatch', { type: 'button', title: 'Set ' + hex, style: { background: hex } });
+              sw.addEventListener('click', function () { apply(hexToRgb(hex)); });
+              grid.appendChild(sw);
+            }
+          })(i);
+        }
+        if (showAdd) {
           var addTile = el('label.rb-wgt-picktile.rb-wgt-addtile', { title: 'Add a colour' });
-          addTile.appendChild(colorInput('#1fa6e0', null, function (v) { colors.push(v); persistColors(); renderColors(); }));
+          addTile.appendChild(colorInput('#1fa6e0', null, function (v) { colors.push(v); persistColors(); render(); }));
           addTile.appendChild(el('span.rb-wgt-addplus', { text: '+' }));
           grid.appendChild(addTile);
         }
       };
-      // No persistent header (the card already names the widget): the Edit / Done
-      // toggle is a small pill that fades in on hover, so normally the widget is
-      // just your colours and the editing chrome only shows when you want it.
-      var editBtn = el('button.rb-wgt-fab', { type: 'button', title: 'Add, change or remove your colours',
-        onclick: function () { editing = !editing; editBtn.classList.toggle('is-active', editing); editBtn.textContent = editing ? 'Done' : 'Edit'; grid.classList.toggle('is-editing', editing); renderColors(); } }, ['Edit']);
-      renderColors();
-      ctx.body.appendChild(el('div.rb-wgt', null, [editBtn, grid]));
-      return { destroy: function () {} };
+
+      // No persistent chrome during use: just your colours. Hovering reveals a
+      // small Edit pill (top-right) to enter edit mode. Once editing, a clear Done
+      // bar sits above the grid so finishing is one obvious, reliable click that
+      // never overlaps a swatch (the corner pill did, so Done was easy to miss).
+      var root = el('div.rb-wgt');
+      var rebuild = function () {
+        R.dom.clear(root);
+        if (editing) {
+          root.appendChild(el('div.rb-wgt-editbar', null, [
+            el('span.rb-wgt-editlabel', { text: 'Edit colours' }),
+            el('button.rb-wgt-donebtn', { type: 'button', title: 'Finish editing your colours', onclick: function () { editing = false; rebuild(); } }, ['Done'])
+          ]));
+        } else {
+          root.appendChild(el('button.rb-wgt-fab', { type: 'button', title: 'Add, change or remove your colours', onclick: function () { editing = true; rebuild(); } }, ['Edit']));
+        }
+        root.appendChild(grid);
+        render();
+      };
+
+      ctx.body.appendChild(root);
+      rebuild();
+      var ro = (typeof ResizeObserver !== 'undefined') ? new ResizeObserver(function () { render(); }) : null;
+      if (ro) ro.observe(grid);
+      if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(render);
+      return { destroy: function () { if (ro) { try { ro.disconnect(); } catch (e) { /* ignore */ } } } };
     }
 
     function currentRgb() { return hslToRgb(hue, saturation / 100, lightness / 100); }

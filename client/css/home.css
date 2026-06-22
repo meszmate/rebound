@@ -510,9 +510,9 @@
   background: var(--rb-danger); color: #fff; border: 1px solid rgba(0, 0, 0, 0.25);
   border-radius: 50%; font-size: 11px; line-height: 1; cursor: pointer;
 }
-/* The Colour widget's Edit / Done toggle: a small pill in the top-right corner
-   that stays hidden (and click-through) until you hover the widget, so normally
-   you just see your colours. It stays lit while editing so Done is reachable. */
+/* The Colour widget's Edit pill: a small button in the top-right corner that
+   stays hidden (and click-through) until you hover the widget, so normally you
+   just see your colours. It only ENTERS edit mode; exiting is the Done bar. */
 .rb-home-widget .rb-wgt-fab {
   position: absolute; top: 4px; right: 4px; z-index: 3;
   height: 22px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center;
@@ -523,10 +523,23 @@
   transition: opacity var(--rb-transition), color var(--rb-transition), border-color var(--rb-transition), background var(--rb-transition);
 }
 .rb-home-widget .rb-wgt:hover .rb-wgt-fab,
-.rb-home-widget .rb-wgt-fab.is-active,
 .rb-home-widget .rb-wgt-fab:focus-visible { opacity: 1; pointer-events: auto; }
 .rb-home-widget .rb-wgt-fab:hover { color: var(--rb-text); border-color: var(--rb-accent); }
-.rb-home-widget .rb-wgt-fab.is-active { background: var(--rb-accent); color: var(--rb-accent-text); border-color: var(--rb-accent); }
+/* While editing, a clear bar above the grid: a label plus a solid Done button.
+   It has its own row so the exit never overlaps a swatch (one reliable click). */
+.rb-home-widget .rb-wgt-editbar { flex: none; display: flex; align-items: center; gap: 6px; min-height: 0; }
+.rb-home-widget .rb-wgt-editlabel {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted);
+}
+.rb-home-widget .rb-wgt-donebtn {
+  flex: none; height: 22px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--rb-accent); border-radius: var(--rb-radius-1);
+  background: var(--rb-accent); color: var(--rb-accent-text); cursor: pointer;
+  font: inherit; font-size: calc(var(--rb-font-size) - 2px); line-height: 1;
+  transition: filter var(--rb-transition);
+}
+.rb-home-widget .rb-wgt-donebtn:hover { filter: brightness(1.08); }
 /* A header strip above a picker grid (palette switcher, tag-name field). */
 .rb-home-widget .rb-wgt-pickhead { flex: none; display: flex; align-items: center; gap: 6px; min-height: 0; }
 .rb-home-widget .rb-wgt-pickhead .rb-field { flex: 1 1 auto; }
