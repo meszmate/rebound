@@ -540,7 +540,11 @@
       hold: 'M6,46 L50,46 L50,6 L94,6',
       // Recoil: shoots up past the target line then settles back onto it, the
       // springy elastic overshoot, so the tile reads as motion like the eases.
-      overshoot: 'M6,46 C 32,46 40,1 56,1 C 70,1 76,10 94,6'
+      overshoot: 'M6,46 C 32,46 40,1 56,1 C 70,1 76,10 94,6',
+      // Bounce: rises to the target then rebounds off it in diminishing hops.
+      bounce: 'M6,46 C 16,46 26,6 36,6 C 42,6 44,22 52,22 C 60,22 62,6 70,6 C 74,6 75,14 80,14 C 84,14 85,6 94,6',
+      // Drift: a living, organic wander, never settling on a single line.
+      drift: 'M6,30 C 14,16 22,40 30,28 C 38,16 46,38 54,26 C 62,14 70,36 78,26 C 84,19 88,30 94,24'
     };
     function easingVisual(kind) {
       if (!EZ_PATH[kind]) kind = 'ease';

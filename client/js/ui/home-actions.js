@@ -64,9 +64,9 @@
     // The expression-rig physics tools are apply-and-forget, so they are buttons
     // (one click with sensible defaults), not live widgets. Open the full tool to
     // tune the sliders.
-    { id: 'apply-bounce', label: 'Bounce', toolId: 'bounce', group: 'Physics', kind: 'apply', display: 'icon', desc: 'Rebound the value off its target after its last keyframe.', invoke: { method: 'bounce.apply', args: { elasticity: 0.7, gravity: 4, maxBounces: 4, eachKey: false } } },
+    { id: 'apply-bounce', label: 'Bounce', toolId: 'bounce', group: 'Physics', kind: 'apply', display: 'visual', curve: 'bounce', desc: 'Rebound the value off its target after its last keyframe.', invoke: { method: 'bounce.apply', args: { elasticity: 0.7, gravity: 4, maxBounces: 4, eachKey: false } } },
     { id: 'apply-recoil', label: 'Recoil', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'visual', curve: 'overshoot', desc: 'Add elastic overshoot after a keyframe, scaled by the incoming velocity.', invoke: { method: 'recoil.apply', args: { overshoot: 60, bounce: 2, friction: 6, eachKey: true } } },
-    { id: 'apply-drift', label: 'Drift', toolId: 'drift', group: 'Physics', kind: 'apply', display: 'icon', desc: 'Add living, organic random motion to the selected properties.', invoke: { method: 'drift.apply', args: { type: 'smooth', amount: 20, frequency: 2 } } }
+    { id: 'apply-drift', label: 'Drift', toolId: 'drift', group: 'Physics', kind: 'apply', display: 'visual', curve: 'drift', desc: 'Add living, organic random motion to the selected properties.', invoke: { method: 'drift.apply', args: { type: 'smooth', amount: 20, frequency: 2 } } }
   ];
 
   function applyActions() { return APPLY.slice(); }
