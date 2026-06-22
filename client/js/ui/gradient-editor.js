@@ -218,9 +218,14 @@
       stage,
       bar,
       el('div.rb-grad-panel', null, [
+        // The selected stop's colour + position is essential editing (kept in a
+        // widget); Type and the reverse/distribute utilities are secondary and
+        // grouped so a widget can hide just them.
         el('div.rb-row.rb-grad-stoprow', null, [colorInput, posInput.el, el('span.rb-grad-spacer'), delBtn]),
-        ui.row('Type', typeCtl.el),
-        el('div.rb-row.rb-grad-utils', null, [el('span.rb-grad-spacer'), reverseBtn, distributeBtn])
+        el('div.rb-grad-secondary', null, [
+          ui.row('Type', typeCtl.el),
+          el('div.rb-row.rb-grad-utils', null, [el('span.rb-grad-spacer'), reverseBtn, distributeBtn])
+        ])
       ])
     ]);
 
