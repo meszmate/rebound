@@ -387,28 +387,33 @@
 .rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
 .rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; }
 .rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
-/* Apply/Read stay reachable in full-bleed mode: the action bar floats at the
-   bottom edge on hover (hidden while editing, where the shield is over the tool). */
-.rb-home-widget.is-filled .rb-action-bar {
-  position: absolute; left: auto; right: 6px; bottom: 6px; z-index: 6; width: auto;
-  display: inline-flex; align-items: center; gap: 3px;
-  padding: 2px; border: 1px solid var(--rb-border); border-radius: 999px;
-  background: color-mix(in srgb, var(--rb-bg-raised) 80%, transparent);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
-  opacity: 0; transform: translateY(6px); pointer-events: none;
-  transition: opacity var(--rb-transition), transform var(--rb-transition);
+/* Actions hide behind a tiny corner dot: nothing floats over a draggable point.
+   Click the dot to reveal Read|Apply (they grow inward from the corner). The dot
+   itself only fades in on hover, and is gone for tools with no actions and while
+   editing (where the shield is over the tool). */
+.rb-home-actions { position: absolute; right: 6px; bottom: 6px; z-index: 6; display: inline-flex; align-items: center; gap: 6px; }
+.rb-home-widget.is-editmode .rb-home-actions { display: none; }
+.rb-home-actdot {
+  width: 13px; height: 13px; flex: none; padding: 0; cursor: pointer; border-radius: 999px;
+  border: 1px solid var(--rb-border-strong); background: color-mix(in srgb, var(--rb-bg-raised) 88%, transparent);
+  opacity: 0; transition: opacity var(--rb-transition), background var(--rb-transition), border-color var(--rb-transition);
 }
-/* A little unobtrusive thing: drop the status text, tiny rounded buttons. */
+.rb-home-widget.is-filled:not(.is-editmode):hover .rb-home-actdot { opacity: 0.55; }
+.rb-home-actdot:hover, .rb-home-widget.is-actions-open .rb-home-actdot { opacity: 1; }
+.rb-home-widget.is-actions-open .rb-home-actdot { background: var(--rb-accent); border-color: var(--rb-accent); }
+
+.rb-home-widget.is-filled .rb-action-bar {
+  display: none; align-items: center; gap: 3px;
+  padding: 2px; border: 1px solid var(--rb-border); border-radius: 999px;
+  background: color-mix(in srgb, var(--rb-bg-raised) 92%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+}
+.rb-home-widget.is-actions-open .rb-action-bar { display: inline-flex; }
+/* Tiny rounded buttons, no status text. */
 .rb-home-widget.is-filled .rb-action-bar .rb-scope { display: none; }
 .rb-home-widget.is-filled .rb-action-bar .rb-btn { border-radius: 999px; height: 19px; padding: 0 9px; font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; }
 .rb-home-widget.is-filled .rb-action-bar .rb-btn.is-ghost { color: var(--rb-text-muted); }
-.rb-home-widget.is-filled .rb-action-bar:hover { background: var(--rb-bg-raised); }
-/* The flow editor fills the whole widget; Apply/Read stays out of the way and
-   slides in only on hover (in the empty corner), so nothing sits over the curve
-   while you are just looking at or shaping it. Hidden for tools with no actions
-   (e.g. Anchor), and while editing. */
-.rb-home-widget.is-filled:not(.is-editmode):hover .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
-.rb-home-widget .rb-action-bar.is-empty { display: none; }
+.rb-home-actions.is-empty, .rb-home-widget .rb-action-bar.is-empty { display: none; }
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
@@ -569,3 +574,32 @@
 .rb-appe-advtoggle:hover { color: var(--rb-text); }
 .rb-appe-adv { display: none; flex-direction: column; gap: var(--rb-gap-2); margin-top: var(--rb-gap-2); }
 .rb-appe-adv.is-open { display: flex; }
+
+/* Keybinds manager */
+.rb-kb { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-kb-help { color: var(--rb-text-muted); font-size: calc(var(--rb-font-size) - 1px); line-height: 1.4; }
+.rb-kb-search {
+  width: 100%; box-sizing: border-box; padding: 7px 10px; font: inherit;
+  color: var(--rb-text); background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border); border-radius: var(--rb-radius);
+}
+.rb-kb-search:focus { outline: none; border-color: var(--rb-accent); }
+.rb-kb-list { display: flex; flex-direction: column; max-height: 46vh; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.rb-kb-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid var(--rb-border); }
+.rb-kb-row:last-child { border-bottom: none; }
+.rb-kb-cmd { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+.rb-kb-grp { font-size: calc(var(--rb-font-size) - 3px); text-transform: uppercase; letter-spacing: 0.04em; color: var(--rb-text-muted); }
+.rb-kb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-kb-combo {
+  flex: none; min-width: 64px; text-align: center; padding: 3px 8px; border-radius: 6px;
+  font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; color: var(--rb-text-muted);
+  background: var(--rb-bg-sunken); border: 1px solid var(--rb-border);
+}
+.rb-kb-combo.is-set { color: var(--rb-text); border-color: var(--rb-border-strong); }
+.rb-kb-rec { flex: none; height: 24px; padding: 0 10px; }
+.rb-kb-rec.is-recording { color: var(--rb-accent); border-color: var(--rb-accent); }
+.rb-kb-clr {
+  flex: none; width: 22px; height: 22px; padding: 0; border-radius: 6px; cursor: pointer;
+  background: none; border: 1px solid transparent; color: var(--rb-text-muted); font-size: 14px; line-height: 1;
+}
+.rb-kb-clr:hover { color: var(--rb-text); border-color: var(--rb-border); }
