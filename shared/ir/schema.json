@@ -401,6 +401,10 @@
           "type": "string",
           "description": "Optional exported SVG string for exact rebuild when parametric reconstruction is lossy."
         },
+        "svgPath": {
+          "type": "string",
+          "description": "A raw SVG path 'd' string the importer parses into the node's geometry (absolute coords)."
+        },
         "meta": {
           "type": "object",
           "description": "Source-specific passthrough (never required by the importer).",

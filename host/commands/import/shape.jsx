@@ -118,9 +118,19 @@
 
   // Dispatch the right geometry for a node at a local offset. Returns the number
   // of primitives / paths added.
+  // Build geometry from a raw SVG path 'd' string (e.g. a Photoshop shape layer),
+  // parsed by the shared bezier lib into AE vertices.
+  function addSvgPath(contents, d, offset) {
+    var subs = R.ir.B.svgPathToSubpaths(d);
+    var n = 0;
+    for (var i = 0; i < subs.length; i++) n += addSubpath(contents, subs[i], offset);
+    return n;
+  }
+
   function addGeometry(contents, node, offset) {
     offset = offset || [0, 0];
     var type = node.type;
+    if (node.svgPath) return addSvgPath(contents, node.svgPath, offset);
     if (type === 'RECTANGLE' || (node.primitive && node.primitive.rect)) {
       // A baked squircle (corner smoothing) comes through as paths; prefer them.
       if (node.cornerRadii && node.cornerRadii.smoothing && node.paths && node.paths.length) return addPaths(contents, node, offset);

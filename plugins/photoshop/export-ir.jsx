@@ -321,6 +321,64 @@
     return node;
   }
 
+  // ---- vector shape layers (100% vector via layerSVGdata) ------------------
+
+  function getLayerSVG(layer) {
+    try {
+      var ref = new ActionReference();
+      ref.putProperty(cID('Prpr'), sID('layerSVGdata'));
+      ref.putIdentifier(cID('Lyr '), layer.id);
+      var d = executeActionGet(ref);
+      if (d.hasKey(sID('layerSVGdata'))) return d.getString(sID('layerSVGdata'));
+    } catch (e) {}
+    return null;
+  }
+
+  function svgToPathD(s) {
+    if (s.indexOf('d="') === -1) return s; // already a raw 'd' string
+    var ds = [], re = /d="([^"]*)"/g, m;
+    while ((m = re.exec(s)) !== null) ds.push(m[1]);
+    return ds.join(' ');
+  }
+
+  function readShapeFill(layer) {
+    try {
+      var ref = new ActionReference();
+      ref.putIdentifier(cID('Lyr '), layer.id);
+      var d = executeActionGet(ref);
+      if (d.hasKey(sID('adjustment'))) {
+        var adj = d.getList(sID('adjustment'));
+        if (adj.count) {
+          var a0 = adj.getObjectValue(0);
+          if (a0.hasKey(sID('color'))) {
+            var c = readColorDesc(a0.getObjectValue(sID('color')));
+            if (c) return { type: 'SOLID', color: c, opacity: 1, visible: true };
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // Returns an editable VECTOR node, or null to let the layer rasterise.
+  function shapeVectorToIR(layer) {
+    var svg = getLayerSVG(layer);
+    if (!svg) return null;
+    var d = svgToPathD(svg);
+    if (!d || !/[Mm]/.test(d)) return null;
+    var fill = readShapeFill(layer);
+    if (!fill) return null; // cannot reconstruct the fill, so rasterise instead
+    var node = baseNode(layer);
+    node.type = 'VECTOR';
+    node.svgPath = d; // absolute document coords
+    var b = layer.bounds;
+    node.transform = { x: 0, y: 0, width: Math.max(1, Math.round(asPx(b[2]) - asPx(b[0]))), height: Math.max(1, Math.round(asPx(b[3]) - asPx(b[1]))) };
+    node.fills = [fill];
+    var styles = readLayerStyles(layer.name);
+    if (styles.length) node.layerStyles = styles;
+    return node;
+  }
+
   function layerToIR(layer) {
     var tn;
     try { tn = layer.typename; } catch (e) { return null; }
@@ -338,6 +396,8 @@
     var kind = null;
     try { kind = layer.kind; } catch (e2) {}
     if (kind === LayerKind.TEXT) return textToIR(layer);
+    var vec = shapeVectorToIR(layer);
+    if (vec) return vec;
     return rasterToIR(layer);
   }
 
