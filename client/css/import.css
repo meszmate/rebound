@@ -1,80 +1,86 @@
-/* Rebound, Import tool (receiver status). */
+/* Rebound, Import tool (bridge + capabilities). */
 
-/* Feature showcase + onboarding */
-.rb-import { gap: 10px; }
-.rb-import-lead { font-size: 12px; line-height: 1.5; color: var(--rb-text-muted, #aaa); }
+.rb-import { gap: var(--rb-gap-3); }
 
-.rb-import-sec-h {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--rb-text-faint, #888);
-  margin-top: 4px;
-}
-
-.rb-apps { display: flex; flex-wrap: wrap; gap: 6px; }
-.rb-app-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font-size: 11px;
-  border: 1px solid var(--rb-border);
-  border-radius: var(--rb-radius-pill, 999px);
-  background: var(--rb-bg-raised, rgba(255, 255, 255, 0.04));
-}
-.rb-app-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
-
-.rb-feat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 7px;
-}
-.rb-feat {
+/* Connection hero: the live state of the bridge. */
+.rb-bridge {
   display: flex;
-  gap: 9px;
-  align-items: flex-start;
-  padding: 9px 10px;
+  align-items: center;
+  gap: var(--rb-gap-3);
+  padding: 10px 12px;
   border: 1px solid var(--rb-border);
-  border-radius: var(--rb-radius-2, 6px);
-  background: var(--rb-bg-sunken, rgba(0, 0, 0, 0.12));
-  transition: border-color var(--rb-dur-fast, 0.12s) var(--rb-ease-standard, ease);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
 }
-.rb-feat:hover { border-color: var(--rb-border-strong, #555); }
-.rb-feat-ic {
-  flex: 0 0 auto;
-  width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--rb-radius-1, 4px);
-  color: var(--rb-accent, #5b8cff);
-  background: color-mix(in srgb, var(--rb-accent, #5b8cff) 14%, transparent);
-}
-.rb-feat-ic svg { width: 15px; height: 15px; }
-.rb-feat-t { font-size: 11.5px; font-weight: 600; }
-.rb-feat-d { font-size: 10.5px; line-height: 1.4; color: var(--rb-text-muted, #aaa); margin-top: 2px; }
-
-.rb-steps { display: flex; flex-direction: column; gap: 7px; counter-reset: rb-step; }
-.rb-step { display: flex; gap: 9px; align-items: flex-start; }
-.rb-step::before {
-  counter-increment: rb-step;
-  content: counter(rb-step);
-  flex: 0 0 auto;
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  display: grid;
-  place-items: center;
+.rb-bridge-dot {
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--rb-accent-text, #fff);
-  background: var(--rb-accent, #5b8cff);
+  flex: 0 0 auto;
+  background: var(--rb-text-faint);
 }
-.rb-step-d { font-size: 11.5px; line-height: 1.45; color: var(--rb-text-muted, #aaa); }
-.rb-step-d b { color: var(--rb-text, #eee); font-weight: 600; }
+.rb-bridge-dot[data-state='running'] {
+  background: var(--rb-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rb-success) 22%, transparent);
+}
+.rb-bridge-dot[data-state='starting'] { background: var(--rb-warning); }
+.rb-bridge-dot[data-state='error'] { background: var(--rb-danger); }
+.rb-bridge-main { flex: 1 1 auto; min-width: 0; }
+.rb-bridge-title { font-size: var(--rb-font-size); font-weight: 600; color: var(--rb-text); }
+.rb-bridge-sub { font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-faint); margin-top: 1px; }
+.rb-bridge .rb-btn { flex: 0 0 auto; }
+
+/* Source apps (quiet brand-hued dots, no logos). */
+.rb-srcs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--rb-gap-2); }
+.rb-src-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+
+/* Drop target. */
+.rb-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 16px 12px;
+  border: 1px dashed var(--rb-border-strong);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+  color: var(--rb-text-muted);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--rb-transition), background var(--rb-transition), color var(--rb-transition);
+}
+.rb-drop:hover,
+.rb-drop:focus-visible,
+.rb-drop.is-over {
+  outline: none;
+  border-color: var(--rb-accent);
+  color: var(--rb-text);
+  background: color-mix(in srgb, var(--rb-accent) 8%, var(--rb-bg-sunken));
+}
+.rb-drop svg { width: 22px; height: 22px; opacity: 0.75; }
+.rb-drop-t { font-size: var(--rb-font-size); }
+.rb-drop-sub { font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-faint); }
+
+/* Capability chips + notes. */
+.rb-caps { display: flex; flex-wrap: wrap; gap: var(--rb-gap-2); }
+.rb-import-note { font-size: calc(var(--rb-font-size) - 1px); line-height: 1.5; color: var(--rb-text-muted); }
+.rb-import-note b { color: var(--rb-text); font-weight: 600; }
+
+/* Paste disclosure. */
+.rb-disclosure { font-size: calc(var(--rb-font-size) - 1px); }
+.rb-disclosure > summary {
+  cursor: pointer;
+  color: var(--rb-text-faint);
+  list-style: none;
+  padding: 2px 0;
+  user-select: none;
+}
+.rb-disclosure > summary::-webkit-details-marker { display: none; }
+.rb-disclosure > summary::before { content: '▸ '; }
+.rb-disclosure[open] > summary::before { content: '▾ '; }
+.rb-disclosure > summary:hover { color: var(--rb-text); }
+.rb-disclosure > .rb-col { margin-top: var(--rb-gap-2); }
 
 .rb-recv-status {
   display: flex;

@@ -304,70 +304,45 @@
       });
   }
 
-  // ---- feature showcase (what a user can expect from an import) ------------
+  // ---- small native building blocks ---------------------------------------
 
-  function ico(inner) {
-    var s = el('span.rb-feat-ic');
-    s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
-    return s;
-  }
-
-  var FEATURES = [
-    { t: 'Editable text', d: 'Real type layers: font, size, tracking, leading, colour and alignment kept.', i: '<path d="M5 6h14M12 6v13M9 19h6"/>' },
-    { t: 'Vector shapes', d: 'Paths rebuilt 1:1, with corners, booleans and strokes intact.', i: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>' },
-    { t: 'Gradients', d: 'Linear and radial rebuilt as native After Effects gradients.', i: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 12h18"/>' },
-    { t: 'Layer styles', d: 'Drop and inner shadow, glows, bevel, satin, overlays and stroke.', i: '<rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8"/>' },
-    { t: 'Masks and clipping', d: 'Clipping masks become track mattes automatically.', i: '<path d="M4 4h11v11H4z"/><circle cx="15" cy="15" r="5.5"/>' },
-    { t: 'Images', d: 'Embedded images imported as footage and placed exactly.', i: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M21 16l-5-5L5 20"/>' },
-    { t: 'Layer hierarchy', d: 'Groups, stacking order, opacity and blend modes preserved.', i: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>' },
-    { t: 'Fidelity report', d: 'See exactly what transferred and swap any missing fonts.', i: '<path d="M9 6h11M9 12h11M9 18h7"/><path d="M3.5 6l1.1 1.1L6.5 4.8"/><path d="M3.5 12l1.1 1.1L6.5 10.8"/>' }
-  ];
-
-  var APPS = [
+  // Source apps the bridge listens for. The dot uses each app's brand hue as a
+  // quiet accent, no logos.
+  var SOURCES = [
     { name: 'Figma', dot: '#a259ff' },
     { name: 'Illustrator', dot: '#ff9a00' },
     { name: 'Photoshop', dot: '#31a8ff' }
   ];
 
-  var STEPS = [
-    'Install the free <b>Rebound</b> plugin in Figma, Illustrator, or Photoshop.',
-    'Select your design and run Rebound: it sends here in <b>one click</b>, or saves a <b>.rbir</b> file (hold Shift to force a file).',
-    'It rebuilds in your active composition as native, <b>editable</b> layers.'
-  ];
+  // What comes across, shown as quiet chips rather than a marketing grid.
+  var CAPS = ['Editable text', 'Vectors', 'Gradients', 'Layer styles', 'Masks', 'Images', 'Layer hierarchy'];
 
-  function buildApps() {
+  function buildSources() {
+    var chips = [el('span.rb-faint', { text: 'From' })];
+    for (var i = 0; i < SOURCES.length; i++) {
+      var dot = el('span.rb-src-dot');
+      dot.style.background = SOURCES[i].dot;
+      chips.push(el('span.rb-chip', null, [dot, el('span', { text: SOURCES[i].name })]));
+    }
+    return el('div.rb-srcs', null, chips);
+  }
+
+  function buildCaps() {
     var chips = [];
-    for (var i = 0; i < APPS.length; i++) {
-      var dot = el('span.rb-app-dot');
-      dot.style.background = APPS[i].dot;
-      chips.push(el('span.rb-app-chip', null, [dot, el('span', { text: APPS[i].name })]));
-    }
-    return el('div.rb-apps', null, chips);
+    for (var i = 0; i < CAPS.length; i++) chips.push(el('span.rb-chip', { text: CAPS[i] }));
+    return el('div.rb-caps', null, chips);
   }
 
-  function buildFeatures() {
-    var cells = [];
-    for (var i = 0; i < FEATURES.length; i++) {
-      var f = FEATURES[i];
-      cells.push(el('div.rb-feat', null, [
-        ico(f.i),
-        el('div.rb-feat-body', null, [
-          el('div.rb-feat-t', { text: f.t }),
-          el('div.rb-feat-d', { text: f.d })
-        ])
-      ]));
+  // Title + sub for the connection hero, by receiver state.
+  function bridgeLines() {
+    switch (receiver.state) {
+      case 'running': return { title: 'Listening for designs', sub: '127.0.0.1:' + receiver.port + ' · arrives in one click' };
+      case 'starting': return { title: 'Starting the bridge...', sub: '' };
+      case 'stopped': return { title: 'Bridge is off', sub: 'Turn it on to receive straight from a design app' };
+      case 'error': return { title: 'Bridge could not start', sub: receiver.error || 'Use a .rbir file below instead' };
+      case 'unavailable': return { title: 'Send needs After Effects', sub: 'Live one-click send runs inside the AE panel; import a .rbir file below' };
+      default: return { title: 'Bridge idle', sub: '' };
     }
-    return el('div.rb-feat-grid', null, cells);
-  }
-
-  function buildSteps() {
-    var rows = [];
-    for (var i = 0; i < STEPS.length; i++) {
-      var d = el('div.rb-step-d');
-      d.innerHTML = STEPS[i];
-      rows.push(el('div.rb-step', null, [d]));
-    }
-    return el('div.rb-steps', null, rows);
   }
 
   function mount(ctx) {
@@ -384,58 +359,85 @@
       return { destroy: offw };
     }
 
-    var statusDot = el('span.rb-recv-dot');
-    var statusLabel = el('span', { text: statusText() });
-    var statusRow = el('div.rb-recv-status', null, [statusDot, statusLabel]);
+    // Connection hero: the live state of the bridge is the real centrepiece.
+    var bridgeDot = el('span.rb-bridge-dot');
+    var bridgeTitle = el('div.rb-bridge-title');
+    var bridgeSub = el('div.rb-bridge-sub');
+    var toggleBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () {
+      if (receiver.state === 'running') stopReceiver();
+      else startReceiver();
+    } }, ['Turn on']);
+    var bridge = el('div.rb-bridge', null, [
+      bridgeDot,
+      el('div.rb-bridge-main', null, [bridgeTitle, bridgeSub]),
+      toggleBtn
+    ]);
 
     function paintStatus() {
-      statusLabel.textContent = statusText();
-      statusDot.setAttribute('data-state', receiver.state);
+      var l = bridgeLines();
+      bridgeDot.setAttribute('data-state', receiver.state);
+      bridgeTitle.textContent = l.title;
+      bridgeSub.textContent = l.sub;
+      bridgeSub.style.display = l.sub ? '' : 'none';
+      toggleBtn.textContent = receiver.state === 'running' ? 'Turn off' : 'Turn on';
+      toggleBtn.disabled = (receiver.state === 'unavailable' || receiver.state === 'starting');
     }
     paintStatus();
     var off = onStatus(paintStatus);
 
-    var toggleBtn = el('button.rb-btn', { type: 'button', onclick: function () {
-      if (receiver.state === 'running') stopReceiver();
-      else startReceiver();
-    } }, ['Toggle receiver']);
-
+    // File input + a real drop target (click to browse, or drop a .rbir in).
     var fileInput = el('input', { type: 'file', accept: '.rbir,.json,application/json', style: { display: 'none' } });
     fileInput.addEventListener('change', function () {
       if (fileInput.files && fileInput.files[0]) readFile(fileInput.files[0], function (t) { importFromText(t, ctx); });
       fileInput.value = '';
     });
-    var fileBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { fileInput.click(); } }, ['Import from file...']);
+    var dropIcon = el('span');
+    dropIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 12l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>';
+    var drop = el('div.rb-drop', { role: 'button', tabindex: '0', onclick: function () { fileInput.click(); } }, [
+      dropIcon,
+      el('div.rb-drop-t', { text: 'Drop a .rbir file, or click to browse' }),
+      el('div.rb-drop-sub', { text: 'Saved from any Rebound plugin' })
+    ]);
+    drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+    drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('is-over'); });
+    drop.addEventListener('dragleave', function () { drop.classList.remove('is-over'); });
+    drop.addEventListener('drop', function (e) {
+      e.preventDefault();
+      drop.classList.remove('is-over');
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) readFile(f, function (t) { importFromText(t, ctx); });
+    });
 
-    var paste = el('textarea.rb-code', { rows: '5', placeholder: 'Or paste a Rebound IR (.rbir) document here', spellcheck: 'false' });
+    // Paste fallback, kept quiet behind a disclosure so it does not clutter.
+    var paste = el('textarea.rb-code', { rows: '4', placeholder: 'Paste a Rebound IR (.rbir) document', spellcheck: 'false' });
     var pasteBtn = el('button.rb-btn', { type: 'button', onclick: function () {
       var t = paste.value.trim();
       if (!t) { ctx.toast('Paste an IR document first.', { kind: 'error' }); return; }
       importFromText(t, ctx);
     } }, ['Import pasted IR']);
+    var pasteWrap = el('details.rb-disclosure', null, [
+      el('summary', { text: 'Paste IR instead' }),
+      el('div.rb-col', null, [paste, el('div.rb-row', null, [pasteBtn])])
+    ]);
+
+    var sendNote = el('div.rb-import-note');
+    sendNote.innerHTML = 'Install the free <b>Rebound</b> plugin for Figma, Illustrator or Photoshop. Select your art and run it: it lands here in one click, or saves a <b>.rbir</b> file (hold <b>Shift</b> to force a file).';
 
     var reportEl = el('div.rb-report-host');
 
     ctx.body.appendChild(el('div.rb-col.rb-import', null, [
-      el('div.rb-import-lead', { text: 'Bring a design from Figma, Illustrator, or Photoshop into After Effects as native, editable layers, no flattening and no re-tracing.' }),
-      buildApps(),
+      bridge,
+      buildSources(),
+      drop,
 
-      el('div.rb-import-sec-h', { text: 'What lands in your comp' }),
-      buildFeatures(),
+      el('div.rb-section-label', { text: 'What transfers' }),
+      buildCaps(),
+      el('div.rb-faint', { text: 'Everything comes in editable; a fidelity report lists anything approximated or skipped.' }),
 
-      el('div.rb-import-sec-h', { text: 'How it works' }),
-      buildSteps(),
+      el('div.rb-section-label', { text: 'Send from a design app' }),
+      sendNote,
 
-      el('div.rb-import-sec-h', { text: 'Bridge to After Effects' }),
-      statusRow,
-      el('div.rb-row.rb-wrap', null, [toggleBtn]),
-      el('div.rb-faint', { text: 'Open a composition first; imported frames are dropped into it.' }),
-
-      el('div.rb-import-sec-h', { text: 'No plugin handy? Import a file' }),
-      el('div.rb-faint', { text: 'Drop in a .rbir file saved from any Rebound plugin, or paste its contents.' }),
-      el('div.rb-row.rb-wrap', null, [fileBtn]),
-      paste,
-      el('div.rb-row', null, [pasteBtn]),
+      pasteWrap,
       reportEl
     ]));
 
