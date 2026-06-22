@@ -53,7 +53,6 @@
     anchor: '.rb-anchor-stage', ease: '.rb-curve', velocity: '.rb-curve', copyease: '.rb-curve',
     spring: '.rb-preview-stage', bounce: '.rb-preview-stage', recoil: '.rb-preview-stage', drift: '.rb-preview-stage', smooth: '.rb-curve'
   };
-  var DEFAULT_FILLED = { 'widget-anchor': true };
 
   // Only offer icons that fit the action, by group, so the picker stays relevant.
   var ICON_RELATED = {
@@ -187,8 +186,9 @@
       var h = R.ui.modal({ title: 'Rename board', width: 320, className: 'rb-modal-home', body: R.ui.row('Name', input), footer: [saveB], initialFocus: input });
     }
 
-    function filledOf(id) { return (id in filled) ? !!filled[id] : !!DEFAULT_FILLED[id]; }
-    function toggleFill(id) { filled[id] = !filledOf(id); persist(); render(); }
+    // Widgets are always full-bleed: the tool's main control fills the widget.
+    // Extra settings live in the full tool view (the "open" control on the widget).
+    function filledOf() { return true; }
 
     function setBoard(b) { board = b; grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + b); persist(); syncBoardBtns(); }
     function syncBoardBtns() {
@@ -677,21 +677,21 @@
       // the edges, appearing on hover (or in edit mode).
       var collapseBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Collapse / expand',
         onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
-      var fillBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Fill: show just the main control, full size',
-        onclick: function (e) { e.stopPropagation(); toggleFill(action.id); } }, [filledOf(action.id) ? '▣' : '▢']);
+      var prefsBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Open the full tool (all settings)',
+        onclick: function (e) { e.stopPropagation(); opts.openTool(action.toolId); } }, ['↗']);
       var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
       var removeBtn = el('button.rb-home-wbtn.rb-home-wbtn-x.rb-home-wbtn-edit', { type: 'button', title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']);
       var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour (double-click to clear)' });
       wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; card.style.setProperty('--rb-accent', wColor.value); persist(); });
       wColor.addEventListener('dblclick', function () { if (meta[action.id]) delete meta[action.id].color; card.style.removeProperty('--rb-accent'); persist(); });
-      var controls = el('div.rb-home-wctrls', null, [wColor, fillBtn, collapseBtn, maxBtn, removeBtn]);
+      var controls = el('div.rb-home-wctrls', null, [wColor, collapseBtn, prefsBtn, maxBtn, removeBtn]);
       var titleChip = el('div.rb-home-wtitle', null, [iconSpan(action.toolId, 'rb-home-ico-sm'), el('span.rb-home-wtitle-name', { text: action.label })]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, footer]);
       wireDrag(card, action.id);
       attachResize(card, action.id, 'widget');
-      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, fillBtn: fillBtn, wColor: wColor };
+      widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, wColor: wColor };
       return card;
     }
 
@@ -736,7 +736,6 @@
       }
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
-      if (entry.fillBtn) { entry.fillBtn.textContent = filledOf(action.id) ? '▣' : '▢'; entry.fillBtn.classList.toggle('is-active', filledOf(action.id)); }
       var mc = (meta[action.id] || {}).color;
       if (mc) card.style.setProperty('--rb-accent', mc); else card.style.removeProperty('--rb-accent');
       if (entry.wColor) entry.wColor.value = mc || accentHex();

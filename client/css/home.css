@@ -217,9 +217,15 @@
   opacity: 1; pointer-events: auto;
 }
 
-.rb-home-add { border-style: dashed; color: var(--rb-text-muted); background: transparent; }
+/* The Add control is a slim full-width bar pinned to the end, so it never
+   backfills into a gap and never lands over a widget. */
+.rb-home-add {
+  grid-column: 1 / -1; min-height: 42px; flex-direction: row; gap: 8px;
+  border-style: dashed; color: var(--rb-text-muted); background: transparent;
+}
 .rb-home-add:hover { border-color: var(--rb-accent); color: var(--rb-text); }
-.rb-home-plus { font-size: 22px; line-height: 1; color: var(--rb-text-muted); }
+.rb-home-add .rb-home-label { font-weight: 600; }
+.rb-home-plus { font-size: 18px; line-height: 1; color: var(--rb-text-muted); }
 
 /* Playful empty state, spanning the whole grid. */
 .rb-home-empty {
@@ -356,7 +362,16 @@
 .rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
 .rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; }
 .rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
-.rb-home-widget.is-filled .rb-action-bar { display: none; }
+/* Apply/Read stay reachable in full-bleed mode: the action bar floats at the
+   bottom edge on hover (hidden while editing, where the shield is over the tool). */
+.rb-home-widget.is-filled .rb-action-bar {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+  background: color-mix(in srgb, var(--rb-bg) 82%, transparent);
+  border-top: 1px solid var(--rb-border);
+  opacity: 0; transform: translateY(6px); pointer-events: none;
+  transition: opacity var(--rb-transition), transform var(--rb-transition);
+}
+.rb-home-widget.is-filled:not(.is-editmode):hover .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
@@ -427,10 +442,12 @@
 }
 
 /* ---- Board Size + Columns controls + drag-resize handle ------------------ */
-.rb-home-hint { display: flex; align-items: center; gap: var(--rb-gap-2); }
-.rb-home-sizectl { display: none; align-items: center; gap: 3px; }
+/* The edit bar wraps and spaces its control groups so nothing collides. */
+.rb-home-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 16px; }
+.rb-home-hint .rb-grow { flex: 1 1 100%; }
+.rb-home-sizectl { display: none; align-items: center; gap: 6px; }
 .rb-home.is-editing .rb-home-sizectl { display: inline-flex; }
-.rb-home-sizectl .rb-faint { font-size: calc(var(--rb-font-size) - 1px); }
+.rb-home-sizectl .rb-faint { font-size: calc(var(--rb-font-size) - 1px); white-space: nowrap; }
 .rb-home-sizebtn {
   width: 22px; height: 20px; border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
   background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; font-size: 11px;
