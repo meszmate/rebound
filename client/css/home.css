@@ -379,6 +379,7 @@
 .rb-home-wbtn:hover { color: var(--rb-text); border-color: var(--rb-accent); background: var(--rb-bg-raised); }
 .rb-home-wbtn.is-active { color: var(--rb-accent-text); background: var(--rb-accent); border-color: var(--rb-accent); }
 .rb-home-wbtn-x:hover { color: #fff; background: var(--rb-danger); border-color: var(--rb-danger); }
+.rb-home-wbtn-auto { width: auto; padding: 0 8px; font-size: calc(var(--rb-font-size) - 2px); font-weight: 600; }
 .rb-home-wbtn-edit { display: none; }
 .rb-home-widget.is-editmode .rb-home-wbtn-edit { display: inline-flex; }
 /* Cap an embedded tool so it stays a manageable panel and scrolls inside rather

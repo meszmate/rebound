@@ -733,10 +733,13 @@
       var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
       var removeBtn = el('button.rb-home-wbtn.rb-home-wbtn-x.rb-home-wbtn-edit', { type: 'button', title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']);
-      var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour (double-click to clear)' });
+      var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour' });
+      function autoWColor() { if (meta[action.id]) delete meta[action.id].color; card.style.removeProperty('--rb-accent'); wColor.value = accentHex(); persist(); }
       wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; card.style.setProperty('--rb-accent', wColor.value); persist(); });
-      wColor.addEventListener('dblclick', function () { if (meta[action.id]) delete meta[action.id].color; card.style.removeProperty('--rb-accent'); persist(); });
-      var controls = el('div.rb-home-wctrls', null, [wColor, collapseBtn, prefsBtn, maxBtn, removeBtn]);
+      wColor.addEventListener('dblclick', autoWColor);
+      // Explicit Auto (use the theme accent), matching the tile and board controls.
+      var wColorAuto = el('button.rb-home-wbtn.rb-home-wbtn-edit.rb-home-wbtn-auto', { type: 'button', title: 'Auto colour (use the theme)', onclick: function (e) { e.stopPropagation(); autoWColor(); } }, ['Auto']);
+      var controls = el('div.rb-home-wctrls', null, [wColor, wColorAuto, collapseBtn, prefsBtn, maxBtn, removeBtn]);
       var titleChip = el('div.rb-home-wtitle', null, [iconSpan(action.toolId, 'rb-home-ico-sm'), el('span.rb-home-wtitle-name', { text: action.label })]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
 
