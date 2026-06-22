@@ -408,44 +408,34 @@
 .rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
 .rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; }
 .rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
-/* Actions hide behind a tiny corner dot: nothing floats over a draggable point.
-   Click the dot to reveal Read|Apply (they grow inward from the corner). The dot
-   itself only fades in on hover, and is gone for tools with no actions and while
-   editing (where the shield is over the tool). */
-/* Self-repositioning: a tiny script drops the actions into whichever corner is
-   clearest of draggable points, so the menu never sits where you want to grab.
-   Right-side corners open the pill to the left (row-reverse); left-side to the
-   right. It hops corners as the content moves. */
-.rb-home-actions {
-  position: absolute; z-index: 6; display: inline-flex; align-items: center; gap: 6px;
-  transition: opacity var(--rb-transition);
+/* Use-time actions come from a right-click menu, so nothing ever floats over the
+   tool or its draggable points. The tool's footer is kept only as the action
+   source for that menu, hidden from view. */
+.rb-home-widget .rb-action-bar.rb-home-foot-src { display: none; }
+/* A faded hint that teaches the right-click; pointer-events none so it never
+   blocks the tool. Fades in on hover, sits along the bottom edge out of the way. */
+.rb-home-rchint {
+  position: absolute; left: 0; right: 0; bottom: 6px; z-index: 4; text-align: center;
+  pointer-events: none; opacity: 0; transition: opacity var(--rb-transition);
+  font-size: calc(var(--rb-font-size) - 2px); color: var(--rb-text-faint);
 }
-.rb-home-actions.is-pos-tl { top: 6px; left: 6px; flex-direction: row; }
-.rb-home-actions.is-pos-bl { bottom: 6px; left: 6px; flex-direction: row; }
-.rb-home-actions.is-pos-tr { top: 6px; right: 6px; flex-direction: row-reverse; }
-.rb-home-actions.is-pos-br { bottom: 6px; right: 6px; flex-direction: row-reverse; }
-.rb-home-widget.is-editmode .rb-home-actions { display: none; }
-.rb-home-actdot {
-  width: 13px; height: 13px; flex: none; padding: 0; cursor: pointer; border-radius: 999px;
-  border: 1px solid var(--rb-border-strong); background: color-mix(in srgb, var(--rb-bg-raised) 88%, transparent);
-  opacity: 0; transition: opacity var(--rb-transition), background var(--rb-transition), border-color var(--rb-transition);
-}
-.rb-home-widget.is-filled:not(.is-editmode):hover .rb-home-actdot { opacity: 0.55; }
-.rb-home-actdot:hover, .rb-home-widget.is-actions-open .rb-home-actdot { opacity: 1; }
-.rb-home-widget.is-actions-open .rb-home-actdot { background: var(--rb-accent); border-color: var(--rb-accent); }
+.rb-home-rchint span { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--rb-bg) 60%, transparent); }
+.rb-home-widget.is-filled:not(.is-editmode):hover .rb-home-rchint { opacity: 0.65; }
 
-.rb-home-widget.is-filled .rb-action-bar {
-  display: none; align-items: center; gap: 3px;
-  padding: 2px; border: 1px solid var(--rb-border); border-radius: 999px;
-  background: color-mix(in srgb, var(--rb-bg-raised) 92%, transparent);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+/* The right-click actions menu (appended to body, positioned at the cursor). */
+.rb-home-menu {
+  position: fixed; z-index: 1000; min-width: 150px; padding: 5px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--rb-bg-raised); border: 1px solid var(--rb-border-strong);
+  border-radius: var(--rb-radius-2); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
-.rb-home-widget.is-actions-open .rb-action-bar { display: inline-flex; }
-/* Tiny rounded buttons, no status text. */
-.rb-home-widget.is-filled .rb-action-bar .rb-scope { display: none; }
-.rb-home-widget.is-filled .rb-action-bar .rb-btn { border-radius: 999px; height: 19px; padding: 0 9px; font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; }
-.rb-home-widget.is-filled .rb-action-bar .rb-btn.is-ghost { color: var(--rb-text-muted); }
-.rb-home-actions.is-empty, .rb-home-widget .rb-action-bar.is-empty { display: none; }
+.rb-home-menu-item {
+  display: block; width: 100%; text-align: left; padding: 7px 10px; font: inherit;
+  color: var(--rb-text); background: none; border: none; border-radius: var(--rb-radius); cursor: pointer;
+}
+.rb-home-menu-item:hover { background: var(--rb-bg-sunken); }
+.rb-home-menu-item.is-primary { color: var(--rb-accent); font-weight: 600; }
+.rb-home-menu-sep { height: 1px; margin: 3px 4px; background: var(--rb-border); }
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
