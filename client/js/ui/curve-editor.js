@@ -42,7 +42,9 @@
     var W = 300;
     var H = height;
     var view = computeView(curve);
-    var frozenView = null; // held stable during a drag so the handle never "runs away"
+    var frozenView = null; // value range held stable during a drag
+    var dragging = false;  // while true, the pixel geometry (viewBox/H) is frozen too
+    var dragGeom = null;   // frozen screen rect, so pointer mapping ignores reflow
     var ghost = opts.ghost ? clone(opts.ghost) : null;
     var rafToken = null;
     var swatchPhase = 0;
@@ -77,6 +79,7 @@
       return { vMin: lo - m, vMax: hi + m };
     }
 
+
     function pathFor(c) {
       var pts = sampler.samplePoints(c, 90);
       var d = '';
@@ -87,7 +90,7 @@
     }
 
     function render() {
-      measure();
+      if (!dragging) measure(); // keep the pixel space fixed during a drag
       view = frozenView || computeView(curve);
       R.dom.clear(svgEl);
 
@@ -176,10 +179,17 @@
         e.preventDefault();
         circle.classList.add('is-dragging');
         circle.setPointerCapture(e.pointerId);
-        // Freeze the current (already generous) view so it does not jump on
-        // grab; it grows only if the handle is dragged past an edge, never
-        // shrinks, so the coordinate space stays steady under the pointer.
+        // Freeze both the value range and the pixel geometry for the whole drag,
+        // so the value maps to the pointer 1:1 and the drag is always reversible
+        // (pull a handle back the exact way it came). For extreme overshoot the
+        // handle can travel above the plot, but it returns the moment you drag in.
         frozenView = computeView(curve);
+        measure();
+        dragging = true;
+        // Freeze the exact screen->SVG transform at grab time. It encodes the real
+        // scale and position, so the mapping stays correct and constant no matter
+        // how the layout reflows mid-drag (the live preview re-rendering, etc.).
+        dragGeom = svgEl.getScreenCTM();
         render();
         var move = function (ev) {
           var p = toPlot(ev);
@@ -188,6 +198,8 @@
         var up = function (ev) {
           circle.classList.remove('is-dragging');
           frozenView = null;
+          dragging = false;
+          dragGeom = null;
           render();
           hideReadout();
           window.removeEventListener('pointermove', move);
@@ -225,13 +237,6 @@
       else y = clamp(y, -3, 4);
       if (key === 'h1') { curve.x1 = x; curve.y1 = y; }
       else { curve.x2 = x; curve.y2 = y; }
-      // While dragging, grow the frozen view to keep the handle visible (never
-      // shrink), so pushing into overshoot expands the graph smoothly.
-      if (frozenView) {
-        var pad = 0.18;
-        if (y < frozenView.vMin + pad) frozenView.vMin = y - pad;
-        if (y > frozenView.vMax - pad) frozenView.vMax = y + pad;
-      }
       onChange(clone(curve));
       render();
       showReadout(key, ev);
@@ -265,7 +270,9 @@
       var pt = svgEl.createSVGPoint();
       pt.x = evt.clientX;
       pt.y = evt.clientY;
-      var ctm = svgEl.getScreenCTM();
+      // Use the transform frozen at grab time during a drag, so a reflow cannot
+      // shift the mapping under the pointer; otherwise read it live.
+      var ctm = dragGeom || svgEl.getScreenCTM();
       if (!ctm) return { x: 0, y: 0 };
       var p = pt.matrixTransform(ctm.inverse());
       return { x: p.x, y: p.y };
