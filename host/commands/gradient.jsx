@@ -37,20 +37,11 @@
     return v < 0 ? 0 : v > 1 ? 1 : v;
   }
 
-  // Encode N opaque color stops into the flat array the Grad Colors property
-  // expects: 4 numbers per color stop (position, r, g, b), then 2 numbers per
-  // alpha stop (position, alpha). Stops are sorted by position.
+  // Encode N color stops into the flat Grad Colors array. The shared encoder
+  // (host/lib/grad.jsx) is the single source of truth for this format; here the
+  // stops are opaque, so alpha defaults to 1.
   function nStopData(stops) {
-    var s = stops.slice().sort(function (a, b) { return a.pos - b.pos; });
-    var arr = [];
-    var i;
-    for (i = 0; i < s.length; i++) {
-      arr.push(s[i].pos, s[i].color[0], s[i].color[1], s[i].color[2]);
-    }
-    for (i = 0; i < s.length; i++) {
-      arr.push(s[i].pos, 1);
-    }
-    return arr;
+    return $.__rebound.grad.encode(stops);
   }
 
   // Add a gradient fill to a shape group's contents collection: ramp type,

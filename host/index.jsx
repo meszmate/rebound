@@ -56,7 +56,9 @@
   loadAbs(extRoot + '/shared/lib/normalize.js');
   loadAbs(extRoot + '/shared/lib/bezier.js');
   loadAbs(extRoot + '/shared/lib/validate.js');
+  loadAbs(extRoot + '/shared/lib/grad.js');
   load('lib/ir.jsx');
+  load('lib/grad.jsx');
 
   load('commands/system.jsx');
   load('commands/ease.jsx');
@@ -110,7 +112,10 @@
   load('commands/gradient.jsx');
 
   // Import / receive (rebuild a design from another app as native AE layers).
+  // build.jsx defines the importer namespace + walk; the rest register builders.
   load('commands/import/build.jsx');
+  load('commands/import/paint.jsx');
+  load('commands/import/shape.jsx');
 
   $.__rebound.loaded = true;
 })();

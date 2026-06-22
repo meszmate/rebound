@@ -61,15 +61,14 @@
     return tl; // non-uniform corners are refined in a later phase
   }
 
-  // Place a shape layer's content origin at the node's top-left so a node at
-  // (x,y) with size (w,h) lands exactly there in comp space.
-  function positionAxisAligned(layer, node, w, h) {
+  // Place a layer so its content origin (the node's top-left) lands at the
+  // node's position in comp space. Geometry is built in node-local coords, so
+  // anchor [0,0] + position [x,y] reproduces the source placement exactly.
+  function placeLocal(layer, node) {
     var t = node.transform || {};
-    var cx = (t.x || 0) + w / 2;
-    var cy = (t.y || 0) + h / 2;
     var tr = layer.property(util.MATCH.transform);
     tr.property(util.MATCH.anchor).setValue([0, 0]);
-    tr.property(util.MATCH.position).setValue([cx, cy]);
+    tr.property(util.MATCH.position).setValue([t.x || 0, t.y || 0]);
     if (typeof node.opacity === 'number' && node.opacity < 1) {
       tr.property(util.MATCH.opacity).setValue(node.opacity * 100);
     }
@@ -79,52 +78,13 @@
     colorToAE: colorToAE,
     firstVisible: firstVisible,
     uniformRadius: uniformRadius,
-    positionAxisAligned: positionAxisAligned,
+    placeLocal: placeLocal,
     note: note
   };
 
-  // ---- minimal builders (Phase 1: rectangle + solid fill) ------------------
-
-  function addSolidFill(contents, paints, report, name) {
-    var fill = contents.addProperty('ADBE Vector Graphic - Fill');
-    var solid = firstVisible(paints, 'SOLID');
-    if (solid && solid.color) {
-      fill.property('ADBE Vector Fill Color').setValue(colorToAE(solid.color));
-      if (typeof solid.opacity === 'number' && solid.opacity < 1) {
-        fill.property('ADBE Vector Fill Opacity').setValue(solid.opacity * 100);
-      }
-    } else {
-      var other = firstVisible(paints, null);
-      if (other) note(report, 'approximated', { name: name, detail: other.type + ' fill rendered as a flat colour (refined in a later build)' });
-      fill.property('ADBE Vector Fill Color').setValue([0.5, 0.5, 0.5]);
-    }
-    return fill;
-  }
-
-  function buildRectangle(comp, node, report) {
-    var t = node.transform || {};
-    var rectPrim = node.primitive && node.primitive.rect;
-    var w = t.width || (rectPrim && rectPrim.size ? rectPrim.size[0] : 100);
-    var h = t.height || (rectPrim && rectPrim.size ? rectPrim.size[1] : 100);
-
-    var layer = comp.layers.addShape();
-    layer.name = node.name || 'Rectangle';
-    var contents = layer.property('ADBE Root Vectors Group')
-      .addProperty('ADBE Vector Group')
-      .property('ADBE Vectors Group');
-
-    var rect = contents.addProperty('ADBE Vector Shape - Rect');
-    rect.property('ADBE Vector Rect Size').setValue([w, h]);
-    var round = uniformRadius(node.cornerRadii);
-    if (round) rect.property('ADBE Vector Rect Roundness').setValue(round);
-
-    addSolidFill(contents, node.fills, report, node.name);
-    positionAxisAligned(layer, node, w, h);
-    report.layersBuilt++;
-    return layer;
-  }
-
-  builders.RECTANGLE = buildRectangle;
+  // Node builders (RECTANGLE, ELLIPSE, VECTOR, BOOLEAN, ...) register themselves
+  // on R.importer.builders from import/shape.jsx and import/text.jsx, which load
+  // after this file.
 
   // ---- node + frame walk ---------------------------------------------------
 
