@@ -701,7 +701,7 @@
         var actDot = el('button.rb-home-actdot', { type: 'button', title: 'Actions', 'aria-label': 'Show actions',
           onclick: function (e) { e.stopPropagation(); card.classList.toggle('is-actions-open'); } });
         footer.addEventListener('click', function (e) { if (e.target.closest('.rb-btn')) card.classList.remove('is-actions-open'); });
-        actionsNode = el('div.rb-home-actions', null, [footer, actDot]);
+        actionsNode = el('div.rb-home-actions', null, [actDot, footer]);
       }
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, actionsNode || footer]);
       if (actionsNode) {
@@ -885,37 +885,59 @@
         if (!actions.length) { listEl.appendChild(el('div.rb-empty', { text: 'No matches.' })); return; }
         order.forEach(function (g) {
           listEl.appendChild(el('div.rb-home-browser-head', { text: g }));
-          groups[g].forEach(function (a) {
-            var pinned = ids.indexOf(a.id) !== -1;
-            var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' })
-              : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget' })
-                : el('span.rb-home-badge.is-open', { text: 'open' });
-            var ico = iconSpan(a.toolId, 'rb-home-ico'); // the tinted chip, bigger than the tiny one
-            var text = el('div.rb-home-browser-text', null, [
-              el('div.rb-home-browser-name', { text: a.label }),
-              el('div.rb-home-browser-desc', { text: a.desc || '' })
-            ]);
-            var row = el('button.rb-home-browser-row' + (pinned ? '.is-pinned' : ''), { type: 'button', title: a.label }, [
-              ico, text, badge, el('span.rb-home-pin', { text: pinned ? '✓' : '+' })
-            ]);
-            row.addEventListener('click', function () {
-              if (ids.indexOf(a.id) !== -1) removeItem(a.id); else addItem(a.id);
-              row.classList.toggle('is-pinned');
-              var pin = row.querySelector('.rb-home-pin');
-              if (pin) pin.textContent = (ids.indexOf(a.id) !== -1) ? '✓' : '+';
-            });
-            listEl.appendChild(row);
-          });
+          var gridEl = el('div.rb-home-browser-grid');
+          groups[g].forEach(function (a) { gridEl.appendChild(browserCard(a)); });
+          listEl.appendChild(gridEl);
         });
+      }
+
+      // A big, explanatory card: an animated example of what the tool does (its
+      // easing curve or demo, the same visual the tile uses), its name, a kind
+      // badge, a plain-language description, and a clear Add / Added toggle.
+      function browserCard(a) {
+        function isPinned() { return ids.indexOf(a.id) !== -1; }
+        var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' })
+          : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget' })
+            : el('span.rb-home-badge.is-open', { text: 'open' });
+        var vis = tileVisual(a, {});
+        var visWrap = el('div.rb-home-card-vis', null, [vis || iconSpan(a.toolId, 'rb-home-ico')]);
+        if (!vis) visWrap.classList.add('is-icon');
+        // A 1-click action carries its own specific line; for a widget/open of a
+        // tool, the tool's own demo caption explains it far better than the generic
+        // line, so prefer that (tags stripped to plain text).
+        var demo = R.toolDemos && R.toolDemos[a.toolId];
+        var cap = demo && demo.caption ? demo.caption.replace(/<[^>]+>/g, '') : '';
+        var descText = (a.kind === 'apply') ? (a.desc || cap) : (cap || a.desc || '');
+        var addBtn = el('button.rb-home-card-add', { type: 'button' });
+        var card = el('div.rb-home-card', { title: a.label }, [
+          visWrap,
+          el('div.rb-home-card-body', null, [
+            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: a.label }), badge]),
+            el('div.rb-home-card-desc', { text: descText }),
+            addBtn
+          ])
+        ]);
+        function sync() {
+          var on = isPinned();
+          card.classList.toggle('is-pinned', on);
+          addBtn.classList.toggle('is-pinned', on);
+          R.dom.clear(addBtn);
+          addBtn.appendChild(el('span', { text: on ? 'Added' : 'Add to Home' }));
+        }
+        addBtn.addEventListener('click', function () {
+          if (isPinned()) removeItem(a.id); else addItem(a.id);
+          sync();
+        });
+        sync();
+        return card;
       }
       renderList();
 
       var doneBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { handle.close('confirm'); } }, ['Done']);
       var handle = R.ui.modal({
-        title: 'Add to Home', width: 460, className: 'rb-modal-home',
+        title: 'Add to Home', width: 640, className: 'rb-modal-home',
         body: el('div.rb-home-browser', null, [
-          el('div.rb-home-browser-filter', null, [kindCtl.el]),
-          el('div.rb-search', null, [search]),
+          el('div.rb-home-browser-tools', null, [el('div.rb-search.rb-grow', null, [search]), kindCtl.el]),
           listEl
         ]),
         footer: [doneBtn], initialFocus: search

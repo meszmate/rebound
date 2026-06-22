@@ -263,32 +263,53 @@
 .rb-home-empty-btn { margin-top: 6px; height: 30px; padding: 0 16px; font-size: calc(var(--rb-font-size) + 1px); }
 
 /* ---- Action browser ------------------------------------------------------ */
-.rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-3); }
-.rb-home-browser .rb-search input,
-.rb-home-browser-filter + .rb-search input { width: 100%; height: 32px; }
-.rb-home-browser-list { display: flex; flex-direction: column; gap: 3px; max-height: 56vh; overflow: auto; padding-right: 2px; }
+.rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-home-browser-tools { display: flex; align-items: center; gap: 10px; }
+.rb-home-browser-tools .rb-search { flex: 1 1 auto; }
+.rb-home-browser-tools .rb-search input { width: 100%; height: 32px; }
+.rb-home-browser-list { display: flex; flex-direction: column; gap: 2px; max-height: 62vh; overflow: auto; padding-right: 2px; }
 .rb-home-browser-head {
   font-size: calc(var(--rb-font-size) - 2px); text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--rb-text-faint); padding: 12px 4px 3px;
+  color: var(--rb-text-faint); padding: 14px 2px 6px;
 }
 .rb-home-browser-head:first-child { padding-top: 2px; }
-.rb-home-browser-row {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border: 1px solid transparent; border-radius: var(--rb-radius-2);
-  background: transparent; color: var(--rb-text); cursor: pointer; font: inherit; text-align: left; width: 100%;
-  transition: background var(--rb-transition), border-color var(--rb-transition);
+
+/* Big explanatory cards: an animated example of the tool, name + kind badge, a
+   plain-language description, and a clear Add / Added toggle. */
+.rb-home-browser-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 10px; }
+.rb-home-card {
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--rb-card-border); border-radius: var(--rb-card-radius);
+  background: var(--rb-card-bg);
+  transition: border-color var(--rb-transition), box-shadow var(--rb-transition), transform var(--rb-transition);
 }
-.rb-home-browser-row:hover { background: var(--rb-bg-sunken); border-color: var(--rb-border-strong); }
-.rb-home-browser-row.is-pinned { border-color: var(--rb-accent); background: color-mix(in srgb, var(--rb-accent) 8%, transparent); }
-.rb-home-browser-row .rb-home-ico { flex: none; }
-.rb-home-browser-text { flex: 1 1 auto; min-width: 0; }
-.rb-home-browser-name { font-weight: 600; color: var(--rb-text); line-height: 1.2; }
-.rb-home-browser-desc { font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rb-home-browser-row:not(:hover):not(.is-pinned) .rb-home-pin { opacity: 0; }
+.rb-home-card:hover { border-color: var(--rb-border-strong); box-shadow: var(--rb-card-shadow); }
+.rb-home-card.is-pinned { border-color: var(--rb-accent); }
+.rb-home-card-vis {
+  height: 96px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: var(--rb-bg-sunken); border-bottom: 1px solid var(--rb-border);
+}
+.rb-home-card-vis svg { width: 100%; height: 100%; max-height: 92px; }
+.rb-home-card-vis.is-icon .rb-home-ico { width: 40px; height: 40px; }
+.rb-home-card-vis.is-icon .rb-home-ico svg { width: 24px; height: 24px; }
+.rb-home-card-vis .rb-home-tilevis { width: 100%; height: 100%; }
+.rb-home-card-body { display: flex; flex-direction: column; gap: 5px; padding: 9px 10px 10px; }
+.rb-home-card-top { display: flex; align-items: center; gap: 6px; }
+.rb-home-card-name { font-weight: 600; color: var(--rb-text); line-height: 1.2; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-home-card-desc {
+  font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); line-height: 1.35; min-height: 2.7em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rb-home-card-add {
+  margin-top: 2px; height: 28px; padding: 0 10px; cursor: pointer; font: inherit; font-weight: 600;
+  color: var(--rb-text); background: var(--rb-bg-raised);
+  border: 1px solid var(--rb-border-strong); border-radius: 999px;
+  transition: background var(--rb-transition), color var(--rb-transition), border-color var(--rb-transition);
+}
+.rb-home-card-add:hover { border-color: var(--rb-accent); }
+.rb-home-card-add.is-pinned { background: var(--rb-accent); border-color: var(--rb-accent); color: var(--rb-on-accent, #fff); }
 .rb-home-ico-sm { width: 18px; height: 18px; color: var(--rb-accent); display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .rb-home-ico-sm svg { width: 17px; height: 17px; }
-.rb-home-pin { flex: none; width: 18px; text-align: center; color: var(--rb-text-muted); font-weight: 700; }
-.rb-home-browser-row.is-pinned .rb-home-pin { color: var(--rb-accent); }
 .rb-home-badge.is-widget { background: color-mix(in srgb, var(--rb-accent) 30%, transparent); color: var(--rb-accent); }
 
 /* ---- Live tool widgets --------------------------------------------------- */
@@ -391,7 +412,9 @@
    Click the dot to reveal Read|Apply (they grow inward from the corner). The dot
    itself only fades in on hover, and is gone for tools with no actions and while
    editing (where the shield is over the tool). */
-.rb-home-actions { position: absolute; right: 6px; bottom: 6px; z-index: 6; display: inline-flex; align-items: center; gap: 6px; }
+/* Top-left, away from the bottom-right resize/drag corner (and clear of the
+   curve, which sits low-left to high-right), so it never sits on a draggable point. */
+.rb-home-actions { position: absolute; left: 6px; top: 6px; z-index: 6; display: inline-flex; align-items: center; gap: 6px; }
 .rb-home-widget.is-editmode .rb-home-actions { display: none; }
 .rb-home-actdot {
   width: 13px; height: 13px; flex: none; padding: 0; cursor: pointer; border-radius: 999px;
