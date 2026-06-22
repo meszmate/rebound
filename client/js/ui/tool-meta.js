@@ -55,7 +55,8 @@
     crop: '<path d="M6 2v16h16M2 6h16v16"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     check: '<path d="M4 12l5 5L20 6"/>',
-    code: '<path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/>'
+    code: '<path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/>',
+    importIn: '<path d="M12 3v10M8 11l4 4 4-4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'
   };
 
   var SECTIONS = [
@@ -66,6 +67,7 @@
     { id: 'layout', name: 'Layout & align', icon: ICONS.align },
     { id: 'generate', name: 'Generators', icon: ICONS.stack },
     { id: 'shapes', name: 'Shapes & paths', icon: ICONS.shape },
+    { id: 'convert', name: 'Convert & import', icon: ICONS.importIn },
     { id: 'color', name: 'Color', icon: ICONS.droplet },
     { id: 'organize', name: 'Organize & help', icon: ICONS.tag }
   ];
@@ -142,6 +144,10 @@
     trimpaths: t('shapes', ICONS.scissors, 'Animate a path write-on'),
     break: t('shapes', ICONS.shape, 'Split a shape layer into groups'),
     textbreak: t('shapes', ICONS.shape, 'Split text into letters / words / lines'),
+
+    // Convert & import
+    import: t('convert', ICONS.importIn, 'Bring a Figma or Illustrator design in as native, editable layers',
+      'Overlord is paid and flattens text to shapes. Rebound is free and keeps text as editable text with every parameter, rebuilds native gradients and shapes, and shows a fidelity report of exactly what transferred.'),
 
     // Color
     color: t('color', ICONS.droplet, 'Set fill, solid, or effect color'),
