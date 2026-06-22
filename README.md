@@ -6,8 +6,8 @@
 
 Shape easing curves, design physical springs with real overshoot, fix anchor
 points, align and array layers, rig follow-through, and bring whole designs in
-from Figma and Illustrator as native, editable layers, from one cohesive panel.
-Clean-room, original, and built on public, non-proprietary techniques.
+from Figma, Illustrator, and Photoshop as native, editable layers, from one
+cohesive panel. Clean-room, original, and built on public techniques.
 
 </div>
 
@@ -35,15 +35,17 @@ See the full roadmap in [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Send designs straight into After Effects
 
-Rebound also brings designs in. Select a frame in Figma or some artwork in
-Illustrator, send it, and it lands in your active composition as **native,
-editable After Effects layers**: text stays editable text with every parameter,
-shapes stay parametric, gradients stay native gradients, and you get a fidelity
-report of exactly what transferred. Free, no account, and nothing leaves your
-machine.
+Rebound also brings designs in. Select a frame in Figma, artwork in Illustrator,
+or open a document in Photoshop, send it, and it lands in your active composition
+as **native, editable After Effects layers**: text stays editable text with every
+parameter, shapes stay parametric, gradients stay native gradients, shadows and
+glows and bevels become real **layer styles**, masks become track mattes, and you
+get a fidelity report of exactly what transferred. Free, no account, and nothing
+leaves your machine.
 
 This is the free alternative to the paid incumbents, and it goes further: even
-Illustrator **text** comes across as real, editable After Effects text.
+Illustrator and Photoshop **text** comes across as real, editable After Effects
+text, and Photoshop **layer effects** come across as editable layer styles.
 
 ### How it works
 
@@ -67,6 +69,8 @@ panel. Both paths run the identical builder.
 - **[Illustrator](plugins/illustrator/)** is an ExtendScript file. Run it with
   **File ▸ Scripts ▸ Other Script…** and choose
   `plugins/illustrator/export-ir.jsx`.
+- **[Photoshop](plugins/photoshop/)** is an ExtendScript file. Run it with
+  **File ▸ Scripts ▸ Browse…** and choose `plugins/photoshop/export-ir.jsx`.
 
 ### Try it end to end
 

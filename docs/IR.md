@@ -116,14 +116,20 @@ fully editable), **unsupported** (skipped, noted).
 | Linear / radial gradient | GradientPaint | GradientColor | `G-Fill` + `ADBE Vector Grad Colors` stops (already solved in this repo) | high |
 | Angular / diamond gradient | GRADIENT_ANGULAR/DIAMOND | freeform / mesh | no native AE type -> approximate or rasterise | approximate |
 | Image fill | ImagePaint bytes | Raster / Placed item | PNG footage import, scaled to the node box | high |
-| Stroke (weight/cap/join/dash) | strokes + props | strokeWidth + props | `ADBE Vector Graphic - Stroke`; INSIDE/OUTSIDE align -> centre (flagged) | high |
-| Text (editable, per run) | getStyledTextSegments | per-run character/paragraph attrs | `TextDocument` + `characterRange` (AE 24.3+); older AE splits runs into layers | high |
+| Stroke (weight/cap/join/dash) | strokes + props | strokeWidth + props | `ADBE Vector Graphic - Stroke`; centre exact | exact |
+| Stroke inside / outside | strokeAlign | n/a | a Stroke layer style at the right position | exact |
+| Text (editable, per run) | getStyledTextSegments | per-run character/paragraph attrs | `TextDocument` + `characterRange` (AE 24.3+); older AE uses the dominant style | high |
+| Text stroke | text strokes | character stroke | `TextDocument` applyStroke / colour / width | high |
 | Opacity | node.opacity | item.opacity | `ADBE Opacity` | exact |
 | Blend mode | blendMode | blendingMode | `layer.blendingMode` | high |
 | Rotation / position / size | transform | matrix (Y up) | layer transform + anchor; IL must flip Y | exact |
-| Drop / inner shadow | DropShadow/InnerShadow | Drop Shadow effect | `ADBE Drop Shadow`; inner shadow approximated | high |
-| Layer / background blur | LAYER/BACKGROUND_BLUR | Gaussian Blur | `ADBE Gaussian Blur 2`; background blur approximated | high |
-| Masks / clipping | isMask | clipping path | AE mask or track matte | high |
+| Drop / inner shadow | DropShadow / InnerShadow | Drop Shadow (Appearance) | real Drop Shadow / Inner Shadow **layer styles** | exact |
+| Outer / inner glow | n/a | n/a | real Outer Glow / Inner Glow layer styles (gradient stops approximated) | high |
+| Bevel & emboss, satin | n/a | n/a | real Bevel & Emboss / Satin layer styles | high |
+| Colour / gradient overlay | n/a | n/a | real Colour Overlay / Gradient Overlay layer styles | high |
+| Layer / background blur | LAYER / BACKGROUND_BLUR | Gaussian Blur | `ADBE Gaussian Blur 2`; background blur approximated | high |
+| Clipping mask | isMask | clipping path | alpha track matte (deterministic); Photoshop clip uses preserve-transparency | high |
+| Group opacity / blend / effects | group node | group | the group is precomposed and the attributes applied to the precomp | exact |
 | Constraints | constraints | n/a | stored as a layer comment, not reconstructed | unsupported |
 | Auto-layout | layoutMode | n/a | baked absolute positions only | lossy |
 | Tapered / variable stroke | n/a | width profile | baked outline or flagged | lossy |
