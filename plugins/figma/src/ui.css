@@ -1,0 +1,34 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; font-family: Inter, -apple-system, "Segoe UI", sans-serif; font-size: 12px; color: var(--figma-color-text, #2c2c2c); background: var(--figma-color-bg, #fff); }
+.wrap { display: flex; flex-direction: column; min-height: 100vh; }
+.head { padding: 14px 16px 10px; border-bottom: 1px solid var(--figma-color-border, #e6e6e6); }
+.brand { font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
+.brand span { font-weight: 500; opacity: 0.6; }
+.conn { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 11px; color: var(--figma-color-text-secondary, #777); }
+.conn .dot { width: 8px; height: 8px; border-radius: 50%; background: #c9a227; box-shadow: 0 0 0 3px rgba(201,162,39,0.18); }
+.conn[data-state="connected"] .dot { background: #2bbf63; box-shadow: 0 0 0 3px rgba(43,191,99,0.18); }
+.conn[data-state="disconnected"] .dot { background: #b6b6b6; box-shadow: none; }
+.conn[data-state="connecting"] .dot { background: #c9a227; }
+
+.body { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.sel { font-size: 12px; color: var(--figma-color-text-secondary, #777); }
+.sel.has { color: var(--figma-color-text, #2c2c2c); font-weight: 600; }
+
+.btn { width: 100%; border: 0; border-radius: 6px; padding: 10px 12px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn.primary { background: var(--figma-color-bg-brand, #0d99ff); color: var(--figma-color-text-onbrand, #fff); }
+.btn.primary:disabled { opacity: 0.4; cursor: default; }
+.btn.ghost { background: transparent; color: var(--figma-color-text, #2c2c2c); border: 1px solid var(--figma-color-border, #e6e6e6); }
+.btn.ghost:hover { background: var(--figma-color-bg-hover, #f5f5f5); }
+
+.msg { font-size: 11px; padding: 8px 10px; border-radius: 6px; line-height: 1.45; }
+.msg.error { background: rgba(224,86,62,0.12); color: #c0392b; }
+.msg.info { background: var(--figma-color-bg-secondary, #f5f5f5); color: var(--figma-color-text-secondary, #777); }
+.msg.ok { background: rgba(43,191,99,0.12); color: #1e8c4b; }
+
+.report { font-size: 11px; border: 1px solid var(--figma-color-border, #e6e6e6); border-radius: 6px; padding: 8px 10px; }
+.report h4 { margin: 0 0 6px; font-size: 11px; }
+.report ul { margin: 4px 0 0; padding-left: 16px; color: var(--figma-color-text-secondary, #777); }
+.report li { margin: 2px 0; }
+
+.foot { padding: 10px 16px 14px; border-top: 1px solid var(--figma-color-border, #e6e6e6); display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--figma-color-text-tertiary, #999); }
+.link { background: none; border: 0; color: var(--figma-color-text-brand, #0d99ff); cursor: pointer; font-size: 10px; font-family: inherit; padding: 0; }

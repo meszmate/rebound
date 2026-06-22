@@ -1,0 +1,22 @@
+{
+  "name": "Rebound Relay",
+  "id": "rebound-relay-dev",
+  "api": "1.0.0",
+  "main": "dist/main.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "http://localhost:7890",
+      "http://localhost:7891",
+      "http://localhost:7892",
+      "http://localhost:7893",
+      "http://127.0.0.1:7890",
+      "http://127.0.0.1:7891",
+      "http://127.0.0.1:7892",
+      "http://127.0.0.1:7893"
+    ],
+    "reasoning": "Sends your selected design to the Rebound panel running locally in After Effects on 127.0.0.1. Nothing leaves your computer."
+  }
+}

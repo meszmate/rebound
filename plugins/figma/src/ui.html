@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>/*__CSS__*/</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div class="brand">Rebound <span>Relay</span></div>
+      <div id="conn" class="conn" data-state="connecting">
+        <span class="dot"></span><span id="conn-text">Looking for After Effects…</span>
+      </div>
+    </div>
+
+    <div class="body">
+      <div id="sel" class="sel">No selection</div>
+      <button id="send" class="btn primary" disabled>Send to After Effects</button>
+      <button id="reconnect" class="btn ghost">Reconnect</button>
+
+      <div id="msg" class="msg" hidden></div>
+      <div id="report" class="report" hidden></div>
+    </div>
+
+    <div class="foot">
+      <span>Frames become precomps. Text stays editable.</span>
+      <button id="save" class="link">Save .rbir instead</button>
+    </div>
+  </div>
+  <script>/*__JS__*/</script>
+</body>
+</html>
