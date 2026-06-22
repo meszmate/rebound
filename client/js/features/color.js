@@ -59,7 +59,7 @@
     // Click a swatch to set the selection's fill. The hue/saturation/lightness
     // sliders, target and Read live in the full tool, via the open control.
     if (ctx.widget) {
-      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(32px, 1fr))', gridAutoRows: '1fr' } });
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: '1fr' } });
       PALETTE.forEach(function (hex) {
         var sw = el('button.rb-wgt-swatch', { type: 'button', title: 'Set ' + hex, style: { background: hex } });
         sw.addEventListener('click', function () { apply(hexToRgb(hex)); });

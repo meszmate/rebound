@@ -65,7 +65,7 @@
       var wInput = el('input', { type: 'text', placeholder: 'tag-name', 'aria-label': 'Tag name', value: '',
         oninput: function () { tag = wInput.value; } });
       var wField = el('div.rb-field', null, [el('span.rb-suffix', { text: '#', style: { paddingLeft: '8px', paddingRight: '4px' } }), wInput]);
-      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(26px, 1fr))', gridAutoRows: '1fr' } });
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(8, 1fr)', gridAutoRows: '1fr' } });
       LABELS.forEach(function (def) {
         var sw = el('button.rb-wgt-swatch', { type: 'button', title: def.title + ' label', style: { background: def.color } });
         sw.addEventListener('click', function () {

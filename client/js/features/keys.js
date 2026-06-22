@@ -52,7 +52,7 @@
     if (ctx.widget) {
       var types = [];
       GROUPS.forEach(function (g) { g.types.forEach(function (t) { types.push(t); }); });
-      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(60px, 1fr))', gridAutoRows: '1fr' } });
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '1fr' } });
       types.forEach(function (t) {
         grid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: 'Set ' + t.label,
           onclick: function () { set(ctx, t.type, { inInfluence: inInfluence, outInfluence: outInfluence, allKeys: allKeys }); } },
