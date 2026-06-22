@@ -24,6 +24,10 @@ The exporter is a single ExtendScript file, no build step.
    Effects is not running, you are prompted to save a `.rbir` file to import from
    the panel with **Import from file…**.
 
+> **Want a file instead of a one-click send?** Hold **Shift** while running the
+> script to always save a `.rbir` file, even when After Effects is open, handy
+> for handing a design off or importing it later.
+
 To make it appear under File > Scripts permanently, copy both files into
 Illustrator's `Presets/<locale>/Scripts` folder and restart Illustrator.
 

@@ -474,17 +474,23 @@
   var json = JSON.stringify(ir);
   var notes = skipped.length ? ('\n\nNotes (' + skipped.length + '):\n- ' + skipped.slice(0, 8).join('\n- ')) : '';
 
-  if (rbSend(json)) {
-    alert('Rebound Relay: sent to After Effects.' + notes);
+  // Hold Shift while running to skip the one-click send and always save a .rbir
+  // file (e.g. to hand off or import later), even when After Effects is open.
+  var forceFile = false;
+  try { forceFile = !!ScriptUI.environment.keyboardState.shiftKey; } catch (e) {}
+
+  if (!forceFile && rbSend(json)) {
+    alert('Rebound: sent to After Effects.\n\nTip: hold Shift while running to save a .rbir file instead.' + notes);
     return;
   }
 
-  var file = File.saveDialog('After Effects not detected. Save a Rebound file instead', 'Rebound IR:*.rbir');
+  var prompt = forceFile ? 'Save a Rebound (.rbir) file' : 'After Effects not detected. Save a Rebound (.rbir) file instead';
+  var file = File.saveDialog(prompt, 'Rebound IR:*.rbir');
   if (!file) return;
   if (!/\.rbir$/i.test(file.fsName)) file = new File(file.fsName + '.rbir');
   file.encoding = 'UTF-8';
   file.open('w');
   file.write(json);
   file.close();
-  alert('Rebound Relay: saved\n' + file.fsName + '\n\nIn After Effects, open the Rebound panel and use Import from file.' + notes);
+  alert('Rebound: saved\n' + file.fsName + '\n\nIn After Effects, open the Rebound panel and use Import from file.' + notes);
 })();

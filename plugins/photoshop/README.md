@@ -20,6 +20,10 @@ A single ExtendScript file, no build step.
    Effects is not running, you are prompted to save a self-contained `.rbir`
    file (images embedded) to import from the panel with **Import from file…**.
 
+> **Want a file instead of a one-click send?** Hold **Shift** while running the
+> script to always save a `.rbir` file, even when After Effects is open, handy
+> for handing a design off or importing it later.
+
 To install it under File > Scripts permanently, copy both files into
 Photoshop's `Presets/Scripts` folder and restart Photoshop.
 
