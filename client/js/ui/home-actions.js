@@ -77,16 +77,17 @@
     });
   }
 
-  // A widget is worth it only for tools with a genuine live, direct-manipulation
-  // surface that fills the box: the Ease curve, the Anchor stage, the Gradient
-  // bar, the Align buttons. A control-panel tool (sliders/toggles + Apply, e.g.
-  // Velocity, Copy Ease, Smooth, the physics rigs) is apply-and-forget and belongs
-  // as a one-click tile, never a widget that would have to scroll to show its
-  // controls. So widgets are this curated set, not every tool. (Mirrors
-  // WIDGET_FOCUS in home-screen.js, plus align's own purpose-built button grid.)
-  // To make a new tool a widget it must crop to ONE element that fills without
-  // scrolling: add it here and give it a WIDGET_FOCUS entry or a ctx.widget branch.
-  var WIDGET_TOOLS = ['ease', 'anchor', 'gradient', 'align'];
+  // A widget is worth it only for tools with a genuine live surface that fills the
+  // box without scrolling. Two families qualify:
+  //  - direct-manipulation: Ease curve, Anchor stage, Gradient bar (via WIDGET_FOCUS);
+  //  - click-to-apply pickers: a grid of swatches / thumbnails / labels where one
+  //    click applies (Align buttons, the Library preset grid, Palette + Colour
+  //    swatches, Tag labels, Keyframe interpolation, Shape primitives), each built
+  //    in the tool's own ctx.widget branch.
+  // A control-panel tool (sliders/toggles + Apply, e.g. Velocity, Copy Ease, Smooth,
+  // the physics rigs) is apply-and-forget and stays a one-click tile, never a widget
+  // that would have to scroll to show its controls.
+  var WIDGET_TOOLS = ['ease', 'anchor', 'gradient', 'align', 'library', 'palette', 'color', 'tags', 'keys', 'shapes'];
   function widgetActions() {
     return (R.tools.list() || []).filter(function (t) {
       return typeof t.mount === 'function' && WIDGET_TOOLS.indexOf(t.id) !== -1;
