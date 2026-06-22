@@ -189,6 +189,11 @@
       throw err;
     }
 
+    // Assets (decoded to file paths by the panel) and a per-import footage cache
+    // so a reused image is imported only once.
+    R.importer.assets = (ir.document && ir.document.assets) || {};
+    R.importer.footageCache = {};
+
     var active = app.project ? app.project.activeItem : null;
     var target = (active && util.isComp(active)) ? active : null;
 
