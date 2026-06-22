@@ -22,7 +22,7 @@ const cert = path.join(repoRoot, 'cert.p12');
 const password = process.env.REBOUND_CERT_PASSWORD || 'rebound-dev';
 const tsa = process.env.REBOUND_TSA || 'http://timestamp.digicert.com';
 
-const INCLUDE = ['CSXS', 'client', 'host', '.debug', 'LICENSE', 'README.md'];
+const INCLUDE = ['CSXS', 'client', 'host', 'shared', '.debug', 'LICENSE', 'README.md'];
 
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
