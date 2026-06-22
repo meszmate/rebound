@@ -93,19 +93,22 @@
             grid.appendChild(sw);
           }
         });
-        // Add tile (always): a labelled colour input; pick a colour and it is added.
-        var addTile = el('label.rb-wgt-picktile.rb-wgt-addtile', { title: 'Add a colour' });
-        addTile.appendChild(colorInput('#1fa6e0', null, function (v) { colors.push(v); persistColors(); renderColors(); }));
-        addTile.appendChild(el('span.rb-wgt-addplus', { text: '+' }));
-        grid.appendChild(addTile);
+        // Add tile only in edit mode: pick a colour and it joins your set. When
+        // you are just using the widget there is no spare tile, only your colours.
+        if (editing) {
+          var addTile = el('label.rb-wgt-picktile.rb-wgt-addtile', { title: 'Add a colour' });
+          addTile.appendChild(colorInput('#1fa6e0', null, function (v) { colors.push(v); persistColors(); renderColors(); }));
+          addTile.appendChild(el('span.rb-wgt-addplus', { text: '+' }));
+          grid.appendChild(addTile);
+        }
       };
-      var editBtn = el('button.rb-wgt-editbtn' + (editing ? '.is-active' : ''), { type: 'button', title: 'Add, change or remove your colours',
+      // No persistent header (the card already names the widget): the Edit / Done
+      // toggle is a small pill that fades in on hover, so normally the widget is
+      // just your colours and the editing chrome only shows when you want it.
+      var editBtn = el('button.rb-wgt-fab', { type: 'button', title: 'Add, change or remove your colours',
         onclick: function () { editing = !editing; editBtn.classList.toggle('is-active', editing); editBtn.textContent = editing ? 'Done' : 'Edit'; grid.classList.toggle('is-editing', editing); renderColors(); } }, ['Edit']);
       renderColors();
-      ctx.body.appendChild(el('div.rb-wgt', null, [
-        el('div.rb-wgt-pickhead', null, [el('span.rb-grow', { text: 'Your colours' }), editBtn]),
-        grid
-      ]));
+      ctx.body.appendChild(el('div.rb-wgt', null, [editBtn, grid]));
       return { destroy: function () {} };
     }
 
