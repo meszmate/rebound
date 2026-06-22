@@ -65,8 +65,8 @@
     var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
     // Live preview as a horizontal position move, consistent with the other
     // tools: the value slides to the target and rebounds off it, settling.
-    var previewHost = el('div');
-    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1600 });
+    var previewHost = el('div' + (ctx.widget ? '.rb-wgt-hero' : ''));
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1600, controls: !ctx.widget });
     function updateReadout() {
       // Gravity sets how fast the bounce plays (higher gravity, faster), so it
       // drives the preview pacing; elasticity and max bounces shape the curve.
@@ -85,15 +85,25 @@
       title: 'On: the value rebounds after every keyframe it passes. Off: only after the final keyframe (a single ball drop).',
       onChange: function (v) { eachKey = v; } });
 
-    ctx.body.appendChild(el('div.rb-col', null, [
-      previewHost,
-      editorHost,
-      el('div.rb-faint', { text: 'Rebounds the value off its target after a keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
-      elasticitySlider.el,
-      gravitySlider.el,
-      bouncesField.el,
-      eachKeyToggle.el
-    ]));
+    if (ctx.widget) {
+      // The bounce widget is the live ball-bounce plus elasticity and gravity
+      // (how bouncy, how fast). Max bounces and the per-keyframe toggle live in
+      // the full tool, via the widget's open control.
+      ctx.body.appendChild(el('div.rb-wgt', null, [
+        previewHost,
+        el('div.rb-wgt-ctl', null, [elasticitySlider.el, gravitySlider.el])
+      ]));
+    } else {
+      ctx.body.appendChild(el('div.rb-col', null, [
+        previewHost,
+        editorHost,
+        el('div.rb-faint', { text: 'Rebounds the value off its target after a keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
+        elasticitySlider.el,
+        gravitySlider.el,
+        bouncesField.el,
+        eachKeyToggle.el
+      ]));
+    }
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
