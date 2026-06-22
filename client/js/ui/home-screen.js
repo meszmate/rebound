@@ -49,13 +49,12 @@
 
   // The primary, full-bleed element of a tool's widget when "Fill" is on, and the
   // widgets that fill by default (their box IS the tool).
-  // Tools whose single primary element IS the whole widget when filled. The
-  // motion tools (spring/bounce/recoil/drift) and layout tools (align) instead
-  // render a purpose-built compact widget from their own mount (ctx.widget), so
-  // they are not listed here.
+  // Tools whose single primary element IS the whole widget when filled. Only
+  // tools with a real direct-manipulation surface that fills without scrolling
+  // belong here (mirrors WIDGET_TOOLS in home-actions.js). Align renders its own
+  // purpose-built button grid from its mount (ctx.widget), so it is not listed.
   var WIDGET_FOCUS = {
-    anchor: '.rb-anchor-stage', ease: '.rb-curve', velocity: '.rb-curve', copyease: '.rb-curve',
-    smooth: '.rb-curve', gradient: '.rb-grad-editor'
+    anchor: '.rb-anchor-stage', ease: '.rb-curve', gradient: '.rb-grad-editor'
   };
   // Inside the focused element, drop these so the widget keeps just the essential
   // control (its secondary panel lives in the full tool, via the open control).
