@@ -107,7 +107,8 @@
   }
 
   // A clean, dense starter board of compact one-click actions and quick tool
-  // jumps. Widgets (whole-tool panels) are one Add away from the browser.
+  // jumps. Widgets (whole-tool panels) are one Add away from the browser. Kept as
+  // a flat fallback for the rich DEFAULT_BOARD below.
   var DEFAULT = [
     'easy-ease', 'ease-in', 'ease-out', 'ease-linear', 'ease-hold',
     'reverse-keys', 'trim-keys', 'center-anchor', 'align-center', 'add-null',
@@ -115,5 +116,34 @@
     'expr-loop', 'open-spring', 'open-scatter', 'open-gradient', 'open-expressions'
   ];
 
-  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, all: all, byId: byId, DEFAULT: DEFAULT };
+  // The board a new user starts on: a full, balanced 4-column layout that fills
+  // the panel at any resolution (the grid stretches its rows to the height). Big
+  // live widgets anchor it, the way Flow leads with its curve editor:
+  //   - a 4x3 Ease curve hero across the top,
+  //   - a band of two picker widgets (Align, Your colours) under it,
+  //   - a row of quick easing actions,
+  //   - a 3x3 Anchor widget at the bottom-left, with a column of rig tiles beside
+  //     it (Null + Parent, Align Center, Reset Transform).
+  // Dense row flow places each item top-to-bottom in this order. Tiles are 1x1, so
+  // only the widgets carry a span. Items are the clean action ids (each is the
+  // first, so it keeps its id and needs no ref).
+  var DEFAULT_BOARD = {
+    cols: 4,
+    board: 'md',
+    items: [
+      'widget-ease',
+      'widget-align', 'widget-color',
+      'easy-ease', 'ease-in', 'ease-out', 'ease-hold',
+      'widget-anchor',
+      'add-null', 'align-center', 'reset-transform'
+    ],
+    spans: {
+      'widget-ease': { c: 4, r: 3 },
+      'widget-align': { c: 2, r: 2 },
+      'widget-color': { c: 2, r: 2 },
+      'widget-anchor': { c: 3, r: 3 }
+    }
+  };
+
+  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, all: all, byId: byId, DEFAULT: DEFAULT, DEFAULT_BOARD: DEFAULT_BOARD };
 })(window.Rebound = window.Rebound || {});

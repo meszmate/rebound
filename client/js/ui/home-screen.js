@@ -29,12 +29,18 @@
   function boardFrom(name, d, emptyItems) {
     d = d || {};
     // An explicit items array (even an empty one) is respected; only a board with
-    // no items field at all falls back to the default set (or empty on request).
-    var items = d.items ? d.items.slice() : (emptyItems ? [] : R.homeActions.DEFAULT.slice());
+    // no items field at all falls back to the curated DEFAULT_BOARD (the rich
+    // first-run layout). A requested empty board (a brand-new tab) stays empty.
+    var def = (R.homeActions && R.homeActions.DEFAULT_BOARD) || {};
+    var usingDefault = !d.items && !emptyItems;
+    var items = d.items ? d.items.slice()
+      : (emptyItems ? [] : (def.items ? def.items.slice() : R.homeActions.DEFAULT.slice()));
+    var spans = d.spans || (usingDefault && def.spans ? JSON.parse(JSON.stringify(def.spans)) : {});
     return {
       name: name, items: items, refs: d.refs || {},
-      spans: d.spans || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, filled: d.filled || {},
-      board: d.board || 'md', cols: d.cols || 4, theme: d.theme || null
+      spans: spans, collapsed: d.collapsed || {}, meta: d.meta || {}, filled: d.filled || {},
+      board: d.board || (usingDefault && def.board) || 'md',
+      cols: d.cols || (usingDefault && def.cols) || 4, theme: d.theme || null
     };
   }
   function load() {
@@ -262,12 +268,16 @@
     }
 
     // One grid row's height incl. the row gap, for converting between a pixel
-    // height and a whole-row span.
+    // height and a whole-row span. Rows now stretch to fill the panel, so measure
+    // the real first track rather than the cell minimum.
+    function rowTrackPx(gcs) {
+      var tracks = (gcs.gridTemplateRows || '').split(' ').map(parseFloat).filter(function (n) { return !isNaN(n); });
+      return tracks.length ? tracks[0] : (parseFloat(gcs.getPropertyValue('--rb-home-cell')) || 78);
+    }
     function rowUnit() {
       var gcs = window.getComputedStyle(grid);
       var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
-      var cell = parseFloat(gcs.getPropertyValue('--rb-home-cell')) || 78;
-      return cell + rgap;
+      return rowTrackPx(gcs) + rgap;
     }
 
     // A corner drag-resize handle (edit mode). Tiles ('both') snap to whole grid
@@ -283,7 +293,7 @@
         var gap = parseFloat(gcs.columnGap || gcs.gap) || 8;
         var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
         var cellW = (grid.clientWidth - (cols - 1) * gap) / cols;
-        var cellH = parseFloat(gcs.getPropertyValue('--rb-home-cell')) || 78;
+        var cellH = rowTrackPx(gcs);
         var rect = node.getBoundingClientRect();
         var left = rect.left, top = rect.top, drafted = null, lastC = null, lastR = null;
         node.classList.add('is-resizing');
