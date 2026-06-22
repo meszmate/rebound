@@ -29,3 +29,55 @@
 .rb-recv-dot[data-state='error'] { background: var(--rb-error, #e0563e); }
 .rb-recv-dot[data-state='stopped'],
 .rb-recv-dot[data-state='unavailable'] { background: var(--rb-text-3, #777); }
+
+/* Fidelity report */
+.rb-report-host { margin-top: 4px; }
+.rb-report-building {
+  padding: 9px 11px;
+  font-size: 11px;
+  color: var(--rb-text-2, #aaa);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2, 6px);
+  background: var(--rb-bg-sunken, rgba(0, 0, 0, 0.12));
+}
+.rb-report {
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2, 6px);
+  background: var(--rb-bg-sunken, rgba(0, 0, 0, 0.12));
+  overflow: hidden;
+}
+.rb-report-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--rb-border);
+}
+.rb-report-title { font-weight: 600; font-size: 12px; }
+.rb-report-counts { font-size: 11px; color: var(--rb-text-2, #aaa); }
+.rb-report-clean { padding: 9px 11px; font-size: 11px; color: var(--rb-success, #46c46a); }
+
+.rb-report-sec { padding: 8px 11px; border-bottom: 1px solid var(--rb-border); }
+.rb-report-sec:last-child { border-bottom: 0; }
+.rb-report-sec-h { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+.rb-report-sec.is-warn .rb-report-sec-h { color: var(--rb-warn, #e0a92e); }
+.rb-report-list { margin: 2px 0 0; padding-left: 16px; font-size: 11px; color: var(--rb-text-2, #aaa); line-height: 1.5; }
+.rb-report-list li { margin: 1px 0; }
+.rb-report-more { list-style: none; margin-left: -16px !important; opacity: 0.7; font-style: italic; }
+
+.rb-fontrow { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; }
+.rb-fontrow-name { flex: 0 0 auto; max-width: 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.rb-fontrow .rb-select { flex: 1 1 auto; min-width: 0; }
+.rb-fontrow-btn { flex: 0 0 auto; padding: 3px 8px; }
+.rb-fontrow.is-done { color: var(--rb-success, #46c46a); }
+
+.rb-select {
+  font: inherit;
+  font-size: 11px;
+  color: var(--rb-text, #eee);
+  background: var(--rb-bg, #1d1d1d);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-1, 4px);
+  padding: 3px 6px;
+}

@@ -63,6 +63,8 @@
   }
 
   var lastReport = null;
+  var reportHost = null;
+  var fontFamiliesCache = null;
   var statusListeners = [];
 
   function emitStatus() {
@@ -90,7 +92,7 @@
     if (!pre.ok) return Promise.reject(new Error(pre.error));
     try { materializeAssets(ir); } catch (e) { /* non-fatal: host flags missing images */ }
     return R.bridge.invoke('import.build', ir).then(function (report) {
-      lastReport = report;
+      showReport(report);
       emitStatus();
       return report;
     });
@@ -104,6 +106,83 @@
     var tail = '';
     if (report.skipped && report.skipped.length) tail = ', ' + report.skipped.length + ' not yet supported';
     return 'Imported ' + parts.join(', ') + tail + '.';
+  }
+
+  // ---- the fidelity report (transparency: what transferred, what did not) --
+
+  function showReport(report) {
+    lastReport = report;
+    if (reportHost) renderReport(reportHost, report);
+  }
+
+  function ensureFontFamilies() {
+    if (fontFamiliesCache) return Promise.resolve(fontFamiliesCache);
+    if (!R.bridge || !R.bridge.available) return Promise.resolve([]);
+    return R.bridge.invoke('import.fontFamilies', {})
+      .then(function (r) { fontFamiliesCache = (r && r.families) || []; return fontFamiliesCache; })
+      .catch(function () { return []; });
+  }
+
+  function noteList(title, items, kind) {
+    var ul = el('ul.rb-report-list');
+    var max = 8;
+    for (var i = 0; i < Math.min(items.length, max); i++) ul.appendChild(el('li', { text: items[i] }));
+    if (items.length > max) ul.appendChild(el('li.rb-report-more', { text: 'and ' + (items.length - max) + ' more' }));
+    return el('div.rb-report-sec' + (kind ? '.is-' + kind : ''), null, [
+      el('div.rb-report-sec-h', { text: title + ' (' + items.length + ')' }),
+      ul
+    ]);
+  }
+
+  function fontResolver(families) {
+    var sec = el('div.rb-report-sec.is-warn', null, [
+      el('div.rb-report-sec-h', { text: 'Fonts not installed (' + families.length + ')' }),
+      el('div.rb-faint', { text: 'Pick a font to use instead, or install the originals and import again.' })
+    ]);
+    ensureFontFamilies().then(function (installed) {
+      families.forEach(function (fam) {
+        var sel = el('select.rb-select');
+        sel.appendChild(el('option', { value: '', text: 'Replace with...' }));
+        installed.forEach(function (f) { sel.appendChild(el('option', { value: f, text: f })); });
+        var applyBtn = el('button.rb-btn.is-ghost.rb-fontrow-btn', { type: 'button' }, ['Apply']);
+        var row = el('div.rb-fontrow', null, [el('span.rb-fontrow-name', { text: fam }), sel, applyBtn]);
+        applyBtn.addEventListener('click', function () {
+          if (!sel.value) return;
+          applyBtn.disabled = true;
+          applyBtn.textContent = '...';
+          R.bridge.invoke('import.remapFont', { from: fam, to: sel.value })
+            .then(function (res) { R.dom.clear(row); row.className = 'rb-fontrow is-done'; row.appendChild(el('span', { text: fam + ' to ' + sel.value + ' (' + res.remapped + ')' })); })
+            .catch(function (err) { applyBtn.disabled = false; applyBtn.textContent = 'Apply'; if (R.ui && R.ui.toast) R.ui.toast(err.message || 'Could not replace font.', { kind: 'error' }); });
+        });
+        sec.appendChild(row);
+      });
+    });
+    return sec;
+  }
+
+  function renderReport(host, report) {
+    R.dom.clear(host);
+    if (!report) return;
+    var card = el('div.rb-report', null, [
+      el('div.rb-report-head', null, [
+        el('span.rb-report-title', { text: 'Imported' }),
+        el('span.rb-report-counts', { text: report.framesBuilt + (report.framesBuilt === 1 ? ' frame' : ' frames') + ' · ' + report.layersBuilt + (report.layersBuilt === 1 ? ' layer' : ' layers') })
+      ])
+    ]);
+
+    if (report.missingFonts && report.missingFonts.length) card.appendChild(fontResolver(report.missingFonts));
+
+    var approx = (report.approximated || []).map(function (a) { return a.name ? (a.name + ': ' + a.detail) : a.detail; });
+    if (approx.length) card.appendChild(noteList('Approximated', approx, 'warn'));
+
+    var skip = (report.skipped || []).map(function (s) { return (s.name || 'Item') + ' (' + s.reason + ')'; });
+    if (skip.length) card.appendChild(noteList('Not transferred', skip, 'muted'));
+
+    var hasFonts = report.missingFonts && report.missingFonts.length;
+    if (!approx.length && !skip.length && !hasFonts) {
+      card.appendChild(el('div.rb-report-clean', { text: 'Everything transferred cleanly.' }));
+    }
+    host.appendChild(card);
   }
 
   // ---- the receiver (loopback server) --------------------------------------
@@ -216,9 +295,13 @@
       ctx.toast('That is not valid IR JSON.', { kind: 'error' });
       return;
     }
+    if (reportHost) { R.dom.clear(reportHost); reportHost.appendChild(el('div.rb-report-building', { text: 'Building in After Effects...' })); }
     doImport(ir)
       .then(function (report) { ctx.toast(summarize(report), { kind: 'success' }); ctx.refreshSelection(); })
-      .catch(function (err) { ctx.toast(err.message || 'Import failed.', { kind: 'error' }); });
+      .catch(function (err) {
+        if (reportHost) R.dom.clear(reportHost);
+        ctx.toast(err.message || 'Import failed.', { kind: 'error' });
+      });
   }
 
   function mount(ctx) {
@@ -265,16 +348,23 @@
       importFromText(t, ctx);
     } }, ['Import pasted IR']);
 
+    var reportEl = el('div.rb-report-host');
+
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Bring a design from Figma or Illustrator into After Effects as native, editable layers. Send it from the design app, or import a .rbir file or pasted IR here.' }),
       statusRow,
       el('div.rb-row.rb-wrap', null, [fileBtn, toggleBtn]),
       el('div.rb-faint', { text: 'Open a composition first; imported frames are dropped into it.' }),
       paste,
-      el('div.rb-row', null, [pasteBtn])
+      el('div.rb-row', null, [pasteBtn]),
+      reportEl
     ]));
 
-    return { destroy: off };
+    // Render the report here, and re-render it for any import while open.
+    reportHost = reportEl;
+    if (lastReport) renderReport(reportHost, lastReport);
+
+    return { destroy: function () { off(); if (reportHost === reportEl) reportHost = null; } };
   }
 
   function onStatus(fn) {
@@ -292,6 +382,7 @@
     stopReceiver: stopReceiver,
     receiver: receiver,
     onStatus: onStatus,
+    showReport: showReport,
     irVersion: IR_VERSION,
     lastReport: function () { return lastReport; }
   };
