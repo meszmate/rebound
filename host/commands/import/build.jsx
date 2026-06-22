@@ -115,9 +115,52 @@
   // are absolute within the frame, the group transform is already baked into the
   // children, so the null is an identity handle. Group-level opacity / blend /
   // effects need a precomp; flag them until that build lands.
+  // A group only needs its own comp when it carries something a null parent
+  // cannot reproduce: opacity, a blend mode, effects, or layer styles.
+  function groupNeedsPrecomp(node) {
+    if (typeof node.opacity === 'number' && node.opacity < 1) return true;
+    if (node.blendMode && node.blendMode !== 'NORMAL' && node.blendMode !== 'PASS_THROUGH') return true;
+    if (node.effects && node.effects.length) return true;
+    if (node.layerStyles && node.layerStyles.length) return true;
+    return false;
+  }
+
+  function findLayerBySource(comp, src) {
+    for (var i = 1; i <= comp.numLayers; i++) {
+      try { if (comp.layer(i).source === src) return comp.layer(i); } catch (e) {}
+    }
+    return null;
+  }
+
+  // Precompose the group's layers and apply the group attributes to the precomp
+  // layer, so group opacity / blend / effects are exact. Returns the precomp
+  // layer, or null to fall back to null-parent grouping.
+  function precomposeGroup(comp, node, made, report) {
+    try {
+      var indices = [];
+      for (var i = 0; i < made.length; i++) { if (made[i] && made[i].index) indices.push(made[i].index); }
+      if (!indices.length) return null;
+      var newComp = comp.layers.precompose(indices, node.name || 'Group', false);
+      var preLayer = findLayerBySource(comp, newComp);
+      if (!preLayer) return null;
+      if (typeof node.opacity === 'number' && node.opacity < 1) {
+        preLayer.property(util.MATCH.transform).property(util.MATCH.opacity).setValue(node.opacity * 100);
+      }
+      var be = R.importer.transform.blendEnum(node.blendMode);
+      if (be != null) { try { preLayer.blendingMode = be; } catch (e) {} }
+      R.importer.effect.apply(preLayer, node, report);
+      R.importer.layerStyle.collect(preLayer, node, report);
+      return preLayer;
+    } catch (e) { return null; }
+  }
+
   function buildGroup(comp, node, report) {
     var made = buildChildren(comp, node.children || [], report);
     if (!made.length) return null;
+    if (groupNeedsPrecomp(node)) {
+      var pre = precomposeGroup(comp, node, made, report);
+      if (pre) return pre;
+    }
     var nul = comp.layers.addNull();
     nul.name = node.name || 'Group';
     for (var i = 0; i < made.length; i++) {
