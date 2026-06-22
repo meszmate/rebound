@@ -206,6 +206,36 @@
     return hash;
   }
 
+  // Fills After Effects shape gradients cannot reproduce: angular (conic) and
+  // diamond gradients, and pattern paints.
+  function hasUnreproducibleFill(node) {
+    var fills = node.fills;
+    if (!fills || fills === figma.mixed) return false;
+    for (var i = 0; i < fills.length; i++) {
+      var f = fills[i];
+      if (!f || f.visible === false) continue;
+      if (f.type === 'GRADIENT_ANGULAR' || f.type === 'GRADIENT_DIAMOND' || f.type === 'PATTERN') return true;
+    }
+    return false;
+  }
+
+  // Rasterise a node to a 2x PNG and return it as an IMAGE node, so anything we
+  // cannot rebuild vectorially still comes across pixel-exact.
+  async function rasterizeNodeToImage(node, base, assets) {
+    try {
+      var bytes = await node.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
+      var hash = 'figraster-' + String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+      assets[hash] = { hash: hash, mime: 'image/png', width: Math.round(node.width * 2), height: Math.round(node.height * 2), bytesBase64: figma.base64Encode(bytes) };
+      base.type = 'IMAGE';
+      base.imageHash = hash;
+      base.scaleMode = 'FILL';
+      base.effects = mapEffects(node.effects);
+      return base;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function baseFields(node, origin) {
     var m = relMatrix(node, origin);
     return {
@@ -243,6 +273,13 @@
       base.scaleMode = imgPaint.scaleMode || 'FILL';
       base.effects = mapEffects(node.effects);
       return base;
+    }
+
+    // Angular/diamond gradients and pattern fills have no AE shape equivalent;
+    // rasterise the node so it is pixel-exact rather than approximated.
+    if (node.type !== 'TEXT' && hasUnreproducibleFill(node)) {
+      var raster = await rasterizeNodeToImage(node, base, assets);
+      if (raster) return raster;
     }
 
     switch (node.type) {
