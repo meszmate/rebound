@@ -296,6 +296,8 @@
 .rb-home-card-body { display: flex; flex-direction: column; gap: 5px; padding: 9px 10px 10px; }
 .rb-home-card-top { display: flex; align-items: center; gap: 6px; }
 .rb-home-card-name { font-weight: 600; color: var(--rb-text); line-height: 1.2; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-home-card-count { flex: none; font-size: calc(var(--rb-font-size) - 3px); font-weight: 600; color: var(--rb-accent); background: color-mix(in srgb, var(--rb-accent) 16%, transparent); padding: 1px 6px; border-radius: 999px; }
+.rb-home-card-count:empty { display: none; }
 .rb-home-card-desc {
   font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); line-height: 1.35; min-height: 2.7em;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;

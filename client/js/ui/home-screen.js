@@ -32,7 +32,7 @@
     // no items field at all falls back to the default set (or empty on request).
     var items = d.items ? d.items.slice() : (emptyItems ? [] : R.homeActions.DEFAULT.slice());
     return {
-      name: name, items: items,
+      name: name, items: items, refs: d.refs || {},
       spans: d.spans || {}, collapsed: d.collapsed || {}, meta: d.meta || {}, filled: d.filled || {},
       board: d.board || 'md', cols: d.cols || 4, theme: d.theme || null
     };
@@ -100,9 +100,10 @@
     var activeIdx = saved.activeIdx;        // which board is showing
     // The live working set IS the active board's data; switchBoard swaps it.
     var act = boards[activeIdx];
-    var ids = act.items;
+    var ids = act.items;                    // instance ids (an action can be pinned many times)
+    var refs = act.refs;                    // instance id -> action id (when it differs)
     var collapsed = act.collapsed;
-    var meta = act.meta;                    // per-tile look: label, display, badge, icon
+    var meta = act.meta;                    // per-instance look: label, display, badge, icon
     var spans = act.spans;                  // per-item grid span { c, r } (cells)
     var filled = act.filled;                // per-widget Fill (just the main control) state
     var board = act.board;                  // cell size: sm | md | lg
@@ -114,6 +115,26 @@
     var lastOverId = null;      // last item dragged over, to throttle live reorder
     var lastAddedId = null; // gets a one-time pop animation on the next render
     var widgetCache = {}; // id -> { card, destroy, widthBtn, collapseBtn, maxBtn }
+
+    // An item id is an INSTANCE id. The action it refers to is refs[id], or the id
+    // itself for a first/legacy instance (or the part before '#').
+    function actionIdOf(id) { return refs[id] || (id.indexOf('#') !== -1 ? id.slice(0, id.indexOf('#')) : id); }
+    function newInstanceId(actionId) {
+      if (ids.indexOf(actionId) === -1) return actionId; // first one keeps the clean id
+      var n = 2; while (ids.indexOf(actionId + '#' + n) !== -1) n++;
+      return actionId + '#' + n;
+    }
+    // A per-instance action: the catalog action with this instance's id, so all the
+    // per-item state (meta, spans, colour...) is keyed per instance and customized
+    // independently, while toolId/kind/invoke come from the shared definition.
+    function instAction(id) {
+      var def = R.homeActions.byId(actionIdOf(id));
+      if (!def) return null;
+      if (def.id === id) return def;
+      var o = {}; for (var k in def) { if (def.hasOwnProperty(k)) o[k] = def[k]; }
+      o.id = id; o.actionId = def.id;
+      return o;
+    }
 
     function metaOf(id) { return meta[id] || {}; }
     function setMeta(id, m) {
@@ -152,14 +173,14 @@
 
     function syncToBoard() {
       var b = boards[activeIdx];
-      b.items = ids; b.collapsed = collapsed; b.meta = meta; b.spans = spans; b.filled = filled; b.board = board; b.cols = cols;
+      b.items = ids; b.refs = refs; b.collapsed = collapsed; b.meta = meta; b.spans = spans; b.filled = filled; b.board = board; b.cols = cols;
     }
     function persist() { syncToBoard(); R.disk.write('home-layout', { schemaVersion: 3, boards: boards, activeIdx: activeIdx }); }
 
     // ---- Multiple boards (panels) ----
     function loadActive() {
       var b = boards[activeIdx];
-      ids = b.items; collapsed = b.collapsed; meta = b.meta; spans = b.spans; filled = b.filled; board = b.board; cols = b.cols;
+      ids = b.items; refs = b.refs; collapsed = b.collapsed; meta = b.meta; spans = b.spans; filled = b.filled; board = b.board; cols = b.cols;
       grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + board);
       grid.style.setProperty('--rb-home-cols', cols);
       syncBoardBtns(); syncColsBtns(); applyBoardTheme();
@@ -396,12 +417,20 @@
 
     function removeItem(id) {
       ids = ids.filter(function (x) { return x !== id; });
-      delete collapsed[id]; delete spans[id]; delete meta[id];
+      delete collapsed[id]; delete spans[id]; delete meta[id]; delete refs[id];
       if (maximizedId === id) maximizedId = null;
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
       persist(); render();
     }
-    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); lastAddedId = id; addSeq++; persist(); render(); } }
+    // Each add pins a NEW instance, so the same action can live on the board many
+    // times and each instance is customized independently.
+    function addItem(actionId) {
+      var instId = newInstanceId(actionId);
+      if (instId !== actionId) refs[instId] = actionId;
+      ids.push(instId); lastAddedId = instId; addSeq++; persist(); render();
+      return instId;
+    }
+    function countOf(actionId) { var n = 0; ids.forEach(function (id) { if (actionIdOf(id) === actionId) n++; }); return n; }
 
     function wireDrag(node, id) {
       node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; dragNode = node; lastOverId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
@@ -886,7 +915,7 @@
       }
       var introIdx = 0;
       ids.forEach(function (id) {
-        var action = R.homeActions.byId(id);
+        var action = instAction(id); // catalog action carrying this instance's id
         if (!action) return;
         var node;
         if (action.kind === 'widget') {
@@ -956,9 +985,10 @@
 
       // A big, explanatory card: an animated example of what the tool does (its
       // easing curve or demo, the same visual the tile uses), its name, a kind
-      // badge, a plain-language description, and a clear Add / Added toggle.
+      // badge, a plain-language description, and an Add button. Adding is additive:
+      // it pins ANOTHER instance every click, and a chip shows how many are on the
+      // board (remove instances from the board itself).
       function browserCard(a) {
-        function isPinned() { return ids.indexOf(a.id) !== -1; }
         var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' })
           : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget' })
             : el('span.rb-home-badge.is-open', { text: 'open' });
@@ -971,26 +1001,24 @@
         var demo = R.toolDemos && R.toolDemos[a.toolId];
         var cap = demo && demo.caption ? demo.caption.replace(/<[^>]+>/g, '') : '';
         var descText = (a.kind === 'apply') ? (a.desc || cap) : (cap || a.desc || '');
+        var countChip = el('span.rb-home-card-count');
         var addBtn = el('button.rb-home-card-add', { type: 'button' });
         var card = el('div.rb-home-card', { title: a.label }, [
           visWrap,
           el('div.rb-home-card-body', null, [
-            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: a.label }), badge]),
+            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: a.label }), countChip, badge]),
             el('div.rb-home-card-desc', { text: descText }),
             addBtn
           ])
         ]);
         function sync() {
-          var on = isPinned();
-          card.classList.toggle('is-pinned', on);
-          addBtn.classList.toggle('is-pinned', on);
+          var n = countOf(a.id);
+          card.classList.toggle('is-pinned', n > 0);
+          countChip.textContent = n ? (n + ' on board') : '';
           R.dom.clear(addBtn);
-          addBtn.appendChild(el('span', { text: on ? 'Added' : 'Add to Home' }));
+          addBtn.appendChild(el('span', { text: n ? 'Add another' : 'Add to Home' }));
         }
-        addBtn.addEventListener('click', function () {
-          if (isPinned()) removeItem(a.id); else addItem(a.id);
-          sync();
-        });
+        addBtn.addEventListener('click', function () { addItem(a.id); sync(); });
         sync();
         return card;
       }
