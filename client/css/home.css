@@ -437,21 +437,27 @@
   flex: 1 1 auto; min-height: 0; padding: var(--rb-gap-2);
 }
 
-/* The Align widget is purely its six align buttons, big and filling the box so
-   you can align the selection perfectly with one click. */
+/* The Align widget is purely its six align buttons (L/C/R, T/M/B): click to
+   align the selection perfectly. The buttons fill the box at sensible shapes but
+   are capped and the cluster is centred, so resizing to any size, even very wide,
+   short or tall, keeps a tidy, well-proportioned group instead of stretched bars.
+   The icon scales to the button so it is never lost in a big one. */
 .rb-home-widget .rb-wgt-aligngrid {
-  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
-  gap: var(--rb-gap-2);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 128px));
+  grid-template-rows: repeat(2, minmax(0, 100px));
+  justify-content: center; align-content: center;
+  gap: var(--rb-gap-2); width: 100%; height: 100%;
 }
 .rb-home-widget .rb-wgt-alignbtn {
-  display: flex; align-items: center; justify-content: center; min-height: 0;
+  display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0;
   border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-2);
   background: var(--rb-control); color: var(--rb-text-muted); cursor: pointer;
   transition: background var(--rb-transition), color var(--rb-transition), border-color var(--rb-transition);
 }
 .rb-home-widget .rb-wgt-alignbtn:hover { background: var(--rb-control-hover); color: var(--rb-text); border-color: var(--rb-accent); }
 .rb-home-widget .rb-wgt-alignbtn:active { background: var(--rb-accent); color: var(--rb-accent-text); border-color: var(--rb-accent); }
-.rb-home-widget .rb-wgt-alignbtn svg { width: 30px; height: 30px; }
+.rb-home-widget .rb-wgt-alignbtn svg { width: 48%; height: 48%; max-width: 34px; max-height: 34px; }
 /* Edge-to-edge: the box IS the widget, so drop its own frame and rounding. */
 .rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; border: 0; border-radius: 0; }
 /* Preview graphs stretch to fill the widget width (no letterboxed empty space);
