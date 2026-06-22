@@ -141,6 +141,7 @@
     paint.applyFills(sl.contents, node, report);
     R.importer.transform.apply(sl.layer, node, report);
     R.importer.effect.apply(sl.layer, node, report);
+    R.importer.layerStyle.collect(sl.layer, node, report);
     report.layersBuilt++;
     return sl.layer;
   }
@@ -178,6 +179,7 @@
     paint.applyFills(sl.contents, node, report);
     R.importer.transform.apply(sl.layer, node, report);
     R.importer.effect.apply(sl.layer, node, report);
+    R.importer.layerStyle.collect(sl.layer, node, report);
     report.layersBuilt++;
     return sl.layer;
   }

@@ -193,6 +193,7 @@
     // so a reused image is imported only once.
     R.importer.assets = (ir.document && ir.document.assets) || {};
     R.importer.footageCache = {};
+    if (R.importer.layerStyle) R.importer.layerStyle.reset();
 
     var active = app.project ? app.project.activeItem : null;
     var target = (active && util.isComp(active)) ? active : null;
@@ -201,6 +202,10 @@
     for (var i = 0; i < frames.length; i++) {
       buildFrame(target, frames[i], report);
     }
+
+    // Layer styles must be enabled with the comp in front, so they run last.
+    if (R.importer.layerStyle) R.importer.layerStyle.flushAll();
+    if (target) { try { target.openInViewer(); } catch (e) {} }
     return report;
   }
 

@@ -19,22 +19,6 @@
     try { group.property(name).setValue(value); } catch (e) { /* build differences */ }
   }
 
-  function addDropShadow(parade, e) {
-    var ds = parade.addProperty('ADBE Drop Shadow');
-    if (!ds) return;
-    var c = N.normalizeColor(e.color);
-    var alpha = (e.color && typeof e.color.a === 'number') ? e.color.a : 0.5;
-    var off = e.offset || [0, 0];
-    var dist = Math.sqrt(off[0] * off[0] + off[1] * off[1]);
-    // AE direction is clockwise with 0 deg casting straight down (+Y).
-    var dir = Math.atan2(off[0], off[1]) * 180 / Math.PI;
-    setSafe(ds, 'ADBE Drop Shadow-0001', [c.r, c.g, c.b]); // Shadow Color
-    setSafe(ds, 'ADBE Drop Shadow-0002', alpha * 255);      // Opacity (0..255)
-    setSafe(ds, 'ADBE Drop Shadow-0003', dir);              // Direction
-    setSafe(ds, 'ADBE Drop Shadow-0004', dist);             // Distance
-    setSafe(ds, 'ADBE Drop Shadow-0005', e.radius || 0);    // Softness
-  }
-
   function addBlur(parade, e) {
     var gb = parade.addProperty('ADBE Gaussian Blur 2');
     if (!gb) return;
@@ -42,14 +26,10 @@
     setSafe(gb, 'ADBE Gaussian Blur 2-0003', true);          // Repeat Edge Pixels
   }
 
+  // Shadows, glows, satin, and overlays are applied as real layer styles
+  // (layerstyle.jsx); only blurs live in the Effect Parade.
   function addEffect(parade, e, node, report) {
-    if (e.type === 'DROP_SHADOW') { addDropShadow(parade, e); return; }
     if (e.type === 'LAYER_BLUR') { addBlur(parade, e); return; }
-    if (e.type === 'INNER_SHADOW') {
-      addDropShadow(parade, e);
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'inner shadow approximated with a drop shadow' });
-      return;
-    }
     if (e.type === 'BACKGROUND_BLUR') {
       R.importer.util.note(report, 'approximated', { name: node.name, detail: 'background blur not reconstructed (needs an adjustment layer + matte)' });
       return;

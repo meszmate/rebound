@@ -66,6 +66,7 @@
     }
 
     R.importer.effect.apply(layer, node, report);
+    R.importer.layerStyle.collect(layer, node, report);
     report.layersBuilt++;
     return layer;
   }
