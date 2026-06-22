@@ -36,24 +36,48 @@
     // selection. Search, filters, custom-preset management and the scope / every-key
     // options live in the full Library, via the widget's open control.
     if (ctx.widget) {
-      var wGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gridAutoRows: '1fr' } });
-      widgetPicks().forEach(function (p) {
-        wGrid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
-          onclick: function () { apply(p); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]));
+      // Customise which presets the widget shows by tapping the header to cycle
+      // Favourites / Built-in / All; the choice persists per instance. Star
+      // presets in the full Library to curate the Favourites set.
+      var wFilter = (ctx.config && ctx.config.filter) || 'fav';
+      var FILTERS = ['fav', 'builtin', 'all'];
+      var FILTER_LABEL = { fav: '★ Favourites', builtin: 'Built-in', all: 'All presets' };
+      var wGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(54px, 1fr))', gridAutoRows: '1fr' } });
+      var wBar = el('button.rb-wgt-pickbar', { type: 'button', title: 'Change which presets the widget shows' });
+      var renderWGrid = function () {
+        wBar.textContent = FILTER_LABEL[wFilter] || 'All presets';
+        R.dom.clear(wGrid);
+        var picks = widgetPicks(wFilter);
+        if (!picks.length) { wGrid.appendChild(el('div.rb-empty', { style: { gridColumn: '1 / -1' } }, ['No presets'])); return; }
+        picks.forEach(function (p) {
+          wGrid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
+            onclick: function () { apply(p); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]));
+        });
+      };
+      wBar.addEventListener('click', function () {
+        wFilter = FILTERS[(FILTERS.indexOf(wFilter) + 1) % FILTERS.length];
+        ctx.setConfig({ filter: wFilter });
+        renderWGrid();
       });
-      ctx.body.appendChild(el('div.rb-wgt', null, [wGrid]));
+      renderWGrid();
+      ctx.body.appendChild(el('div.rb-wgt', null, [el('div.rb-wgt-pickhead', null, [wBar]), wGrid]));
       return { destroy: function () {} };
     }
 
-    // Favourites first, then built-ins, deduped and capped, so the widget always
-    // shows a useful, priority-ordered set that fits without scrolling.
-    function widgetPicks() {
-      var all = allPresets(), byId = {}, seen = {}, list = [];
+    // The widget's preset set for a filter: Favourites (falling back to built-ins
+    // when none are starred), Built-in only, or All; deduped and capped so it stays
+    // a useful, priority-ordered set.
+    function widgetPicks(filter) {
+      var all = allPresets(), byId = {}, seen = {}, list = [], i;
       all.forEach(function (p) { byId[p.id] = p; });
       function add(p) { if (p && !seen[p.id]) { seen[p.id] = 1; list.push(p); } }
-      favorites.forEach(function (id) { add(byId[id]); });
-      for (var i = 0; i < all.length && list.length < 12; i++) if (all[i].builtin) add(all[i]);
-      return list.slice(0, 12);
+      if (filter === 'all') { for (i = 0; i < all.length && list.length < 16; i++) add(all[i]); }
+      else if (filter === 'builtin') { for (i = 0; i < all.length && list.length < 16; i++) if (all[i].builtin) add(all[i]); }
+      else {
+        favorites.forEach(function (id) { add(byId[id]); });
+        if (!list.length) for (i = 0; i < all.length && list.length < 16; i++) if (all[i].builtin) add(all[i]);
+      }
+      return list.slice(0, 16);
     }
 
     var searchInput = el('input', { type: 'text', placeholder: 'Search presets…',

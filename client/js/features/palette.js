@@ -79,9 +79,14 @@
     // tool, via the widget's open control.
     if (ctx.widget) {
       var palettes = BUILTIN.concat((loadCustom().items) || []);
+      // Start on the palette this widget instance was customised to, by name, so
+      // your choice sticks across reloads (each instance is independent).
       var activeIdx = 0;
+      if (ctx.config && ctx.config.palette) {
+        for (var pi = 0; pi < palettes.length; pi++) if (palettes[pi].name === ctx.config.palette) { activeIdx = pi; break; }
+      }
       var nameEl = el('span.rb-grow', { text: '' });
-      var swatchGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(48px, 1fr))', gridAutoRows: '1fr' } });
+      var swatchGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(32px, 1fr))', gridAutoRows: '1fr' } });
       var applyW = function (hex) {
         ctx.invoke('color.apply', { rgb: hexToRgb01(hex), target: 'fill' })
           .then(function (res) { ctx.toast('Colored ' + res.colored + ' layer' + (res.colored === 1 ? '' : 's'), { kind: res.colored ? 'success' : 'info' }); })
@@ -97,7 +102,7 @@
           swatchGrid.appendChild(sw);
         });
       };
-      var cycle = function (d) { activeIdx = (activeIdx + d + palettes.length) % palettes.length; renderW(); };
+      var cycle = function (d) { activeIdx = (activeIdx + d + palettes.length) % palettes.length; ctx.setConfig({ palette: palettes[activeIdx].name }); renderW(); };
       var head = el('div.rb-wgt-pickhead', null, [
         el('button.rb-wgt-navbtn', { type: 'button', title: 'Previous palette', onclick: function () { cycle(-1); } }, ['‹']),
         nameEl,

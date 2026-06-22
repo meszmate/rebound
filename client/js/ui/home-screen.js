@@ -718,7 +718,18 @@
         invoke: opts.invoke, openTool: opts.openTool, toast: opts.toast,
         refreshSelection: opts.refreshSelection || function () {},
         onSelection: opts.onSelection || function () { return function () {}; },
-        getSelection: opts.getSelection || function () { return {}; }
+        getSelection: opts.getSelection || function () { return {}; },
+        // Per-instance widget config (e.g. which palette / preset set a picker
+        // shows). Read once at mount; persist a change with setConfig so it
+        // survives reload. Stored on the instance's meta, like a tile's args.
+        config: (meta[action.id] && meta[action.id].args) || {},
+        setConfig: function (patch) {
+          var m = meta[action.id] || {};
+          m.args = m.args || {};
+          for (var k in patch) if (patch.hasOwnProperty(k)) m.args[k] = patch[k];
+          meta[action.id] = m;
+          persist();
+        }
       };
       var destroy = function () {};
       if (tool && tool.mount) {
