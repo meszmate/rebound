@@ -65,32 +65,42 @@
       var editing = false;
       var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: '1fr' } });
       var persistColors = function () { ctx.setConfig({ colors: colors.slice() }); };
-      // A throwaway native colour picker; runs cb(hex) once a colour is chosen.
-      var pickColor = function (initial, cb) {
-        var inp = el('input', { type: 'color', value: initial || '#1fa6e0', style: { position: 'fixed', left: '-9999px', opacity: '0' } });
-        document.body.appendChild(inp);
-        var done = function () { if (inp.parentNode) inp.parentNode.removeChild(inp); };
-        inp.addEventListener('change', function () { cb(inp.value); done(); });
-        inp.addEventListener('blur', done);
-        inp.focus(); inp.click();
+      // A REAL in-place colour input (not an off-screen one, which never opens the
+      // native picker in CEP): it fills its tile invisibly, so a click on the tile
+      // is a genuine click on the input and the OS colour picker opens reliably.
+      var colorInput = function (value, onLive, onCommit) {
+        var inp = el('input.rb-wgt-cinput', { type: 'color', value: value || '#1fa6e0' });
+        inp.addEventListener('input', function () { if (onLive) onLive(inp.value); });
+        inp.addEventListener('change', function () { if (onCommit) onCommit(inp.value); });
+        return inp;
       };
       var renderColors = function () {
         R.dom.clear(grid);
         colors.forEach(function (hex, idx) {
-          var sw = el('button.rb-wgt-swatch', { type: 'button', title: editing ? 'Change colour' : ('Set ' + hex), style: { background: hex } });
-          sw.addEventListener('click', function () {
-            if (editing) pickColor(hex, function (v) { colors[idx] = v; persistColors(); renderColors(); });
-            else apply(hexToRgb(hex));
-          });
-          if (editing) sw.appendChild(el('span.rb-wgt-swx', { title: 'Remove colour',
-            onclick: function (e) { e.stopPropagation(); colors.splice(idx, 1); persistColors(); renderColors(); } }, ['×']));
-          grid.appendChild(sw);
+          if (editing) {
+            // Edit mode: the swatch IS a colour input (click to change) with a
+            // remove badge.
+            var cell = el('label.rb-wgt-swatch.rb-wgt-swatchedit', { title: 'Click to change this colour', style: { background: hex } });
+            cell.appendChild(colorInput(hex,
+              function (v) { colors[idx] = v; cell.style.background = v; },
+              function (v) { colors[idx] = v; cell.style.background = v; persistColors(); }));
+            cell.appendChild(el('span.rb-wgt-swx', { title: 'Remove colour',
+              onclick: function (e) { e.preventDefault(); e.stopPropagation(); colors.splice(idx, 1); persistColors(); renderColors(); } }, ['×']));
+            grid.appendChild(cell);
+          } else {
+            var sw = el('button.rb-wgt-swatch', { type: 'button', title: 'Set ' + hex, style: { background: hex } });
+            sw.addEventListener('click', function () { apply(hexToRgb(hex)); });
+            grid.appendChild(sw);
+          }
         });
-        grid.appendChild(el('button.rb-wgt-picktile.rb-wgt-addtile', { type: 'button', title: 'Add a colour',
-          onclick: function () { pickColor('#1fa6e0', function (v) { colors.push(v); persistColors(); renderColors(); }); } }, ['+']));
+        // Add tile (always): a labelled colour input; pick a colour and it is added.
+        var addTile = el('label.rb-wgt-picktile.rb-wgt-addtile', { title: 'Add a colour' });
+        addTile.appendChild(colorInput('#1fa6e0', null, function (v) { colors.push(v); persistColors(); renderColors(); }));
+        addTile.appendChild(el('span.rb-wgt-addplus', { text: '+' }));
+        grid.appendChild(addTile);
       };
-      var editBtn = el('button.rb-wgt-navbtn', { type: 'button', title: 'Edit colours (change or remove)',
-        onclick: function () { editing = !editing; editBtn.classList.toggle('is-active', editing); grid.classList.toggle('is-editing', editing); renderColors(); } }, ['✎']);
+      var editBtn = el('button.rb-wgt-editbtn' + (editing ? '.is-active' : ''), { type: 'button', title: 'Add, change or remove your colours',
+        onclick: function () { editing = !editing; editBtn.classList.toggle('is-active', editing); editBtn.textContent = editing ? 'Done' : 'Edit'; grid.classList.toggle('is-editing', editing); renderColors(); } }, ['Edit']);
       renderColors();
       ctx.body.appendChild(el('div.rb-wgt', null, [
         el('div.rb-wgt-pickhead', null, [el('span.rb-grow', { text: 'Your colours' }), editBtn]),
