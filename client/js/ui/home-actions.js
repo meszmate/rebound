@@ -121,9 +121,11 @@
   // live widgets anchor it, the way Flow leads with its curve editor:
   //   - a 4x3 Ease curve hero across the top,
   //   - a band of two picker widgets (Align, Your colours) under it,
-  //   - a row of quick easing actions,
-  //   - a 3x3 Anchor widget at the bottom-left, with a column of rig tiles beside
-  //     it (Null + Parent, Align Center, Reset Transform).
+  //   - a row of quick motion actions ending in Recoil (smooth elastic overshoot,
+  //     the buttery Apple-style spring), not Hold,
+  //   - a 3x3 Anchor widget at the bottom-left, with a column of distinct popular
+  //     actions beside it (Null + Parent, Wiggle, Loop Out) - no align/reset that
+  //     the Align widget already covers.
   // Dense row flow places each item top-to-bottom in this order. Tiles are 1x1, so
   // only the widgets carry a span. Items are the clean action ids (each is the
   // first, so it keeps its id and needs no ref).
@@ -133,9 +135,9 @@
     items: [
       'widget-ease',
       'widget-align', 'widget-color',
-      'easy-ease', 'ease-in', 'ease-out', 'ease-hold',
+      'easy-ease', 'ease-in', 'ease-out', 'apply-recoil',
       'widget-anchor',
-      'add-null', 'align-center', 'reset-transform'
+      'add-null', 'expr-wiggle', 'expr-loop'
     ],
     spans: {
       'widget-ease': { c: 4, r: 3 },
