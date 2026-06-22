@@ -15,7 +15,7 @@
 
   var N = root.ReboundNormalize;
   var B = root.ReboundBezier;
-  var IR_VERSION = '1.0.0';
+  var IR_VERSION = '1.1.0';
 
   function isFrameLike(node) {
     return node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'COMPONENT_SET' || node.type === 'SECTION';

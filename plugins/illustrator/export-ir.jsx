@@ -21,7 +21,7 @@
   }
 
   var doc = app.activeDocument;
-  var IR_VERSION = '1.0.0';
+  var IR_VERSION = '1.1.0';
   var skipped = [];
   var idCounter = 0;
   var FRAME = { left: 0, top: 0, right: 0, bottom: 0 };

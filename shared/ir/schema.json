@@ -125,6 +125,8 @@
         "blendMode": { "$ref": "#/definitions/blendMode" },
         "color": { "$ref": "#/definitions/color", "description": "SOLID only" },
         "stops": { "type": "array", "items": { "$ref": "#/definitions/gradientStop" }, "description": "gradient paints" },
+        "gradientMidpoints": { "type": "array", "items": { "type": "number" }, "description": "0..1 midpoint between each pair of stops (Illustrator/Photoshop)" },
+        "reverse": { "type": "boolean" },
         "gradientHandles": {
           "type": "array",
           "items": { "$ref": "#/definitions/vec2" },
@@ -148,6 +150,9 @@
         "miterLimit": { "type": "number" },
         "dashPattern": { "type": "array", "items": { "type": "number" } },
         "dashOffset": { "type": "number" },
+        "dashCap": { "type": "string", "enum": ["NONE", "ROUND", "SQUARE"] },
+        "alignDashesToCorners": { "type": "boolean" },
+        "variableWidth": { "type": "boolean", "description": "tapered/variable-width stroke; geometry is baked to paths" },
         "weights": {
           "type": "object",
           "description": "per-side stroke weights (Figma)",
@@ -164,7 +169,7 @@
       "type": "object",
       "required": ["type"],
       "properties": {
-        "type": { "type": "string", "enum": ["DROP_SHADOW", "INNER_SHADOW", "LAYER_BLUR", "BACKGROUND_BLUR"] },
+        "type": { "type": "string", "enum": ["DROP_SHADOW", "INNER_SHADOW", "OUTER_GLOW", "INNER_GLOW", "BEVEL_EMBOSS", "SATIN", "COLOR_OVERLAY", "GRADIENT_OVERLAY", "LAYER_BLUR", "BACKGROUND_BLUR"] },
         "visible": { "type": "boolean", "default": true },
         "color": { "$ref": "#/definitions/color", "description": "shadows" },
         "offset": { "$ref": "#/definitions/vec2", "description": "shadows" },
@@ -172,6 +177,50 @@
         "spread": { "type": "number", "description": "shadows" },
         "blendMode": { "$ref": "#/definitions/blendMode" },
         "showShadowBehindNode": { "type": "boolean" }
+      }
+    },
+    "layerStyle": {
+      "type": "object",
+      "required": ["type"],
+      "description": "A Photoshop/After Effects layer style. The canonical home for shadows, glows, bevel, satin, overlays, and stroke effects; effects[] with the same type are normalised into these by the importer.",
+      "properties": {
+        "type": { "type": "string", "enum": ["DROP_SHADOW", "INNER_SHADOW", "OUTER_GLOW", "INNER_GLOW", "BEVEL_EMBOSS", "SATIN", "COLOR_OVERLAY", "GRADIENT_OVERLAY", "STROKE"] },
+        "enabled": { "type": "boolean", "default": true },
+        "blendMode": { "$ref": "#/definitions/blendMode" },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "color": { "$ref": "#/definitions/color" },
+        "offset": { "$ref": "#/definitions/vec2", "description": "shadow offset; distance+angle are derived if absent" },
+        "distance": { "type": "number" },
+        "angle": { "type": "number" },
+        "useGlobalLight": { "type": "boolean" },
+        "altitude": { "type": "number" },
+        "size": { "type": "number", "description": "blur / radius" },
+        "spread": { "type": "number" },
+        "choke": { "type": "number" },
+        "noise": { "type": "number" },
+        "position": { "type": "string", "enum": ["INSIDE", "CENTER", "OUTSIDE"], "description": "STROKE position" },
+        "fillType": { "type": "string", "enum": ["COLOR", "GRADIENT", "PATTERN"] },
+        "gradient": { "$ref": "#/definitions/paint" },
+        "glowSource": { "type": "string", "enum": ["CENTER", "EDGE"] },
+        "glowTechnique": { "type": "string", "enum": ["SOFTER", "PRECISE"] },
+        "bevel": {
+          "type": "object",
+          "properties": {
+            "style": { "type": "string", "enum": ["OUTER", "INNER", "EMBOSS", "PILLOW", "STROKE"] },
+            "technique": { "type": "string", "enum": ["SMOOTH", "CHISEL_HARD", "CHISEL_SOFT"] },
+            "direction": { "type": "string", "enum": ["UP", "DOWN"] },
+            "depth": { "type": "number" },
+            "soften": { "type": "number" },
+            "highlightMode": { "$ref": "#/definitions/blendMode" },
+            "highlightColor": { "$ref": "#/definitions/color" },
+            "highlightOpacity": { "type": "number" },
+            "shadowMode": { "$ref": "#/definitions/blendMode" },
+            "shadowColor": { "$ref": "#/definitions/color" },
+            "shadowOpacity": { "type": "number" }
+          }
+        },
+        "invert": { "type": "boolean", "description": "SATIN" },
+        "rasterFallbackHash": { "type": "string", "description": "key into document.assets for a pre-rendered version when the style cannot be rebuilt" }
       }
     },
     "cornerRadii": {
@@ -234,7 +283,19 @@
         "fauxBold": { "type": "boolean" },
         "fauxItalic": { "type": "boolean" },
         "horizontalScale": { "type": "number" },
-        "verticalScale": { "type": "number" }
+        "verticalScale": { "type": "number" },
+        "underline": { "type": "boolean" },
+        "lineThrough": { "type": "boolean" },
+        "stroke": {
+          "type": "object",
+          "description": "per-run text stroke",
+          "properties": {
+            "paint": { "$ref": "#/definitions/paint" },
+            "weight": { "type": "number" },
+            "align": { "type": "string", "enum": ["CENTER", "INSIDE", "OUTSIDE"] },
+            "overFill": { "type": "boolean" }
+          }
+        }
       }
     },
     "textData": {
@@ -249,7 +310,14 @@
         "paragraphSpacing": { "type": "number" },
         "paragraphIndent": { "type": "number" },
         "boxText": { "type": "boolean" },
-        "boxSize": { "$ref": "#/definitions/vec2" }
+        "boxSize": { "$ref": "#/definitions/vec2" },
+        "gradientFill": { "$ref": "#/definitions/paint", "description": "a gradient text fill (applied as a Gradient Overlay layer style)" },
+        "firstLineIndent": { "type": "number" },
+        "indentLeft": { "type": "number" },
+        "indentRight": { "type": "number" },
+        "spaceBefore": { "type": "number" },
+        "spaceAfter": { "type": "number" },
+        "maxLines": { "type": "integer" }
       }
     },
     "node": {
@@ -267,12 +335,15 @@
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
         "blendMode": { "$ref": "#/definitions/blendMode" },
         "isMask": { "type": "boolean", "default": false },
+        "maskType": { "type": "string", "enum": ["ALPHA", "LUMA", "VECTOR"], "description": "how this node masks: vector path, or a raster alpha/luma matte." },
+        "maskTargetId": { "type": "string", "description": "id of the layer this node clips (clipping mask); becomes a track matte." },
         "clipsContent": { "type": "boolean", "description": "FRAME/GROUP: clip children to bounds." },
         "transform": { "$ref": "#/definitions/transform" },
         "constraints": { "$ref": "#/definitions/constraints" },
         "fills": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
         "stroke": { "$ref": "#/definitions/stroke" },
         "effects": { "type": "array", "items": { "$ref": "#/definitions/effect" } },
+        "layerStyles": { "type": "array", "items": { "$ref": "#/definitions/layerStyle" } },
         "cornerRadii": { "$ref": "#/definitions/cornerRadii" },
         "primitive": {
           "type": "object",

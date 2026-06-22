@@ -16,7 +16,7 @@
   var el = R.dom.el;
 
   // Keep in sync with shared/ir/ir-version.json.
-  var IR_VERSION = '1.0.0';
+  var IR_VERSION = '1.1.0';
 
   var node = (function () {
     try {
