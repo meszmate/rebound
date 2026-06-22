@@ -39,10 +39,13 @@
       list.push({ id: 'tool:' + t.id, label: 'Open ' + (t.title || t.id), group: t.group || 'Tools', run: function () { if (hooks.openTool) hooks.openTool(t.id); } });
     });
 
+    // Every one-click action is bindable, including each saved/built-in preset,
+    // expression and script (they all surface through homeActions.all). Keep each
+    // action's own group so the 100+ commands stay navigable in the manager.
     var actions = (R.homeActions && R.homeActions.all) ? R.homeActions.all() : [];
     actions.forEach(function (a) {
       if (a.kind === 'open' || !a.invoke || !a.invoke.method) return;
-      list.push({ id: 'action:' + a.id, label: a.label, group: 'Apply', run: function () { runAction(a); } });
+      list.push({ id: 'action:' + a.id, label: a.label, group: a.group || 'Apply', run: function () { runAction(a); } });
     });
     return list;
   }
@@ -118,34 +121,56 @@
       r.comboEl.classList.toggle('is-set', !!combo);
       r.clrBtn.style.visibility = combo ? '' : 'hidden';
     }
+    function labelOf(id) { for (var i = 0; i < list.length; i++) { if (list[i].id === id) return list[i].label; } return 'another command'; }
     function setCombo(cmd, combo) {
-      for (var id in map) { if (map.hasOwnProperty(id) && map[id] === combo && id !== cmd.id) delete map[id]; }
+      // A combo maps to exactly one command: if it was already taken, steal it and
+      // tell the user which command lost it, so a clash is never silent.
+      var stolenFrom = null;
+      for (var id in map) { if (map.hasOwnProperty(id) && map[id] === combo && id !== cmd.id) { stolenFrom = id; delete map[id]; } }
       map[cmd.id] = combo;
       save(map);
       rowEls.forEach(refreshRow);
+      if (stolenFrom && R.ui.toast) R.ui.toast('Reassigned ' + combo + ' from ' + labelOf(stolenFrom), { kind: 'info' });
     }
     function clearCombo(cmd) { delete map[cmd.id]; save(map); rowEls.forEach(refreshRow); }
 
+    // Record a combo with live feedback: as you hold modifiers the button shows
+    // them (Ctrl + Shift + ...), and the first non-modifier key commits the combo.
     function startRecord(cmd, btn) {
       suspended = true;
       btn.classList.add('is-recording');
       btn.textContent = 'Press keys...';
+      function modPrefix(e) {
+        var p = [];
+        if (e.ctrlKey) p.push('Ctrl');
+        if (e.altKey) p.push('Alt');
+        if (e.shiftKey) p.push('Shift');
+        if (e.metaKey) p.push('Meta');
+        return p;
+      }
+      function preview(e) {
+        if (e.key === 'Escape') return;
+        var p = modPrefix(e);
+        btn.textContent = p.length ? (p.join(' + ') + ' + ...') : 'Press keys...';
+      }
       function done() {
         suspended = false;
         btn.classList.remove('is-recording');
         btn.textContent = 'Set';
         window.removeEventListener('keydown', cap, true);
+        window.removeEventListener('keyup', preview, true);
       }
       function cap(e) {
         e.preventDefault();
         e.stopPropagation();
         if (e.key === 'Escape') { done(); return; }
         var combo = comboFromEvent(e);
-        if (!combo) return; // waiting for a non-modifier key
+        if (!combo) { preview(e); return; } // modifier held: show it live, keep waiting
         setCombo(cmd, combo);
         done();
       }
       window.addEventListener('keydown', cap, true);
+      window.addEventListener('keyup', preview, true);
     }
 
     list.forEach(function (cmd) {
@@ -172,7 +197,7 @@
     });
 
     var body = el('div.rb-kb', null, [
-      el('div.rb-kb-help', { text: 'Click Set, then press the keys you want (Esc to cancel). Shortcuts run everywhere except while typing in a field.' }),
+      el('div.rb-kb-help', { text: 'Bind any tool, action, easing preset, expression or script. Click Set, then press your combination, e.g. Ctrl+Shift+E (Esc cancels). Shortcuts run everywhere except while typing in a field.' }),
       search, rowsWrap
     ]);
     var doneBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { handle.close('confirm'); } }, ['Done']);
