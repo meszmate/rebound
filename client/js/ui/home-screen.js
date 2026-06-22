@@ -263,7 +263,7 @@
 
     function applySpan(node, id, full) {
       var s = spans[id];
-      if (s) { node.style.gridColumn = 'span ' + Math.min(s.c, cols); node.style.gridRow = 'span ' + (s.r || 1); }
+      if (s) { node.style.gridColumn = 'span ' + Math.min(s.c, cols); node.style.gridRow = 'span ' + Math.min(s.r || 1, maxRowsFor(id)); }
       else if (full) { node.style.gridColumn = '1 / -1'; node.style.gridRow = ''; }
     }
 
@@ -278,6 +278,21 @@
       var gcs = window.getComputedStyle(grid);
       var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
       return rowTrackPx(gcs) + rgap;
+    }
+
+    // The tallest an item may be made, by type, so nothing can be dragged into a
+    // stretched, ungainly shape. Direct-manipulation widgets (curve, anchor box,
+    // gradient bar) earn more height; picker widgets and one-click tiles stay
+    // compact (a curve tile gets one extra row to show its shape). Width is always
+    // capped at the column count by the grid itself.
+    var MAX_ROWS = { wgtBig: 6, wgt: 4, tileVisual: 3, tile: 2 };
+    function maxRowsFor(id) {
+      var a = instAction(id);
+      if (!a) return MAX_ROWS.tile;
+      if (a.kind === 'widget') {
+        return (a.toolId === 'ease' || a.toolId === 'anchor' || a.toolId === 'gradient') ? MAX_ROWS.wgtBig : MAX_ROWS.wgt;
+      }
+      return (displayFor(a, meta[id] || {}) === 'visual') ? MAX_ROWS.tileVisual : MAX_ROWS.tile;
     }
 
     // A corner drag-resize handle (edit mode). Tiles ('both') snap to whole grid
@@ -302,8 +317,9 @@
           var c = Math.max(1, Math.min(cols, Math.round((ev.clientX - left) / (cellW + gap))));
           if (mode === 'widget') {
             // Snap height to whole grid rows (like tiles), so the widget reserves
-            // its grid track and never overflows it into the items below.
-            var rW = Math.max(1, Math.min(12, Math.round((ev.clientY - top) / (cellH + rgap))));
+            // its grid track and never overflows it into the items below. Capped
+            // per type so a widget can't be dragged into a stretched shape.
+            var rW = Math.max(1, Math.min(maxRowsFor(id), Math.round((ev.clientY - top) / (cellH + rgap))));
             if (c !== lastC || rW !== lastR) {
               var p1 = captureRects();
               node.style.gridColumn = (c < cols) ? ('span ' + c) : '1 / -1';
@@ -315,7 +331,7 @@
             node.classList.add('is-sized');
             drafted = { c: c, r: rW };
           } else {
-            var r = Math.max(1, Math.min(6, Math.round((ev.clientY - top) / (cellH + rgap))));
+            var r = Math.max(1, Math.min(maxRowsFor(id), Math.round((ev.clientY - top) / (cellH + rgap))));
             if (c !== lastC || r !== lastR) {    // snap changed: glide everything to the new layout
               var p2 = captureRects();
               node.style.gridColumn = 'span ' + c;
@@ -864,7 +880,7 @@
         var s = spans[action.id];
         if (s && s.h && !s.r) { s.r = Math.max(1, Math.round(s.h / rowUnit())); delete s.h; }
         card.style.gridColumn = (s && s.c && s.c < cols) ? ('span ' + s.c) : '1 / -1';
-        if (s && s.r) { card.style.gridRow = 'span ' + s.r; card.classList.add('is-sized'); }
+        if (s && s.r) { card.style.gridRow = 'span ' + Math.min(s.r, maxRowsFor(action.id)); card.classList.add('is-sized'); }
       }
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
