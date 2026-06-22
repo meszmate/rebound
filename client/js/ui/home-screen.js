@@ -673,8 +673,11 @@
       var toolDestroy = destroy;
       destroy = function () { if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
 
-      // No persistent header: the tool fills the widget, and the chrome floats on
-      // the edges, appearing on hover (or in edit mode).
+      // Tools with no footer buttons (e.g. Anchor) get no Apply pill at all.
+      if (!footer.querySelector('.rb-btn')) footer.classList.add('is-empty');
+
+      // No persistent header: the tool fills the widget, and the chrome appears
+      // only in edit mode so it never blocks the tool during use.
       var collapseBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Collapse / expand',
         onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
       var prefsBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Open the full tool (all settings)',

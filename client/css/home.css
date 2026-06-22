@@ -338,13 +338,12 @@
   transition: opacity var(--rb-transition), transform var(--rb-transition);
 }
 .rb-home-wtitle-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rb-home-widget:hover .rb-home-wctrls, .rb-home-widget.is-editmode .rb-home-wctrls,
-.rb-home-widget:hover .rb-home-wtitle, .rb-home-widget.is-editmode .rb-home-wtitle { opacity: 1; transform: none; }
-/* The title and the control container never intercept clicks (so you can click
-   the tool right up to the corners); only the actual buttons do, and only while
-   shown. This is what lets you hit the Anchor's corner dots under the chrome. */
-.rb-home-wtitle { pointer-events: none; }
-.rb-home-widget:hover .rb-home-wctrls > *, .rb-home-widget.is-editmode .rb-home-wctrls > * { pointer-events: auto; }
+/* The chrome shows only in edit mode, not on hover: during normal use the widget
+   is purely the tool, with nothing floating over it to block clicks. In edit mode
+   the shield covers the tool anyway, so the controls overlapping is fine. */
+.rb-home-widget.is-editmode .rb-home-wctrls,
+.rb-home-widget.is-editmode .rb-home-wtitle { opacity: 1; transform: none; }
+.rb-home-widget.is-editmode .rb-home-wctrls > * { pointer-events: auto; }
 
 .rb-home-wbtn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -402,7 +401,10 @@
 /* Compact floating bar: drop the status text, small rounded buttons. */
 .rb-home-widget.is-filled .rb-action-bar .rb-scope { display: none; }
 .rb-home-widget.is-filled .rb-action-bar .rb-btn { border-radius: 999px; height: 22px; padding: 0 11px; font-size: calc(var(--rb-font-size) - 1px); }
-.rb-home-widget.is-filled:not(.is-editmode):hover .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
+/* Apply/Read is a small persistent pill during use (not a hover popup); hidden
+   for tools that have no actions (e.g. Anchor), and while editing. */
+.rb-home-widget.is-filled:not(.is-editmode) .rb-action-bar { opacity: 1; transform: none; pointer-events: auto; }
+.rb-home-widget .rb-action-bar.is-empty { display: none; }
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
