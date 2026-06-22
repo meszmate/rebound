@@ -150,19 +150,25 @@
     }
     function next() { return tokens[i++].num; }
 
+    var afterClose = false;
     while (i < tokens.length) {
       var tok = tokens[i];
       var cmd;
       if (tok.cmd !== undefined) { cmd = tok.cmd; i++; }
+      else if (lastCmd === '' || lastCmd === 'Z' || lastCmd === 'z') { i++; continue; } // stray number after close: skip (never loop forever)
       else { cmd = (lastCmd === 'M') ? 'L' : (lastCmd === 'm') ? 'l' : lastCmd; }
       var rel = cmd >= 'a';
       var up = cmd.toUpperCase();
+
+      // After a closepath, a drawing command starts a fresh subpath at the start.
+      if (afterClose && up !== 'M' && up !== 'Z') { startSub(cx, cy); afterClose = false; }
 
       if (up === 'M') {
         var mx = next(), my = next();
         if (rel) { mx += cx; my += cy; }
         cx = mx; cy = my; sx = cx; sy = cy;
         startSub(cx, cy);
+        afterClose = false;
       } else if (up === 'Z') {
         if (cur) {
           if (!almostEqual(cx, sx) || !almostEqual(cy, sy)) {
@@ -171,6 +177,7 @@
           cur.closed = true;
           cx = sx; cy = sy;
         }
+        afterClose = true;
       } else if (up === 'L') {
         var lx = next(), ly = next();
         if (rel) { lx += cx; ly += cy; }

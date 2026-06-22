@@ -69,6 +69,21 @@ describe('svg path: closed loop merges the duplicate end vertex', () => {
   });
 });
 
+describe('svg path: content after a closepath does not hang and starts fresh', () => {
+  it('a drawing command after Z opens a new subpath at the start point', () => {
+    const subs = svgPathToSubpaths('M0 0 L10 0 L10 10 Z L5 5 L8 8');
+    expect(subs.length).toBe(2);
+    expect(subs[0].closed).toBe(true);
+    expect(subs[1].closed).toBe(false);
+    expect(subs[1].vertices[0]).toMatchObject({ x: 0, y: 0 });
+  });
+  it('tolerates a double close without looping', () => {
+    const subs = svgPathToSubpaths('M0 0 L10 0 Z Z');
+    expect(subs.length).toBe(1);
+    expect(subs[0].closed).toBe(true);
+  });
+});
+
 describe('svg path: multiple subpaths (compound shape / hole)', () => {
   it('keeps each subpath separate with its winding', () => {
     const subs = svgPathToSubpaths('M0 0 L10 0 L10 10 Z M2 2 L4 2 L4 4 Z');
