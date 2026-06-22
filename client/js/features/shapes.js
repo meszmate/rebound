@@ -54,7 +54,7 @@
     // Widget: the shape primitives as a grid of glyph buttons that fills the box;
     // click one to drop that shape into the active comp.
     if (ctx.widget) {
-      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(3, minmax(0, 120px))', gridAutoRows: 'minmax(0, 78px)' } });
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(3, 1fr)', gridAutoRows: '1fr' } });
       KINDS.forEach(function (item) {
         var glyph = svg('svg', { viewBox: '0 0 56 40', width: '100%', height: 'auto' }, shapeGlyph(item.kind, 28, 20, 13));
         grid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: 'Add a ' + item.label.toLowerCase(),

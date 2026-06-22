@@ -36,7 +36,7 @@
     // selection. Search, filters, custom-preset management and the scope / every-key
     // options live in the full Library, via the widget's open control.
     if (ctx.widget) {
-      var wGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(0, 88px))', gridAutoRows: 'minmax(0, 58px)' } });
+      var wGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(64px, 1fr))', gridAutoRows: '1fr' } });
       widgetPicks().forEach(function (p) {
         wGrid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
           onclick: function () { apply(p); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]));

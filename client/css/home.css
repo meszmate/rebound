@@ -468,7 +468,6 @@
    shows the items that fit (priority-ordered) rather than growing a scrollbar. */
 .rb-home-widget .rb-wgt-pick {
   flex: 1 1 auto; min-height: 0; display: grid;
-  justify-content: center; align-content: center;
   gap: var(--rb-gap-2); overflow: hidden;
 }
 .rb-home-widget .rb-wgt-picktile {

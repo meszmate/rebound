@@ -81,7 +81,7 @@
       var palettes = BUILTIN.concat((loadCustom().items) || []);
       var activeIdx = 0;
       var nameEl = el('span.rb-grow', { text: '' });
-      var swatchGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(0, 78px))', gridAutoRows: 'minmax(0, 64px)' } });
+      var swatchGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(48px, 1fr))', gridAutoRows: '1fr' } });
       var applyW = function (hex) {
         ctx.invoke('color.apply', { rgb: hexToRgb01(hex), target: 'fill' })
           .then(function (res) { ctx.toast('Colored ' + res.colored + ' layer' + (res.colored === 1 ? '' : 's'), { kind: res.colored ? 'success' : 'info' }); })
