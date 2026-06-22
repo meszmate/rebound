@@ -37,6 +37,8 @@
     group: 'Physics',
     order: 1,
     keywords: ['drift', 'wiggle', 'random', 'noise', 'organic', 'jitter'],
+    // Apply-and-forget: a one-click button (apply-drift), not a live widget.
+    widget: false,
     mount: mount
   });
 
@@ -45,10 +47,8 @@
     var amount = 20;
     var frequency = 2;
 
-    var previewHost = ctx.widget
-      ? el('div.rb-wgt-hero')
-      : el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(driftSvg({ type: type, amount: amount, frequency: frequency }, ctx.widget ? '100%' : 90)); }
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(driftSvg({ type: type, amount: amount, frequency: frequency }, 90)); }
 
     var typeCtl = ui.segmented([
       { value: 'smooth', label: 'Smooth' },
@@ -61,22 +61,13 @@
       format: function (v) { return R.units.round(v, 1) + '/s'; }, onInput: function (v) { frequency = v; renderPreview(); } });
 
     renderPreview();
-    if (ctx.widget) {
-      // The drift widget is the live wander plus amount and frequency (how far,
-      // how often). Smooth vs Hold lives in the full tool, via the open control.
-      ctx.body.appendChild(el('div.rb-wgt', null, [
-        previewHost,
-        el('div.rb-wgt-ctl', null, [amountSlider.el, freqSlider.el])
-      ]));
-    } else {
-      ctx.body.appendChild(el('div.rb-col', null, [
-        el('div.rb-faint', { text: 'Adds living, random motion to the selected properties. Amount is in the property’s own units (px, °, %).' }),
-        previewHost,
-        ui.row('Type', typeCtl.el),
-        amountSlider.el,
-        freqSlider.el
-      ]));
-    }
+    ctx.body.appendChild(el('div.rb-col', null, [
+      el('div.rb-faint', { text: 'Adds living, random motion to the selected properties. Amount is in the property’s own units (px, °, %).' }),
+      previewHost,
+      ui.row('Type', typeCtl.el),
+      amountSlider.el,
+      freqSlider.el
+    ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);

@@ -15,6 +15,8 @@
     group: 'Physics',
     order: 0,
     keywords: ['recoil', 'overshoot', 'bounce', 'elastic', 'spring', 'follow through'],
+    // Apply-and-forget: a one-click button (apply-recoil), not a live widget.
+    widget: false,
     mount: mount
   });
 
@@ -52,8 +54,8 @@
     // The recoil shape as a read-only graph, the same way Spring shows its shape.
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
-    var previewHost = el('div' + (ctx.widget ? '.rb-wgt-hero' : ''));
-    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1300, controls: !ctx.widget });
+    var previewHost = el('div');
+    var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1300 });
 
     var halfLife = el('span.rb-chip', { text: '' });
     function refreshChip() {
@@ -73,26 +75,16 @@
       title: 'On: overshoot fires after every keyframe the value passes. Off: only after the final keyframe.',
       onChange: function (v) { eachKey = v; } });
 
-    if (ctx.widget) {
-      // The recoil widget is the live wobble plus overshoot and friction (how
-      // far it overshoots, how fast it settles). Bounce count, the per-keyframe
-      // toggle and the chip live in the full tool, via the open control.
-      ctx.body.appendChild(el('div.rb-wgt', null, [
-        previewHost,
-        el('div.rb-wgt-ctl', null, [overshootSlider.el, frictionSlider.el])
-      ]));
-    } else {
-      ctx.body.appendChild(el('div.rb-col', null, [
-        previewHost,
-        editorHost,
-        el('div.rb-faint', { text: 'Adds elastic overshoot after a keyframe, scaled by the incoming velocity. Non-destructive, your keyframes stay.' }),
-        overshootSlider.el,
-        bounceSlider.el,
-        frictionSlider.el,
-        eachKeyToggle.el,
-        el('div.rb-row', null, [halfLife])
-      ]));
-    }
+    ctx.body.appendChild(el('div.rb-col', null, [
+      previewHost,
+      editorHost,
+      el('div.rb-faint', { text: 'Adds elastic overshoot after a keyframe, scaled by the incoming velocity. Non-destructive, your keyframes stay.' }),
+      overshootSlider.el,
+      bounceSlider.el,
+      frictionSlider.el,
+      eachKeyToggle.el,
+      el('div.rb-row', null, [halfLife])
+    ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);

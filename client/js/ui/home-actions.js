@@ -59,7 +59,14 @@
     { id: 'grid-tiktok', label: 'TikTok Safe', toolId: 'grids', group: 'Layout', kind: 'apply', display: 'icon', desc: 'Overlay TikTok safe-zone guides.', invoke: { method: 'grids.apply', args: { preset: 'social', platform: 'tiktok', lineWidth: 2, color: [1, 0.2, 0.8], replace: true } } },
 
     { id: 'expr-wiggle', label: 'Wiggle', toolId: 'expressions', group: 'Generators', kind: 'apply', display: 'text', config: EXPR_CFG, desc: 'Apply a wiggle(2, 30) expression.', invoke: { method: 'expressions.apply', args: { code: 'wiggle(2, 30)' } } },
-    { id: 'expr-loop', label: 'Loop Out', toolId: 'expressions', group: 'Generators', kind: 'apply', display: 'text', config: EXPR_CFG, desc: 'Apply a loopOut("cycle") expression.', invoke: { method: 'expressions.apply', args: { code: 'loopOut("cycle")' } } }
+    { id: 'expr-loop', label: 'Loop Out', toolId: 'expressions', group: 'Generators', kind: 'apply', display: 'text', config: EXPR_CFG, desc: 'Apply a loopOut("cycle") expression.', invoke: { method: 'expressions.apply', args: { code: 'loopOut("cycle")' } } },
+
+    // The expression-rig physics tools are apply-and-forget, so they are buttons
+    // (one click with sensible defaults), not live widgets. Open the full tool to
+    // tune the sliders.
+    { id: 'apply-bounce', label: 'Bounce', toolId: 'bounce', group: 'Physics', kind: 'apply', display: 'icon', desc: 'Rebound the value off its target after its last keyframe.', invoke: { method: 'bounce.apply', args: { elasticity: 0.7, gravity: 4, maxBounces: 4, eachKey: false } } },
+    { id: 'apply-recoil', label: 'Recoil', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'icon', desc: 'Add elastic overshoot after a keyframe, scaled by the incoming velocity.', invoke: { method: 'recoil.apply', args: { overshoot: 60, bounce: 2, friction: 6, eachKey: true } } },
+    { id: 'apply-drift', label: 'Drift', toolId: 'drift', group: 'Physics', kind: 'apply', display: 'icon', desc: 'Add living, organic random motion to the selected properties.', invoke: { method: 'drift.apply', args: { type: 'smooth', amount: 20, frequency: 2 } } }
   ];
 
   function applyActions() { return APPLY.slice(); }
@@ -70,9 +77,12 @@
     });
   }
 
-  // Every tool, as an embeddable widget (its whole live UI on the Home).
+  // Every tool worth using live, as an embeddable widget. A tool whose only real
+  // interaction is "press Apply" opts out with `widget: false` in its register
+  // call: it stays usable as a one-click apply tile and an open tile, with no
+  // pointless widget that is just a button on the board.
   function widgetActions() {
-    return (R.tools.list() || []).filter(function (t) { return typeof t.mount === 'function'; }).map(function (t) {
+    return (R.tools.list() || []).filter(function (t) { return typeof t.mount === 'function' && t.widget !== false; }).map(function (t) {
       return { id: 'widget-' + t.id, label: t.title, toolId: t.id, group: t.group || 'Tools', kind: 'widget', desc: 'The full ' + t.title + ' controller, live on your board.' };
     });
   }
