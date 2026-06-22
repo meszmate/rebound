@@ -224,6 +224,17 @@
       if (wasActive) { maximizedId = null; loadActive(); render(); }
       persist(); renderTabs();
     }
+    // Duplicate a board: a fully independent deep copy (items, per-instance look,
+    // sizes, colours, theme) inserted right after it and made active.
+    function duplicateBoard(idx) {
+      syncToBoard();
+      var copy = boardFrom(boards[idx].name + ' copy', JSON.parse(JSON.stringify(boards[idx])));
+      boards.splice(idx + 1, 0, copy);
+      destroyAllWidgets(); maximizedId = null;
+      activeIdx = idx + 1; loadActive();
+      introAll = true;
+      persist(); renderTabs(); render();
+    }
     function renameBoard(idx) {
       if (!R.ui.modal) return;
       var input = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: boards[idx].name });
@@ -358,6 +369,7 @@
       if (R.toolMeta) b.innerHTML = R.toolMeta.svg(inner);
       return b;
     }
+    var DUP_SVG = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
     var ICON_ADD = '<path d="M12 5v14M5 12h14"/>';
     var ICON_EDIT = '<path d="M4 20h4L18 10l-4-4L4 16z"/><path d="M13 7l4 4"/>';
     var ICON_BROWSE = '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>';
@@ -392,6 +404,11 @@
         var tab = el('button.rb-home-tab' + (i === activeIdx ? '.is-active' : ''), { type: 'button', title: editing ? (b.name + ' (double-click to rename)') : b.name,
           onclick: function () { switchBoard(i); } }, [el('span.rb-home-tab-name', { text: b.name })]);
         tab.addEventListener('dblclick', function () { if (editing) renameBoard(i); });
+        if (editing) {
+          var dup = el('span.rb-home-tab-dup', { title: 'Duplicate board', onclick: (function (n) { return function (e) { e.stopPropagation(); duplicateBoard(n); }; })(i) });
+          dup.innerHTML = DUP_SVG;
+          tab.appendChild(dup);
+        }
         if (editing && boards.length > 1) tab.appendChild(el('span.rb-home-tab-x', { title: 'Delete board', onclick: function (e) { e.stopPropagation(); deleteBoard(i); } }, ['×']));
         tabsBar.appendChild(tab);
       });

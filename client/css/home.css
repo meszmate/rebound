@@ -32,6 +32,8 @@
 .rb-home-tab-name { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
 .rb-home-tab-x { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-right: -3px; border-radius: 999px; color: var(--rb-text-faint); font-size: 13px; }
 .rb-home-tab-x:hover { color: #fff; background: var(--rb-danger); }
+.rb-home-tab-dup { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 15px; border-radius: var(--rb-radius-1); color: var(--rb-text-faint); }
+.rb-home-tab-dup:hover { color: var(--rb-accent); background: color-mix(in srgb, var(--rb-accent) 14%, transparent); }
 .rb-home-tab-add { color: var(--rb-text-muted); font-size: 15px; padding: 4px 9px; }
 
 /* A real rectangular grid: a fixed number of equal columns the user picks, with
