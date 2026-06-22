@@ -101,6 +101,30 @@
     'keySplines="0.4 0 1 0.6;0.1 0.5 0.5 1;0.4 0 1 0.6;0.1 0.5 0.5 1;0.4 0 1 0.6;0.1 0.5 0.5 1;0.4 0 1 0.6;0 0 1 1" repeatCount="indefinite"/>' +
     '</circle></svg>');
 
+  // Import: a design (text + shapes) on the left streams across into an After
+  // Effects comp on the right, landing as native layer bars, one by one.
+  D.import = demo(
+    'Sends a <strong>Figma</strong>, <strong>Illustrator</strong>, or <strong>Photoshop</strong> design across as native, <strong>editable</strong> After Effects layers.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<rect x="6" y="15" width="42" height="42" rx="4" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.45"/>' +
+      '<g style="fill:var(--rb-accent)">' +
+      '<rect x="13" y="23" width="22" height="4" rx="2" opacity="0.9"/>' +
+      '<circle cx="19" cy="43" r="6" opacity="0.85"/>' +
+      '<rect x="29" y="38" width="13" height="11" rx="2" opacity="0.6"/></g>' +
+      '<rect x="72" y="15" width="42" height="42" rx="4" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.45"/>' +
+      '<g style="fill:var(--rb-accent)">' +
+      '<rect x="79" y="24" width="28" height="5" rx="2"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.22;0.9;1" dur="4s" repeatCount="indefinite"/></rect>' +
+      '<rect x="79" y="33" width="28" height="5" rx="2"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.22;0.42;0.9;1" dur="4s" repeatCount="indefinite"/></rect>' +
+      '<rect x="79" y="42" width="28" height="5" rx="2"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.42;0.62;0.9;1" dur="4s" repeatCount="indefinite"/></rect></g>' +
+      '<g stroke="currentColor" opacity="0.4" fill="none">' +
+      '<line x1="50" y1="36" x2="69" y2="36" stroke-width="1.2" stroke-dasharray="2 2"/>' +
+      '<path d="M66 33 l3 3 -3 3" stroke-width="1.2"/></g>' +
+      '<g style="fill:var(--rb-accent)">' +
+      '<circle cy="36" r="2.4" opacity="0"><animate attributeName="cx" values="50;70" dur="1.35s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="1.35s" repeatCount="indefinite"/></circle>' +
+      '<circle cy="36" r="2.4" opacity="0"><animate attributeName="cx" values="50;70" dur="1.35s" begin="0.67s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;1;0" dur="1.35s" begin="0.67s" repeatCount="indefinite"/></circle></g>' +
+      '</svg>'
+  );
+
   R.toolDemos = D;
   R.registerToolDemo = function (id, caption, svg) { D[id] = demo(caption, svg); };
 })(window.Rebound = window.Rebound || {});
