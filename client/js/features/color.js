@@ -55,6 +55,20 @@
     var lightness = 55;
     var target = 'fill';
 
+    // Widget: the swatch palette as an instant one-tap recolour, filling the box.
+    // Click a swatch to set the selection's fill. The hue/saturation/lightness
+    // sliders, target and Read live in the full tool, via the open control.
+    if (ctx.widget) {
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(4, minmax(0, 80px))', gridAutoRows: 'minmax(0, 60px)' } });
+      PALETTE.forEach(function (hex) {
+        var sw = el('button.rb-wgt-swatch', { type: 'button', title: 'Set ' + hex, style: { background: hex } });
+        sw.addEventListener('click', function () { apply(hexToRgb(hex)); });
+        grid.appendChild(sw);
+      });
+      ctx.body.appendChild(el('div.rb-wgt', null, [grid]));
+      return { destroy: function () {} };
+    }
+
     function currentRgb() { return hslToRgb(hue, saturation / 100, lightness / 100); }
     function currentState() { return { hue: hue, saturation: saturation, lightness: lightness, target: target }; }
 

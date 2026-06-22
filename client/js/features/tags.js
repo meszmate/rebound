@@ -58,6 +58,29 @@
     var tag = '';
     var label = 0;
 
+    // Widget: type a tag name, then click a label colour to stamp that #tag + label
+    // onto the selected layers in one go. Select-by-tag and Clear live in the full
+    // tool, via the widget's open control.
+    if (ctx.widget) {
+      var wInput = el('input', { type: 'text', placeholder: 'tag-name', 'aria-label': 'Tag name', value: '',
+        oninput: function () { tag = wInput.value; } });
+      var wField = el('div.rb-field', null, [el('span.rb-suffix', { text: '#', style: { paddingLeft: '8px', paddingRight: '4px' } }), wInput]);
+      var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(8, minmax(0, 48px))', gridAutoRows: 'minmax(0, 44px)' } });
+      LABELS.forEach(function (def) {
+        var sw = el('button.rb-wgt-swatch', { type: 'button', title: def.title + ' label', style: { background: def.color } });
+        sw.addEventListener('click', function () {
+          var name = clean();
+          if (!name) { ctx.toast('Enter a tag name', { kind: 'error' }); wInput.focus(); return; }
+          ctx.invoke('tags.apply', { tag: name, label: def.index })
+            .then(function (res) { ctx.toast('Tagged ' + res.tagged + ' layer' + (res.tagged === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+            .catch(function (err) { ctx.toast(err.message || 'Could not tag', { kind: 'error' }); });
+        });
+        grid.appendChild(sw);
+      });
+      ctx.body.appendChild(el('div.rb-wgt', null, [el('div.rb-wgt-pickhead', null, [wField]), grid]));
+      return { destroy: function () {} };
+    }
+
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     function colorFor(idx) { for (var i = 0; i < LABELS.length; i++) if (LABELS[i].index === idx) return LABELS[i].color; return null; }
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(tagsSvg({ tag: tag, color: colorFor(label) }, 56)); }

@@ -73,6 +73,41 @@
     var openId = null;
     var lastAppliedId = null;
 
+    // Widget: one palette at a time as a grid of big swatches; click a swatch to
+    // recolour the selection's fill, and use the arrows to switch palette. The
+    // Fill/Stroke/Both target, palette editing and detail panel live in the full
+    // tool, via the widget's open control.
+    if (ctx.widget) {
+      var palettes = BUILTIN.concat((loadCustom().items) || []);
+      var activeIdx = 0;
+      var nameEl = el('span.rb-grow', { text: '' });
+      var swatchGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(0, 78px))', gridAutoRows: 'minmax(0, 64px)' } });
+      var applyW = function (hex) {
+        ctx.invoke('color.apply', { rgb: hexToRgb01(hex), target: 'fill' })
+          .then(function (res) { ctx.toast('Colored ' + res.colored + ' layer' + (res.colored === 1 ? '' : 's'), { kind: res.colored ? 'success' : 'info' }); })
+          .catch(function (err) { ctx.toast(err.message || 'Could not apply color', { kind: 'error' }); });
+      };
+      var renderW = function () {
+        R.dom.clear(swatchGrid);
+        var pal = palettes[activeIdx];
+        nameEl.textContent = pal.name;
+        pal.colors.forEach(function (hex) {
+          var sw = el('button.rb-wgt-swatch', { type: 'button', title: pal.name + ' ' + normHex(hex).toUpperCase(), style: { background: hex } });
+          sw.addEventListener('click', function () { applyW(hex); });
+          swatchGrid.appendChild(sw);
+        });
+      };
+      var cycle = function (d) { activeIdx = (activeIdx + d + palettes.length) % palettes.length; renderW(); };
+      var head = el('div.rb-wgt-pickhead', null, [
+        el('button.rb-wgt-navbtn', { type: 'button', title: 'Previous palette', onclick: function () { cycle(-1); } }, ['‹']),
+        nameEl,
+        el('button.rb-wgt-navbtn', { type: 'button', title: 'Next palette', onclick: function () { cycle(1); } }, ['›'])
+      ]);
+      renderW();
+      ctx.body.appendChild(el('div.rb-wgt', null, [head, swatchGrid]));
+      return { destroy: function () {} };
+    }
+
     var targetPrevHost = el('div', { style: { display: 'inline-flex', alignItems: 'center' } });
     function renderTargetPreview() { R.dom.clear(targetPrevHost); targetPrevHost.appendChild(paletteTargetSvg(target)); }
 
