@@ -131,31 +131,32 @@ tool's `mount()`:
   full tool's panel of secondary controls inside a widget. If a tool has several
   controls, the widget shows only the essential one; the rest are reachable in the
   full tool.
-- **Not every tool should be a widget.** A live widget is only worth it for tools
-  you genuinely interact with on the board (a curve you drag, an anchor stage, a
-  gradient bar, a spring you sculpt, the align buttons). A tool whose only real
-  interaction is "press Apply" (the expression-rig physics tools Bounce, Recoil,
-  Drift; one-shot actions) must **not** offer a widget that is just a button in a
-  box. It opts out with `widget: false` in its `R.tools.register({...})` call;
-  `widgetActions()` skips it. It stays usable as a one-click **apply tile** (add a
-  curated entry to `APPLY` in `client/js/ui/home-actions.js`) and the generated
-  open tile. When in doubt, prefer a button over a widget.
+- **Widgets are a curated few, not every tool.** A live widget is only worth it
+  for tools with a genuine direct-manipulation surface: a curve you drag, the
+  anchor stage, the gradient bar, the align buttons. A tool whose interaction is
+  "set some sliders, press Apply" (Spring, the physics rigs Bounce/Recoil/Drift,
+  Color, generators, one-shot actions) must **not** offer a widget that is just a
+  panel of sliders and a button in a box. The widget-worthy set is the explicit
+  allow-list `WIDGET_TOOLS` in `client/js/ui/home-actions.js`
+  (`['ease','velocity','copyease','smooth','anchor','gradient','align']`);
+  `widgetActions()` only emits widgets for those. Every other tool stays usable as
+  its generated **open tile** and, where a one-click default makes sense, a curated
+  **apply tile** in the `APPLY` array (e.g. `apply-bounce`). When in doubt, a button.
 - **How a real widget is wired (two routes).** `mount(ctx)` receives
-  `ctx.widget === true` when embedded on the Home. Pick the route that fits:
+  `ctx.widget === true` when embedded on the Home. To make a new tool a widget,
+  add it to `WIDGET_TOOLS`, then pick the route that fits:
   1. **Crop the full tool.** If the tool already has one obvious primary element
      (the Ease/Velocity/Smooth curve, the Anchor stage, the gradient bar), list it
      in `WIDGET_FOCUS` (toolId -> primary selector) and optionally `WIDGET_HIDE`
      (toolId -> selectors to drop) in `client/js/ui/home-screen.js`: `applyFocus`
      keeps that element full-bleed and hides the rest.
-  2. **Build a purpose-made compact widget.** If the tool is a live design surface
-     with no single croppable element (Spring: a preview + the two sliders that
-     shape the feel), branch on `ctx.widget` in the mount and build a deliberate
-     layout: a `.rb-wgt` flex column holding a `.rb-wgt-hero` (the live preview,
-     which fills) and a `.rb-wgt-ctl` with only the one or two controls that matter.
-     Pass `controls:false` to `PreviewStage` so its own switchers don't clutter the
-     hero. A button-grid tool (Align) uses `.rb-wgt-aligngrid` of big icon buttons
-     that fill the box and act on click, with no preview. Such tools are absent from
-     `WIDGET_FOCUS`. CSS lives under "Compact tool widgets" in `client/css/home.css`.
+  2. **Build a purpose-made compact widget.** If the tool has no single croppable
+     element but is still a genuine live surface (Align: the six align buttons),
+     branch on `ctx.widget` in the mount and build a deliberate `.rb-wgt` layout
+     instead of cropping the tab. Align uses `.rb-wgt-aligngrid` of big icon buttons
+     that fill the box and act on click, with no preview. Such a tool is absent from
+     `WIDGET_FOCUS` but present in `WIDGET_TOOLS`. CSS lives under "Compact tool
+     widgets" in `client/css/home.css`.
 - **Secondary options: accessible, never in the way.** Anything that is not the
   primary control lives in the full tool, opened by the widget's open control (the
   arrow). It must not occupy widget space or float over the tool during use.
