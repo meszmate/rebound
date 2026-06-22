@@ -870,11 +870,13 @@
             var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' })
               : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget' })
                 : el('span.rb-home-badge.is-open', { text: 'open' });
+            var ico = iconSpan(a.toolId, 'rb-home-ico'); // the tinted chip, bigger than the tiny one
+            var text = el('div.rb-home-browser-text', null, [
+              el('div.rb-home-browser-name', { text: a.label }),
+              el('div.rb-home-browser-desc', { text: a.desc || '' })
+            ]);
             var row = el('button.rb-home-browser-row' + (pinned ? '.is-pinned' : ''), { type: 'button', title: a.label }, [
-              iconSpan(a.toolId, 'rb-home-ico-sm'),
-              el('span.rb-grow', { text: a.label }),
-              badge,
-              el('span.rb-home-pin', { text: pinned ? '✓' : '+' })
+              ico, text, badge, el('span.rb-home-pin', { text: pinned ? '✓' : '+' })
             ]);
             row.addEventListener('click', function () {
               if (ids.indexOf(a.id) !== -1) removeItem(a.id); else addItem(a.id);
