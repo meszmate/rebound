@@ -304,6 +304,72 @@
       });
   }
 
+  // ---- feature showcase (what a user can expect from an import) ------------
+
+  function ico(inner) {
+    var s = el('span.rb-feat-ic');
+    s.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+    return s;
+  }
+
+  var FEATURES = [
+    { t: 'Editable text', d: 'Real type layers: font, size, tracking, leading, colour and alignment kept.', i: '<path d="M5 6h14M12 6v13M9 19h6"/>' },
+    { t: 'Vector shapes', d: 'Paths rebuilt 1:1, with corners, booleans and strokes intact.', i: '<path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/>' },
+    { t: 'Gradients', d: 'Linear and radial rebuilt as native After Effects gradients.', i: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 12h18"/>' },
+    { t: 'Layer styles', d: 'Drop and inner shadow, glows, bevel, satin, overlays and stroke.', i: '<rect x="4" y="4" width="12" height="12" rx="2"/><path d="M8 20h10a2 2 0 0 0 2-2V8"/>' },
+    { t: 'Masks and clipping', d: 'Clipping masks become track mattes automatically.', i: '<path d="M4 4h11v11H4z"/><circle cx="15" cy="15" r="5.5"/>' },
+    { t: 'Images', d: 'Embedded images imported as footage and placed exactly.', i: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="M21 16l-5-5L5 20"/>' },
+    { t: 'Layer hierarchy', d: 'Groups, stacking order, opacity and blend modes preserved.', i: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>' },
+    { t: 'Fidelity report', d: 'See exactly what transferred and swap any missing fonts.', i: '<path d="M9 6h11M9 12h11M9 18h7"/><path d="M3.5 6l1.1 1.1L6.5 4.8"/><path d="M3.5 12l1.1 1.1L6.5 10.8"/>' }
+  ];
+
+  var APPS = [
+    { name: 'Figma', dot: '#a259ff' },
+    { name: 'Illustrator', dot: '#ff9a00' },
+    { name: 'Photoshop', dot: '#31a8ff' }
+  ];
+
+  var STEPS = [
+    'Install the free <b>Rebound</b> plugin in Figma, Illustrator, or Photoshop.',
+    'Select your design and run Rebound: it sends here in <b>one click</b>, or saves a <b>.rbir</b> file (hold Shift to force a file).',
+    'It rebuilds in your active composition as native, <b>editable</b> layers.'
+  ];
+
+  function buildApps() {
+    var chips = [];
+    for (var i = 0; i < APPS.length; i++) {
+      var dot = el('span.rb-app-dot');
+      dot.style.background = APPS[i].dot;
+      chips.push(el('span.rb-app-chip', null, [dot, el('span', { text: APPS[i].name })]));
+    }
+    return el('div.rb-apps', null, chips);
+  }
+
+  function buildFeatures() {
+    var cells = [];
+    for (var i = 0; i < FEATURES.length; i++) {
+      var f = FEATURES[i];
+      cells.push(el('div.rb-feat', null, [
+        ico(f.i),
+        el('div.rb-feat-body', null, [
+          el('div.rb-feat-t', { text: f.t }),
+          el('div.rb-feat-d', { text: f.d })
+        ])
+      ]));
+    }
+    return el('div.rb-feat-grid', null, cells);
+  }
+
+  function buildSteps() {
+    var rows = [];
+    for (var i = 0; i < STEPS.length; i++) {
+      var d = el('div.rb-step-d');
+      d.innerHTML = STEPS[i];
+      rows.push(el('div.rb-step', null, [d]));
+    }
+    return el('div.rb-steps', null, rows);
+  }
+
   function mount(ctx) {
     if (ctx.widget) {
       var wfile = el('input', { type: 'file', accept: '.rbir,.json,application/json', style: { display: 'none' } });
@@ -350,12 +416,24 @@
 
     var reportEl = el('div.rb-report-host');
 
-    ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Bring a design from Figma, Illustrator, or Photoshop into After Effects as native, editable layers. Text stays editable, gradients and shapes are rebuilt, and a fidelity report shows exactly what transferred.' }),
-      el('div.rb-faint', { text: 'Install the free Rebound plugin for Figma, Illustrator, or Photoshop and send straight here, or import a .rbir file or pasted IR below.' }),
+    ctx.body.appendChild(el('div.rb-col.rb-import', null, [
+      el('div.rb-import-lead', { text: 'Bring a design from Figma, Illustrator, or Photoshop into After Effects as native, editable layers, no flattening and no re-tracing.' }),
+      buildApps(),
+
+      el('div.rb-import-sec-h', { text: 'What lands in your comp' }),
+      buildFeatures(),
+
+      el('div.rb-import-sec-h', { text: 'How it works' }),
+      buildSteps(),
+
+      el('div.rb-import-sec-h', { text: 'Bridge to After Effects' }),
       statusRow,
-      el('div.rb-row.rb-wrap', null, [fileBtn, toggleBtn]),
+      el('div.rb-row.rb-wrap', null, [toggleBtn]),
       el('div.rb-faint', { text: 'Open a composition first; imported frames are dropped into it.' }),
+
+      el('div.rb-import-sec-h', { text: 'No plugin handy? Import a file' }),
+      el('div.rb-faint', { text: 'Drop in a .rbir file saved from any Rebound plugin, or paste its contents.' }),
+      el('div.rb-row.rb-wrap', null, [fileBtn]),
       paste,
       el('div.rb-row', null, [pasteBtn]),
       reportEl
