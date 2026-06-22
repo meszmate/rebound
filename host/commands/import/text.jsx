@@ -13,6 +13,14 @@
   var R = $.__rebound;
   var N = R.ir.N;
 
+  // Families that could not be resolved while building the current text layer,
+  // so the layer can be tagged for the missing-font resolver.
+  var layerMissing = [];
+  function noteLayerMissing(family) {
+    for (var i = 0; i < layerMissing.length; i++) { if (layerMissing[i] === family) return; }
+    layerMissing.push(family);
+  }
+
   function supportsRanges() {
     // CharacterRange per-run styling landed in After Effects 24.3.
     var v = parseFloat(app.version);
@@ -40,6 +48,7 @@
       }
     } catch (e) { /* older AE, or family unavailable */ }
     addMissingFont(report, family);
+    noteLayerMissing(family);
     return null;
   }
 
@@ -139,6 +148,7 @@
       return null;
     }
     var chars = data.characters;
+    layerMissing = [];
     var layer = comp.layers.addText(chars.length ? chars : ' ');
     layer.name = node.name || (chars.substr(0, 16)) || 'Text';
 
@@ -176,6 +186,12 @@
     }
 
     placeText(layer, node, isBox, base.fontSize);
+    // Tag the layer with any unresolved family so the resolver can find it.
+    if (layerMissing.length) {
+      var tags = '';
+      for (var mi = 0; mi < layerMissing.length; mi++) tags += '\nrb-font:' + layerMissing[mi];
+      try { layer.comment = (layer.comment || '') + tags; } catch (e) {}
+    }
     R.importer.effect.apply(layer, node, report);
     report.layersBuilt++;
     return layer;

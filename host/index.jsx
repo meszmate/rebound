@@ -121,6 +121,7 @@
   load('commands/import/shape.jsx');
   load('commands/import/image.jsx');
   load('commands/import/text.jsx');
+  load('commands/import/fonts.jsx');
 
   $.__rebound.loaded = true;
 })();
