@@ -119,18 +119,23 @@
     return 1; // miter
   }
 
+  // After Effects supports up to three dash/gap pairs; emit each pair the
+  // pattern carries instead of collapsing to one.
   function addDashes(stroke, pattern, offset) {
     var dashes = stroke.property('ADBE Vector Stroke Dashes');
     if (!dashes) return;
-    var dash = dashes.addProperty('ADBE Vector Stroke Dash 1');
-    if (dash) dash.setValue(pattern[0]);
-    if (pattern.length > 1) {
-      var gap = dashes.addProperty('ADBE Vector Stroke Gap 1');
-      if (gap) gap.setValue(pattern[1]);
+    var pairs = Math.min(3, Math.ceil(pattern.length / 2));
+    for (var p = 0; p < pairs; p++) {
+      var dn = p + 1;
+      try {
+        var dash = dashes.addProperty('ADBE Vector Stroke Dash ' + dn);
+        if (dash) dash.setValue(pattern[p * 2] || 0);
+        var gap = dashes.addProperty('ADBE Vector Stroke Gap ' + dn);
+        if (gap) gap.setValue(pattern[p * 2 + 1] != null ? pattern[p * 2 + 1] : (pattern[p * 2] || 0));
+      } catch (e) { /* dashes vary by build */ }
     }
     if (offset) {
-      var off = dashes.addProperty('ADBE Vector Stroke Offset');
-      if (off) off.setValue(offset);
+      try { var off = dashes.addProperty('ADBE Vector Stroke Offset'); if (off) off.setValue(offset); } catch (e2) {}
     }
   }
 

@@ -53,11 +53,13 @@
 
     if (t.matrix && t.matrix.length === 6) {
       var d = N.decomposeMatrix(t.matrix);
-      tr.property(M.position).setValue([d.x, d.y]);
-      if (Math.abs(d.rotationDeg) > 0.001) {
+      var px = isFinite(d.x) ? d.x : (t.x || 0);
+      var py = isFinite(d.y) ? d.y : (t.y || 0);
+      try { tr.property(M.position).setValue([px, py]); } catch (e0) {}
+      if (isFinite(d.rotationDeg) && Math.abs(d.rotationDeg) > 0.001) {
         try { tr.property(M.rotation).setValue(d.rotationDeg); } catch (e) {}
       }
-      if (Math.abs(d.scaleX - 1) > 1e-4 || Math.abs(d.scaleY - 1) > 1e-4) {
+      if (isFinite(d.scaleX) && isFinite(d.scaleY) && (Math.abs(d.scaleX - 1) > 1e-4 || Math.abs(d.scaleY - 1) > 1e-4)) {
         try { tr.property(M.scale).setValue([d.scaleX * 100, d.scaleY * 100]); } catch (e2) {}
       }
     } else {

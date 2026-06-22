@@ -156,21 +156,15 @@
   // effects (blurs stay in effect.jsx), and an inside/outside stroke.
   function gatherStyles(node) {
     var out = [];
+    var seen = {};
+    // De-dup by type: enabling the same style twice toggles it back off.
+    function add(s) {
+      if (s && s.type && s.enabled !== false && !seen[s.type]) { seen[s.type] = true; out.push(s); }
+    }
     var i;
-    if (node.layerStyles) {
-      for (i = 0; i < node.layerStyles.length; i++) {
-        var s = node.layerStyles[i];
-        if (s && s.enabled !== false) out.push(s);
-      }
-    }
-    if (node.effects) {
-      for (i = 0; i < node.effects.length; i++) {
-        var ls = FX.effectToLayerStyle(node.effects[i]);
-        if (ls) out.push(ls);
-      }
-    }
-    var sls = strokeToLayerStyle(node);
-    if (sls) out.push(sls);
+    if (node.layerStyles) { for (i = 0; i < node.layerStyles.length; i++) add(node.layerStyles[i]); }
+    if (node.effects) { for (i = 0; i < node.effects.length; i++) add(FX.effectToLayerStyle(node.effects[i])); }
+    add(strokeToLayerStyle(node));
     return out;
   }
 
@@ -191,8 +185,16 @@
 
   function applyComp(comp, items) {
     try { comp.openInViewer(); } catch (e) {}
+    // executeCommand acts on the front comp; if we could not bring this one
+    // forward, skip its styles with a clear flag rather than corrupt another.
+    var active = false;
+    try { active = (app.project.activeItem === comp); } catch (e1) {}
     for (var i = 0; i < items.length; i++) {
       var it = items[i];
+      if (!active) {
+        R.importer.util.note(it.report, 'skipped', { name: it.node.name, type: 'STYLE', reason: 'could not bring the composition forward for layer styles' });
+        continue;
+      }
       try {
         deselectAll(comp);
         it.layer.selected = true;

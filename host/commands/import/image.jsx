@@ -51,12 +51,14 @@
     var tr = layer.property('ADBE Transform Group');
     if (fw && fh) {
       if (node.scaleMode === 'FIT') {
-        // Contain: uniform scale, centred in the box.
-        var s = Math.min(w / fw, h / fh) * 100;
+        // Contain: uniform scale, centred in the box by a position offset so the
+        // anchor stays at the content origin (rotation pivot stays consistent).
+        var s = Math.min(w / fw, h / fh);
+        var offx = (w - fw * s) / 2, offy = (h - fh * s) / 2;
         try {
-          tr.property('ADBE Anchor Point').setValue([fw / 2, fh / 2]);
-          tr.property('ADBE Position').setValue([(t.x || 0) + w / 2, (t.y || 0) + h / 2]);
-          tr.property('ADBE Scale').setValue([s, s]);
+          var pos = tr.property('ADBE Position').value;
+          tr.property('ADBE Position').setValue([pos[0] + offx, pos[1] + offy]);
+          tr.property('ADBE Scale').setValue([s * 100, s * 100]);
         } catch (e) {}
       } else {
         // FILL / CROP / default: fill the box exactly.
