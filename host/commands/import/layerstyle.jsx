@@ -141,8 +141,19 @@
     }
   }
 
-  // Gather the styles for a node: explicit layerStyles plus any shadow/glow/
-  // overlay effects (blurs stay in effect.jsx).
+  // An inside/outside SOLID stroke has no centred-shape-stroke equivalent, so it
+  // is reproduced exactly as a Stroke layer style instead.
+  function strokeToLayerStyle(node) {
+    var st = node.stroke;
+    if (!st || !st.weight || !st.align || st.align === 'CENTER' || !st.paints || !st.paints.length) return null;
+    var p = null;
+    for (var i = 0; i < st.paints.length; i++) { if (st.paints[i] && st.paints[i].visible !== false) { p = st.paints[i]; break; } }
+    if (!p || p.type !== 'SOLID') return null; // gradient strokes stay shape strokes
+    return { type: 'STROKE', size: st.weight, color: p.color, position: st.align, opacity: (p.opacity != null ? p.opacity : 1) };
+  }
+
+  // Gather the styles for a node: explicit layerStyles, any shadow/glow/overlay
+  // effects (blurs stay in effect.jsx), and an inside/outside stroke.
   function gatherStyles(node) {
     var out = [];
     var i;
@@ -158,6 +169,8 @@
         if (ls) out.push(ls);
       }
     }
+    var sls = strokeToLayerStyle(node);
+    if (sls) out.push(sls);
     return out;
   }
 

@@ -147,6 +147,9 @@
     if (!st || !st.weight) return null;
     var paint = firstVisiblePaint(st.paints);
     if (!paint) return null;
+    // Inside/outside solid strokes are reproduced exactly as a Stroke layer
+    // style (layerstyle.jsx); skip the centred shape stroke so there is no double.
+    if (st.align && st.align !== 'CENTER' && paint.type === 'SOLID') return null;
 
     var stroke;
     if (paint.type === 'SOLID') {
