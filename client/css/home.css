@@ -342,7 +342,7 @@
   position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 80;
   flex: none; border-radius: 0; display: flex; flex-direction: column; min-width: 0;
 }
-.rb-home-widget.is-maximized .rb-home-widget-body { flex: 1 1 auto; max-height: none; overflow-y: auto; }
+.rb-home-widget.is-maximized .rb-home-widget-body { flex: 1 1 auto; max-height: none; overflow: hidden; }
 
 /* Floating chrome: the tool fills the whole widget; a title chip (top-left) and a
    controls cluster (top-right) fade in on hover or in edit mode, sitting over the
@@ -409,7 +409,10 @@
    (The full tool tab always keeps every control.) */
 .rb-focus-hidden { display: none !important; }
 .rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
-.rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; }
+/* Widgets never scroll. The tool fills and adapts to the box; if a control
+   cannot fit, it shrinks (min-height:0 down the chain) rather than spilling into
+   a scrollbar. Restructure a widget that does not fit, never scroll it. */
+.rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
 /* The footer (Apply/Read) sits at the bottom only where it is needed; tools with
    no action buttons (e.g. Anchor) hide it entirely. */
@@ -422,7 +425,7 @@
    (bigger widget, bigger gradient) with the stop bar fused at the very bottom and
    nothing else. Editing a stop's colour/position lives in the full tool. */
 .rb-home-widget.is-filled .rb-grad-editor { height: 100%; gap: 0; overflow: hidden; }
-.rb-home-widget.is-filled .rb-grad-canvas { flex: 1 1 auto; height: auto; min-height: 90px; margin: 0; border-radius: 0; }
+.rb-home-widget.is-filled .rb-grad-canvas { flex: 1 1 auto; height: auto; min-height: 0; margin: 0; border-radius: 0; }
 .rb-home-widget.is-filled .rb-grad-bar { margin: 0; border-radius: 0; }
 .rb-home-widget.is-filled .rb-curve svg { width: 100%; height: 100%; }
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
