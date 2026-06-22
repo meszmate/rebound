@@ -36,44 +36,61 @@
     // selection. Search, filters, custom-preset management and the scope / every-key
     // options live in the full Library, via the widget's open control.
     if (ctx.widget) {
-      // Customise which presets the widget shows by tapping the header to cycle
-      // Favourites / Built-in / All; the choice persists per instance. Star
-      // presets in the full Library to curate the Favourites set.
+      // Choose which presets the widget shows from a dropdown: Favourites,
+      // Built-in, All, or one of your custom collections; the choice persists per
+      // instance. Star presets (or save sets) in the full Library to build the
+      // Favourites / collections the widget can show.
       var wFilter = (ctx.config && ctx.config.filter) || 'fav';
-      var FILTERS = ['fav', 'builtin', 'all'];
-      var FILTER_LABEL = { fav: '★ Favourites', builtin: 'Built-in', all: 'All presets' };
       var wGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(54px, 1fr))', gridAutoRows: '1fr' } });
-      var wBar = el('button.rb-wgt-pickbar', { type: 'button', title: 'Change which presets the widget shows' });
+      var wSel = el('select.rb-wgt-picksel', { title: 'Choose which presets the widget shows' });
+      var buildOptions = function () {
+        R.dom.clear(wSel);
+        wSel.appendChild(el('option', { value: 'fav' }, ['★ Favourites']));
+        wSel.appendChild(el('option', { value: 'builtin' }, ['Built-in']));
+        wSel.appendChild(el('option', { value: 'all' }, ['All presets']));
+        widgetCollections().forEach(function (c) { wSel.appendChild(el('option', { value: 'col:' + c }, [c])); });
+        wSel.value = wFilter;
+      };
       var renderWGrid = function () {
-        wBar.textContent = FILTER_LABEL[wFilter] || 'All presets';
+        wSel.value = wFilter;
         R.dom.clear(wGrid);
         var picks = widgetPicks(wFilter);
-        if (!picks.length) { wGrid.appendChild(el('div.rb-empty', { style: { gridColumn: '1 / -1' } }, ['No presets'])); return; }
+        if (!picks.length) { wGrid.appendChild(el('div.rb-empty', { style: { gridColumn: '1 / -1' } }, ['No presets, star some in the Library'])); return; }
         picks.forEach(function (p) {
           wGrid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
             onclick: function () { apply(p); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]));
         });
       };
-      wBar.addEventListener('click', function () {
-        wFilter = FILTERS[(FILTERS.indexOf(wFilter) + 1) % FILTERS.length];
-        ctx.setConfig({ filter: wFilter });
-        renderWGrid();
-      });
+      wSel.addEventListener('change', function () { wFilter = wSel.value; ctx.setConfig({ filter: wFilter }); renderWGrid(); });
+      buildOptions();
       renderWGrid();
-      ctx.body.appendChild(el('div.rb-wgt', null, [el('div.rb-wgt-pickhead', null, [wBar]), wGrid]));
+      ctx.body.appendChild(el('div.rb-wgt', null, [el('div.rb-wgt-pickhead', null, [wSel]), wGrid]));
       return { destroy: function () {} };
     }
 
+    // The distinct custom-preset collections, so a widget can be pointed at one.
+    function widgetCollections() {
+      var cols = [], seen = {};
+      (loadUser().items || []).forEach(function (p) {
+        var c = p.collection || 'Custom';
+        if (!seen[c]) { seen[c] = 1; cols.push(c); }
+      });
+      return cols.sort();
+    }
+
     // The widget's preset set for a filter: Favourites (falling back to built-ins
-    // when none are starred), Built-in only, or All; deduped and capped so it stays
-    // a useful, priority-ordered set.
+    // when none are starred), Built-in only, All, or a named custom collection
+    // (col:<name>); deduped and capped so it stays a useful, priority-ordered set.
     function widgetPicks(filter) {
       var all = allPresets(), byId = {}, seen = {}, list = [], i;
       all.forEach(function (p) { byId[p.id] = p; });
       function add(p) { if (p && !seen[p.id]) { seen[p.id] = 1; list.push(p); } }
       if (filter === 'all') { for (i = 0; i < all.length && list.length < 16; i++) add(all[i]); }
       else if (filter === 'builtin') { for (i = 0; i < all.length && list.length < 16; i++) if (all[i].builtin) add(all[i]); }
-      else {
+      else if (filter && filter.indexOf('col:') === 0) {
+        var col = filter.slice(4);
+        for (i = 0; i < all.length && list.length < 16; i++) if (!all[i].builtin && (all[i].collection || 'Custom') === col) add(all[i]);
+      } else {
         favorites.forEach(function (id) { add(byId[id]); });
         if (!list.length) for (i = 0; i < all.length && list.length < 16; i++) if (all[i].builtin) add(all[i]);
       }

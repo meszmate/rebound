@@ -85,7 +85,9 @@
       if (ctx.config && ctx.config.palette) {
         for (var pi = 0; pi < palettes.length; pi++) if (palettes[pi].name === ctx.config.palette) { activeIdx = pi; break; }
       }
-      var nameEl = el('span.rb-grow', { text: '' });
+      // A dropdown to pick any palette directly (the arrows step through them too).
+      var sel = el('select.rb-wgt-picksel', { title: 'Choose a palette' });
+      palettes.forEach(function (p, i) { sel.appendChild(el('option', { value: String(i) }, [p.name])); });
       var swatchGrid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(auto-fit, minmax(32px, 1fr))', gridAutoRows: '1fr' } });
       var applyW = function (hex) {
         ctx.invoke('color.apply', { rgb: hexToRgb01(hex), target: 'fill' })
@@ -93,20 +95,21 @@
           .catch(function (err) { ctx.toast(err.message || 'Could not apply color', { kind: 'error' }); });
       };
       var renderW = function () {
+        sel.value = String(activeIdx);
         R.dom.clear(swatchGrid);
         var pal = palettes[activeIdx];
-        nameEl.textContent = pal.name;
         pal.colors.forEach(function (hex) {
           var sw = el('button.rb-wgt-swatch', { type: 'button', title: pal.name + ' ' + normHex(hex).toUpperCase(), style: { background: hex } });
           sw.addEventListener('click', function () { applyW(hex); });
           swatchGrid.appendChild(sw);
         });
       };
-      var cycle = function (d) { activeIdx = (activeIdx + d + palettes.length) % palettes.length; ctx.setConfig({ palette: palettes[activeIdx].name }); renderW(); };
+      var setIdx = function (i) { activeIdx = (i + palettes.length) % palettes.length; ctx.setConfig({ palette: palettes[activeIdx].name }); renderW(); };
+      sel.addEventListener('change', function () { setIdx(parseInt(sel.value, 10) || 0); });
       var head = el('div.rb-wgt-pickhead', null, [
-        el('button.rb-wgt-navbtn', { type: 'button', title: 'Previous palette', onclick: function () { cycle(-1); } }, ['‹']),
-        nameEl,
-        el('button.rb-wgt-navbtn', { type: 'button', title: 'Next palette', onclick: function () { cycle(1); } }, ['›'])
+        el('button.rb-wgt-navbtn', { type: 'button', title: 'Previous palette', onclick: function () { setIdx(activeIdx - 1); } }, ['‹']),
+        sel,
+        el('button.rb-wgt-navbtn', { type: 'button', title: 'Next palette', onclick: function () { setIdx(activeIdx + 1); } }, ['›'])
       ]);
       renderW();
       ctx.body.appendChild(el('div.rb-wgt', null, [head, swatchGrid]));
