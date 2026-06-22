@@ -253,7 +253,7 @@
     var op = 1; try { op = layer.opacity != null ? layer.opacity / 100 : 1; } catch (e) {}
     var bm = 'NORMAL'; try { bm = blendToIR(layer.blendMode); } catch (e2) {}
     var vis = true; try { vis = layer.visible; } catch (e3) {}
-    return {
+    var node = {
       id: nextId(),
       name: layer.name || 'Layer',
       type: 'GROUP',
@@ -261,6 +261,8 @@
       opacity: clamp01(op),
       blendMode: bm
     };
+    try { if (layer.grouped) node.clipBelow = true; } catch (e4) {}
+    return node;
   }
 
   function textToIR(layer) {

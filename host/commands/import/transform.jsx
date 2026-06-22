@@ -71,6 +71,8 @@
       tr.property(M.opacity).setValue(node.opacity * 100);
     }
     applyBlend(layer, node, report);
+    // Photoshop clipping mask: show only over the layers below.
+    if (node.clipBelow) { try { layer.preserveTransparency = true; } catch (e) {} }
   }
 
   R.importer.transform = { apply: apply, blendEnum: blendEnum };
