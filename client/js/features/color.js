@@ -55,17 +55,47 @@
     var lightness = 55;
     var target = 'fill';
 
-    // Widget: the swatch palette as an instant one-tap recolour, filling the box.
-    // Click a swatch to set the selection's fill. The hue/saturation/lightness
-    // sliders, target and Read live in the full tool, via the open control.
+    // Widget: YOUR own quick-colour set (not a fixed palette). Click a swatch to
+    // recolour the selection's fill; the + tile adds a colour, and the edit
+    // toggle lets you change or remove each one. One colour or many, as you set.
+    // Stored per instance, so each Colour widget is your own set.
     if (ctx.widget) {
+      var DEFAULT_COLORS = ['#f4453a', '#54c245', '#1fa6e0', '#f0f1f5'];
+      var colors = (ctx.config && ctx.config.colors && ctx.config.colors.length) ? ctx.config.colors.slice() : DEFAULT_COLORS.slice();
+      var editing = false;
       var grid = el('div.rb-wgt-pick', { style: { gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: '1fr' } });
-      PALETTE.forEach(function (hex) {
-        var sw = el('button.rb-wgt-swatch', { type: 'button', title: 'Set ' + hex, style: { background: hex } });
-        sw.addEventListener('click', function () { apply(hexToRgb(hex)); });
-        grid.appendChild(sw);
-      });
-      ctx.body.appendChild(el('div.rb-wgt', null, [grid]));
+      var persistColors = function () { ctx.setConfig({ colors: colors.slice() }); };
+      // A throwaway native colour picker; runs cb(hex) once a colour is chosen.
+      var pickColor = function (initial, cb) {
+        var inp = el('input', { type: 'color', value: initial || '#1fa6e0', style: { position: 'fixed', left: '-9999px', opacity: '0' } });
+        document.body.appendChild(inp);
+        var done = function () { if (inp.parentNode) inp.parentNode.removeChild(inp); };
+        inp.addEventListener('change', function () { cb(inp.value); done(); });
+        inp.addEventListener('blur', done);
+        inp.focus(); inp.click();
+      };
+      var renderColors = function () {
+        R.dom.clear(grid);
+        colors.forEach(function (hex, idx) {
+          var sw = el('button.rb-wgt-swatch', { type: 'button', title: editing ? 'Change colour' : ('Set ' + hex), style: { background: hex } });
+          sw.addEventListener('click', function () {
+            if (editing) pickColor(hex, function (v) { colors[idx] = v; persistColors(); renderColors(); });
+            else apply(hexToRgb(hex));
+          });
+          if (editing) sw.appendChild(el('span.rb-wgt-swx', { title: 'Remove colour',
+            onclick: function (e) { e.stopPropagation(); colors.splice(idx, 1); persistColors(); renderColors(); } }, ['×']));
+          grid.appendChild(sw);
+        });
+        grid.appendChild(el('button.rb-wgt-picktile.rb-wgt-addtile', { type: 'button', title: 'Add a colour',
+          onclick: function () { pickColor('#1fa6e0', function (v) { colors.push(v); persistColors(); renderColors(); }); } }, ['+']));
+      };
+      var editBtn = el('button.rb-wgt-navbtn', { type: 'button', title: 'Edit colours (change or remove)',
+        onclick: function () { editing = !editing; editBtn.classList.toggle('is-active', editing); grid.classList.toggle('is-editing', editing); renderColors(); } }, ['✎']);
+      renderColors();
+      ctx.body.appendChild(el('div.rb-wgt', null, [
+        el('div.rb-wgt-pickhead', null, [el('span.rb-grow', { text: 'Your colours' }), editBtn]),
+        grid
+      ]));
       return { destroy: function () {} };
     }
 

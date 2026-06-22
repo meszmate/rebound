@@ -484,12 +484,23 @@
 .rb-home-widget .rb-wgt-picktile-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* A colour swatch IS the tile (Palette / Colour / Tag labels). */
 .rb-home-widget .rb-wgt-swatch {
-  min-width: 0; min-height: 0; padding: 0; cursor: pointer;
+  position: relative; min-width: 0; min-height: 0; padding: 0; cursor: pointer;
   border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-2);
   transition: box-shadow var(--rb-transition);
 }
 .rb-home-widget .rb-wgt-swatch:hover,
 .rb-home-widget .rb-wgt-swatch.is-active { box-shadow: 0 0 0 2px var(--rb-accent); }
+/* The Colour widget is an editable personal set: a dashed + tile to add, and in
+   edit mode a remove badge on each swatch. */
+.rb-home-widget .rb-wgt-addtile { border-style: dashed; font-size: 18px; color: var(--rb-text-faint); }
+.rb-home-widget .rb-wgt-addtile:hover { color: var(--rb-accent); border-color: var(--rb-accent); }
+.rb-home-widget .rb-wgt-pick.is-editing .rb-wgt-swatch { cursor: copy; }
+.rb-home-widget .rb-wgt-swx {
+  position: absolute; top: 2px; right: 2px; width: 15px; height: 15px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--rb-danger); color: #fff; border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 50%; font-size: 11px; line-height: 1; cursor: pointer;
+}
 /* A header strip above a picker grid (palette switcher, tag-name field). */
 .rb-home-widget .rb-wgt-pickhead { flex: none; display: flex; align-items: center; gap: 6px; min-height: 0; }
 .rb-home-widget .rb-wgt-pickhead .rb-field { flex: 1 1 auto; }
