@@ -242,6 +242,15 @@
       else if (full) { node.style.gridColumn = '1 / -1'; node.style.gridRow = ''; }
     }
 
+    // One grid row's height incl. the row gap, for converting between a pixel
+    // height and a whole-row span.
+    function rowUnit() {
+      var gcs = window.getComputedStyle(grid);
+      var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
+      var cell = parseFloat(gcs.getPropertyValue('--rb-home-cell')) || 78;
+      return cell + rgap;
+    }
+
     // A corner drag-resize handle (edit mode). Tiles ('both') snap to whole grid
     // cells, so a tile is always a clean 1x1 / 2x1 / 2x2 rectangle. Widgets
     // ('widget') snap their WIDTH to columns but take a free pixel HEIGHT, so you
@@ -263,11 +272,19 @@
         function mv(ev) {
           var c = Math.max(1, Math.min(cols, Math.round((ev.clientX - left) / (cellW + gap))));
           if (mode === 'widget') {
-            var h = Math.max(120, Math.round(ev.clientY - top));
-            if (c !== lastC) { var p1 = captureRects(); node.style.gridColumn = 'span ' + c; flip(p1, true); lastC = c; }
-            node.style.height = h + 'px';        // free height, follows the pointer
+            // Snap height to whole grid rows (like tiles), so the widget reserves
+            // its grid track and never overflows it into the items below.
+            var rW = Math.max(1, Math.min(12, Math.round((ev.clientY - top) / (cellH + rgap))));
+            if (c !== lastC || rW !== lastR) {
+              var p1 = captureRects();
+              node.style.gridColumn = (c < cols) ? ('span ' + c) : '1 / -1';
+              node.style.gridRow = 'span ' + rW;
+              node.style.height = '';
+              flip(p1, true);
+              lastC = c; lastR = rW;
+            }
             node.classList.add('is-sized');
-            drafted = { c: c, h: h };
+            drafted = { c: c, r: rW };
           } else {
             var r = Math.max(1, Math.min(6, Math.round((ev.clientY - top) / (cellH + rgap))));
             if (c !== lastC || r !== lastR) {    // snap changed: glide everything to the new layout
@@ -781,13 +798,16 @@
       card.classList.toggle('is-collapsed', collapsedOf(action.id));
       card.classList.toggle('is-maximized', maximizedId === action.id);
       card.setAttribute('draggable', editing ? 'true' : 'false');
-      // Width snaps to columns (full by default); height is the user's free size.
+      // Width snaps to columns (full by default); height is a whole-row span, so
+      // the widget always reserves its grid track (never overflows onto the items
+      // below). Legacy pixel heights are migrated to a row span on sight.
       card.style.gridColumn = ''; card.style.gridRow = ''; card.style.height = '';
       card.classList.remove('is-sized');
       if (maximizedId !== action.id) {
         var s = spans[action.id];
+        if (s && s.h && !s.r) { s.r = Math.max(1, Math.round(s.h / rowUnit())); delete s.h; }
         card.style.gridColumn = (s && s.c && s.c < cols) ? ('span ' + s.c) : '1 / -1';
-        if (s && s.h) { card.style.height = s.h + 'px'; card.classList.add('is-sized'); }
+        if (s && s.r) { card.style.gridRow = 'span ' + s.r; card.classList.add('is-sized'); }
       }
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
