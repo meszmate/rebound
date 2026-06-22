@@ -1,0 +1,360 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rebound.tools/schema/ir-1.json",
+  "title": "Rebound IR",
+  "description": "The Rebound intermediate representation: the single versioned contract every exporter (Figma, Illustrator, ...) emits and the After Effects importer consumes. App-agnostic. Colours are 0..1 RGBA, lengths in pixels, angles in degrees clockwise, Y axis down (top-left origin, After Effects convention). Each exporter normalises INTO this space.",
+  "type": "object",
+  "required": ["irVersion", "source", "document"],
+  "properties": {
+    "irVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Semver. The importer accepts matching major versions and warns on skew."
+    },
+    "source": {
+      "type": "object",
+      "required": ["app"],
+      "properties": {
+        "app": {
+          "type": "string",
+          "enum": ["figma", "illustrator", "sketch", "xd", "photoshop", "svg"]
+        },
+        "appVersion": { "type": "string" },
+        "exporterVersion": { "type": "string" },
+        "fileName": { "type": "string" },
+        "selectionCount": { "type": "integer" },
+        "exportedAt": { "type": "string" }
+      }
+    },
+    "document": {
+      "type": "object",
+      "required": ["frames"],
+      "properties": {
+        "name": { "type": "string" },
+        "colorSpace": { "type": "string", "enum": ["srgb", "display-p3"], "default": "srgb" },
+        "unit": { "type": "string", "enum": ["px"], "default": "px" },
+        "yAxis": {
+          "type": "string",
+          "enum": ["down"],
+          "default": "down",
+          "description": "All IR coords are top-left origin, Y down; exporters normalise into this."
+        },
+        "frames": { "type": "array", "items": { "$ref": "#/definitions/frame" } },
+        "assets": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/imageAsset" },
+          "description": "Keyed by content hash; nodes reference assets by hash to dedupe."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "color": {
+      "type": "object",
+      "required": ["r", "g", "b"],
+      "properties": {
+        "r": { "type": "number", "minimum": 0, "maximum": 1 },
+        "g": { "type": "number", "minimum": 0, "maximum": 1 },
+        "b": { "type": "number", "minimum": 0, "maximum": 1 },
+        "a": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+      }
+    },
+    "matrix2x3": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "type": "number" },
+      "description": "[a,b,c,d,tx,ty] affine, Y-down. Maps (x,y) -> (a*x + c*y + tx, b*x + d*y + ty)."
+    },
+    "vec2": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+    "blendMode": {
+      "type": "string",
+      "enum": [
+        "NORMAL", "PASS_THROUGH", "MULTIPLY", "SCREEN", "OVERLAY", "DARKEN", "LIGHTEN",
+        "COLOR_DODGE", "COLOR_BURN", "HARD_LIGHT", "SOFT_LIGHT", "DIFFERENCE", "EXCLUSION",
+        "HUE", "SATURATION", "COLOR", "LUMINOSITY"
+      ]
+    },
+    "imageAsset": {
+      "type": "object",
+      "required": ["hash", "mime", "bytesBase64"],
+      "properties": {
+        "hash": { "type": "string" },
+        "mime": { "type": "string", "enum": ["image/png", "image/jpeg", "image/gif", "image/webp"] },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "bytesBase64": { "type": "string" }
+      }
+    },
+    "transform": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "rotation": { "type": "number", "description": "degrees, clockwise" },
+        "matrix": { "$ref": "#/definitions/matrix2x3" }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "horizontal": { "type": "string", "enum": ["MIN", "CENTER", "MAX", "STRETCH", "SCALE"] },
+        "vertical": { "type": "string", "enum": ["MIN", "CENTER", "MAX", "STRETCH", "SCALE"] }
+      }
+    },
+    "gradientStop": {
+      "type": "object",
+      "required": ["position", "color"],
+      "properties": {
+        "position": { "type": "number", "minimum": 0, "maximum": 1 },
+        "color": { "$ref": "#/definitions/color" }
+      }
+    },
+    "paint": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["SOLID", "GRADIENT_LINEAR", "GRADIENT_RADIAL", "GRADIENT_ANGULAR", "GRADIENT_DIAMOND", "IMAGE"]
+        },
+        "visible": { "type": "boolean", "default": true },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+        "blendMode": { "$ref": "#/definitions/blendMode" },
+        "color": { "$ref": "#/definitions/color", "description": "SOLID only" },
+        "stops": { "type": "array", "items": { "$ref": "#/definitions/gradientStop" }, "description": "gradient paints" },
+        "gradientHandles": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/vec2" },
+          "description": "[start, end, width] handle positions in node-local px space; defines ramp geometry including angular/diamond centre."
+        },
+        "gradientTransform": { "$ref": "#/definitions/matrix2x3" },
+        "imageHash": { "type": "string", "description": "IMAGE: key into document.assets" },
+        "scaleMode": { "type": "string", "enum": ["FILL", "FIT", "CROP", "TILE"], "description": "IMAGE" },
+        "imageTransform": { "$ref": "#/definitions/matrix2x3" },
+        "scalingFactor": { "type": "number", "description": "IMAGE TILE" }
+      }
+    },
+    "stroke": {
+      "type": "object",
+      "properties": {
+        "paints": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
+        "weight": { "type": "number" },
+        "align": { "type": "string", "enum": ["CENTER", "INSIDE", "OUTSIDE"] },
+        "cap": { "type": "string", "enum": ["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL"] },
+        "join": { "type": "string", "enum": ["MITER", "BEVEL", "ROUND"] },
+        "miterLimit": { "type": "number" },
+        "dashPattern": { "type": "array", "items": { "type": "number" } },
+        "dashOffset": { "type": "number" },
+        "weights": {
+          "type": "object",
+          "description": "per-side stroke weights (Figma)",
+          "properties": {
+            "top": { "type": "number" },
+            "right": { "type": "number" },
+            "bottom": { "type": "number" },
+            "left": { "type": "number" }
+          }
+        }
+      }
+    },
+    "effect": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["DROP_SHADOW", "INNER_SHADOW", "LAYER_BLUR", "BACKGROUND_BLUR"] },
+        "visible": { "type": "boolean", "default": true },
+        "color": { "$ref": "#/definitions/color", "description": "shadows" },
+        "offset": { "$ref": "#/definitions/vec2", "description": "shadows" },
+        "radius": { "type": "number", "description": "blur radius / shadow blur" },
+        "spread": { "type": "number", "description": "shadows" },
+        "blendMode": { "$ref": "#/definitions/blendMode" },
+        "showShadowBehindNode": { "type": "boolean" }
+      }
+    },
+    "cornerRadii": {
+      "type": "object",
+      "properties": {
+        "topLeft": { "type": "number" },
+        "topRight": { "type": "number" },
+        "bottomRight": { "type": "number" },
+        "bottomLeft": { "type": "number" },
+        "smoothing": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "vertex": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "inTangent": { "$ref": "#/definitions/vec2", "description": "RELATIVE to vertex (handle - anchor); [0,0] = corner." },
+        "outTangent": { "$ref": "#/definitions/vec2", "description": "RELATIVE to vertex." },
+        "cornerRadius": { "type": "number" }
+      }
+    },
+    "path": {
+      "type": "object",
+      "required": ["vertices", "closed"],
+      "properties": {
+        "vertices": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/vertex" },
+          "description": "bezier; tangents relative to anchor, After Effects Shape() convention."
+        },
+        "closed": { "type": "boolean" },
+        "windingRule": { "type": "string", "enum": ["NONZERO", "EVENODD"], "default": "NONZERO" }
+      }
+    },
+    "textRun": {
+      "type": "object",
+      "required": ["start", "end", "characters"],
+      "properties": {
+        "start": { "type": "integer" },
+        "end": { "type": "integer" },
+        "characters": { "type": "string" },
+        "fontFamily": { "type": "string" },
+        "fontStyle": { "type": "string" },
+        "postScriptName": { "type": "string" },
+        "fontSize": { "type": "number" },
+        "fills": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
+        "tracking": { "type": "number", "description": "After Effects tracking units (1000 = 1em)." },
+        "lineHeight": {
+          "type": "object",
+          "properties": {
+            "value": { "type": "number" },
+            "unit": { "type": "string", "enum": ["PIXELS", "PERCENT", "AUTO"] }
+          }
+        },
+        "baselineShift": { "type": "number" },
+        "textCase": { "type": "string", "enum": ["ORIGINAL", "UPPER", "LOWER", "TITLE", "SMALL_CAPS", "SMALL_CAPS_FORCED"] },
+        "textDecoration": { "type": "string", "enum": ["NONE", "UNDERLINE", "STRIKETHROUGH"] },
+        "fauxBold": { "type": "boolean" },
+        "fauxItalic": { "type": "boolean" },
+        "horizontalScale": { "type": "number" },
+        "verticalScale": { "type": "number" }
+      }
+    },
+    "textData": {
+      "type": "object",
+      "required": ["characters", "runs"],
+      "properties": {
+        "characters": { "type": "string" },
+        "runs": { "type": "array", "items": { "$ref": "#/definitions/textRun" } },
+        "textAlignHorizontal": { "type": "string", "enum": ["LEFT", "CENTER", "RIGHT", "JUSTIFIED"] },
+        "textAlignVertical": { "type": "string", "enum": ["TOP", "CENTER", "BOTTOM"] },
+        "autoResize": { "type": "string", "enum": ["NONE", "WIDTH_AND_HEIGHT", "HEIGHT", "TRUNCATE"] },
+        "paragraphSpacing": { "type": "number" },
+        "paragraphIndent": { "type": "number" },
+        "boxText": { "type": "boolean" },
+        "boxSize": { "$ref": "#/definitions/vec2" }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": ["id", "type", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["FRAME", "GROUP", "RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "LINE", "VECTOR", "TEXT", "BOOLEAN", "IMAGE"]
+        },
+        "name": { "type": "string" },
+        "visible": { "type": "boolean", "default": true },
+        "locked": { "type": "boolean", "default": false },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+        "blendMode": { "$ref": "#/definitions/blendMode" },
+        "isMask": { "type": "boolean", "default": false },
+        "clipsContent": { "type": "boolean", "description": "FRAME/GROUP: clip children to bounds." },
+        "transform": { "$ref": "#/definitions/transform" },
+        "constraints": { "$ref": "#/definitions/constraints" },
+        "fills": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
+        "stroke": { "$ref": "#/definitions/stroke" },
+        "effects": { "type": "array", "items": { "$ref": "#/definitions/effect" } },
+        "cornerRadii": { "$ref": "#/definitions/cornerRadii" },
+        "primitive": {
+          "type": "object",
+          "description": "Parametric data so the importer can keep editable Rect/Ellipse/Polystar primitives.",
+          "properties": {
+            "rect": {
+              "type": "object",
+              "properties": {
+                "size": { "$ref": "#/definitions/vec2" },
+                "roundness": { "type": "number" }
+              }
+            },
+            "ellipse": {
+              "type": "object",
+              "properties": {
+                "size": { "$ref": "#/definitions/vec2" },
+                "arc": {
+                  "type": "object",
+                  "properties": {
+                    "startAngle": { "type": "number" },
+                    "endAngle": { "type": "number" },
+                    "innerRadius": { "type": "number" }
+                  }
+                }
+              }
+            },
+            "polystar": {
+              "type": "object",
+              "properties": {
+                "starType": { "type": "string", "enum": ["STAR", "POLYGON"] },
+                "points": { "type": "number" },
+                "innerRadius": { "type": "number" },
+                "outerRadius": { "type": "number" },
+                "rotation": { "type": "number" }
+              }
+            }
+          }
+        },
+        "paths": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/path" },
+          "description": "VECTOR/LINE and fallback geometry; multiple sub-paths for compound/holes."
+        },
+        "boolean": {
+          "type": "object",
+          "description": "BOOLEAN nodes; children are operands.",
+          "properties": {
+            "op": { "type": "string", "enum": ["UNION", "SUBTRACT", "INTERSECT", "EXCLUDE"] }
+          }
+        },
+        "text": { "$ref": "#/definitions/textData", "description": "TEXT nodes" },
+        "imageHash": { "type": "string", "description": "IMAGE node: key into document.assets" },
+        "svgFallback": {
+          "type": "string",
+          "description": "Optional exported SVG string for exact rebuild when parametric reconstruction is lossy."
+        },
+        "meta": {
+          "type": "object",
+          "description": "Source-specific passthrough (never required by the importer).",
+          "additionalProperties": true
+        },
+        "children": { "type": "array", "items": { "$ref": "#/definitions/node" } }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "required": ["id", "name", "width", "height", "children"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "background": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
+        "clipsContent": { "type": "boolean", "default": true },
+        "buildMode": {
+          "type": "string",
+          "enum": ["GROUP", "PRECOMP"],
+          "default": "PRECOMP",
+          "description": "Frame becomes a precomp or a grouped null-parented set."
+        },
+        "children": { "type": "array", "items": { "$ref": "#/definitions/node" } }
+      }
+    }
+  }
+}

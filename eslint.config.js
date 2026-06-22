@@ -126,6 +126,31 @@ export default [
     },
   },
 
+  // Shared cross-plugin libs. Plain ES5 UMD so the exact same file runs in the
+  // CEP panel (script tag), the ExtendScript host (evalFile), Node/Vitest, and
+  // the Figma plugin bundler. Keep it to the ES3/ES5 common denominator.
+  {
+    files: ['shared/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 5,
+      sourceType: 'script',
+      globals: {
+        module: 'writable',
+        exports: 'writable',
+        define: 'readonly',
+        globalThis: 'readonly',
+        self: 'readonly',
+        window: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+      'no-prototype-builtins': 'off',
+      'no-var': 'off',
+    },
+  },
+
   // Node tooling + tests (ESM).
   {
     files: ['tools/**/*.mjs', 'test/**/*.{js,mjs}', '*.config.js', 'vitest.config.js'],

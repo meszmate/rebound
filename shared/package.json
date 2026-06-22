@@ -1,0 +1,4 @@
+{
+  "//": "Marks shared/ as CommonJS so the UMD libs resolve as CJS under Node/Vitest while the repo root stays ESM. These files also load directly in the CEP panel, the ExtendScript host, and the Figma bundler.",
+  "type": "commonjs"
+}
