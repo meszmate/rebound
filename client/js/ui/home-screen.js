@@ -49,10 +49,13 @@
 
   // The primary, full-bleed element of a tool's widget when "Fill" is on, and the
   // widgets that fill by default (their box IS the tool).
+  // Tools whose single primary element IS the whole widget when filled. The
+  // motion tools (spring/bounce/recoil/drift) and layout tools (align) instead
+  // render a purpose-built compact widget from their own mount (ctx.widget), so
+  // they are not listed here.
   var WIDGET_FOCUS = {
     anchor: '.rb-anchor-stage', ease: '.rb-curve', velocity: '.rb-curve', copyease: '.rb-curve',
-    spring: '.rb-preview-stage', bounce: '.rb-preview-stage', recoil: '.rb-preview-stage', drift: '.rb-preview-stage', smooth: '.rb-curve',
-    gradient: '.rb-grad-editor'
+    smooth: '.rb-curve', gradient: '.rb-grad-editor'
   };
   // Inside the focused element, drop these so the widget keeps just the essential
   // control (its secondary panel lives in the full tool, via the open control).
@@ -94,7 +97,9 @@
     var svgs = host.querySelectorAll('svg[width="100%"]');
     for (var i = 0; i < svgs.length; i++) {
       var s = svgs[i];
-      if ((s.getAttribute('class') || '').indexOf('rb-curve-chip') !== -1) continue;
+      // Curve chips keep their shape; a hero marked rb-keep-aspect (e.g. the
+      // Align widget preview) stays undistorted, centred in its box.
+      if (/rb-curve-chip|rb-keep-aspect/.test(s.getAttribute('class') || '')) continue;
       if (s.querySelector('.rb-curve-path, .rb-handle, .rb-swatch-dot')) continue;
       s.setAttribute('preserveAspectRatio', 'none');
     }

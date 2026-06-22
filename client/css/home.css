@@ -426,6 +426,37 @@
 .rb-home-widget.is-filled .rb-grad-bar { margin: 0; border-radius: 0; }
 .rb-home-widget.is-filled .rb-curve svg { width: 100%; height: 100%; }
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
+
+/* ---- Compact tool widgets (a hero visual + one or two slim controls) ----
+   Spring, Bounce, Recoil, Drift and Align build a purpose-made widget from
+   their own ctx.widget branch instead of cropping the full tool tab: a hero
+   that fills the box, with just the controls that shape the result pinned
+   underneath, themed like the rest of the panel. Secondary options stay in the
+   full tool (reached via the widget's open control). */
+.rb-home-widget .rb-wgt {
+  display: flex; flex-direction: column; gap: var(--rb-gap-2);
+  flex: 1 1 auto; min-height: 0; padding: var(--rb-gap-2);
+}
+.rb-home-widget .rb-wgt-hero {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  border-radius: var(--rb-radius-2); overflow: hidden;
+}
+/* A live preview hero (Spring / Bounce / Recoil): the stage grows to fill. */
+.rb-home-widget .rb-wgt-hero.rb-preview { gap: 4px; }
+.rb-home-widget .rb-wgt-hero.rb-preview .rb-preview-stage {
+  flex: 1 1 auto; height: auto; min-height: 0; border-radius: var(--rb-radius-2);
+}
+.rb-home-widget .rb-wgt-hero.rb-preview .rb-preview-readout { padding: 0 2px; }
+/* A schematic-SVG hero (Drift / Align): the graphic fills the hero. */
+.rb-home-widget .rb-wgt-hero > svg {
+  flex: 1 1 auto; min-height: 0; width: 100%; height: 100%; max-height: none; display: block;
+}
+/* Slim controls under the hero. */
+.rb-home-widget .rb-wgt-ctl { flex: none; display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-home-widget .rb-wgt-ctl .rb-slider { gap: 2px; }
+.rb-home-widget .rb-wgt-ctl .rb-slider-head { font-size: calc(var(--rb-font-size) - 2px); }
+/* The Align widget's six one-click buttons, centred under the preview. */
+.rb-home-widget .rb-wgt-alignbar { flex-direction: row; justify-content: center; align-items: center; gap: 10px; }
 /* Edge-to-edge: the box IS the widget, so drop its own frame and rounding. */
 .rb-home-widget.is-filled .rb-anchor-box { height: 100%; max-height: none; aspect-ratio: auto; width: 100%; border: 0; border-radius: 0; }
 /* Preview graphs stretch to fill the widget width (no letterboxed empty space);
