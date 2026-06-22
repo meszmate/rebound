@@ -34,6 +34,7 @@
     "lint:fix": "eslint . --fix",
     "cert": "node tools/make-cert.mjs",
     "pack": "node tools/pack.mjs",
+    "build:figma": "node plugins/figma/build.mjs",
     "install:dev": "node tools/install-dev.mjs",
     "uninstall:dev": "node tools/install-dev.mjs --remove",
     "debug:on": "node tools/player-debug-mode.mjs --on",

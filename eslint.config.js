@@ -103,7 +103,7 @@ const nodeGlobals = {
 };
 
 export default [
-  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*'] },
+  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*', 'plugins/figma/dist/**'] },
   js.configs.recommended,
 
   // Browser / CEP panel code.
@@ -165,11 +165,41 @@ export default [
 
   // Node tooling + tests (ESM).
   {
-    files: ['tools/**/*.mjs', 'test/**/*.{js,mjs}', '*.config.js', 'vitest.config.js'],
+    files: ['tools/**/*.mjs', 'plugins/**/*.mjs', 'test/**/*.{js,mjs}', '*.config.js', 'vitest.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: nodeGlobals,
+    },
+  },
+
+  // Figma plugin source (the sandbox main thread and the UI iframe). Modern JS,
+  // bundled at build time; the shared libs supply the Rebound* globals.
+  {
+    files: ['plugins/figma/src/**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2021,
+      sourceType: 'script',
+      globals: {
+        figma: 'readonly',
+        __html__: 'readonly',
+        parent: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        fetch: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        setTimeout: 'readonly',
+        console: 'readonly',
+        globalThis: 'readonly',
+        ReboundNormalize: 'readonly',
+        ReboundBezier: 'readonly',
+        ReboundFigma: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': ['warn', { args: 'none', caughtErrors: 'none' }],
+      'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
 ];
