@@ -20,7 +20,7 @@
   var node = (function () {
     try {
       if (typeof window !== 'undefined' && window.cep_node && window.cep_node.require) {
-        return { http: window.cep_node.require('http') };
+        return { http: window.cep_node.require('http'), Buffer: window.cep_node.require('buffer').Buffer };
       }
     } catch (e) { /* not in CEP */ }
     return null;
@@ -58,15 +58,21 @@
   }
 
   function handleIR(req, res) {
-    var body = '';
+    var chunks = [];
+    var size = 0;
     var tooBig = false;
     req.on('data', function (chunk) {
-      body += chunk;
+      chunks.push(chunk);
+      size += chunk.length;
       // Guard against a runaway upload (base64 images can be large but bounded).
-      if (body.length > 96 * 1024 * 1024) { tooBig = true; req.destroy(); }
+      if (size > 96 * 1024 * 1024) { tooBig = true; req.destroy(); }
     });
     req.on('end', function () {
       if (tooBig) { sendJson(res, 413, { ok: false, error: 'Payload too large.' }); return; }
+      // Concat raw bytes then decode once, so a multibyte char split across TCP
+      // chunks is never corrupted.
+      var body;
+      try { body = node.Buffer.concat(chunks).toString('utf8'); } catch (eb) { body = chunks.join(''); }
       var ir;
       try { ir = JSON.parse(body); } catch (e) {
         sendJson(res, 400, { ok: false, error: 'Could not parse IR JSON.' });

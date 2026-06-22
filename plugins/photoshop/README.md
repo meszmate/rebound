@@ -11,13 +11,14 @@ panel; see [`../../docs/IR.md`](../../docs/IR.md) for the shared contract.
 
 A single ExtendScript file, no build step.
 
-1. Open the document in Photoshop.
-2. **File > Scripts > Browse…** and choose `plugins/photoshop/export-ir.jsx`
+1. In After Effects, open the **Rebound** panel (it starts the receiver
+   automatically).
+2. Open the document in Photoshop.
+3. **File > Scripts > Browse…** and choose `plugins/photoshop/export-ir.jsx`
    (keep `json2.js` beside it).
-3. Choose where to save the `.rbir` file (images are embedded, so it is one
-   self-contained file).
-4. In After Effects, open the **Rebound** panel and use **Import from file…**
-   (Convert & import) to rebuild it in the active composition.
+4. It is sent straight into your active composition (**one click**). If After
+   Effects is not running, you are prompted to save a self-contained `.rbir`
+   file (images embedded) to import from the panel with **Import from file…**.
 
 To install it under File > Scripts permanently, copy both files into
 Photoshop's `Presets/Scripts` folder and restart Photoshop.

@@ -13,14 +13,16 @@ shared contract and the fidelity matrix.
 
 The exporter is a single ExtendScript file, no build step.
 
-1. Select the artwork in Illustrator (or run it with nothing selected to export
-   all top-level art).
-2. **File > Scripts > Other Script…** and choose
+1. In After Effects, open the **Rebound** panel (it starts the receiver
+   automatically).
+2. Select the artwork in Illustrator (or run with nothing selected to export all
+   top-level art).
+3. **File > Scripts > Other Script…** and choose
    `plugins/illustrator/export-ir.jsx` (it `#include`s `json2.js` from the same
    folder, so keep them together).
-3. Choose where to save the `.rbir` file.
-4. In After Effects, open the **Rebound** panel and use **Import from file…**
-   (Convert & import) to rebuild it in the active composition.
+4. It is sent straight into your active composition (**one click**). If After
+   Effects is not running, you are prompted to save a `.rbir` file to import from
+   the panel with **Import from file…**.
 
 To make it appear under File > Scripts permanently, copy both files into
 Illustrator's `Presets/<locale>/Scripts` folder and restart Illustrator.

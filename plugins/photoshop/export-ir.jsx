@@ -360,16 +360,62 @@
 
   app.preferences.rulerUnits = savedUnits;
 
+  // One-click send over a loopback socket to the Rebound receiver in After
+  // Effects (Content-Length is the UTF-8 byte length); falls back to a file.
+  function rbUtf8(s) {
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      if (c < 128) out += String.fromCharCode(c);
+      else if (c < 2048) out += String.fromCharCode(192 | (c >> 6), 128 | (c & 63));
+      else out += String.fromCharCode(224 | (c >> 12), 128 | ((c >> 6) & 63), 128 | (c & 63));
+    }
+    return out;
+  }
+  function rbPing(port) {
+    var conn = new Socket();
+    try {
+      if (conn.open('127.0.0.1:' + port, 'BINARY')) {
+        conn.write('GET /rebound/ping HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n');
+        var resp = conn.read(8192);
+        conn.close();
+        return resp && resp.indexOf('"app":"rebound"') !== -1;
+      }
+    } catch (e) { try { conn.close(); } catch (e2) {} }
+    return false;
+  }
+  function rbSend(jsonStr) {
+    var ports = [7890, 7891, 7892, 7893];
+    var body = rbUtf8(jsonStr);
+    for (var i = 0; i < ports.length; i++) {
+      if (!rbPing(ports[i])) continue;
+      var conn = new Socket();
+      try {
+        if (conn.open('127.0.0.1:' + ports[i], 'BINARY')) {
+          conn.write('POST /rebound/ir HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: ' + body.length + '\r\nConnection: close\r\n\r\n' + body);
+          var resp = conn.read(65536);
+          conn.close();
+          if (resp && resp.indexOf('"ok":true') !== -1) return true;
+        }
+      } catch (e) { try { conn.close(); } catch (e2) {} }
+    }
+    return false;
+  }
+
   var json = JSON.stringify(ir);
-  var file = File.saveDialog('Save the Rebound file', 'Rebound IR:*.rbir');
+  var notes = skipped.length ? ('\n\nNotes (' + skipped.length + '):\n- ' + skipped.slice(0, 8).join('\n- ')) : '';
+
+  if (rbSend(json)) {
+    alert('Rebound Relay: sent to After Effects.' + notes);
+    return;
+  }
+
+  var file = File.saveDialog('After Effects not detected. Save a Rebound file instead', 'Rebound IR:*.rbir');
   if (!file) return;
   if (!/\.rbir$/i.test(file.fsName)) file = new File(file.fsName + '.rbir');
   file.encoding = 'UTF-8';
   file.open('w');
   file.write(json);
   file.close();
-
-  var msg = 'Rebound Relay: saved\n' + file.fsName + '\n\nIn After Effects, open the Rebound panel and use Import from file.';
-  if (skipped.length) msg += '\n\nNotes (' + skipped.length + '):\n- ' + skipped.slice(0, 8).join('\n- ');
-  alert(msg);
+  alert('Rebound Relay: saved\n' + file.fsName + '\n\nIn After Effects, open the Rebound panel and use Import from file.' + notes);
 })();
