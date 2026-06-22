@@ -95,6 +95,17 @@
 
     ctx = makeContext();
     setupKeyboard();
+    if (R.keybinds) {
+      R.keybinds.init({
+        openTool: openToolById,
+        invoke: function (m, a) { return R.bridge.invoke(m, a); },
+        toast: R.ui.toast,
+        refreshSelection: pollSelection,
+        focusSearch: function () { if (view === 'home') showCategory(lastCategory || R.toolMeta.SECTIONS[0].id); if (searchInput) searchInput.select(); },
+        goHome: showHome,
+        browse: function () { showCategory(lastCategory || R.toolMeta.SECTIONS[0].id); }
+      });
+    }
     home.update(appStore.get().selection);
 
     if (R.bridge.available) {
