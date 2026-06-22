@@ -323,4 +323,19 @@
     R.disk.write('user-presets', data);
     return preset;
   };
+
+  // Every easing preset (built-in Penner curves + your saved ones) as a Home
+  // action, so a single preset can be pinned as a one-click tile and bound to a
+  // shortcut. Applying eases the selected keyframes with that exact curve.
+  R.presets.homeActions = function () {
+    var user = (R.disk.read('user-presets', { items: [] }).items) || [];
+    return (R.presets.defaults || []).concat(user).map(function (p) {
+      return {
+        id: 'easepreset-' + p.id, label: p.name, toolId: 'ease',
+        group: p.builtin ? 'Easing presets' : 'Your presets', kind: 'apply', display: 'text',
+        desc: (p.builtin ? 'Easing preset: ' : 'Your saved preset: ') + p.name + (p.collection && !p.builtin ? ' (' + p.collection + ')' : ''),
+        invoke: { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } }
+      };
+    });
+  };
 })(window.Rebound = window.Rebound || {});

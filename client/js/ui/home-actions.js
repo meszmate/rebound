@@ -97,8 +97,20 @@
   }
 
   function scriptActions() { return (R.userScripts && R.userScripts.homeActions) ? R.userScripts.homeActions() : []; }
+  // Specific saved/built-in expressions and easing presets, each as a one-click
+  // action: so any single preset or expression can be pinned to a board AND bound
+  // to a keyboard shortcut, not just the whole tool.
+  function expressionActions() { return (R.userExpressions && R.userExpressions.homeActions) ? R.userExpressions.homeActions() : []; }
+  function presetActions() { return (R.presets && R.presets.homeActions) ? R.presets.homeActions() : []; }
 
-  function all() { return applyActions().concat(scriptActions()).concat(widgetActions()).concat(openActions()); }
+  function all() {
+    return applyActions()
+      .concat(scriptActions())
+      .concat(expressionActions())
+      .concat(presetActions())
+      .concat(widgetActions())
+      .concat(openActions());
+  }
 
   function byId(id) {
     var a = all();
@@ -147,5 +159,5 @@
     }
   };
 
-  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, all: all, byId: byId, DEFAULT: DEFAULT, DEFAULT_BOARD: DEFAULT_BOARD };
+  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, scriptActions: scriptActions, expressionActions: expressionActions, presetActions: presetActions, all: all, byId: byId, DEFAULT: DEFAULT, DEFAULT_BOARD: DEFAULT_BOARD };
 })(window.Rebound = window.Rebound || {});

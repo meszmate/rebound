@@ -340,4 +340,27 @@
     if (!sel || !sel.hasComp) return 'Open a composition';
     return 'Select a property';
   }
+
+  // Every expression (built-in catalog + your saved ones) as a Home action, so any
+  // single expression can be pinned to a board as a one-click tile and bound to a
+  // keyboard shortcut. Applying writes the expression onto the selected property.
+  function expressionHomeActions() {
+    function act(item, mine) {
+      return {
+        id: 'exprlib-' + item.id, label: item.name, toolId: 'expressions', group: 'Expressions',
+        kind: 'apply', display: 'text',
+        desc: (mine ? 'Apply your expression: ' : ((item.desc ? item.desc + ' — ' : 'Apply: '))) + (mine ? item.name : item.code),
+        invoke: { method: 'expressions.apply', args: { code: item.code } }
+      };
+    }
+    var acts = BUILTIN.map(function (b) { return act(b, false); });
+    (loadCustom().items || []).forEach(function (s) { acts.push(act(s, true)); });
+    return acts;
+  }
+
+  R.userExpressions = {
+    builtin: function () { return BUILTIN.slice(); },
+    custom: function () { return (loadCustom().items || []).slice(); },
+    homeActions: expressionHomeActions
+  };
 })(window.Rebound = window.Rebound || {});
