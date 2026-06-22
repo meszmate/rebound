@@ -252,6 +252,11 @@
         base.cornerRadii = mapCorners(node);
         base.fills = mapFills(node.fills, w, h);
         base.stroke = mapStroke(node);
+        // A squircle (corner smoothing) has no parametric rect form; bake the
+        // exact outline to paths so the importer rebuilds it faithfully.
+        if (node.cornerSmoothing && node.cornerSmoothing > 0 && node.fillGeometry && node.fillGeometry.length) {
+          base.paths = mapPaths(node);
+        }
         break;
       case 'ELLIPSE':
         base.type = 'ELLIPSE';
@@ -283,6 +288,8 @@
         base.text = mapText(node);
         base.fills = mapFills(node.fills, w, h);
         base.stroke = mapStroke(node);
+        var tf = base.fills && base.fills[0];
+        if (tf && tf.type && tf.type.indexOf('GRADIENT') === 0) base.text.gradientFill = tf;
         break;
       case 'FRAME':
       case 'GROUP':

@@ -95,10 +95,14 @@
       var alpha = (s.opacity != null) ? s.opacity / 100 : 1;
       stops.push({ position: clamp01(s.rampPoint / 100), color: { r: rgb.r, g: rgb.g, b: rgb.b, a: clamp01(alpha) } });
     }
+    var mids = [];
+    for (var m = 0; m < g.gradientStops.length; m++) {
+      try { mids.push(clamp01(g.gradientStops[m].midPoint / 100)); } catch (e0) {}
+    }
     var type = 'GRADIENT_LINEAR';
     try { if (g.type === GradientType.RADIAL) type = 'GRADIENT_RADIAL'; } catch (e) {}
     note(item, 'gradient geometry approximated (colours exact)');
-    return { type: type, stops: stops, opacity: 1, visible: true };
+    return { type: type, stops: stops, gradientMidpoints: mids, opacity: 1, visible: true };
   }
 
   function note(item, detail) {
