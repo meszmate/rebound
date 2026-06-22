@@ -46,6 +46,14 @@
 
   function addRect(contents, node, offset) {
     var sz = sizeOf(node);
+    var cr = node.cornerRadii;
+    if (cr) {
+      var tl = cr.topLeft || 0, tr = cr.topRight || 0, br = cr.bottomRight || 0, bl = cr.bottomLeft || 0;
+      // Per-corner radii have no parametric Rect equivalent: build a bezier.
+      if (!(tl === tr && tr === br && br === bl)) {
+        return addSubpath(contents, R.importer.geometry.roundedRect(sz[0], sz[1], { tl: tl, tr: tr, br: br, bl: bl }), offset);
+      }
+    }
     var rect = contents.addProperty('ADBE Vector Shape - Rect');
     rect.property('ADBE Vector Rect Size').setValue([sz[0], sz[1]]);
     rect.property('ADBE Vector Rect Position').setValue([offset[0] + sz[0] / 2, offset[1] + sz[1] / 2]);
@@ -79,29 +87,32 @@
     return 1;
   }
 
+  // Add one IR subpath ({ vertices, closed }) at a local offset as a Shape path.
+  function addSubpath(contents, sp, offset) {
+    var verts = sp.vertices || [];
+    if (!verts.length) return 0;
+    var shape = new Shape();
+    var vv = [], it = [], ot = [];
+    for (var j = 0; j < verts.length; j++) {
+      var v = verts[j];
+      vv.push([v.x + offset[0], v.y + offset[1]]);
+      it.push(v.inTangent || [0, 0]);
+      ot.push(v.outTangent || [0, 0]);
+    }
+    shape.vertices = vv;
+    shape.inTangents = it;
+    shape.outTangents = ot;
+    shape.closed = !!sp.closed;
+    var grp = contents.addProperty('ADBE Vector Shape - Group');
+    grp.property('ADBE Vector Shape').setValue(shape);
+    return 1;
+  }
+  R.importer.addSubpath = addSubpath;
+
   function addPaths(contents, node, offset) {
     var paths = node.paths || [];
     var added = 0;
-    for (var i = 0; i < paths.length; i++) {
-      var sp = paths[i];
-      var verts = sp.vertices || [];
-      if (!verts.length) continue;
-      var shape = new Shape();
-      var vv = [], it = [], ot = [];
-      for (var j = 0; j < verts.length; j++) {
-        var v = verts[j];
-        vv.push([v.x + offset[0], v.y + offset[1]]);
-        it.push(v.inTangent || [0, 0]);
-        ot.push(v.outTangent || [0, 0]);
-      }
-      shape.vertices = vv;
-      shape.inTangents = it;
-      shape.outTangents = ot;
-      shape.closed = !!sp.closed;
-      var grp = contents.addProperty('ADBE Vector Shape - Group');
-      grp.property('ADBE Vector Shape').setValue(shape);
-      added++;
-    }
+    for (var i = 0; i < paths.length; i++) added += addSubpath(contents, paths[i], offset);
     return added;
   }
 
@@ -110,7 +121,11 @@
   function addGeometry(contents, node, offset) {
     offset = offset || [0, 0];
     var type = node.type;
-    if (type === 'RECTANGLE' || (node.primitive && node.primitive.rect)) return addRect(contents, node, offset);
+    if (type === 'RECTANGLE' || (node.primitive && node.primitive.rect)) {
+      // A baked squircle (corner smoothing) comes through as paths; prefer them.
+      if (node.cornerRadii && node.cornerRadii.smoothing && node.paths && node.paths.length) return addPaths(contents, node, offset);
+      return addRect(contents, node, offset);
+    }
     if (type === 'ELLIPSE' && !(node.primitive && node.primitive.ellipse && node.primitive.ellipse.arc)) return addEllipse(contents, node, offset);
     if ((type === 'POLYGON' || type === 'STAR') && node.primitive && node.primitive.polystar) return addStar(contents, node, offset);
     if (node.paths && node.paths.length) return addPaths(contents, node, offset);

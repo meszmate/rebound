@@ -120,6 +120,7 @@
   load('commands/import/effect.jsx');
   load('commands/import/layerstyle.jsx');
   load('commands/import/paint.jsx');
+  load('commands/import/geometry.jsx');
   load('commands/import/shape.jsx');
   load('commands/import/image.jsx');
   load('commands/import/text.jsx');
