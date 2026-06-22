@@ -26,6 +26,14 @@ symlink to it.
 4. **Non-destructive by default, bakeable on demand.** Prefer native temporal
    ease and live expressions; always offer a clean bake. Always tell the user
    which mode was used.
+5. **A Home widget is ONE simple control, not the whole tool.** When a tool is
+   embedded as a Home widget it shows a single primary control, the interactive
+   heart of the tool, filling the box edge to edge, exactly like the Ease widget
+   (just its curve) and the Anchor widget (just its 9-point stage). A widget is
+   never the tool's full control panel shrunk into a box. Secondary options are
+   not crammed in next to it; they live in the full tool, one click away via the
+   widget's open control, so they are easy to reach without taking space or
+   bothering the main control. See "Home & widget UX" below.
 
 ---
 
@@ -110,6 +118,41 @@ Always address properties by **matchName** (locale-safe), never display name -
 see `host/lib/util.jsx`.
 
 ---
+
+## Home & widget UX (product principles)
+
+The configurable Home board lets the user pin any tool as a live **widget**. These
+rules are non-negotiable; honour them whenever you touch the Home, a widget, or a
+tool's `mount()`:
+
+- **Simple, focused, identical mental model.** Every widget is its tool's one
+  primary control, full-bleed, behaving the same way (you directly manipulate the
+  curve, the anchor stage, the gradient bar, the preview). Do **not** render the
+  full tool's panel of secondary controls inside a widget. If a tool has several
+  controls, the widget shows only the essential one; the rest are reachable in the
+  full tool.
+- **How it's wired.** `mount(ctx)` receives `ctx.widget === true` when embedded on
+  the Home, so a tool can render a compact variant. The board also uses
+  `WIDGET_FOCUS` (toolId -> primary selector) + `WIDGET_HIDE` (toolId -> selectors
+  to drop) in `client/js/ui/home-screen.js`: `applyFocus` keeps the primary element
+  full-bleed and hides the rest. When adding a tool, give it a clear single primary
+  element so it can be a clean widget.
+- **Secondary options: accessible, never in the way.** Anything that is not the
+  primary control lives in the full tool, opened by the widget's open control (the
+  arrow). It must not occupy widget space or float over the tool during use.
+- **Nothing floats over the tool while using it.** No chrome, dot, or menu on top
+  of the interactive control during normal use. Arrange controls (resize, remove,
+  recolour, drag) appear only in edit mode (the pencil); the use-time footer
+  (Apply/Read) sits at the bottom only for tools that have an action, and tools
+  with no action show no footer.
+- **Grid-correct sizing.** Widgets size their height by whole grid rows (they
+  store `{c, r}` and span `grid-row`), never a free pixel height, so a resized
+  widget always reserves its track and can never overlap the items below.
+- **Customisable, additive, themed.** The user can pin the same action many times
+  (instance ids + `refs`), customise each independently, recolour per tile/widget
+  (with an explicit Auto = use the theme), and rearrange on a fixed snap grid.
+  Entrance animations are distinct per item. Keybinds and a read-from-selection
+  "Read" button are first-class where they apply.
 
 ## Adding a tool
 
