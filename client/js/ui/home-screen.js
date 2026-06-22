@@ -667,13 +667,17 @@
 
       // Fill preview graphs now and on every re-render (controls rebuild them).
       fillPreviews(host);
-      var mo = null;
+      var mo = null, posTimer = null;
+      function scheduleReposition() {
+        if (posTimer) clearTimeout(posTimer);
+        posTimer = setTimeout(function () { posTimer = null; if (card) positionActions(card); }, 70);
+      }
       if (typeof MutationObserver !== 'undefined') {
-        mo = new MutationObserver(function () { fillPreviews(host); });
+        mo = new MutationObserver(function () { fillPreviews(host); scheduleReposition(); });
         mo.observe(host, { childList: true, subtree: true });
       }
       var toolDestroy = destroy;
-      destroy = function () { if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
+      destroy = function () { if (posTimer) clearTimeout(posTimer); if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
 
       // Tools with no footer buttons (e.g. Anchor) get no Apply pill at all.
       if (!footer.querySelector('.rb-btn')) footer.classList.add('is-empty');
@@ -701,12 +705,15 @@
         var actDot = el('button.rb-home-actdot', { type: 'button', title: 'Actions', 'aria-label': 'Show actions',
           onclick: function (e) { e.stopPropagation(); card.classList.toggle('is-actions-open'); } });
         footer.addEventListener('click', function (e) { if (e.target.closest('.rb-btn')) card.classList.remove('is-actions-open'); });
-        actionsNode = el('div.rb-home-actions', null, [actDot, footer]);
+        actionsNode = el('div.rb-home-actions.is-pos-br', null, [actDot, footer]);
       }
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, actionsNode || footer]);
       if (actionsNode) {
         var closeAway = function (e) { if (card.classList.contains('is-actions-open') && !e.target.closest('.rb-home-actions')) card.classList.remove('is-actions-open'); };
         document.addEventListener('mousedown', closeAway);
+        // Keep the actions tucked in the clearest corner as the content moves: the
+        // tool re-renders fire the observer, and entering the widget re-checks too.
+        card.addEventListener('mouseenter', function () { positionActions(card); });
         var withDot = destroy; destroy = function () { document.removeEventListener('mousedown', closeAway); withDot(); };
       }
       wireDrag(card, action.id);
@@ -738,6 +745,51 @@
       }
     }
 
+    // Keep the floating actions in the corner that is clearest of draggable points
+    // (curve handles, anchor dots...), so the menu never sits where you want to
+    // grab. It hops to a freer corner as the content moves, with hysteresis so it
+    // does not jitter. Works for any widget type (no points = a stable default).
+    var ACT_POS = ['tl', 'tr', 'bl', 'br'];
+    function positionActions(card) {
+      if (!card) return;
+      var actions = card.querySelector('.rb-home-actions');
+      if (!actions) return;
+      var body = card.querySelector('.rb-home-widget-body') || card;
+      var b = body.getBoundingClientRect();
+      if (!b.width || !b.height) return;
+      var inset = 20;
+      var corner = {
+        tl: { x: b.left + inset, y: b.top + inset }, tr: { x: b.right - inset, y: b.top + inset },
+        bl: { x: b.left + inset, y: b.bottom - inset }, br: { x: b.right - inset, y: b.bottom - inset }
+      };
+      var pts = [];
+      Array.prototype.forEach.call(body.querySelectorAll('.rb-handle, [data-handle], .rb-anchor-dot, .rb-anchor-target, .rb-swatch-dot'), function (n) {
+        var r = n.getBoundingClientRect();
+        if (r.width || r.height) pts.push({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+      });
+      function clearance(c) {
+        if (!pts.length) return Infinity;
+        var min = Infinity;
+        for (var i = 0; i < pts.length; i++) {
+          var dx = corner[c].x - pts[i].x, dy = corner[c].y - pts[i].y, d = Math.sqrt(dx * dx + dy * dy);
+          if (d < min) min = d;
+        }
+        return min;
+      }
+      // Stable preference for ties / no points: bottom-right, then the others.
+      var order = ['br', 'tr', 'bl', 'tl'], best = order[0], bestClr = -1;
+      order.forEach(function (c) { var clr = clearance(c); if (clr > bestClr) { bestClr = clr; best = c; } });
+      var cur = actions.getAttribute('data-pos');
+      // Hysteresis: keep the current corner unless it is getting crowded AND another
+      // is clearly better, so it does not flip back and forth.
+      if (cur && !(clearance(cur) < 60 && bestClr > clearance(cur) + 28)) best = cur;
+      if (best !== cur) {
+        ACT_POS.forEach(function (p) { actions.classList.remove('is-pos-' + p); });
+        actions.classList.add('is-pos-' + best);
+        actions.setAttribute('data-pos', best);
+      }
+    }
+
     function decorateWidget(action) {
       var entry = widgetCache[action.id];
       if (!entry) return;
@@ -760,6 +812,8 @@
       if (mc) card.style.setProperty('--rb-accent', mc); else card.style.removeProperty('--rb-accent');
       if (entry.wColor) entry.wColor.value = mc || accentHex();
       applyFocus(action);
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(function () { positionActions(card); });
+      else positionActions(card);
     }
 
     function addTile() {

@@ -412,9 +412,18 @@
    Click the dot to reveal Read|Apply (they grow inward from the corner). The dot
    itself only fades in on hover, and is gone for tools with no actions and while
    editing (where the shield is over the tool). */
-/* Top-left, away from the bottom-right resize/drag corner (and clear of the
-   curve, which sits low-left to high-right), so it never sits on a draggable point. */
-.rb-home-actions { position: absolute; left: 6px; top: 6px; z-index: 6; display: inline-flex; align-items: center; gap: 6px; }
+/* Self-repositioning: a tiny script drops the actions into whichever corner is
+   clearest of draggable points, so the menu never sits where you want to grab.
+   Right-side corners open the pill to the left (row-reverse); left-side to the
+   right. It hops corners as the content moves. */
+.rb-home-actions {
+  position: absolute; z-index: 6; display: inline-flex; align-items: center; gap: 6px;
+  transition: opacity var(--rb-transition);
+}
+.rb-home-actions.is-pos-tl { top: 6px; left: 6px; flex-direction: row; }
+.rb-home-actions.is-pos-bl { bottom: 6px; left: 6px; flex-direction: row; }
+.rb-home-actions.is-pos-tr { top: 6px; right: 6px; flex-direction: row-reverse; }
+.rb-home-actions.is-pos-br { bottom: 6px; right: 6px; flex-direction: row-reverse; }
 .rb-home-widget.is-editmode .rb-home-actions { display: none; }
 .rb-home-actdot {
   width: 13px; height: 13px; flex: none; padding: 0; cursor: pointer; border-radius: 999px;
