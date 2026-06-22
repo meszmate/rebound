@@ -202,4 +202,22 @@ export default [
       'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
+
+  // Illustrator exporter (ExtendScript, ES3). The Illustrator DOM exposes a huge
+  // surface of host constructors and enums, so no-undef is off here.
+  {
+    files: ['plugins/illustrator/**/*.{js,jsx}'],
+    languageOptions: {
+      ecmaVersion: 3,
+      sourceType: 'script',
+      globals: { ...extendscriptGlobals, alert: 'readonly' },
+    },
+    rules: {
+      'no-undef': 'off',
+      'no-unused-vars': 'off',
+      'no-redeclare': 'off',
+      'no-prototype-builtins': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
 ];
