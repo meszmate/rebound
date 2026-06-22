@@ -313,6 +313,14 @@
       autoResize: 'NONE',
       boxSize: [round(gb[2] - gb[0]), round(gb[1] - gb[3])]
     };
+    // Text stroke (per-character in Illustrator; take the range's attributes).
+    try {
+      var tca = item.textRange.characterAttributes;
+      if (tca.strokeWeight && tca.strokeColor && tca.strokeColor.typename !== 'NoColor') {
+        var tsp = colorToPaint(tca.strokeColor, item);
+        if (tsp) node.stroke = { paints: [tsp], weight: tca.strokeWeight, align: 'CENTER', cap: 'NONE', join: 'MITER' };
+      }
+    } catch (e) {}
     node.fills = [];
     return node;
   }

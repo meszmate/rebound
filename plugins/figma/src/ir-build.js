@@ -282,6 +282,7 @@
         base.type = 'TEXT';
         base.text = mapText(node);
         base.fills = mapFills(node.fills, w, h);
+        base.stroke = mapStroke(node);
         break;
       case 'FRAME':
       case 'GROUP':

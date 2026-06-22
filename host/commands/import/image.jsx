@@ -47,14 +47,22 @@
     var t = node.transform || {};
     var w = t.width || footage.width;
     var h = t.height || footage.height;
-    if (footage.width && footage.height) {
-      var sx = w / footage.width * 100;
-      var sy = h / footage.height * 100;
-      try { layer.property('ADBE Transform Group').property('ADBE Scale').setValue([sx, sy]); } catch (e) {}
-    }
-
-    if (node.scaleMode === 'FIT' || node.scaleMode === 'TILE') {
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image ' + node.scaleMode.toLowerCase() + ' scaling rendered as fill' });
+    var fw = footage.width, fh = footage.height;
+    var tr = layer.property('ADBE Transform Group');
+    if (fw && fh) {
+      if (node.scaleMode === 'FIT') {
+        // Contain: uniform scale, centred in the box.
+        var s = Math.min(w / fw, h / fh) * 100;
+        try {
+          tr.property('ADBE Anchor Point').setValue([fw / 2, fh / 2]);
+          tr.property('ADBE Position').setValue([(t.x || 0) + w / 2, (t.y || 0) + h / 2]);
+          tr.property('ADBE Scale').setValue([s, s]);
+        } catch (e) {}
+      } else {
+        // FILL / CROP / default: fill the box exactly.
+        try { tr.property('ADBE Scale').setValue([w / fw * 100, h / fh * 100]); } catch (e2) {}
+        if (node.scaleMode === 'TILE') R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image tile scaling rendered as fill' });
+      }
     }
 
     R.importer.effect.apply(layer, node, report);

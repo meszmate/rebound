@@ -90,6 +90,21 @@
     if (run.textCase === 'SMALL_CAPS' || run.textCase === 'SMALL_CAPS_FORCED') { try { target.smallCaps = true; } catch (e10) {} }
   }
 
+  // Text stroke comes from the node-level stroke (Figma/Illustrator both carry
+  // a stroke on text). AE text strokes are whole-layer.
+  function applyTextStroke(td, node, report) {
+    var st = node.stroke;
+    if (!st || !st.weight || !st.paints || !st.paints.length) return;
+    var c = firstSolidColor(st.paints, report, node);
+    if (!c) return;
+    try {
+      td.applyStroke = true;
+      td.strokeColor = [c.r, c.g, c.b];
+      td.strokeWidth = st.weight;
+      td.strokeOverFill = (st.align !== 'OUTSIDE');
+    } catch (e) { /* older builds */ }
+  }
+
   function justify(td, align) {
     try {
       if (align === 'CENTER') td.justification = ParagraphJustification.CENTER_JUSTIFY;
@@ -158,6 +173,7 @@
     var runs = (data.runs && data.runs.length) ? data.runs : [{ start: 0, end: chars.length, characters: chars }];
     var base = dominantRun(runs, chars);
     applyStyle(td, base, report, node);
+    applyTextStroke(td, node, report);
     justify(td, data.textAlignHorizontal);
 
     // Try to make it a box so wrapped paragraphs match the source width.
