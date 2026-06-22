@@ -118,13 +118,15 @@
   }
 
   function readColorDesc(d) {
+    // RGBC channels are reliably addressed by charID (note the trailing spaces).
     try {
-      var r = d.getDouble(sID('red'));
-      var g;
-      try { g = d.getDouble(sID('green')); } catch (e) { g = d.getDouble(sID('grain')); }
-      var b = d.getDouble(sID('blue'));
-      return { r: clamp01(r / 255), g: clamp01(g / 255), b: clamp01(b / 255), a: 1 };
-    } catch (e2) { return null; }
+      return { r: clamp01(d.getDouble(cID('Rd  ')) / 255), g: clamp01(d.getDouble(cID('Grn ')) / 255), b: clamp01(d.getDouble(cID('Bl  ')) / 255), a: 1 };
+    } catch (e) {
+      try {
+        var g; try { g = d.getDouble(sID('green')); } catch (e2) { g = d.getDouble(sID('grain')); }
+        return { r: clamp01(d.getDouble(sID('red')) / 255), g: clamp01(g / 255), b: clamp01(d.getDouble(sID('blue')) / 255), a: 1 };
+      } catch (e3) { return null; }
+    }
   }
 
   function readMode(d) {
@@ -134,7 +136,7 @@
   function readUnit(d, key) { try { return d.getUnitDoubleValue(sID(key)); } catch (e) { try { return d.getDouble(sID(key)); } catch (e2) { return undefined; } } }
   function isEnabled(d) { try { return d.getBoolean(sID('enabled')); } catch (e) { return true; } }
 
-  function readShadow(d, type) {
+  function readShadow(d, type, globalAngle) {
     var ls = { type: type };
     var c = null; try { c = readColorDesc(d.getObjectValue(sID('color'))); } catch (e) {}
     if (c) ls.color = c;
@@ -142,8 +144,12 @@
     var op = readOpacity(d); if (op != null) ls.opacity = op;
     var size = readUnit(d, 'blur'); if (size != null) ls.size = size;
     var dist = readUnit(d, 'distance'); if (dist != null) ls.distance = dist;
-    var ang = readUnit(d, 'localLightingAngle'); if (ang != null) ls.angle = ang;
-    var choke = readUnit(d, 'chokeMatte'); if (choke != null) ls.choke = choke;
+    // Use Global Light is the Photoshop default; the local angle is stale then.
+    var useGlobal = false; try { useGlobal = d.getBoolean(sID('useGlobalAngle')); } catch (e2) {}
+    var ang = (useGlobal && globalAngle != null) ? globalAngle : readUnit(d, 'localLightingAngle');
+    if (ang != null) ls.angle = ang;
+    var ck = readUnit(d, 'chokeMatte');
+    if (ck != null) { if (type === 'DROP_SHADOW') ls.spread = ck; else ls.choke = ck; }
     return ls;
   }
   function readGlow(d, type) {
@@ -185,6 +191,9 @@
     var fx;
     try { fx = desc.getObjectValue(sID('layerEffects')); } catch (e2) { return out; }
 
+    var globalAngle = null;
+    try { globalAngle = fx.getUnitDoubleValue(sID('globalLightingAngle')); } catch (e3) {}
+
     function one(key, reader) {
       try {
         if (!fx.hasKey(sID(key))) return;
@@ -194,8 +203,8 @@
         if (ls) out.push(ls);
       } catch (e) { note(name, 'a ' + key + ' effect could not be read'); }
     }
-    one('dropShadow', function (d) { return readShadow(d, 'DROP_SHADOW'); });
-    one('innerShadow', function (d) { return readShadow(d, 'INNER_SHADOW'); });
+    one('dropShadow', function (d) { return readShadow(d, 'DROP_SHADOW', globalAngle); });
+    one('innerShadow', function (d) { return readShadow(d, 'INNER_SHADOW', globalAngle); });
     one('outerGlow', function (d) { return readGlow(d, 'OUTER_GLOW'); });
     one('innerGlow', function (d) { return readGlow(d, 'INNER_GLOW'); });
     one('solidFill', readColorOverlay);

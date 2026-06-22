@@ -264,9 +264,10 @@
     var base = baseFields(node, origin);
     var w = node.width, h = node.height;
 
-    // Image-filled shapes become IMAGE nodes (the common placed-image case).
+    // Image-filled LEAF shapes become IMAGE nodes (the common placed-image case);
+    // a container with an image fill must still recurse into its children.
     var imgPaint = findImagePaint(node.fills);
-    if (imgPaint) {
+    if (imgPaint && (!node.children || !node.children.length)) {
       await addImageAsset(imgPaint, assets);
       base.type = 'IMAGE';
       base.imageHash = imgPaint.imageHash;
@@ -355,7 +356,10 @@
   }
 
   async function frameToIR(frame, assets) {
-    var origin = frame.absoluteBoundingBox || { x: frame.x, y: frame.y };
+    // Use the frame's transform translation, NOT absoluteBoundingBox: the bbox
+    // grows with rotation/strokes/effects and would offset every child.
+    var at = frame.absoluteTransform;
+    var origin = at ? { x: at[0][2], y: at[1][2] } : (frame.absoluteBoundingBox || { x: frame.x, y: frame.y });
     var children = await childrenToIR(frame, origin, assets);
     var background = [];
     if (frame.fills && frame.fills !== figma.mixed) background = mapFills(frame.fills, frame.width, frame.height);

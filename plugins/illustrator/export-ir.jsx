@@ -295,17 +295,19 @@
     try {
       var chars = item.textRange.characters;
       var n = chars.length;
-      var cur = null, curStyle = null, startIdx = 0;
+      var cur = null, curStyle = null, startPos = 0, pos = 0;
       for (var i = 0; i < n; i++) {
         var st = charStyle(chars[i].characterAttributes);
-        if (cur && sameStyle(curStyle, st)) {
-          cur += chars[i].contents;
+        var ch = chars[i].contents;
+        if (cur !== null && sameStyle(curStyle, st)) {
+          cur += ch;
         } else {
-          if (cur !== null) runs.push(runFromStyle(curStyle, cur, startIdx, i));
-          cur = chars[i].contents; curStyle = st; startIdx = i;
+          if (cur !== null) runs.push(runFromStyle(curStyle, cur, startPos, pos));
+          cur = ch; curStyle = st; startPos = pos;
         }
+        pos += ch.length;
       }
-      if (cur !== null) runs.push(runFromStyle(curStyle, cur, startIdx, n));
+      if (cur !== null) runs.push(runFromStyle(curStyle, cur, startPos, pos));
     } catch (e) {
       runs.push({ start: 0, end: contents.length, characters: contents });
     }
