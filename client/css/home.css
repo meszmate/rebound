@@ -316,11 +316,25 @@
 .rb-home-browser-tools .rb-search { flex: 1 1 auto; }
 .rb-home-browser-tools .rb-search input { width: 100%; height: 32px; }
 .rb-home-browser-list { display: flex; flex-direction: column; gap: 2px; max-height: 62vh; overflow: auto; padding-right: 2px; }
-.rb-home-browser-head {
-  font-size: calc(var(--rb-font-size) - 2px); text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--rb-text-faint); padding: 14px 2px 6px;
+/* One plain-language line at the top so the three item types are clear at a glance. */
+.rb-home-browser-intro {
+  font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted);
+  line-height: 1.5; padding: 8px 10px; border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken); border: 1px solid var(--rb-border);
 }
+.rb-home-browser-intro b { color: var(--rb-text); font-weight: 600; }
+.rb-home-browser-head { padding: 14px 2px 6px; }
 .rb-home-browser-head:first-child { padding-top: 2px; }
+.rb-home-browser-head-top { display: flex; align-items: center; gap: 8px; }
+.rb-home-browser-head-t {
+  font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; letter-spacing: 0.02em;
+  color: var(--rb-text);
+}
+.rb-home-browser-count {
+  font-size: calc(var(--rb-font-size) - 3px); color: var(--rb-text-faint);
+  background: var(--rb-control); border-radius: 999px; padding: 1px 7px; line-height: 1.5;
+}
+.rb-home-browser-hint { font-size: calc(var(--rb-font-size) - 2px); color: var(--rb-text-faint); margin-top: 2px; line-height: 1.4; }
 
 /* Big explanatory cards: an animated example of the tool, name + kind badge, a
    plain-language description, and a clear Add / Added toggle. */

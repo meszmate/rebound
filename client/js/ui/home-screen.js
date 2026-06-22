@@ -989,39 +989,54 @@
 
       var kindCtl = R.ui.segmented([
         { value: 'all', label: 'All' },
-        { value: 'apply', label: '1-click' },
         { value: 'widget', label: 'Widgets' },
-        { value: 'open', label: 'Open' }
+        { value: 'apply', label: 'Actions' },
+        { value: 'open', label: 'Tools' }
       ], { value: kind, onChange: function (v) { kind = v; renderList(); } });
 
-      var search = el('input', { type: 'text', spellcheck: 'false', placeholder: 'Search…',
+      var search = el('input', { type: 'text', spellcheck: 'false', placeholder: 'Search actions, presets, expressions, tools…',
         oninput: function () { query = this.value.toLowerCase(); renderList(); } });
 
-      function groupName(a) {
-        if (a.kind === 'apply') return 'Quick actions';
-        if (a.kind === 'widget') return 'Widgets (whole tool on Home)';
-        return a.group || 'Tools';
+      // Self-explaining sections: each tells the user, in plain language, what the
+      // items are and what one click does, so widget-vs-action-vs-tool is obvious.
+      var SECTIONS = [
+        { id: 'widget', title: 'Live widgets', hint: 'A whole tool embedded on your board, drag the curve, anchor or swatches right here. Best for tools you use constantly.' },
+        { id: 'quick', title: 'Quick actions', hint: 'One click runs a command on your selection, ease, align, add a shape and more.' },
+        { id: 'ease', title: 'Easing presets', hint: 'One click eases the selected keyframes with this exact curve. Save your own in the Library.' },
+        { id: 'expr', title: 'Expressions', hint: 'One click writes this expression onto the selected property. Save your own in the Expressions tool.' },
+        { id: 'script', title: 'Your scripts', hint: 'Scripts and expressions you saved yourself, one click runs them.' },
+        { id: 'tool', title: 'All tools', hint: 'Opens the full tool in the panel, with every option.' }
+      ];
+      function sectionOf(a) {
+        if (a.kind === 'widget') return 'widget';
+        if (a.kind === 'open') return 'tool';
+        if (a.group === 'Expressions') return 'expr';
+        if (a.group === 'Easing presets' || a.group === 'Your presets') return 'ease';
+        if (a.group === 'Scripts') return 'script';
+        return 'quick';
       }
-      function rank(g) { return g === 'Quick actions' ? 0 : (g.indexOf('Widgets') === 0 ? 1 : 2); }
 
       function renderList() {
         R.dom.clear(listEl);
         var actions = R.homeActions.all().filter(function (a) {
           if (kind !== 'all' && a.kind !== kind) return false;
-          return !query || (a.label + ' ' + a.group).toLowerCase().indexOf(query) !== -1;
+          return !query || (a.label + ' ' + a.group + ' ' + (a.desc || '')).toLowerCase().indexOf(query) !== -1;
         });
-        var groups = {}, order = [];
-        actions.forEach(function (a) {
-          var g = groupName(a);
-          if (!groups[g]) { groups[g] = []; order.push(g); }
-          groups[g].push(a);
-        });
-        order.sort(function (x, y) { return rank(x) - rank(y) || (x < y ? -1 : 1); });
         if (!actions.length) { listEl.appendChild(el('div.rb-empty', { text: 'No matches.' })); return; }
-        order.forEach(function (g) {
-          listEl.appendChild(el('div.rb-home-browser-head', { text: g }));
+        var bySec = {};
+        actions.forEach(function (a) { var s = sectionOf(a); (bySec[s] = bySec[s] || []).push(a); });
+        SECTIONS.forEach(function (sec) {
+          var items = bySec[sec.id];
+          if (!items || !items.length) return;
+          listEl.appendChild(el('div.rb-home-browser-head', null, [
+            el('div.rb-home-browser-head-top', null, [
+              el('span.rb-home-browser-head-t', { text: sec.title }),
+              el('span.rb-home-browser-count', { text: String(items.length) })
+            ]),
+            el('div.rb-home-browser-hint', { text: sec.hint })
+          ]));
           var gridEl = el('div.rb-home-browser-grid');
-          groups[g].forEach(function (a) { gridEl.appendChild(browserCard(a)); });
+          items.forEach(function (a) { gridEl.appendChild(browserCard(a)); });
           listEl.appendChild(gridEl);
         });
       }
@@ -1032,9 +1047,9 @@
       // it pins ANOTHER instance every click, and a chip shows how many are on the
       // board (remove instances from the board itself).
       function browserCard(a) {
-        var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click' })
-          : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget' })
-            : el('span.rb-home-badge.is-open', { text: 'open' });
+        var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click', title: 'One click runs this on your selection' })
+          : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget', title: 'Embeds the whole tool on your board' })
+            : el('span.rb-home-badge.is-open', { text: 'open', title: 'Opens the full tool in the panel' });
         var vis = tileVisual(a, {});
         var visWrap = el('div.rb-home-card-vis', null, [vis || iconSpan(a.toolId, 'rb-home-ico')]);
         if (!vis) visWrap.classList.add('is-icon');
@@ -1071,6 +1086,11 @@
       var handle = R.ui.modal({
         title: 'Add to Home', width: 640, className: 'rb-modal-home',
         body: el('div.rb-home-browser', null, [
+          el('div.rb-home-browser-intro', null, [
+            el('span', null, [el('b', { text: 'Widgets' }), ' embed a whole tool on your board. ']),
+            el('span', null, [el('b', { text: 'Actions' }), ' run one command on your selection. ']),
+            el('span', null, [el('b', { text: 'Tools' }), ' open the full panel.'])
+          ]),
           el('div.rb-home-browser-tools', null, [el('div.rb-search.rb-grow', null, [search]), kindCtl.el]),
           listEl
         ]),
