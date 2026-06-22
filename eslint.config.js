@@ -204,10 +204,10 @@ export default [
     },
   },
 
-  // Illustrator exporter (ExtendScript, ES3). The Illustrator DOM exposes a huge
-  // surface of host constructors and enums, so no-undef is off here.
+  // Illustrator + Photoshop exporters (ExtendScript, ES3). These host DOMs expose
+  // a huge surface of constructors and enums, so no-undef is off here.
   {
-    files: ['plugins/illustrator/**/*.{js,jsx}'],
+    files: ['plugins/illustrator/**/*.{js,jsx}', 'plugins/photoshop/**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 3,
       sourceType: 'script',
