@@ -511,8 +511,44 @@
 }
 .rb-pulse { animation: rb-pulse 0.5s var(--rb-ease-standard, ease-out); }
 
+/* A pool of DISTINCT entrance animations, picked deterministically per item, so
+   adding several different things does not replay one identical animation. Tiles
+   can be playful; widgets stay gentle and never exceed scale 1 (a tall one must
+   not briefly spill over its neighbours). All end exactly at the rest state. */
+:root { --rb-in-dur: var(--rb-dur-medium, 0.34s); --rb-in-ease: var(--rb-ease-emphasized, cubic-bezier(0.2, 0.9, 0.25, 1)); }
+@keyframes rb-in-zoom { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
+@keyframes rb-in-up { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes rb-in-down { from { opacity: 0; transform: translateY(-24px); } to { opacity: 1; transform: none; } }
+@keyframes rb-in-left { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
+@keyframes rb-in-right { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes rb-in-flip { from { opacity: 0; transform: perspective(520px) rotateX(-78deg); } to { opacity: 1; transform: perspective(520px) rotateX(0); } }
+@keyframes rb-in-swing { from { opacity: 0; transform: rotate(-10deg) scale(0.88); } to { opacity: 1; transform: none; } }
+@keyframes rb-in-grow { 0% { opacity: 0; transform: scale(0.82); } 100% { opacity: 1; transform: scale(1); } }
+.rb-in-zoom { animation: rb-in-zoom var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-up { animation: rb-in-up var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-down { animation: rb-in-down var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-left { animation: rb-in-left var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-right { animation: rb-in-right var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-flip { transform-origin: top center; animation: rb-in-flip var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-swing { transform-origin: top left; animation: rb-in-swing var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-in-grow { animation: rb-in-grow var(--rb-in-dur) var(--rb-in-ease) both; }
+
+/* Gentle, in-bounds entrances for full-bleed widgets. */
+@keyframes rb-win-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rb-win-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes rb-win-scale { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes rb-win-left { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes rb-win-reveal { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+.rb-win-fade { animation: rb-win-fade var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-win-up { animation: rb-win-up var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-win-scale { animation: rb-win-scale var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-win-left { animation: rb-win-left var(--rb-in-dur) var(--rb-in-ease) both; }
+.rb-win-reveal { animation: rb-win-reveal var(--rb-in-dur) var(--rb-in-ease) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .rb-anim-in, .rb-pop, .rb-pulse { animation: none; }
+  .rb-anim-in, .rb-pop, .rb-pulse,
+  .rb-in-zoom, .rb-in-up, .rb-in-down, .rb-in-left, .rb-in-right, .rb-in-flip, .rb-in-swing, .rb-in-grow,
+  .rb-win-fade, .rb-win-up, .rb-win-scale, .rb-win-left, .rb-win-reveal { animation: none; }
 }
 
 /* ---- Board Size + Columns controls + drag-resize handle ------------------ */

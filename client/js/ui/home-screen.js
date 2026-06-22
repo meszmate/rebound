@@ -132,8 +132,23 @@
       node.classList.remove(cls);
       void node.offsetWidth;
       node.classList.add(cls);
-      node.addEventListener('animationend', function h() { node.classList.remove(cls); node.removeEventListener('animationend', h); });
+      node.addEventListener('animationend', function h() { node.classList.remove(cls); node.style.animationDelay = ''; node.removeEventListener('animationend', h); });
     }
+
+    // A distinct entrance per item so adding several different things never
+    // replays one identical animation. We rotate through the pool by sequence
+    // (each successive add, and each item on a staggered first paint), so
+    // consecutive items always differ.
+    var TILE_IN = ['rb-in-grow', 'rb-in-zoom', 'rb-in-up', 'rb-in-down', 'rb-in-left', 'rb-in-right', 'rb-in-flip', 'rb-in-swing'];
+    var WIDGET_IN = ['rb-win-fade', 'rb-win-up', 'rb-win-scale', 'rb-win-left', 'rb-win-reveal'];
+    function entranceClass(seq, kind) { var pool = kind === 'widget' ? WIDGET_IN : TILE_IN; return pool[((seq % pool.length) + pool.length) % pool.length]; }
+    function playEntrance(node, seq, kind, delayIdx) {
+      if (!node) return;
+      if (delayIdx) node.style.animationDelay = (delayIdx * 0.045).toFixed(3) + 's';
+      playOnce(node, entranceClass(seq, kind));
+    }
+    var introAll = true; // play a staggered intro for every item on first paint / board switch
+    var addSeq = 0;       // advances on each add so consecutive adds use different animations
 
     function syncToBoard() {
       var b = boards[activeIdx];
@@ -163,6 +178,7 @@
       if (idx === activeIdx || idx < 0 || idx >= boards.length) return;
       syncToBoard(); destroyAllWidgets(); maximizedId = null;
       activeIdx = idx; loadActive();
+      introAll = true; // the new board's items intro in
       persist(); renderTabs(); render();
     }
     function addBoard() {
@@ -384,7 +400,7 @@
       if (widgetCache[id]) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; }
       persist(); render();
     }
-    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); lastAddedId = id; persist(); render(); } }
+    function addItem(id) { if (ids.indexOf(id) === -1) { ids.push(id); lastAddedId = id; addSeq++; persist(); render(); } }
 
     function wireDrag(node, id) {
       node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; dragNode = node; lastOverId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
@@ -486,7 +502,6 @@
     }
     function tileClass(action, m, base) {
       var c = base;
-      if (action && action.id === lastAddedId) c += '.rb-pop';
       c += '.is-disp-' + displayFor(action, m);
       if (m && m.layout === 'horizontal') c += '.is-lay-h';
       return c;
@@ -882,21 +897,28 @@
         ]));
         return;
       }
+      var introIdx = 0;
       ids.forEach(function (id) {
         var action = R.homeActions.byId(id);
         if (!action) return;
+        var node;
         if (action.kind === 'widget') {
           if (!widgetCache[id]) buildWidget(action);
           decorateWidget(action);
-          grid.appendChild(widgetCache[id].card);
-          if (id === lastAddedId) playOnce(widgetCache[id].card, 'rb-anim-in'); // gentle fade, never overshoots its bounds
+          node = widgetCache[id].card;
         } else {
-          grid.appendChild(tile(action));
+          node = tile(action);
         }
+        grid.appendChild(node);
+        // Each item gets its own entrance: the newly added one (rotating so back to
+        // back adds differ), or every item staggered on first paint / board switch.
+        if (id === lastAddedId) playEntrance(node, addSeq, action.kind, 0);
+        else if (introAll) { playEntrance(node, introIdx, action.kind, introIdx); introIdx++; }
       });
       if (editing) grid.appendChild(addTile());
       flip(prevRects);
       lastAddedId = null;
+      introAll = false;
     }
 
     // ---- Browser (searchable, filterable by kind) ----
