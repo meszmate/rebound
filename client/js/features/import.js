@@ -18,6 +18,50 @@
   // Keep in sync with shared/ir/ir-version.json.
   var IR_VERSION = '1.0.0';
 
+  var node = (function () {
+    try {
+      if (typeof window !== 'undefined' && window.cep_node && window.cep_node.require) {
+        return {
+          fs: window.cep_node.require('fs'),
+          path: window.cep_node.require('path'),
+          Buffer: window.cep_node.require('buffer').Buffer
+        };
+      }
+    } catch (e) { /* not in CEP */ }
+    return null;
+  })();
+
+  function assetExt(mime) {
+    if (mime === 'image/jpeg') return 'jpg';
+    if (mime === 'image/gif') return 'gif';
+    if (mime === 'image/webp') return 'webp';
+    return 'png';
+  }
+
+  // Decode each image asset's base64 to a file the host can import, then drop the
+  // bytes so the bridge payload stays small. A no-op without Node (e.g. the
+  // browser preview); the host then flags any image it could not rebuild.
+  function materializeAssets(ir) {
+    if (!node || !ir.document || !ir.document.assets) return;
+    var dir = (R.disk && R.disk.dir) ? R.disk.dir() : null;
+    if (!dir) return;
+    var adir = node.path.join(dir, 'assets');
+    try { if (!node.fs.existsSync(adir)) node.fs.mkdirSync(adir, { recursive: true }); } catch (e) { return; }
+    var assets = ir.document.assets;
+    for (var hash in assets) {
+      if (!assets.hasOwnProperty(hash)) continue;
+      var a = assets[hash];
+      if (!a || !a.bytesBase64) continue;
+      var safe = String(hash).replace(/[^a-zA-Z0-9_-]/g, '_');
+      var file = node.path.join(adir, safe + '.' + assetExt(a.mime));
+      try {
+        node.fs.writeFileSync(file, node.Buffer.from(a.bytesBase64, 'base64'));
+        a.path = file;
+        delete a.bytesBase64;
+      } catch (e2) { /* leave bytes; the host will flag the image */ }
+    }
+  }
+
   var lastReport = null;
   var statusListeners = [];
 
@@ -44,6 +88,7 @@
   function doImport(ir) {
     var pre = preValidate(ir);
     if (!pre.ok) return Promise.reject(new Error(pre.error));
+    try { materializeAssets(ir); } catch (e) { /* non-fatal: host flags missing images */ }
     return R.bridge.invoke('import.build', ir).then(function (report) {
       lastReport = report;
       emitStatus();
