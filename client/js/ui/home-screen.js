@@ -57,7 +57,7 @@
   // Inside the focused element, drop these so the widget keeps just the essential
   // control (its secondary panel lives in the full tool, via the open control).
   var WIDGET_HIDE = {
-    gradient: ['.rb-grad-secondary']
+    gradient: ['.rb-grad-panel']
   };
 
   // Only offer icons that fit the action, by group, so the picker stays relevant.

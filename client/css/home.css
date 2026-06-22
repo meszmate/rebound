@@ -418,13 +418,12 @@
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
 .rb-home-widget.is-filled .rb-home-widget-body svg { max-height: none; }
-/* The gradient widget's hero canvas grows to fill the widget (bigger widget,
-   bigger gradient) and sits near the edges instead of floating in a dark frame;
-   the stop bar + stop colour row stay tucked below it. */
+/* The gradient widget is the pure gradient: the hero canvas fills the whole box
+   (bigger widget, bigger gradient) with the stop bar fused at the very bottom and
+   nothing else. Editing a stop's colour/position lives in the full tool. */
 .rb-home-widget.is-filled .rb-grad-editor { height: 100%; gap: 0; }
-.rb-home-widget.is-filled .rb-grad-canvas { flex: 1 1 auto; height: auto; min-height: 90px; margin: 10px 10px 0; }
-.rb-home-widget.is-filled .rb-grad-bar { margin: -1px 10px 0; }
-.rb-home-widget.is-filled .rb-grad-panel { border: 0; padding: 8px 10px 0; background: none; }
+.rb-home-widget.is-filled .rb-grad-canvas { flex: 1 1 auto; height: auto; min-height: 90px; margin: 0; border-radius: 0; }
+.rb-home-widget.is-filled .rb-grad-bar { margin: 0; border-radius: 0; }
 .rb-home-widget.is-filled .rb-curve svg { width: 100%; height: 100%; }
 .rb-home-widget.is-filled .rb-preview-stage > * { width: 100%; }
 /* Edge-to-edge: the box IS the widget, so drop its own frame and rounding. */
