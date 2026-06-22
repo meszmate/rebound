@@ -122,6 +122,7 @@
   load('commands/import/paint.jsx');
   load('commands/import/geometry.jsx');
   load('commands/import/shape.jsx');
+  load('commands/import/mask.jsx');
   load('commands/import/image.jsx');
   load('commands/import/text.jsx');
   load('commands/import/fonts.jsx');

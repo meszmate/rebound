@@ -88,6 +88,13 @@
 
   // ---- node + frame walk ---------------------------------------------------
 
+  // Map a node id to its created layer, so clipping masks can resolve targets.
+  function registerLayer(node, layer) {
+    if (!layer || layer.length !== undefined || !node || !node.id) return;
+    if (!R.importer.layerById) R.importer.layerById = {};
+    R.importer.layerById[node.id] = layer;
+  }
+
   // Accumulate created layers (a builder may return one layer or an array).
   function collect(into, result) {
     if (!result) return;
@@ -141,7 +148,10 @@
     var builder = builders[node.type];
     if (builder) {
       try {
-        return builder(comp, node, report);
+        var layer = builder(comp, node, report);
+        registerLayer(node, layer);
+        if (R.importer.mask) R.importer.mask.collect(node, layer);
+        return layer;
       } catch (e) {
         note(report, 'skipped', { name: node.name, type: node.type, reason: (e && e.message) || 'build failed' });
         return null;
@@ -193,7 +203,9 @@
     // so a reused image is imported only once.
     R.importer.assets = (ir.document && ir.document.assets) || {};
     R.importer.footageCache = {};
+    R.importer.layerById = {};
     if (R.importer.layerStyle) R.importer.layerStyle.reset();
+    if (R.importer.mask) R.importer.mask.reset();
 
     var active = app.project ? app.project.activeItem : null;
     var target = (active && util.isComp(active)) ? active : null;
@@ -203,7 +215,8 @@
       buildFrame(target, frames[i], report);
     }
 
-    // Layer styles must be enabled with the comp in front, so they run last.
+    // Clipping mattes and layer styles run last (after every layer exists).
+    if (R.importer.mask) R.importer.mask.flushAll();
     if (R.importer.layerStyle) R.importer.layerStyle.flushAll();
     if (target) { try { target.openInViewer(); } catch (e) {} }
     return report;
