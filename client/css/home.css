@@ -339,7 +339,12 @@
 }
 .rb-home-wtitle-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rb-home-widget:hover .rb-home-wctrls, .rb-home-widget.is-editmode .rb-home-wctrls,
-.rb-home-widget:hover .rb-home-wtitle, .rb-home-widget.is-editmode .rb-home-wtitle { opacity: 1; transform: none; pointer-events: auto; }
+.rb-home-widget:hover .rb-home-wtitle, .rb-home-widget.is-editmode .rb-home-wtitle { opacity: 1; transform: none; }
+/* The title and the control container never intercept clicks (so you can click
+   the tool right up to the corners); only the actual buttons do, and only while
+   shown. This is what lets you hit the Anchor's corner dots under the chrome. */
+.rb-home-wtitle { pointer-events: none; }
+.rb-home-widget:hover .rb-home-wctrls > *, .rb-home-widget.is-editmode .rb-home-wctrls > * { pointer-events: auto; }
 
 .rb-home-wbtn {
   display: inline-flex; align-items: center; justify-content: center;
