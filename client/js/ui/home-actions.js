@@ -77,13 +77,19 @@
     });
   }
 
-  // Every tool worth using live, as an embeddable widget. A tool whose only real
-  // interaction is "press Apply" opts out with `widget: false` in its register
-  // call: it stays usable as a one-click apply tile and an open tile, with no
-  // pointless widget that is just a button on the board.
+  // A widget is worth it only for tools with a genuine live, direct-manipulation
+  // surface: a draggable curve, the anchor stage, the gradient bar, the align
+  // buttons. Everything else is apply-and-forget and belongs as a one-click tile,
+  // never a widget that is just a button in a box. So widgets are a curated set,
+  // not every tool. (Mirrors WIDGET_FOCUS in home-screen.js, plus align's own
+  // purpose-built button grid.) To make a new tool a widget, add it here and give
+  // it a WIDGET_FOCUS entry or a ctx.widget branch in its mount.
+  var WIDGET_TOOLS = ['ease', 'velocity', 'copyease', 'smooth', 'anchor', 'gradient', 'align'];
   function widgetActions() {
-    return (R.tools.list() || []).filter(function (t) { return typeof t.mount === 'function' && t.widget !== false; }).map(function (t) {
-      return { id: 'widget-' + t.id, label: t.title, toolId: t.id, group: t.group || 'Tools', kind: 'widget', desc: 'The full ' + t.title + ' controller, live on your board.' };
+    return (R.tools.list() || []).filter(function (t) {
+      return typeof t.mount === 'function' && WIDGET_TOOLS.indexOf(t.id) !== -1;
+    }).map(function (t) {
+      return { id: 'widget-' + t.id, label: t.title, toolId: t.id, group: t.group || 'Tools', kind: 'widget', desc: 'The ' + t.title + ' controller, live on your board.' };
     });
   }
 

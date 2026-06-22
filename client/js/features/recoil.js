@@ -15,8 +15,6 @@
     group: 'Physics',
     order: 0,
     keywords: ['recoil', 'overshoot', 'bounce', 'elastic', 'spring', 'follow through'],
-    // Apply-and-forget: a one-click button (apply-recoil), not a live widget.
-    widget: false,
     mount: mount
   });
 

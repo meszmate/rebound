@@ -16,8 +16,6 @@
     group: 'Physics',
     order: 2,
     keywords: ['bounce', 'gravity', 'rebound', 'ball', 'elastic', 'physics', 'drop'],
-    // Apply-and-forget: a one-click button (apply-bounce), not a live widget.
-    widget: false,
     mount: mount
   });
 

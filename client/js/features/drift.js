@@ -37,8 +37,6 @@
     group: 'Physics',
     order: 1,
     keywords: ['drift', 'wiggle', 'random', 'noise', 'organic', 'jitter'],
-    // Apply-and-forget: a one-click button (apply-drift), not a live widget.
-    widget: false,
     mount: mount
   });
 
