@@ -463,6 +463,8 @@
 }
 .rb-home-sizebtn.is-active { border-color: var(--rb-accent); color: var(--rb-accent); }
 .rb-home-sizebtn:hover { color: var(--rb-text); }
+/* A text button (e.g. "Auto") sizes to its label instead of a fixed square. */
+.rb-home-autobtn { width: auto; min-width: 0; padding: 0 9px; }
 /* Board accent picker in the edit bar, and the per-widget colour swatch. */
 .rb-home-boardcolor { width: 26px; height: 20px; }
 .rb-home-wcolor {

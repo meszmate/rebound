@@ -312,7 +312,7 @@
     var colsControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Columns' }), colsBtn(3), colsBtn(4), colsBtn(5), colsBtn(6)]);
     var boardColorInput = el('input.rb-appe-color.rb-home-boardcolor', { type: 'color', title: 'Board accent colour' });
     boardColorInput.addEventListener('input', function () { boards[activeIdx].theme = { accent: boardColorInput.value }; grid.style.setProperty('--rb-accent', boardColorInput.value); persist(); });
-    var boardColorClear = el('button.rb-home-sizebtn', { type: 'button', title: 'Use the global theme', onclick: function () { boards[activeIdx].theme = null; grid.style.removeProperty('--rb-accent'); boardColorInput.value = accentHex(); persist(); } }, ['Auto']);
+    var boardColorClear = el('button.rb-home-sizebtn.rb-home-autobtn', { type: 'button', title: 'Use the global theme', onclick: function () { boards[activeIdx].theme = null; grid.style.removeProperty('--rb-accent'); boardColorInput.value = accentHex(); persist(); } }, ['Auto']);
     var boardThemeControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Board' }), boardColorInput, boardColorClear]);
     var hintText = el('span.rb-grow', { text: '' });
     var hint = el('div.rb-home-hint', null, [hintText, boardThemeControl, colsControl, boardControl]);
