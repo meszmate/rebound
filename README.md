@@ -5,8 +5,9 @@
 **A free easing & motion-design panel for After Effects.**
 
 Shape easing curves, design physical springs with real overshoot, fix anchor
-points, align and array layers, and rig follow-through, from one cohesive
-panel. Clean-room, original, and built on public, non-proprietary techniques.
+points, align and array layers, rig follow-through, and bring whole designs in
+from Figma and Illustrator as native, editable layers, from one cohesive panel.
+Clean-room, original, and built on public, non-proprietary techniques.
 
 </div>
 
@@ -32,14 +33,63 @@ curve editor at its heart, so you learn one surface, not fifty dialogs.
 
 See the full roadmap in [docs/FEATURES.md](docs/FEATURES.md).
 
+## Send designs straight into After Effects
+
+Rebound also brings designs in. Select a frame in Figma or some artwork in
+Illustrator, send it, and it lands in your active composition as **native,
+editable After Effects layers**: text stays editable text with every parameter,
+shapes stay parametric, gradients stay native gradients, and you get a fidelity
+report of exactly what transferred. Free, no account, and nothing leaves your
+machine.
+
+This is the free alternative to the paid incumbents, and it goes further: even
+Illustrator **text** comes across as real, editable After Effects text.
+
+### How it works
+
+```
+Figma ───────┐
+Illustrator ─┼──>  Rebound IR (.rbir)  ──>  Rebound (After Effects)  ──>  native layers
+others ──────┘
+```
+
+Every exporter emits one portable document, the **Rebound IR** (documented in
+[docs/IR.md](docs/IR.md)); the After Effects panel rebuilds it. The Rebound panel
+runs a tiny loopback receiver, so a one-click send works while After Effects is
+open; when it is not, the exporter saves a `.rbir` file you import from the
+panel. Both paths run the identical builder.
+
+### The companions ("Relay")
+
+- **[Figma](plugins/figma/)** is a Figma plugin. Build it with `npm run
+  build:figma`, then in Figma: **Plugins ▸ Development ▸ Import plugin from
+  manifest…** and choose `plugins/figma/manifest.json`.
+- **[Illustrator](plugins/illustrator/)** is an ExtendScript file. Run it with
+  **File ▸ Scripts ▸ Other Script…** and choose
+  `plugins/illustrator/export-ir.jsx`.
+
+### Try it end to end
+
+1. In After Effects, open the **Rebound** panel and an empty composition. Open
+   **Convert & import ▸ Import**; it shows "Receiver on".
+2. In Figma, run **Rebound Relay**, select a frame, and click **Send to After
+   Effects**. (Or export from Illustrator, or import a saved `.rbir` from the
+   panel with **Import from file…**.)
+3. The layers appear in your composition, and the import report lists anything
+   that was approximated or needs a font, with a one-click font replacement.
+
+The per-app steps and the full fidelity matrix are in each companion's README and
+in [docs/IR.md](docs/IR.md).
+
 ## Status
 
-Active early development, but already broad: **45 tools** ship today, reached
-through a searchable, keyboard-first **Home launcher** (grouped into goal-shaped
-sections with favorites + recents), and a **live Preview Stage** that loops the
-easing/spring motion on a sample shape or text, so you see what a curve does
-before you apply it. Built on a fully unit-tested easing/spring engine and a
-clean panel↔host bridge.
+Active early development, but already broad: **46 tools** ship today (including
+**Import**, the Figma/Illustrator bridge), reached through a searchable,
+keyboard-first **Home launcher** (grouped into goal-shaped sections with
+favorites + recents), and a **live Preview Stage** that loops the easing/spring
+motion on a sample shape or text, so you see what a curve does before you apply
+it. Built on a fully unit-tested easing/spring engine, a shared IR contract, and
+a clean panel↔host bridge.
 
 | Group | Tools |
 | --- | --- |
@@ -52,6 +102,7 @@ clean panel↔host bridge.
 | **Generators** | Multiply · Radial · Echo · Vignette |
 | **Shapes** | Shapes · Trim Paths · Break · Text Break |
 | **Color** | Color · Palette · Stroke · Gradient |
+| **Convert** | Import (Figma / Illustrator / `.rbir` to native layers) |
 | **Organization** | Tags |
 | **Help** | Demo |
 
@@ -88,9 +139,10 @@ Full, platform-specific steps (Windows + macOS, paths, troubleshooting) are in
 ## Development
 
 ```bash
-npm test            # unit tests for the easing + units math
+npm test            # unit tests (easing/units math + the IR contract and Figma exporter)
 npm run lint        # ESLint
 npm run check       # lint + test
+npm run build:figma # bundle the Figma "Relay" companion into plugins/figma/dist
 ```
 
 You can preview the panel UI in a normal browser (without After Effects), see
