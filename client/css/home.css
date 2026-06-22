@@ -410,34 +410,9 @@
 .rb-focus-fill { flex: 1 1 auto !important; min-height: 0 !important; min-width: 0; display: flex; flex-direction: column; }
 .rb-home-widget.is-filled .rb-home-widget-body { display: flex; flex-direction: column; padding: 0; }
 .rb-home-widget.is-filled:not(.is-sized) .rb-home-widget-body { min-height: 180px; }
-/* Use-time actions come from a right-click menu, so nothing ever floats over the
-   tool or its draggable points. The tool's footer is kept only as the action
-   source for that menu, hidden from view. */
-.rb-home-widget .rb-action-bar.rb-home-foot-src { display: none; }
-/* A faded hint that teaches the right-click; pointer-events none so it never
-   blocks the tool. Fades in on hover, sits along the bottom edge out of the way. */
-.rb-home-rchint {
-  position: absolute; left: 0; right: 0; bottom: 6px; z-index: 4; text-align: center;
-  pointer-events: none; opacity: 0; transition: opacity var(--rb-transition);
-  font-size: calc(var(--rb-font-size) - 2px); color: var(--rb-text-faint);
-}
-.rb-home-rchint span { padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--rb-bg) 60%, transparent); }
-.rb-home-widget.is-filled:not(.is-editmode):hover .rb-home-rchint { opacity: 0.65; }
-
-/* The right-click actions menu (appended to body, positioned at the cursor). */
-.rb-home-menu {
-  position: fixed; z-index: 1000; min-width: 150px; padding: 5px;
-  display: flex; flex-direction: column; gap: 2px;
-  background: var(--rb-bg-raised); border: 1px solid var(--rb-border-strong);
-  border-radius: var(--rb-radius-2); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-}
-.rb-home-menu-item {
-  display: block; width: 100%; text-align: left; padding: 7px 10px; font: inherit;
-  color: var(--rb-text); background: none; border: none; border-radius: var(--rb-radius); cursor: pointer;
-}
-.rb-home-menu-item:hover { background: var(--rb-bg-sunken); }
-.rb-home-menu-item.is-primary { color: var(--rb-accent); font-weight: 600; }
-.rb-home-menu-sep { height: 1px; margin: 3px 4px; background: var(--rb-border); }
+/* The footer (Apply/Read) sits at the bottom only where it is needed; tools with
+   no action buttons (e.g. Anchor) hide it entirely. */
+.rb-home-widget .rb-action-bar.is-empty { display: none; }
 .rb-home-widget.is-filled .rb-anchor-stage,
 .rb-home-widget.is-filled .rb-curve,
 .rb-home-widget.is-filled .rb-preview-stage { height: 100%; max-height: none; width: 100%; }
@@ -571,7 +546,9 @@
 
 /* Drag-to-resize handle (bottom-right). Big and accent-coloured, revealed on
    tile hover (see the affordance reveal rules above). */
-.rb-home-resize { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; z-index: 5; touch-action: none; }
+/* Inert by default; only edit mode (the rules above) makes it interactive, so a
+   widget can never be resized while you are using it. */
+.rb-home-resize { position: absolute; right: 0; bottom: 0; width: 26px; height: 26px; cursor: nwse-resize; z-index: 5; touch-action: none; pointer-events: none; opacity: 0; }
 .rb-home-resize::after {
   content: ''; position: absolute; right: 4px; bottom: 4px; width: 12px; height: 12px;
   border-right: 3px solid var(--rb-accent); border-bottom: 3px solid var(--rb-accent); border-radius: 0 0 3px 0;

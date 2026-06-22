@@ -193,7 +193,6 @@
       if (boardColorInput) boardColorInput.value = (th && th.accent) || accentHex();
     }
     function destroyAllWidgets() {
-      closeWidgetMenu();
       Object.keys(widgetCache).forEach(function (id) { try { widgetCache[id].destroy(); } catch (e) { /* ignore */ } delete widgetCache[id]; });
     }
     function switchBoard(idx) {
@@ -250,6 +249,7 @@
     function attachResize(node, id, mode) {
       var handle = el('span.rb-home-resize', { title: 'Drag to resize' });
       handle.addEventListener('pointerdown', function (e) {
+        if (!editing) return; // resizing only happens in edit mode
         e.preventDefault(); e.stopPropagation();
         var gcs = window.getComputedStyle(grid);
         var gap = parseFloat(gcs.columnGap || gcs.gap) || 8;
@@ -720,7 +720,8 @@
       var toolDestroy = destroy;
       destroy = function () { if (mo) { try { mo.disconnect(); } catch (e) { /* ignore */ } } toolDestroy(); };
 
-      // Tools with no footer buttons (e.g. Anchor) get no Apply pill at all.
+      // The footer (Apply/Read) sits at the bottom only where it is needed: tools
+      // with no action buttons (e.g. Anchor) hide it entirely.
       if (!footer.querySelector('.rb-btn')) footer.classList.add('is-empty');
 
       // No persistent header: the tool fills the widget, and the chrome appears
@@ -739,17 +740,7 @@
       var titleChip = el('div.rb-home-wtitle', null, [iconSpan(action.toolId, 'rb-home-ico-sm'), el('span.rb-home-wtitle-name', { text: action.label })]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
 
-      // Use-time actions live in a right-click menu, so nothing ever floats over
-      // the tool or its draggable points. The footer stays in the DOM (hidden) as
-      // the action source; a faded hint teaches the right-click.
-      footer.classList.add('rb-home-foot-src');
-      var rcHint = el('div.rb-home-rchint', { 'aria-hidden': 'true' }, [el('span', { text: 'Right-click for actions' })]);
-      var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, footer, rcHint]);
-      card.addEventListener('contextmenu', function (e) {
-        if (editing) return; // edit mode has its own chrome
-        e.preventDefault();
-        openWidgetMenu(action, footer, e.clientX, e.clientY);
-      });
+      var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, footer]);
       wireDrag(card, action.id);
       attachResize(card, action.id, 'widget');
       widgetCache[action.id] = { card: card, destroy: destroy, collapseBtn: collapseBtn, maxBtn: maxBtn, wColor: wColor };
@@ -777,50 +768,6 @@
         Array.prototype.forEach.call(parent.children, function (ch) { if (ch !== node) ch.classList.add('rb-focus-hidden'); });
         node = parent;
       }
-    }
-
-    // The use-time actions menu, opened by right-clicking a widget. It lists the
-    // tool's own actions (proxied from its hidden footer buttons) plus Open full
-    // tool, at the cursor, and closes on pick / click-away / Esc.
-    var openMenuEl = null;
-    function closeWidgetMenu() {
-      if (openMenuEl && openMenuEl.parentNode) openMenuEl.parentNode.removeChild(openMenuEl);
-      openMenuEl = null;
-      document.removeEventListener('mousedown', onMenuAway, true);
-      document.removeEventListener('keydown', onMenuKey, true);
-    }
-    function onMenuAway(e) { if (openMenuEl && !openMenuEl.contains(e.target)) closeWidgetMenu(); }
-    function onMenuKey(e) { if (e.key === 'Escape') { e.preventDefault(); closeWidgetMenu(); } }
-    function menuItem(label, onPick) {
-      return el('button.rb-home-menu-item', { type: 'button', onclick: function () { closeWidgetMenu(); onPick(); } }, [label]);
-    }
-    function openWidgetMenu(action, footer, x, y) {
-      closeWidgetMenu();
-      var items = [];
-      // Proxy each of the tool's footer buttons (Apply primary first looks best).
-      var btns = Array.prototype.slice.call(footer.querySelectorAll('.rb-btn'));
-      btns.sort(function (a, b) { return (b.classList.contains('is-primary') ? 1 : 0) - (a.classList.contains('is-primary') ? 1 : 0); });
-      btns.forEach(function (btn) {
-        var it = menuItem(btn.textContent || 'Action', function () { btn.click(); });
-        if (btn.classList.contains('is-primary')) it.classList.add('is-primary');
-        items.push(it);
-      });
-      if (items.length) items.push(el('div.rb-home-menu-sep'));
-      items.push(menuItem('Open full tool', function () { opts.openTool(action.toolId); }));
-      var menu = el('div.rb-home-menu', { role: 'menu' }, items);
-      menu.style.visibility = 'hidden';
-      document.body.appendChild(menu);
-      openMenuEl = menu;
-      // Clamp within the viewport.
-      var mw = menu.offsetWidth, mh = menu.offsetHeight;
-      var vw = window.innerWidth, vh = window.innerHeight;
-      var px = Math.min(x, vw - mw - 8), py = Math.min(y, vh - mh - 8);
-      menu.style.left = Math.max(8, px) + 'px';
-      menu.style.top = Math.max(8, py) + 'px';
-      menu.style.visibility = '';
-      playOnce(menu, 'rb-in-grow');
-      document.addEventListener('mousedown', onMenuAway, true);
-      document.addEventListener('keydown', onMenuKey, true);
     }
 
     function decorateWidget(action) {
