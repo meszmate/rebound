@@ -137,6 +137,20 @@
 .is-ez-easeIn .rb-ez-dot { animation-timing-function: cubic-bezier(0.42, 0, 1, 1); }
 .is-ez-easeOut .rb-ez-dot { animation-timing-function: cubic-bezier(0, 0, 0.58, 1); }
 .is-ez-hold .rb-ez-dot { animation-timing-function: steps(1, jump-end); }
+/* Recoil: the dot drives forward, overshoots back and settles, an elastic
+   spring, instead of the plain left-to-right run the eases use. */
+.is-ez-overshoot .rb-ez-dot { animation-name: rb-ez-recoil; animation-timing-function: cubic-bezier(0.34, 0, 0.3, 1); }
+@keyframes rb-ez-recoil {
+  0% { left: 6%; opacity: 0; }
+  8% { opacity: 1; }
+  34% { left: 90%; }
+  47% { left: 73%; }
+  57% { left: 87%; }
+  65% { left: 80%; }
+  71% { left: 84%; opacity: 1; }
+  80% { left: 84%; opacity: 0; }
+  100% { left: 6%; opacity: 0; }
+}
 /* The user can turn tile animation off (Appearance > Animate tiles). */
 :root.rb-tiles-static .rb-ez-dot { animation: none; opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .rb-ez-dot { animation: none; opacity: 0; } }

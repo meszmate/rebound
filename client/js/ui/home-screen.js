@@ -537,7 +537,10 @@
       ease: 'M6,46 C 42,46 58,6 94,6',
       easeIn: 'M6,46 C 52,46 76,32 94,6',
       easeOut: 'M6,46 C 24,20 48,6 94,6',
-      hold: 'M6,46 L50,46 L50,6 L94,6'
+      hold: 'M6,46 L50,46 L50,6 L94,6',
+      // Recoil: shoots up past the target line then settles back onto it, the
+      // springy elastic overshoot, so the tile reads as motion like the eases.
+      overshoot: 'M6,46 C 32,46 40,1 56,1 C 70,1 76,10 94,6'
     };
     function easingVisual(kind) {
       if (!EZ_PATH[kind]) kind = 'ease';
