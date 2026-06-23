@@ -44,11 +44,12 @@
   }
 
   function mount(ctx) {
-    // Apple-subtle defaults: a small amp (~0.08) reads as a tasteful overshoot,
-    // not a slingshot. Bounce ~2 cycles, Friction settles in well under a second.
-    var overshoot = 8;
-    var bounce = 2;
-    var friction = 5;
+    // Defaults match the reference Apple-style expression exactly:
+    // amp 0.04 (Overshoot 4%), freq 1.8 (Bounce), decay 4 (Friction). So
+    // "As expression" emits that expression verbatim out of the box.
+    var overshoot = 4;
+    var bounce = 1.8;
+    var friction = 4;
 
     function previewCurve() {
       return { type: 'fn', fn: followPreview(overshoot, bounce, friction) };
@@ -95,27 +96,45 @@
     });
     scopeText.textContent = '';
 
-    function rigArgs() {
-      return { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false };
-    }
-    // Bake the follow-through as keyframes (the default).
-    function doApplyKeys() { applyRecoil('recoil.bake', 'baked'); }
-    // Drop the live expression rig instead (optional, keyframe-free).
-    function doApplyExpr() { applyRecoil('recoil.apply', 'expression'); }
+    function num(x) { return String(Math.round(x * 10000) / 10000); }
 
-    function applyRecoil(method, kind) {
-      ctx.invoke(method, rigArgs())
-        .then(function (res) {
-          var n = (res && res.applied != null) ? res.applied : 0;
-          ctx.toast('Recoil (' + kind + ') on ' + n + ' propert' + (n === 1 ? 'y' : 'ies'), { kind: 'success' });
-          if (res && res.skipped && res.skipped.length) {
-            ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
-          }
-          ctx.refreshSelection();
-        })
-        .catch(function (err) {
-          ctx.toast((err && err.message) || 'Could not apply Recoil', { kind: 'error' });
-        });
+    // The EXACT overshoot expression (the form the user hand-writes), with the
+    // current slider values baked in as amp / freq / decay. Applied verbatim via
+    // expressions.apply, so "As expression" is identical to pasting it by hand
+    // (set Overshoot 4 / Bounce 1.8 / Friction 4 to match the reference exactly).
+    function recoilExpression() {
+      return [
+        'n = 0;',
+        'if (numKeys > 0) {',
+        '  n = nearestKey(time).index;',
+        '  if (key(n).time > time) { n--; }',
+        '}',
+        't = (n == 0) ? 0 : time - key(n).time;',
+        'if (n > 0) {',
+        '  v = velocityAtTime(key(n).time - thisComp.frameDuration / 10);',
+        '  amp = ' + num(overshoot / 100) + '; freq = ' + num(bounce) + '; decay = ' + num(friction) + ';',
+        '  value + v * amp * Math.sin(freq * t * 2 * Math.PI) / Math.exp(decay * t);',
+        '} else { value; }'
+      ].join('\n');
+    }
+
+    function finish(res, kind) {
+      var n = (res && res.applied != null) ? res.applied : 0;
+      ctx.toast('Recoil (' + kind + ') on ' + n + ' propert' + (n === 1 ? 'y' : 'ies'), { kind: 'success' });
+      if (res && res.skipped && res.skipped.length) ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+      ctx.refreshSelection();
+    }
+    function fail(err) { ctx.toast((err && err.message) || 'Could not apply Recoil', { kind: 'error' }); }
+
+    // Bake the follow-through as a few editable keyframes that match the curve.
+    function doApplyKeys() {
+      ctx.invoke('recoil.bake', { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false })
+        .then(function (res) { finish(res, 'baked'); }).catch(fail);
+    }
+    // Apply the EXACT overshoot expression, verbatim and keyframe-free.
+    function doApplyExpr() {
+      ctx.invoke('expressions.apply', { code: recoilExpression() })
+        .then(function (res) { finish(res, 'expression'); }).catch(fail);
     }
 
     function getState() {
@@ -139,9 +158,9 @@
           return followPreview(s.overshoot, s.bounce, s.friction);
         },
         defaults: [
-          { name: 'Subtle', state: { overshoot: 5, bounce: 1.8, friction: 5 } },
+          { name: 'Apple', state: { overshoot: 4, bounce: 1.8, friction: 4 } },
+          { name: 'Subtle', state: { overshoot: 6, bounce: 1.6, friction: 5 } },
           { name: 'Snappy', state: { overshoot: 10, bounce: 2.4, friction: 6 } },
-          { name: 'Soft Settle', state: { overshoot: 6, bounce: 1.5, friction: 4 } },
           { name: 'Big Overshoot', state: { overshoot: 22, bounce: 2, friction: 4 } }
         ]
       },
