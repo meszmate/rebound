@@ -98,6 +98,7 @@
     follow: t('physics', ICONS.link, 'Followers trail a lead layer'),
     lean: t('physics', ICONS.gauge, 'Tilt a layer into its motion'),
     kinetic: t('physics', ICONS.gauge, "React to another layer's velocity"),
+    squash: t('physics', ICONS.scale, 'Squash and stretch, manual or auto from motion'),
 
     // Timing
     stagger: t('timing', ICONS.clock, 'Cascade layers in time'),

@@ -125,6 +125,18 @@
       '</svg>'
   );
 
+  // Squash: a ball drops, squashes wide on impact, stretches tall on rebound.
+  D.squash = demo(
+    'Squashes and stretches a layer while preserving volume, by hand or <strong>automatically from its motion</strong>.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<line x1="34" y1="57" x2="86" y2="57" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>' +
+      '<ellipse cx="60" style="fill:var(--rb-accent)">' +
+      '<animate attributeName="cy" values="18;44;49;26;44;18" keyTimes="0;0.3;0.42;0.6;0.85;1" dur="2.6s" repeatCount="indefinite"/>' +
+      '<animate attributeName="rx" values="12;12;18;9;12;12" keyTimes="0;0.3;0.42;0.6;0.85;1" dur="2.6s" repeatCount="indefinite"/>' +
+      '<animate attributeName="ry" values="12;12;8;17;12;12" keyTimes="0;0.3;0.42;0.6;0.85;1" dur="2.6s" repeatCount="indefinite"/>' +
+      '</ellipse></svg>'
+  );
+
   // Rename: three layer name rows get a sequential number badge, top to bottom.
   D.rename = demo(
     'Batch-renames the selected layers, with find/replace, prefix/suffix, and <strong>top-to-bottom numbering</strong>.',
