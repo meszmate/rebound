@@ -1,17 +1,86 @@
 /*
- * Rebound host, Throw (physics-baked motion, a Dynamic-style toss).
+ * Rebound host, Throw (physics-baked motion).
  *
- * A CEP panel cannot grab a layer in the comp viewport, so instead of an
- * interactive drag this bakes the trajectory from parameters: an initial
- * velocity (angle + strength), air drag, gravity, and an optional floor bounce.
- * It integrates frame by frame from the playhead and writes Position keyframes,
- * so the result is real, hand-editable keyframes (like Convert to Keyframes),
- * not an expression. Honors separated Position dimensions.
+ * A CEP panel cannot grab a layer in the viewport, so the trajectory is baked
+ * from parameters with a real integrator: fixed-substep semi-implicit (symplectic)
+ * Euler, air drag, gravity, and proper coefficient-of-restitution bounces against
+ * a floor (and optional box walls/ceiling) with Coulomb-style ground friction so
+ * the object bounces many shrinking times and rolls to rest. Optional spin and
+ * squash-on-impact. Writes real Position (+ Rotation / Scale) keyframes from the
+ * playhead, honoring separated Position dimensions.
+ *
+ * simulateThrow MUST stay byte-identical to client/js/features/throw.js so the
+ * in-panel preview matches the baked result.
  */
 (function () {
   var R = $.__rebound;
   var util = R.util;
   var M = util.MATCH;
+
+  // Deterministic integrator. Works in a local frame where the layer starts at
+  // (0,0); cfg.floor is the floor distance BELOW the start (positive). Returns
+  // { frames:[{x,y,ang,s}], settledFrame:int|null }.
+  function simulateThrow(cfg) {
+    var H = 1 / 360;
+    var sub = Math.ceil(360 / cfg.fps); if (sub < 1) sub = 1;
+    var rad = cfg.angle * Math.PI / 180;
+    var vx = cfg.strength * Math.cos(rad);
+    var vy = -cfg.strength * Math.sin(rad);
+    var x = 0, y = 0, ang = 0, omega = 0, squashS = 0;
+    var rest = cfg.gravity * H * 4 + 4;
+    var total = Math.round(cfg.duration * cfg.fps);
+    var frames = [];
+    var settledFrame = null;
+    for (var f = 0; f <= total; f++) {
+      frames.push({ x: x, y: y, ang: ang, s: squashS });
+      for (var k = 0; k < sub; k++) {
+        var damp = Math.exp(-cfg.drag * H);
+        vx *= damp; vy *= damp;
+        vy += cfg.gravity * H;
+        var nx = x + vx * H, ny = y + vy * H;
+        var hit = false, impact = 0;
+        if (cfg.bounce && ny > cfg.floor) {
+          var tHit = (cfg.floor - y) / (ny - y);
+          if (!(tHit >= 0 && tHit <= 1)) tHit = 0;
+          x += vx * H * tHit; y = cfg.floor;
+          impact = Math.abs(vy);
+          if (Math.abs(vy) < rest) { vy = 0; }
+          else { vy = -cfg.e * vy; hit = true; }
+          vx *= (1 - cfg.friction);
+          x += vx * H * (1 - tHit); y += vy * H * (1 - tHit);
+        } else { x = nx; y = ny; }
+        if (cfg.bounds === 'box') {
+          if (x < cfg.wallMin) { x = cfg.wallMin; vx = -cfg.e * vx; }
+          if (x > cfg.wallMax) { x = cfg.wallMax; vx = -cfg.e * vx; }
+          if (y < cfg.ceiling) { y = cfg.ceiling; vy = -cfg.e * vy; }
+        }
+        // rolling friction once it stops bouncing
+        if (cfg.bounce && y >= cfg.floor - 0.001 && Math.abs(vy) < rest) {
+          var dec = cfg.friction * cfg.gravity * H;
+          if (Math.abs(vx) <= dec) vx = 0; else vx -= (vx > 0 ? dec : -dec);
+        }
+        if (cfg.spin === 'roll') {
+          if (cfg.bounce && y >= cfg.floor - 0.001) omega = -vx / (cfg.radius < 1 ? 1 : cfg.radius);
+          ang += omega * H * 180 / Math.PI * cfg.spinAmount;
+        }
+        if (cfg.squash && hit) {
+          var imp = Math.min(1, impact / (cfg.strength * 0.5 + 1));
+          var s = cfg.squashStrength / 100 * imp;
+          if (s > squashS) squashS = s;
+        }
+      }
+      if (cfg.squash) squashS *= 0.6;
+      if (cfg.spin === 'follow') ang = Math.atan2(vy, vx) * 180 / Math.PI * cfg.spinAmount;
+      if (settledFrame === null && cfg.bounce && y >= cfg.floor - 0.5 && Math.abs(vx) < 1 && Math.abs(vy) < rest && f > 1) settledFrame = f;
+    }
+    return { frames: frames, settledFrame: settledFrame };
+  }
+
+  function readStart(tg, t0, sep) {
+    if (sep) return [tg.property(M.positionX).valueAtTime(t0, false), tg.property(M.positionY).valueAtTime(t0, false)];
+    var v = tg.property(M.position).valueAtTime(t0, false);
+    return (v instanceof Array) ? v : [v, 0];
+  }
 
   function apply(args) {
     var comp = util.activeComp();
@@ -19,68 +88,68 @@
     if (!layers.length) throw new Error('Select one or more layers to throw.');
 
     var fps = comp.frameRate;
-    var dt = 1 / fps;
     var t0 = comp.time;
+    var spin = (args.spin === 'follow' || args.spin === 'roll') ? args.spin : 'off';
+    var doRot = spin !== 'off';
+    var doScale = !!args.squash;
 
-    var angle = args.angle != null ? args.angle : 35;        // deg, 0 = right, 90 = up
-    var strength = args.strength != null ? args.strength : 700; // px/s
-    var gravity = args.gravity != null ? args.gravity : 1400;   // px/s^2 (down)
-    var drag = args.drag != null ? args.drag : 0.5;             // per second
-    var bounceOn = !!args.bounce;
-    var elasticity = args.elasticity != null ? args.elasticity : 0.5;
-    var duration = args.duration != null ? args.duration : 1.6; // seconds
-    if (duration < dt) duration = dt;
-
-    var rad = angle * Math.PI / 180;
-    var ivx = strength * Math.cos(rad);
-    var ivy = -strength * Math.sin(rad); // screen y is down, so up is negative
-
-    var applied = 0;
-    var skipped = [];
-    var totalFrames = 0;
-
+    var applied = 0, skipped = [];
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
       if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (unsupported layer)'); continue; }
 
       var tg = layer.property(M.transform);
       var pos = tg.property(M.position);
-      var sep = false;
-      try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+      var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+      var start = readStart(tg, t0, sep);
+      var z = (!sep && start.length > 2) ? start[2] : null;
 
-      var px = null, py = null, start;
-      if (sep) {
-        px = tg.property(M.positionX);
-        py = tg.property(M.positionY);
-        start = [px.valueAtTime(t0, false), py.valueAtTime(t0, false)];
-      } else {
-        start = pos.valueAtTime(t0, false);
-        if (!(start instanceof Array)) start = [start, 0];
-      }
+      // Floor below the layer's start, in the same local frame the sim uses.
+      var floorAbs = args.useLayerFloor ? start[1] + 4 : comp.height;
+      var floorRel = floorAbs - start[1]; if (floorRel < 1) floorRel = 1;
 
-      var floor = comp.height;
-      var x = start[0], y = start[1], z = start.length > 2 ? start[2] : null;
-      var vx = ivx, vy = ivy;
-      var frames = Math.round(duration * fps);
+      var radius = 18;
+      try { var r = layer.sourceRectAtTime(t0, false); radius = Math.max(4, Math.min(r.width, r.height) / 2); } catch (e2) {}
 
-      for (var f = 0; f <= frames; f++) {
-        var t = t0 + f * dt;
-        if (f > 0) {
-          var damp = Math.exp(-drag * dt);
-          vx *= damp; vy *= damp;
-          vy += gravity * dt;
-          x += vx * dt; y += vy * dt;
-          if (bounceOn && y > floor) { y = floor; vy = -vy * elasticity; vx *= 0.9; }
+      var cfg = {
+        fps: fps, duration: args.duration != null ? args.duration : 1.6,
+        angle: args.angle != null ? args.angle : 45,
+        strength: args.strength != null ? args.strength : 700,
+        gravity: args.gravity != null ? args.gravity : 1400,
+        drag: args.drag != null ? args.drag : 0.5,
+        bounce: !!args.bounce,
+        e: args.elasticity != null ? Math.min(0.98, args.elasticity) : 0.5,
+        friction: args.friction != null ? args.friction : 0.3,
+        bounds: args.bounds === 'box' ? 'box' : 'floor',
+        floor: floorRel,
+        wallMin: -(comp.width / 2), wallMax: comp.width / 2, ceiling: -(floorRel),
+        spin: spin, spinAmount: args.spinAmount != null ? args.spinAmount : 1,
+        squash: doScale, squashStrength: args.squashStrength != null ? args.squashStrength : 12,
+        radius: radius
+      };
+
+      var sim = simulateThrow(cfg);
+      var frames = sim.frames;
+      var rotProp = doRot ? tg.property(M.rotation) : null;
+      var scaleProp = doScale ? tg.property(M.scale) : null;
+      var baseRot = rotProp ? rotProp.valueAtTime(t0, false) : 0;
+      var baseScale = scaleProp ? scaleProp.valueAtTime(t0, false) : [100, 100];
+
+      for (var fr = 0; fr < frames.length; fr++) {
+        var t = t0 + fr / fps;
+        var px = start[0] + frames[fr].x, py = start[1] + frames[fr].y;
+        if (sep) { tg.property(M.positionX).setValueAtTime(t, px); tg.property(M.positionY).setValueAtTime(t, py); }
+        else { pos.setValueAtTime(t, z != null ? [px, py, z] : [px, py]); }
+        if (rotProp) rotProp.setValueAtTime(t, baseRot + frames[fr].ang);
+        if (scaleProp) {
+          var s = frames[fr].s; if (s > 0.9) s = 0.9;
+          scaleProp.setValueAtTime(t, [baseScale[0] * (1 / (1 - s)), baseScale[1] * (1 - s)]);
         }
-        if (sep) { px.setValueAtTime(t, x); py.setValueAtTime(t, y); }
-        else { pos.setValueAtTime(t, z != null ? [x, y, z] : [x, y]); }
       }
-      totalFrames += frames;
       applied++;
     }
-
     if (!applied) throw new Error('No supported layers to throw: ' + skipped.join(', '));
-    return { applied: applied, skipped: skipped, frames: totalFrames };
+    return { applied: applied, skipped: skipped };
   }
 
   R.register('throw.apply', apply, 'Rebound: Throw');
