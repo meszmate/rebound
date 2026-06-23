@@ -87,7 +87,7 @@ in [docs/IR.md](docs/IR.md).
 
 ## Status
 
-Active early development, but already broad: **58 tools** ship today (including
+Active early development, but already broad: **59 tools** ship today (including
 **Import**, the Figma/Illustrator/Photoshop bridge), reached through a
 searchable, keyboard-first **Home launcher** (grouped into goal-shaped sections
 with favorites + recents), and a **live Preview Stage** that loops the
@@ -100,8 +100,8 @@ IR contract, and a clean panel↔host bridge.
 | **Easing** | Ease · Library · Velocity · Copy Ease · Smooth · Bake |
 | **Springs & physics** | Spring · Recoil · Drift · Bounce · Motion (orbit/spin/look-at) · Follow · Lean · Kinetic · Squash & Stretch · Throw · Path Follow |
 | **Timing** | Stagger · Sequence · Trim · Reverse · Fade · Keyframes · Retime · Clone |
-| **Transform & rig** | Anchor · Reset · Nullify · Separate · Link · Pins · Autocrop |
-| **Layout & align** | Align · Distribute · Arrange · Flip · Grids · Composition · Precompose |
+| **Transform & rig** | Anchor · Reset · Nullify · Separate · Link · Puppet Rig · Autocrop |
+| **Layout & align** | Align · Distribute · Arrange · Flip · Grids · Pin Rig · Composition · Precompose |
 | **Generators** | Multiply · Radial · Echo · Vignette · Scatter · Expressions |
 | **Shapes & paths** | Shapes · Trim Paths · Break · Text Break |
 | **Color** | Color · Palette · Stroke · Gradient |
