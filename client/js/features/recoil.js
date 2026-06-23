@@ -18,19 +18,16 @@
     mount: mount
   });
 
-  // The recoil shape: a smooth move to the mark, then a decaying sine wobble
-  // around it (freq full oscillations, amplitude amp, decaying at dec). This is
-  // distinct from Spring's single smooth overshoot. The card demo replays the
-  // same shape (duplicated there, since demos load before features).
-  function makeRecoil(amp, freq, dec) {
-    return function (t) {
-      if (t <= 0) return 0;
-      if (t >= 1) return 1;
-      var riseT = 0.18;
-      if (t < riseT) { var u = t / riseT; return u * u * (3 - 2 * u); }
-      var sn = (t - riseT) / (1 - riseT);
-      return 1 + amp * Math.sin(freq * sn * 2 * Math.PI) / Math.exp(dec * sn);
-    };
+  // Clean elastic settle: a configurable Penner elastic-out that overshoots the
+  // target, oscillates, and resolves cleanly to exactly the target (the decay
+  // envelope drives the tail to ~0, so it never snaps at the end). Overshoot
+  // sets how far past the target the first peak goes, Bounce the number of
+  // wobbles, Friction how fast it settles.
+  function elasticFor(overshoot, bounce, friction) {
+    var amp = 1 + R.units.clamp(overshoot / 100, 0.05, 2);
+    var osc = R.units.clamp(bounce, 1, 8);
+    var damp = R.units.clamp(friction * 0.9 + 2.5, 3, 16);
+    return R.easing.penner.elasticOutWith(amp, osc, damp);
   }
 
   function mount(ctx) {
@@ -43,10 +40,7 @@
     // which is what the rig's sin/exp expression produces. This is distinct from
     // Spring's single smooth overshoot. Driven live by the sliders.
     function previewCurve() {
-      var amp = R.units.clamp(overshoot / 150, 0.08, 0.5);
-      var freq = R.units.clamp(bounce, 1.2, 4);
-      var dec = R.units.clamp(friction / 3, 0.8, 4);
-      return { type: 'fn', fn: makeRecoil(amp, freq, dec) };
+      return { type: 'fn', fn: elasticFor(overshoot, bounce, friction) };
     }
     // The recoil shape as a read-only graph, the same way Spring shows its shape.
     var editorHost = el('div');
@@ -114,11 +108,7 @@
         get: getState,
         set: applyState,
         previewFor: function (s) {
-          return makeRecoil(
-            R.units.clamp(s.overshoot / 150, 0.08, 0.5),
-            R.units.clamp(s.bounce, 1.2, 4),
-            R.units.clamp(s.friction / 3, 0.8, 4)
-          );
+          return elasticFor(s.overshoot, s.bounce, s.friction);
         },
         defaults: [
           { name: 'Snappy', state: { overshoot: 80, bounce: 4, friction: 10 } },

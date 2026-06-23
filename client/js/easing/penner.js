@@ -159,6 +159,28 @@
   };
 
   /**
+   * Configurable elastic-out. Starts at 0, overshoots the target, oscillates,
+   * and settles cleanly to exactly 1: the 2^(-damping*t) envelope drives the
+   * tail to ~0, so there is no snap at the end (the failing of a hard-clamped
+   * sine). A generalization of elasticOut with artist controls.
+   *   amplitude    >= 1: how far the first overshoot pushes past the target.
+   *   oscillations >= 1: how many wobbles before it settles.
+   *   damping      >= 2: how fast it settles (higher = quicker, cleaner tail).
+   */
+  function elasticOutWith(amplitude, oscillations, damping) {
+    var a = Math.max(1, amplitude || 1);
+    var osc = Math.max(0.5, oscillations || 2);
+    var d = Math.max(2, damping || 8);
+    var period = 1 / osc;
+    var phase = (period / (2 * PI)) * Math.asin(1 / a);
+    return function (t) {
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      return a * Math.pow(2, -d * t) * Math.sin(((t - phase) * (2 * PI)) / period) + 1;
+    };
+  }
+
+  /**
    * Look up an easing function by name. Returns linear for unknown names.
    */
   function get(name) {
@@ -179,6 +201,7 @@
   return {
     fns: fns,
     get: get,
+    elasticOutWith: elasticOutWith,
     names: Object.keys(fns),
     isMonotonic: isMonotonic,
   };
