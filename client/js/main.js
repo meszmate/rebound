@@ -121,7 +121,33 @@
     // Land on the configurable Home: the user's own one-click action grid.
     showHome();
 
+    // CEP/CEF sometimes does not repaint or relayout when After Effects first
+    // shows or docks the panel: SVG icons stay unpainted and the grid keeps the
+    // stale (floating) width, leaving dead space on the right. Force the
+    // compositor to invalidate the whole tree on load and on every resize/dock.
+    window.addEventListener('resize', scheduleRepaint);
+    nudgeRepaint();
+    setTimeout(nudgeRepaint, 80);
+    setTimeout(nudgeRepaint, 400);
+
     R.ui.toast('Rebound ready', { kind: 'info', duration: 1400 });
+  }
+
+  var repaintTimer = null;
+  function scheduleRepaint() {
+    if (repaintTimer) clearTimeout(repaintTimer);
+    repaintTimer = setTimeout(nudgeRepaint, 50);
+  }
+  function nudgeRepaint() {
+    var a = document.getElementById('rb-app');
+    if (!a) return;
+    // Reading layout forces a synchronous reflow; toggling a compositing layer
+    // forces CEF to repaint the subtree it had cached.
+    a.style.transform = 'translateZ(0)';
+    void a.offsetHeight;
+    var clear = function () { a.style.transform = ''; };
+    requestAnimationFrame(clear);
+    setTimeout(clear, 30); // fallback if rAF is throttled
   }
 
   function icon(inner) {
@@ -632,14 +658,18 @@
     return i === q.length;
   }
 
+  // Settings live inside the panel now (one Rebound surface, no second window):
+  // open them in an in-panel modal and re-apply prefs live as they change.
   function openSettings() {
-    try {
-      if (R.bridge.cs && R.bridge.cs.requestOpenExtension) {
-        R.bridge.cs.requestOpenExtension('com.meszmate.rebound.settings', '');
-        return;
-      }
-    } catch (e) { /* ignore */ }
-    R.ui.toast('Settings panel opens inside After Effects', { kind: 'info' });
+    if (!R.settings || !R.settings.buildBody) {
+      R.ui.toast('Settings unavailable', { kind: 'warn' });
+      return;
+    }
+    R.ui.modal({
+      title: 'Settings',
+      width: 420,
+      body: R.settings.buildBody(function () { applySavedSettings(); })
+    });
   }
 
   if (document.readyState === 'loading') {
