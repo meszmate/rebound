@@ -99,12 +99,13 @@
       edges: true, coords: false, angles: false,
       grid: false, circles: false, margin: false, dotgrid: true,
       controller: 'master',
-      pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', pinRound: 40 };
+      pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40 };
   }
 
-  // Render one pin in the chosen style (stroke = accent, fill = fillColor).
+  // Render one pin in the chosen style (its own stroke + fill colors).
   function pinShape(cx, cy, r, st, ac, sc) {
     var fill = st.pinFill ? st.fillColor : 'none';
+    ac = st.strokeColor || ac;
     var sw = (st.pinStroke != null ? st.pinStroke : 1) * sc;
     cx = r1(cx); cy = r1(cy); r = r1(r); sw = r1(sw);
     if (st.pinShape === 'ring') return svg('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: ac, 'stroke-width': sw });
@@ -129,6 +130,7 @@
     var accentRow = colorRow('Accent', 'accent');
     var labelRow = colorRow('Labels', 'label');
     var fillRow = colorRow('Pin fill', 'fillColor');
+    var strokeRow = colorRow('Pin stroke', 'strokeColor');
     var scaleS = ui.slider({ label: 'Overlay scale', min: 0.4, max: 3, step: 0.1, value: st.scale, format: function (v) { return R.units.round(v, 1) + '×'; }, onInput: function (v) { st.scale = v; renderPreview(); } });
     var infoTog = ui.toggle({ label: 'Infographic look', value: st.infographic, onChange: function (v) { st.infographic = v; renderPreview(); } });
 
@@ -159,7 +161,7 @@
       el('div.rb-row.rb-wrap', null, [bezTog.el, selTog.el]),
       el('div.rb-section-label', { text: 'Pin style' }),
       ui.row('Shape', pinShapeSeg.el),
-      pinStrokeS.el, roundS.el, pinFillTog.el, fillRow,
+      pinStrokeS.el, strokeRow, roundS.el, pinFillTog.el, fillRow,
       el('div.rb-section-label', { text: 'Measurements' }),
       el('div.rb-row.rb-wrap', null, [edgesTog.el, coordsTog.el, anglesTog.el]),
       el('div.rb-section-label', { text: 'Guides' }),
@@ -200,7 +202,7 @@
     function applyState(s) {
       if (!s) return;
       for (var k in s) if (s.hasOwnProperty(k) && st.hasOwnProperty(k)) st[k] = s[k];
-      pickers[0].set(st.accent); pickers[1].set(st.label); pickers[2].set(st.fillColor);
+      pickers[0].set(st.accent); pickers[1].set(st.label); pickers[2].set(st.fillColor); pickers[3].set(st.strokeColor);
       scaleS.set(st.scale); infoTog.set(st.infographic);
       pinShapeSeg.set(st.pinShape); pinStrokeS.set(st.pinStroke); roundS.set(st.pinRound); pinFillTog.set(st.pinFill);
       roundS.el.style.display = st.pinShape === 'square' ? '' : 'none'; fillRow.style.display = st.pinFill ? '' : 'none';

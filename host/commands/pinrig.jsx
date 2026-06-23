@@ -14,6 +14,7 @@
   var R = $.__rebound;
   var util = R.util;
   var M = util.MATCH;
+  var rig = R.rig;
   var TAG = '[PinRig]';
 
   function hexToRgb01(hex) {
@@ -146,6 +147,63 @@
     sg.property('ADBE Vector Shape').setValue(shape);
     fillStroke(c, null, strokeRGB, strokeW, null, op);
   }
+  // Add a named Color Control and set its value.
+  function ensureColor(layer, name, rgb) {
+    var fx = layer.property('ADBE Effect Parade');
+    var ctrl = fx.addProperty('ADBE Color Control');
+    ctrl.name = name;
+    try { ctrl.property(1).setValue(rgb.concat([1])); } catch (e) { try { ctrl.property(1).setValue(rgb); } catch (e2) {} }
+    return ctrl;
+  }
+  // Bare path shapes (no own paint) so a single group fill/stroke styles them all.
+  function pathEllipse(c, cx, cy) { var e = c.addProperty('ADBE Vector Shape - Ellipse'); e.property('ADBE Vector Ellipse Position').setValue([cx, cy]); return e; }
+  function pathRect(c, cx, cy) { var rc = c.addProperty('ADBE Vector Shape - Rect'); rc.property('ADBE Vector Rect Position').setValue([cx, cy]); return rc; }
+  function pathPoly(c, pts) { var sg = c.addProperty('ADBE Vector Shape - Group'); var sh = new Shape(); var t = []; for (var i = 0; i < pts.length; i++) t.push([0, 0]); sh.vertices = pts; sh.inTangents = t; sh.outTangents = t; sh.closed = true; sg.property('ADBE Vector Shape').setValue(sh); return sg; }
+  function pathLine(c, p0, p1) { var sg = c.addProperty('ADBE Vector Shape - Group'); var sh = new Shape(); sh.vertices = [p0, p1]; sh.inTangents = [[0, 0], [0, 0]]; sh.outTangents = [[0, 0], [0, 0]]; sh.closed = false; sg.property('ADBE Vector Shape').setValue(sh); return sg; }
+
+  // Build the Pins layer so its appearance is driven by Effect Controls on the
+  // layer (Pin Size, Stroke Width/Color, Fill Color/Opacity, Roundness). Select
+  // the layer in AE and edit those controls to restyle every pin live.
+  function buildPinsLayer(comp, verts, args, sc, baseR) {
+    var lay = newShape(comp, 'Pins'); var root = rootOf(lay);
+    var shape = args.pinShape || 'dot';
+    var hasFill = (shape === 'dot' || shape === 'square' || shape === 'diamond') && args.pinFill;
+    var fillRgb = args.fillRgb || hexToRgb01(args.fillColor || '#39C2FF');
+    var strokeRgb = args.strokeRgb || hexToRgb01(args.strokeColor || '#0E1116');
+
+    rig.ensureSlider(lay, 'Pin Size', baseR);
+    rig.ensureSlider(lay, 'Stroke Width', (args.pinStroke != null ? args.pinStroke : 1) * sc);
+    ensureColor(lay, 'Stroke Color', strokeRgb);
+    if (hasFill) { rig.ensureSlider(lay, 'Fill Opacity', 100); ensureColor(lay, 'Fill Color', fillRgb); }
+    if (shape === 'square') rig.ensureSlider(lay, 'Roundness', args.pinRound != null ? args.pinRound : 40);
+
+    var c = grp(root);
+    for (var i = 0; i < verts.length; i++) {
+      var cx = verts[i][0], cy = verts[i][1];
+      if (shape === 'ring' || shape === 'dot') {
+        var e = pathEllipse(c, cx, cy);
+        rig.setExpression(e.property('ADBE Vector Ellipse Size'), 's = effect("Pin Size")("Slider"); [s * 2, s * 2];');
+      } else if (shape === 'square') {
+        var rc = pathRect(c, cx, cy);
+        rig.setExpression(rc.property('ADBE Vector Rect Size'), 's = effect("Pin Size")("Slider"); [s * 2, s * 2];');
+        try { rig.setExpression(rc.property('ADBE Vector Rect Roundness'), 'effect("Roundness")("Slider") / 100 * effect("Pin Size")("Slider");'); } catch (e3) {}
+      } else if (shape === 'cross') {
+        pathLine(c, [cx - baseR, cy], [cx + baseR, cy]); pathLine(c, [cx, cy - baseR], [cx, cy + baseR]);
+      } else {
+        pathPoly(c, [[cx, cy - baseR], [cx + baseR, cy], [cx, cy + baseR], [cx - baseR, cy]]);
+      }
+    }
+    if (hasFill) {
+      var fill = c.addProperty('ADBE Vector Graphic - Fill');
+      rig.setExpression(fill.property('ADBE Vector Fill Color'), 'effect("Fill Color")("Color");');
+      rig.setExpression(fill.property('ADBE Vector Fill Opacity'), 'effect("Fill Opacity")("Slider");');
+    }
+    var stroke = c.addProperty('ADBE Vector Graphic - Stroke');
+    rig.setExpression(stroke.property('ADBE Vector Stroke Color'), 'effect("Stroke Color")("Color");');
+    rig.setExpression(stroke.property('ADBE Vector Stroke Width'), 'effect("Stroke Width")("Slider");');
+    return lay;
+  }
+
   function addText(comp, str, pos, rgb, size) {
     var tl = comp.layers.addText('' + str);
     tl.comment = TAG;
@@ -223,14 +281,7 @@
         for (var i = 0; i < verts.length; i++) { var hx = bb.cx + (verts[i][0] - bb.cx) * 1.18, hy = bb.cy + (verts[i][1] - bb.cy) * 1.18; addLine(root, verts[i], [hx, hy], accent, sw * 0.6, 50); addEllipse(root, hx, hy, mr * 0.55, null, accent, sw * 0.6, 80); }
         return lay;
       });
-      if (args.pins) gen(function () {
-        var lay = newShape(comp, 'Pins'); var root = rootOf(lay);
-        var pinFill = args.pinFill ? (args.fillRgb || hexToRgb01(args.fillColor || '#39C2FF')) : null;
-        var pinSw = (args.pinStroke != null ? args.pinStroke : 1) * sc;
-        var pr = mr * 1.15;
-        for (var i = 0; i < verts.length; i++) addPin(root, verts[i][0], verts[i][1], pr, args.pinShape || 'dot', pinFill, accent, pinSw, args.pinRound);
-        return lay;
-      });
+      if (args.pins) gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
 
       // measurement text (static snapshots at build time)
       if (args.edges) for (var e = 0; e < verts.length; e++) { var a0 = verts[e], a1 = verts[(e + 1) % verts.length]; var mx = (a0[0] + a1[0]) / 2, my = (a0[1] + a1[1]) / 2; var len = Math.round(Math.sqrt((a1[0] - a0[0]) * (a1[0] - a0[0]) + (a1[1] - a0[1]) * (a1[1] - a0[1]))); gen(function () { return addText(comp, len + 'px', [mx + (mx - bb.cx) * 0.18, my + (my - bb.cy) * 0.18], label, fs); }); }
