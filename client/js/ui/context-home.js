@@ -188,14 +188,14 @@
     return el('div.rb-ctx-empty', { text: msg });
   }
 
-  // Create the Context Home region. opts: { openTool: function(toolId) }.
+  // Create the Context Home region. A single, compact readout that reflects the
+  // selection (the live ease on keyframes, a quiet line for layers) and nothing
+  // more: no tool suggestions, kept deliberately small. opts.openTool is accepted
+  // for API compatibility but unused.
   function create(opts) {
-    var openTool = opts.openTool;
     var bandBody = el('div.rb-ctx-readout');
-    var suggestRow = el('div.rb-ctx-suggest');
-    var root = el('div.rb-ctxhome', null, [
-      el('div.rb-ctx-band', null, [bandBody]),
-      suggestRow
+    var root = el('div.rb-ctxhome.is-compact', null, [
+      el('div.rb-ctx-band', null, [bandBody])
     ]);
     var lastType = null;
 
@@ -204,17 +204,6 @@
 
       R.dom.clear(bandBody);
       bandBody.appendChild(renderReadout(typeId, sel));
-
-      R.dom.clear(suggestRow);
-      var acts = typeId === 'none' ? [] : actionsFor(typeId);
-      acts.forEach(function (id) {
-        var t = R.tools.get(id);
-        if (!t) return;
-        suggestRow.appendChild(el('button.rb-ctx-chip', {
-          type: 'button', title: 'Open ' + t.title,
-          onclick: function () { openTool(id); }
-        }, [t.title]));
-      });
 
       root.classList.toggle('is-empty', typeId === 'none');
       // A gentle fade only when the context actually changed.
