@@ -65,7 +65,7 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-faint', { text: 'Select 2+ keyframes and apply elastic overshoot. By default it bakes a few editable keyframes you can see in the graph; set Apply as → Expression in Settings for a clean, keyframe-free version.' }),
+      el('div.rb-faint', { text: 'Select 2+ keyframes. Recoil adds velocity-driven overshoot AFTER the last keyframe (it keeps moving, then settles), scaled by how fast it arrives. By default it bakes a few editable keyframes at each peak; set Apply as → Expression in Settings for the live, keyframe-free rig.' }),
       overshootSlider.el,
       bounceSlider.el,
       frictionSlider.el,
@@ -84,7 +84,28 @@
     scopeText.textContent = '';
 
     function doApply() {
-      R.easing.applyCurve(ctx, previewCurve(), 'Recoil');
+      // Recoil is velocity-driven follow-through AFTER the keyframe (the classic
+      // overshoot expression). 'Keyframes' bakes that motion at its exact
+      // peaks/valleys; 'Expression' (Settings > Apply as) drops the live rig.
+      var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};
+      var asExpr = s.applyMode === 'expression';
+      var handleLength = (s.handleLength > 0) ? s.handleLength : 80;
+      var rigArgs = { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false };
+      var method = asExpr ? 'recoil.apply' : 'recoil.bake';
+      var args = asExpr ? rigArgs
+        : { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false, handleLength: handleLength };
+      ctx.invoke(method, args)
+        .then(function (res) {
+          var n = (res && res.applied != null) ? res.applied : 0;
+          ctx.toast('Recoil on ' + n + ' propert' + (n === 1 ? 'y' : 'ies'), { kind: 'success' });
+          if (res && res.skipped && res.skipped.length) {
+            ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+          }
+          ctx.refreshSelection();
+        })
+        .catch(function (err) {
+          ctx.toast((err && err.message) || 'Could not apply Recoil', { kind: 'error' });
+        });
     }
 
     function getState() {
