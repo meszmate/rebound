@@ -340,7 +340,6 @@
     margin-bottom: var(--rb-gap-3);
   }
   .rb-tool-host > .rb-col > *:last-child { margin-bottom: 0; }
-  .rb-card-demo { height: 116px; }
 }
 
 /* Command palette overlay. */

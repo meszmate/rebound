@@ -178,12 +178,13 @@
 .rb-card:hover { border-color: var(--rb-border-strong); }
 .rb-card.is-active { border-color: var(--rb-accent); box-shadow: inset 0 0 0 1px var(--rb-accent); }
 .rb-card-demo {
-  height: 78px;
   background: var(--rb-bg-sunken);
   color: var(--rb-text-muted);
   border-bottom: 1px solid var(--rb-border);
 }
-.rb-card-demo svg { width: 100%; height: 100%; display: block; }
+/* Fill the card width and take the demo's own aspect height, so the graphic
+   spans edge to edge with no letterbox bars on the sides. */
+.rb-card-demo svg { width: 100%; height: auto; display: block; }
 .rb-card-foot {
   padding: var(--rb-gap-3);
   display: flex;
@@ -222,8 +223,7 @@
 .rb-card-star svg { width: 13px; height: 13px; }
 .rb-card-star.is-on svg { fill: currentColor; }
 
-/* Wider docks get bigger demos and roomier cards. */
+/* Wider docks get roomier cards. */
 @media (min-width: 520px) {
-  .rb-card-demo { height: 100px; }
   .rb-card-grid { grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); }
 }
