@@ -112,6 +112,32 @@
     rc.property('ADBE Vector Rect Position').setValue([x + w / 2, y + h / 2]);
     fillStroke(c, fillRGB, strokeRGB, strokeW, dash, op);
   }
+  function addPoly(root, pts, fillRGB, strokeRGB, strokeW, op) {
+    var c = grp(root);
+    var sg = c.addProperty('ADBE Vector Shape - Group');
+    var shape = new Shape();
+    var inT = [], outT = [];
+    for (var i = 0; i < pts.length; i++) { inT.push([0, 0]); outT.push([0, 0]); }
+    shape.vertices = pts; shape.inTangents = inT; shape.outTangents = outT; shape.closed = true;
+    sg.property('ADBE Vector Shape').setValue(shape);
+    fillStroke(c, fillRGB, strokeRGB, strokeW, null, op);
+  }
+  // One pin in the configured style.
+  function addPin(root, cx, cy, r, shapeName, fillRGB, strokeRGB, strokeW, round) {
+    if (shapeName === 'ring') { addEllipse(root, cx, cy, r, null, strokeRGB, strokeW, 100); return; }
+    if (shapeName === 'square') {
+      var c = grp(root);
+      var rc = c.addProperty('ADBE Vector Shape - Rect');
+      rc.property('ADBE Vector Rect Size').setValue([r * 2, r * 2]);
+      rc.property('ADBE Vector Rect Position').setValue([cx, cy]);
+      try { rc.property('ADBE Vector Rect Roundness').setValue((round || 0) / 100 * r); } catch (e) {}
+      fillStroke(c, fillRGB, strokeRGB, strokeW, null, 100);
+      return;
+    }
+    if (shapeName === 'cross') { addLine(root, [cx - r, cy], [cx + r, cy], strokeRGB, strokeW, 100); addLine(root, [cx, cy - r], [cx, cy + r], strokeRGB, strokeW, 100); return; }
+    if (shapeName === 'diamond') { addPoly(root, [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]], fillRGB, strokeRGB, strokeW, 100); return; }
+    addEllipse(root, cx, cy, r, fillRGB, strokeRGB, strokeW, 100);
+  }
   function addLine(root, p0, p1, strokeRGB, strokeW, op) {
     var c = grp(root);
     var sg = c.addProperty('ADBE Vector Shape - Group');
@@ -197,7 +223,14 @@
         for (var i = 0; i < verts.length; i++) { var hx = bb.cx + (verts[i][0] - bb.cx) * 1.18, hy = bb.cy + (verts[i][1] - bb.cy) * 1.18; addLine(root, verts[i], [hx, hy], accent, sw * 0.6, 50); addEllipse(root, hx, hy, mr * 0.55, null, accent, sw * 0.6, 80); }
         return lay;
       });
-      if (args.pins) gen(function () { var lay = newShape(comp, 'Pins'); var root = rootOf(lay); for (var i = 0; i < verts.length; i++) addEllipse(root, verts[i][0], verts[i][1], mr, accent, [0, 0, 0], sw * 0.5, 100); return lay; });
+      if (args.pins) gen(function () {
+        var lay = newShape(comp, 'Pins'); var root = rootOf(lay);
+        var pinFill = args.pinFill ? (args.fillRgb || hexToRgb01(args.fillColor || '#39C2FF')) : null;
+        var pinSw = (args.pinStroke != null ? args.pinStroke : 1) * sc;
+        var pr = mr * 1.15;
+        for (var i = 0; i < verts.length; i++) addPin(root, verts[i][0], verts[i][1], pr, args.pinShape || 'dot', pinFill, accent, pinSw, args.pinRound);
+        return lay;
+      });
 
       // measurement text (static snapshots at build time)
       if (args.edges) for (var e = 0; e < verts.length; e++) { var a0 = verts[e], a1 = verts[(e + 1) % verts.length]; var mx = (a0[0] + a1[0]) / 2, my = (a0[1] + a1[1]) / 2; var len = Math.round(Math.sqrt((a1[0] - a0[0]) * (a1[0] - a0[0]) + (a1[1] - a0[1]) * (a1[1] - a0[1]))); gen(function () { return addText(comp, len + 'px', [mx + (mx - bb.cx) * 0.18, my + (my - bb.cy) * 0.18], label, fs); }); }
