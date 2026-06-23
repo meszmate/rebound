@@ -72,7 +72,7 @@
           if (s > squashS) squashS = s;
         }
       }
-      if (cfg.squash) squashS *= 0.6;
+      if (cfg.squash) squashS *= 0.8;
       if (cfg.spin === 'follow') ang = Math.atan2(vy, vx) * 180 / Math.PI * cfg.spinAmount;
       if (settledFrame === null && cfg.bounce && y >= cfg.floor - 0.5 && Math.abs(vx) < 1 && Math.abs(vy) < rest && f > 1) settledFrame = f;
     }
@@ -116,7 +116,7 @@
       try { var r = layer.sourceRectAtTime(t0, false); radius = Math.max(4, Math.min(r.width, r.height) / 2); } catch (e2) {}
 
       var cfg = {
-        fps: fps, duration: args.duration != null ? args.duration : 1.6,
+        fps: fps, duration: args.autoDur ? 8 : (args.duration != null ? args.duration : 1.6),
         angle: args.angle != null ? args.angle : 45,
         strength: args.strength != null ? args.strength : 700,
         gravity: args.gravity != null ? args.gravity : 1400,
@@ -138,12 +138,21 @@
 
       var sim = simulateThrow(cfg);
       var frames = sim.frames;
+      var endFrame = frames.length - 1;
+      if (args.autoDur) {
+        if (sim.settledFrame) endFrame = Math.min(endFrame, sim.settledFrame + Math.round(0.3 * fps));
+        else {
+          var fell = -1;
+          for (var ff = 0; ff < frames.length; ff++) { if (Math.abs(frames[ff].y) > floorRel * 1.6 + 200) { fell = ff; break; } }
+          endFrame = fell >= 0 ? fell : Math.min(endFrame, Math.round(2.5 * fps));
+        }
+      }
       var rotProp = doRot ? tg.property(M.rotation) : null;
       var scaleProp = doScale ? tg.property(M.scale) : null;
       var baseRot = rotProp ? rotProp.valueAtTime(t0, false) : 0;
       var baseScale = scaleProp ? scaleProp.valueAtTime(t0, false) : [100, 100];
 
-      for (var fr = 0; fr < frames.length; fr++) {
+      for (var fr = 0; fr <= endFrame; fr++) {
         var t = t0 + fr / fps;
         var px = start[0] + frames[fr].x, py = start[1] + frames[fr].y;
         if (sep) { tg.property(M.positionX).setValueAtTime(t, px); tg.property(M.positionY).setValueAtTime(t, py); }
