@@ -1,7 +1,8 @@
 /*
  * Rebound, Text Break tool.
- * Splits a text layer into separate text layers per line, word, or character,
- * leaving the pieces stacked at the source position for the user to reposition.
+ * Splits a text layer into separate text layers per line, word, character, or a
+ * custom set of pieces you choose. Each piece keeps its EXACT original position
+ * (the broken text looks identical), and is an independent, animatable layer.
  */
 ;(function (R) {
   'use strict';
@@ -17,7 +18,9 @@
       svg('text', { x: (x + w / 2).toFixed(1), y: y + 13, 'font-size': 9, 'font-weight': 700, 'text-anchor': 'middle', fill: '#fff' }, [t])
     ]);
   }
-  // The sample text split into chips the way the chosen mode would split it.
+  // The sample text split into chips the way the chosen mode would split it. In
+  // every mode the chips stay where the letters were, the way the real break
+  // keeps each piece in place.
   function tbSvg(mode, h) {
     var W = 160, H = 76, pad = 10;
     var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
@@ -28,7 +31,7 @@
         var text = words.join(' '); kids.push(chip(x, y, text.length * 8 + 10, text));
       } else if (mode === 'characters') {
         words.forEach(function (wd) { for (var c = 0; c < wd.length; c++) { kids.push(chip(x, y, 13, wd.charAt(c))); x += 16; } x += 6; });
-      } else {
+      } else { // words + custom
         words.forEach(function (wd) { var w = wd.length * 8 + 8; kids.push(chip(x, y, w, wd)); x += w + 5; });
       }
       y += 26;
@@ -41,13 +44,15 @@
     title: 'Text Break',
     group: 'Shapes',
     order: 3,
-    keywords: ['text', 'break', 'split', 'lines', 'words', 'characters', 'letters', 'explode'],
+    keywords: ['text', 'break', 'split', 'lines', 'words', 'characters', 'letters', 'explode', 'custom', 'kinetic'],
     mount: mount
   });
 
   function mount(ctx) {
-    var mode = 'lines';
+    var mode = 'words';
     var deleteOriginal = false;
+    var keepPositions = true;
+    var loaded = false; // whether the custom field has been filled from selection
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(tbSvg(mode, 76)); }
@@ -55,20 +60,53 @@
     var modeCtl = ui.segmented([
       { value: 'lines', label: 'Lines', title: 'One layer per line of text' },
       { value: 'words', label: 'Words', title: 'One layer per word' },
-      { value: 'characters', label: 'Characters', title: 'One layer per non-space character' }
-    ], { value: mode, onChange: function (v) { mode = v; renderPreview(); } });
+      { value: 'characters', label: 'Characters', title: 'One layer per non-space character' },
+      { value: 'custom', label: 'Custom', title: 'Choose where to cut with the | marker' }
+    ], { value: mode, onChange: function (v) { mode = v; syncMode(); renderPreview(); } });
 
-    var deleteToggle = ui.toggle({
-      label: 'Delete original',
-      value: deleteOriginal,
-      onChange: function (v) { deleteOriginal = v; }
-    });
+    // Custom: an editable copy of the layer's text where you insert "|" to pick
+    // exactly where the cuts go (e.g. "Hello World|Foo" keeps the first two words
+    // together and splits off the third).
+    var customField = el('textarea', { spellcheck: 'false', placeholder: 'Load the selected text, then put | where you want each cut.', style: {
+      width: '100%', minHeight: '54px', resize: 'vertical', boxSizing: 'border-box',
+      fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: '12px', lineHeight: '1.4',
+      color: 'var(--rb-text)', background: 'var(--rb-bg-sunken)', border: '1px solid var(--rb-border)',
+      borderRadius: 'var(--rb-radius-2)', padding: '6px' } });
+    var loadBtn = el('button.rb-btn', { onclick: loadText }, ['Load selected text']);
+    var customBox = el('div.rb-col.rb-hidden', { style: { gap: '6px' } }, [
+      el('div.rb-faint', { text: 'Insert | where you want a cut. Keep the words themselves unchanged so each piece keeps its exact position.' }),
+      customField,
+      el('div.rb-row', null, [loadBtn])
+    ]);
+
+    function syncMode() {
+      customBox.classList.toggle('rb-hidden', mode !== 'custom');
+      if (mode === 'custom' && !loaded) loadText();
+    }
+
+    function loadText() {
+      ctx.invoke('textbreak.read', {})
+        .then(function (res) {
+          var texts = (res && res.texts) || [];
+          if (!texts.length) { ctx.toast('Select a text layer first', { kind: 'info' }); return; }
+          customField.value = texts[0].text;
+          loaded = true;
+        })
+        .catch(function () {});
+    }
+
+    var deleteToggle = ui.toggle({ label: 'Delete original', value: deleteOriginal,
+      onChange: function (v) { deleteOriginal = v; } });
+    var posToggle = ui.toggle({ label: 'Keep exact positions', value: keepPositions,
+      onChange: function (v) { keepPositions = v; } });
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Splits each selected text layer into separate text layers. New layers stay stacked at the source position for you to reposition.' }),
+      el('div.rb-faint', { text: 'Splits each selected text layer into separate, animatable layers. With "Keep exact positions" on, every piece stays exactly where it was, so the result looks identical to the original.' }),
       previewHost,
       ui.row('Mode', modeCtl.el),
+      customBox,
+      posToggle.el,
       deleteToggle.el
     ]));
 
@@ -80,7 +118,13 @@
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('textbreak.apply', { mode: mode, deleteOriginal: deleteOriginal })
+      var args = { mode: mode, deleteOriginal: deleteOriginal, position: keepPositions };
+      if (mode === 'custom') {
+        var raw = customField.value || '';
+        if (raw.indexOf('|') === -1) { ctx.toast('Add | marks where you want to cut', { kind: 'error' }); return; }
+        args.pieces = raw.split('|');
+      }
+      ctx.invoke('textbreak.apply', args)
         .then(function (res) {
           if (!res.created) {
             ctx.toast('No text layers to break', { kind: 'error' });
