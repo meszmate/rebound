@@ -50,7 +50,7 @@
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Splits each selected shape layer into one new shape layer per top-level group.' }),
+      el('div.rb-faint', { text: 'A shape layer can hold several groups under "Contents" (each shape you drew). Break makes one new shape layer per top-level group, keeping its look, so you can animate, reorder, or parent each shape on its own. A layer with only one group has nothing to split.' }),
       previewHost,
       deleteToggle.el
     ]));
