@@ -160,17 +160,10 @@
    * in the Graph Editor.
    */
   function sparseSamples(curve) {
-    var fn = toFunction(curve);
-    var tp = turningPoints(curve, 600);
-    var out = [];
-    for (var i = 0; i < tp.length; i++) {
-      out.push(tp[i]);
-      if (i < tp.length - 1) {
-        var mt = (tp[i].t + tp[i + 1].t) / 2;
-        out.push({ t: mt, y: fn(mt) });
-      }
-    }
-    return out;
+    // Just the turning points and endpoints. The host gives every key a
+    // continuous bezier handle, so the arcs between extrema stay smooth with the
+    // fewest possible keyframes (one per peak/valley), each editable by hand.
+    return turningPoints(curve, 600);
   }
 
   /**

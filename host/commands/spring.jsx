@@ -102,21 +102,22 @@
     return { properties: propsTouched, segments: segments };
   }
 
-  function findKeyAt(prop, t) {
-    for (var i = 1; i <= prop.numKeys; i++) {
-      if (Math.abs(prop.keyTime(i) - t) < 1e-5) return i;
-    }
-    return -1;
+  // Make a keyframe a smooth, hand-editable CONTINUOUS bezier: bezier
+  // interpolation, not auto (so the two tangent handles stay where set and are
+  // draggable in the Graph Editor), with linked/continuous tangents through the
+  // point so the curve flows without a kink.
+  function smoothKey(prop, ki) {
+    try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
+    try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
+    try { prop.setTemporalContinuousAtKey(ki, true); } catch (e2) {}
   }
 
-  // Place one keyframe per sparse anchor inside a segment (skipping the existing
-  // endpoints), then auto-bezier the new interior keys so the curve flows. This
-  // gives a Graph-Editor-visible, editable overshoot with a handful of keys
-  // instead of one per frame.
+  // Place one keyframe per turning point inside a segment (endpoints already
+  // exist), then give every key in the segment a continuous bezier handle, so
+  // the overshoot is a smooth, editable curve with the fewest possible keys.
   function bakeSparseSegment(prop, pr, pts, dims) {
     removeKeysBetween(prop, pr.ta, pr.tb);
     var dt = pr.tb - pr.ta;
-    var added = [];
     for (var j = 0; j < pts.length; j++) {
       var pt = pts[j];
       if (pt.t <= 1e-6 || pt.t >= 1 - 1e-6) continue; // endpoints already exist
@@ -129,14 +130,11 @@
         for (var d = 0; d < dims; d++) val.push(pr.va[d] + (pr.vb[d] - pr.va[d]) * pt.y);
       }
       prop.setValueAtTime(t, val);
-      added.push(t);
     }
-    for (var a = 0; a < added.length; a++) {
-      var ki = findKeyAt(prop, added[a]);
-      if (ki > 0) {
-        try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
-        try { prop.setTemporalAutoBezierAtKey(ki, true); } catch (e2) {}
-      }
+    var eps = 1e-5;
+    for (var ki = 1; ki <= prop.numKeys; ki++) {
+      var kt = prop.keyTime(ki);
+      if (kt >= pr.ta - eps && kt <= pr.tb + eps) smoothKey(prop, ki);
     }
   }
 
