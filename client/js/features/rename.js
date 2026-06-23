@@ -62,16 +62,32 @@
   function mount(ctx) {
     var st = { base: '', find: '', replace: '', prefix: '', suffix: '', number: false, start: 1, padding: 2 };
 
+    var liveNames = null; // real selected layer names (top-to-bottom), or null
+
+    function currentNames() { return (liveNames && liveNames.length) ? liveNames : SAMPLES; }
+
+    function updateNames(sel) {
+      if (sel && sel.hasComp && sel.layers && sel.layers.length) {
+        liveNames = sel.layers.slice().sort(function (a, b) { return a.index - b.index; }).map(function (l) { return l.name; });
+      } else {
+        liveNames = null;
+      }
+    }
+
     var previewHost = el('div.rb-rename-preview');
     function renderPreview() {
       R.dom.clear(previewHost);
-      for (var i = 0; i < SAMPLES.length; i++) {
+      var names = currentNames();
+      var max = 8;
+      if (!liveNames) previewHost.appendChild(el('div.rb-faint', { text: 'Examples (select layers to preview the real names):' }));
+      for (var i = 0; i < Math.min(names.length, max); i++) {
         previewHost.appendChild(el('div.rb-rename-row', null, [
-          el('span.rb-rename-old', { text: SAMPLES[i] }),
+          el('span.rb-rename-old', { text: names[i] }),
           el('span.rb-rename-arrow', { text: '→' }),
-          el('span.rb-rename-new', { text: makeName(SAMPLES[i], st, i) })
+          el('span.rb-rename-new', { text: makeName(names[i], st, i) })
         ]));
       }
+      if (names.length > max) previewHost.appendChild(el('div.rb-faint', { text: 'and ' + (names.length - max) + ' more' }));
     }
 
     var baseF = field('New base name (keeps original if blank)', function (v) { st.base = v; renderPreview(); });
@@ -103,8 +119,11 @@
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Rename']));
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); updateNames(sel); renderPreview(); });
+    var initSel = ctx.getSelection();
+    scopeText.textContent = describe(initSel);
+    updateNames(initSel);
+    renderPreview();
 
     function doApply() {
       ctx.invoke('rename.apply', st)
