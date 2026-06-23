@@ -337,8 +337,8 @@
   // shortcut. Applying eases the selected keyframes with that exact curve.
   R.presets.homeActions = function () {
     var user = (R.disk.read('user-presets', { items: [] }).items) || [];
-    var hl = (R.settings && R.settings.load) ? R.settings.load().handleLength : 80;
-    if (!(hl > 0)) hl = 80;
+    var hl = (R.settings && R.settings.load) ? R.settings.load().handleLength : 45;
+    if (!(hl > 0)) hl = 45;
     return (R.presets.defaults || []).concat(user).map(function (p) {
       // Overshoot curves (elastic) bake to a few editable keyframes (visible in
       // the Graph Editor); monotonic curves apply as native temporal ease.

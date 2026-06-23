@@ -21,7 +21,7 @@
     accent: '#4990e2',
     autoApply: false,
     applyMode: 'keys', // keys | expression
-    handleLength: 80, // bezier tangent handle length / smoothness (10-95)
+    handleLength: 45, // bezier tangent handle length / smoothness (20-70); ~45 = clean ease-in-out arc
     overshootMode: 'bake', // bake | expression
     defaultUnits: 'frames', // frames | seconds
     showUnitsOverlay: true
@@ -117,11 +117,11 @@
         { value: 'expression', label: 'Expression' }
       ], { value: settings.applyMode, onChange: function (v) { update({ applyMode: v }); } }).el),
       ui.slider({
-        label: 'Smoothness (handle length)', min: 10, max: 95, step: 1, value: settings.handleLength,
+        label: 'Smoothness (handle length)', min: 20, max: 70, step: 1, value: settings.handleLength,
         format: function (v) { return Math.round(v) + '%'; },
         onInput: function (v) { update({ handleLength: v }); }
       }).el,
-      el('div.rb-faint', { text: 'Longer handles round the curve between peaks into a smoother, more buttery motion. Applies when baking keyframes.' }),
+      el('div.rb-faint', { text: 'Bezier handle length on baked keys. ~45% is a clean ease-in-out arc (recommended). Lower is snappier; too high flattens the peaks into shelves. Applies when baking keyframes.' }),
       ui.row('Overshoot', ui.segmented([
         { value: 'bake', label: 'Bake' },
         { value: 'expression', label: 'Expression' }
