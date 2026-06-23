@@ -79,6 +79,7 @@ const extendscriptGlobals = {
   LightType: 'readonly',
   MaskPropertyGroup: 'readonly',
   MaskMode: 'readonly',
+  AutoOrientType: 'readonly',
   TrackMatteType: 'readonly',
   Shape: 'readonly',
   SolidSource: 'readonly',

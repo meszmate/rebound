@@ -125,6 +125,16 @@
       '</svg>'
   );
 
+  // Path Follow: a layer marker rides an S-curve, oriented along the path.
+  D.pathfollow = demo(
+    'Sends layers along a path you draw as a mask, with optional <strong>orient along the path</strong>.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<path d="M14 56 C 40 8, 80 64, 106 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.45"/>' +
+      '<g><rect x="-8" y="-5" width="16" height="10" rx="2" style="fill:var(--rb-accent)">' +
+      '<animateMotion dur="3s" repeatCount="indefinite" rotate="auto" path="M14 56 C 40 8, 80 64, 106 16"/>' +
+      '</rect></g></svg>'
+  );
+
   // Throw: a ball arcs through the air under gravity and lands with a bounce.
   D['throw'] = demo(
     'Bakes a thrown trajectory into Position keyframes, with <strong>momentum, drag, and gravity</strong>.',
