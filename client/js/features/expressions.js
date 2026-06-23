@@ -68,6 +68,29 @@
       '  value;',
       '}'
     ) },
+    { id: 'recoil-overshoot', name: 'Recoil (overshoot)', category: 'physics', desc: 'Velocity-driven overshoot after each keyframe', code: code(
+      'amp = .1;',
+      'freq = 2;',
+      'decay = 6;',
+      'n = 0;',
+      'if (numKeys > 0) {',
+      '  n = nearestKey(time).index;',
+      '  if (key(n).time > time) {',
+      '    n--;',
+      '  }',
+      '}',
+      'if (n == 0) {',
+      '  t = 0;',
+      '} else {',
+      '  t = time - key(n).time;',
+      '}',
+      'if (n > 0 && t < 1) {',
+      '  v = velocityAtTime(key(n).time - thisComp.frameDuration / 10);',
+      '  value + v * amp * Math.sin(freq * t * 2 * Math.PI) / Math.exp(decay * t);',
+      '} else {',
+      '  value;',
+      '}'
+    ) },
     { id: 'smooth', name: 'Smooth', category: 'physics', desc: 'Temporal smoothing of the value', code: 'smooth(0.5, 5)' }
   ];
 
