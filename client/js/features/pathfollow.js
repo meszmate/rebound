@@ -1,10 +1,12 @@
 /*
- * Rebound, Path Follow tool (Dynamic Sketch-style).
- * Sends the selected layers along a path: the first selected layer's mask is the
- * route, the rest travel it as baked Position keyframes (with optional
- * auto-orient). A live preview samples a representative path so the density and
- * orientation react to the controls. Draw the route as a mask, no freehand
- * viewport sketching from a CEP panel.
+ * Rebound, Path Follow tool.
+ * Sends the selected layers along a path (the first selected layer's mask is the
+ * route). Constant-speed mode arc-length-reparameterizes so the layer keeps an
+ * even pace through curves; even-parameter mode does not. Ease presets shape the
+ * velocity over time; start/end offset, reverse, loop / ping-pong, orient + angle
+ * offset, and stagger round it out. The preview animates a marker traveling the
+ * actual path with the same sampler Apply uses, plus equal-time trail dots that
+ * make constant vs even speed visible.
  */
 ;(function (R) {
   'use strict';
@@ -12,107 +14,193 @@
   var el = R.dom.el;
   var svg = R.dom.svg;
   var ui = R.ui;
+  function r1(v) { return R.units.round(v, 1); }
 
-  // Fixed representative S-curve for the preview (one cubic segment).
-  var P0 = [16, 58], C0 = [40, 4], C1 = [80, 72], P1 = [104, 18];
+  var EASE = {
+    linear: { x1: 0, y1: 0, x2: 1, y2: 1 },
+    in: { x1: 0.42, y1: 0, x2: 1, y2: 1 },
+    out: { x1: 0, y1: 0, x2: 0.58, y2: 1 },
+    both: { x1: 0.42, y1: 0, x2: 0.58, y2: 1 }
+  };
+  function easeFnFor(name) {
+    var c = EASE[name] || EASE.both;
+    return R.easing.sampler.toFunction({ type: 'bezier', x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2 });
+  }
+  function easeLut(name) {
+    var fn = easeFnFor(name), out = [];
+    for (var i = 0; i < 64; i++) out.push(fn(i / 63));
+    return out;
+  }
 
+  // Fixed demonstrative S-curve (one cubic) sampled densely for the preview.
+  var P0 = [16, 60], C0 = [40, 2], C1 = [82, 74], P1 = [104, 16];
   function cubic(t) {
     var u = 1 - t;
-    return [
-      u * u * u * P0[0] + 3 * u * u * t * C0[0] + 3 * u * t * t * C1[0] + t * t * t * P1[0],
-      u * u * u * P0[1] + 3 * u * u * t * C0[1] + 3 * u * t * t * C1[1] + t * t * t * P1[1]
-    ];
+    return [u * u * u * P0[0] + 3 * u * u * t * C0[0] + 3 * u * t * t * C1[0] + t * t * t * P1[0],
+            u * u * u * P0[1] + 3 * u * u * t * C0[1] + 3 * u * t * t * C1[1] + t * t * t * P1[1]];
   }
+  var DENSE = (function () { var a = []; for (var i = 0; i <= 140; i++) a.push(cubic(i / 140)); return a; })();
+  var DLEN = (function () { var L = [0]; for (var i = 1; i < DENSE.length; i++) { var dx = DENSE[i][0] - DENSE[i - 1][0], dy = DENSE[i][1] - DENSE[i - 1][1]; L.push(L[i - 1] + Math.sqrt(dx * dx + dy * dy)); } return L; })();
+  var DTOTAL = DLEN[DLEN.length - 1];
 
-  function pathSvg(st, h) {
-    var per = Math.max(1, Math.round(st.smoothness || 6));
-    var kids = [
-      svg('path', { d: 'M' + P0[0] + ' ' + P0[1] + ' C ' + C0[0] + ' ' + C0[1] + ', ' + C1[0] + ' ' + C1[1] + ', ' + P1[0] + ' ' + P1[1],
-        fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1.2, 'stroke-dasharray': '3 3', opacity: '0.5' })
-    ];
-    for (var k = 0; k <= per; k++) {
-      var p = cubic(k / per);
-      kids.push(svg('circle', { cx: R.units.round(p[0], 1), cy: R.units.round(p[1], 1), r: 2.4, fill: 'var(--rb-accent)' }));
-    }
-    // a small layer marker, oriented along the tangent when orient is on
-    var mid = cubic(0.55), a = cubic(0.5), b = cubic(0.6);
-    var ang = st.orient ? Math.atan2(b[1] - a[1], b[0] - a[0]) * 180 / Math.PI : 0;
-    kids.push(svg('g', { transform: 'translate(' + R.units.round(mid[0], 1) + ',' + R.units.round(mid[1], 1) + ') rotate(' + R.units.round(ang, 1) + ')' }, [
-      svg('rect', { x: -7, y: -5, width: 14, height: 10, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.95' })
-    ]));
-    return svg('svg', { viewBox: '0 0 120 72', width: '100%', height: h }, kids);
+  function pointAtLen(target) {
+    if (target <= 0) return DENSE[0];
+    if (target >= DTOTAL) return DENSE[DENSE.length - 1];
+    var lo = 0, hi = DLEN.length - 1;
+    while (lo < hi - 1) { var mid = (lo + hi) >> 1; if (DLEN[mid] < target) lo = mid; else hi = mid; }
+    var seg = DLEN[hi] - DLEN[lo], f = seg > 0 ? (target - DLEN[lo]) / seg : 0;
+    return [DENSE[lo][0] + (DENSE[hi][0] - DENSE[lo][0]) * f, DENSE[lo][1] + (DENSE[hi][1] - DENSE[lo][1]) * f];
   }
+  function pointAtIndex(p) {
+    var x = p * (DENSE.length - 1);
+    if (x <= 0) return DENSE[0];
+    if (x >= DENSE.length - 1) return DENSE[DENSE.length - 1];
+    var i = Math.floor(x), f = x - i;
+    return [DENSE[i][0] + (DENSE[i + 1][0] - DENSE[i][0]) * f, DENSE[i][1] + (DENSE[i + 1][1] - DENSE[i][1]) * f];
+  }
+  function sampleAt(st, p) { return st.speed === 'arclen' ? pointAtLen(p * DTOTAL) : pointAtIndex(p); }
 
   R.tools.register({
     id: 'pathfollow',
     title: 'Path Follow',
     group: 'Physics',
     order: 11,
-    keywords: ['path', 'follow', 'dynamic sketch', 'mask', 'motion path', 'orient', 'route', 'along'],
+    keywords: ['path', 'follow', 'dynamic sketch', 'mask', 'motion path', 'orient', 'constant speed', 'arc length', 'loop', 'stagger'],
     mount: mount
   });
 
   function mount(ctx) {
-    var st = { duration: 1.5, ease: 'smooth', smoothness: 6, orient: true };
+    var st = { speed: 'arclen', ease: 'both', duration: 2, orient: true, angleOffset: 0, smoothness: 24,
+      startOffset: 0, endOffset: 100, reverse: false, loop: false, loopCount: 2, pingpong: false, stagger: 0 };
 
-    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(pathSvg(st, 90)); }
+    // ---- preview: static path + trail dots (rebuilt) + persistent marker (rAF)
+    var pathGroup = svg('g');
+    var markerDot = svg('circle', { r: 4.5, fill: 'var(--rb-accent)' });
+    var markerArrow = svg('path', { d: 'M5 0 L-3 -3 L-1 0 L-3 3 Z', fill: 'var(--rb-accent)' });
+    var markerG = svg('g', null, [markerArrow, markerDot]);
+    var stage = svg('svg', { viewBox: '0 0 120 76', width: '100%', height: '90' }, [
+      svg('rect', { x: 1, y: 1, width: 118, height: 74, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      pathGroup, markerG
+    ]);
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stage]);
 
-    var durationSlider = ui.slider({ label: 'Duration', min: 0.2, max: 6, step: 0.1, value: st.duration,
-      format: function (v) { return R.units.round(v, 1) + 's'; }, onInput: function (v) { st.duration = v; } });
-    var easeSeg = ui.segmented([{ value: 'linear', label: 'Linear' }, { value: 'smooth', label: 'Smooth' }],
-      { value: st.ease, onChange: function (v) { st.ease = v; } });
-    var qualitySlider = ui.slider({ label: 'Quality', min: 2, max: 16, step: 1, value: st.smoothness,
-      format: function (v) { return Math.round(v) + '/seg'; }, onInput: function (v) { st.smoothness = v; renderPreview(); } });
-    var orientTog = ui.toggle({ label: 'Orient along the path', value: st.orient, onChange: function (v) { st.orient = v; renderPreview(); } });
+    function rebuildPath() {
+      R.dom.clear(pathGroup);
+      var d = 'M' + P0[0] + ' ' + P0[1] + ' C ' + C0[0] + ' ' + C0[1] + ', ' + C1[0] + ' ' + C1[1] + ', ' + P1[0] + ' ' + P1[1];
+      var s0 = st.startOffset / 100, s1 = st.endOffset / 100;
+      pathGroup.appendChild(svg('path', { d: d, fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1.4, opacity: '0.4' }));
+      // equal-time trail dots: bunch in curves for even-t, even for arc-length
+      var fn = easeFnFor(st.ease);
+      for (var i = 0; i <= 10; i++) {
+        var ph = i / 10;
+        var p = s0 + fn(ph) * (s1 - s0);
+        if (st.reverse) p = s0 + (1 - fn(ph)) * (s1 - s0);
+        var pt = sampleAt(st, p);
+        pathGroup.appendChild(svg('circle', { cx: r1(pt[0]), cy: r1(pt[1]), r: 1.6, fill: 'var(--rb-accent)', opacity: '0.5' }));
+      }
+    }
+    rebuildPath();
 
-    renderPreview();
+    var raf = null, start = (window.performance && performance.now) ? performance.now() : 0, running = true;
+    function tick(now) {
+      if (!running) return;
+      var tsec = ((window.performance && performance.now) ? now : Date.now()) / 1000 - start / 1000;
+      var loops = st.loop ? Math.max(1, st.loopCount) : 1;
+      var u = (tsec % (st.duration * loops)) / st.duration;
+      var cyc = Math.floor(u); if (cyc >= loops) cyc = loops - 1;
+      var ph = u - cyc;
+      if (st.pingpong && (cyc % 2 === 1)) ph = 1 - ph;
+      var eph = easeFnFor(st.ease)(ph);
+      if (st.reverse) eph = 1 - eph;
+      var p = st.startOffset / 100 + eph * (st.endOffset / 100 - st.startOffset / 100);
+      var pt = sampleAt(st, p);
+      var ahead = sampleAt(st, Math.min(1, p + 0.01));
+      var ang = st.orient ? (Math.atan2(ahead[1] - pt[1], ahead[0] - pt[0]) * 180 / Math.PI + st.angleOffset) : 0;
+      markerArrow.setAttribute('opacity', st.orient ? '0.95' : '0');
+      markerG.setAttribute('transform', 'translate(' + r1(pt[0]) + ',' + r1(pt[1]) + ') rotate(' + r1(ang) + ')');
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+
+    // ---- controls ----------------------------------------------------------
+    var speedSeg = ui.segmented([{ value: 'arclen', label: 'Constant' }, { value: 'event', label: 'Even' }], { value: st.speed, onChange: function (v) { st.speed = v; rebuildPath(); } });
+    var easeSeg = ui.segmented([{ value: 'linear', label: 'Linear' }, { value: 'in', label: 'In' }, { value: 'out', label: 'Out' }, { value: 'both', label: 'Both' }], { value: st.ease, onChange: function (v) { st.ease = v; rebuildPath(); } });
+    var durationS = ui.slider({ label: 'Duration', min: 0.3, max: 8, step: 0.1, value: st.duration, format: function (v) { return R.units.round(v, 1) + 's'; }, onInput: function (v) { st.duration = v; } });
+    var orientTog = ui.toggle({ label: 'Orient along the path', value: st.orient, onChange: function (v) { st.orient = v; angleS.el.style.display = v ? '' : 'none'; } });
+    var angleS = ui.slider({ label: 'Angle offset', min: -180, max: 180, step: 1, value: st.angleOffset, format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { st.angleOffset = v; } });
+    var startS = ui.slider({ label: 'Start', min: 0, max: 100, step: 1, value: st.startOffset, format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { st.startOffset = v; rebuildPath(); } });
+    var endS = ui.slider({ label: 'End', min: 0, max: 100, step: 1, value: st.endOffset, format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { st.endOffset = v; rebuildPath(); } });
+    var qualityS = ui.slider({ label: 'Quality', min: 8, max: 64, step: 1, value: st.smoothness, format: function (v) { return Math.round(v); }, onInput: function (v) { st.smoothness = v; } });
+    var reverseTog = ui.toggle({ label: 'Reverse direction', value: st.reverse, onChange: function (v) { st.reverse = v; rebuildPath(); } });
+    var loopCountS = ui.numberField({ label: 'Loops', value: st.loopCount, min: 1, max: 50, step: 1, decimals: 0, onChange: function (v) { st.loopCount = v; } });
+    var pingTog = ui.toggle({ label: 'Ping-pong', value: st.pingpong, onChange: function (v) { st.pingpong = v; } });
+    var loopBox = el('div.rb-col', null, [el('div.rb-row.rb-wrap', null, [loopCountS.el]), pingTog.el]);
+    var loopTog = ui.toggle({ label: 'Loop', value: st.loop, onChange: function (v) { st.loop = v; loopBox.style.display = v ? '' : 'none'; } });
+    var staggerS = ui.numberField({ label: 'Stagger', value: st.stagger, min: 0, max: 60, step: 1, decimals: 0, onChange: function (v) { st.stagger = v; }, suffix: 'f' });
+    loopBox.style.display = 'none';
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'The first selected layer’s mask is the path; the other selected layers are baked along it. Draw the route as a mask first.' }),
+      el('div.rb-faint', { text: 'The first selected layer’s mask is the path; the other layers are baked along it. Draw the route as a mask first.' }),
       previewHost,
-      durationSlider.el,
-      ui.row('Timing', easeSeg.el),
-      qualitySlider.el,
-      orientTog.el
+      ui.row('Speed', speedSeg.el),
+      ui.row('Ease', easeSeg.el),
+      durationS.el,
+      orientTog.el, angleS.el,
+      el('div.rb-section-label', { text: 'Travel window' }),
+      startS.el, endS.el, reverseTog.el,
+      el('div.rb-section-label', { text: 'Repeat & spread' }),
+      loopTog.el, loopBox,
+      el('div.rb-row.rb-wrap', null, [staggerS.el]),
+      qualityS.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Send along path']));
-
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
     scopeText.textContent = describe(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('pathfollow.apply', st)
+      var payload = {};
+      for (var k in st) if (st.hasOwnProperty(k)) payload[k] = st[k];
+      payload.startOffset = st.startOffset / 100;
+      payload.endOffset = st.endOffset / 100;
+      payload.easeLut = easeLut(st.ease);
+      ctx.invoke('pathfollow.apply', payload)
         .then(function (res) { ctx.toast('Sent ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' along the path', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not follow the path', { kind: 'error' }); });
     }
 
-    function getState() { return { duration: st.duration, ease: st.ease, smoothness: st.smoothness, orient: st.orient }; }
+    function getState() { var o = {}; for (var k in st) if (st.hasOwnProperty(k)) o[k] = st[k]; return o; }
     function applyState(s) {
       if (!s) return;
-      if (s.duration != null) { st.duration = s.duration; durationSlider.set(s.duration); }
+      if (s.speed) { st.speed = s.speed; speedSeg.set(s.speed); }
       if (s.ease) { st.ease = s.ease; easeSeg.set(s.ease); }
-      if (s.smoothness != null) { st.smoothness = s.smoothness; qualitySlider.set(s.smoothness); }
-      if (s.orient != null) { st.orient = s.orient; orientTog.set(s.orient); }
-      renderPreview();
+      if (s.duration != null) { st.duration = s.duration; durationS.set(s.duration); }
+      if (s.orient != null) { st.orient = s.orient; orientTog.set(s.orient); angleS.el.style.display = s.orient ? '' : 'none'; }
+      if (s.angleOffset != null) { st.angleOffset = s.angleOffset; angleS.set(s.angleOffset); }
+      if (s.startOffset != null) { st.startOffset = s.startOffset; startS.set(s.startOffset); }
+      if (s.endOffset != null) { st.endOffset = s.endOffset; endS.set(s.endOffset); }
+      if (s.smoothness != null) { st.smoothness = s.smoothness; qualityS.set(s.smoothness); }
+      if (s.reverse != null) { st.reverse = s.reverse; reverseTog.set(s.reverse); }
+      if (s.loop != null) { st.loop = s.loop; loopTog.set(s.loop); loopBox.style.display = s.loop ? '' : 'none'; }
+      if (s.loopCount != null) { st.loopCount = s.loopCount; loopCountS.set(s.loopCount); }
+      if (s.pingpong != null) { st.pingpong = s.pingpong; pingTog.set(s.pingpong); }
+      if (s.stagger != null) { st.stagger = s.stagger; staggerS.set(s.stagger); }
+      rebuildPath();
     }
 
     return {
       presets: {
-        toolId: 'pathfollow',
-        get: getState,
-        set: applyState,
-        thumbFor: function (s, opts) { return pathSvg(s, (opts && opts.height) || 34); },
+        toolId: 'pathfollow', get: getState, set: applyState,
         defaults: [
-          { name: 'Glide', state: { duration: 1.5, ease: 'smooth', smoothness: 8, orient: false } },
-          { name: 'March', state: { duration: 2, ease: 'linear', smoothness: 5, orient: true } },
-          { name: 'Fly', state: { duration: 1, ease: 'smooth', smoothness: 10, orient: true } }
+          { name: 'Glide', state: { speed: 'arclen', ease: 'both', duration: 2, orient: false, reverse: false, loop: false } },
+          { name: 'March', state: { speed: 'arclen', ease: 'linear', duration: 3, orient: true, reverse: false, loop: false } },
+          { name: 'Loop', state: { speed: 'arclen', ease: 'linear', duration: 2, orient: true, loop: true, loopCount: 3, pingpong: false } },
+          { name: 'Ping-pong', state: { speed: 'arclen', ease: 'both', duration: 1.6, orient: false, loop: true, loopCount: 4, pingpong: true } }
         ]
       },
-      destroy: off
+      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
     };
   }
 
