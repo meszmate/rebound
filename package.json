@@ -37,6 +37,7 @@
     "build:figma": "node plugins/figma/build.mjs",
     "install:dev": "node tools/install-dev.mjs",
     "uninstall:dev": "node tools/install-dev.mjs --remove",
+    "deploy": "node tools/deploy-signed.mjs",
     "debug:on": "node tools/player-debug-mode.mjs --on",
     "debug:off": "node tools/player-debug-mode.mjs --off",
     "check": "npm run lint && npm run test"

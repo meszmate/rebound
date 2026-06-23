@@ -20,7 +20,12 @@ const staging = path.join(dist, 'staging');
 const zxp = path.join(dist, `rebound_${pkg.version}.zxp`);
 const cert = path.join(repoRoot, 'cert.p12');
 const password = process.env.REBOUND_CERT_PASSWORD || 'rebound-dev';
-const tsa = process.env.REBOUND_TSA || 'http://timestamp.digicert.com';
+// Timestamp authority keeps the signature valid past the certificate's own
+// expiry. Default to DigiCert's TSA for releases; set REBOUND_TSA=none (or "")
+// to sign without a timestamp, e.g. for offline local installs.
+const tsaEnv = process.env.REBOUND_TSA;
+const tsa = tsaEnv === undefined ? 'http://timestamp.digicert.com' : tsaEnv;
+const useTsa = tsa && tsa !== 'none';
 
 const INCLUDE = ['CSXS', 'client', 'host', 'shared', '.debug', 'LICENSE', 'README.md'];
 
@@ -58,12 +63,10 @@ for (const item of INCLUDE) {
 }
 
 fs.rmSync(zxp, { force: true });
+const signArgs = ['-sign', staging, zxp, cert, password];
+if (useTsa) signArgs.push('-tsa', tsa);
 try {
-  execFileSync(
-    findSigner(),
-    ['-sign', staging, zxp, cert, password, '-tsa', tsa],
-    { stdio: 'inherit' }
-  );
+  execFileSync(findSigner(), signArgs, { stdio: 'inherit' });
   fs.rmSync(staging, { recursive: true, force: true });
   console.log('\nPackaged', path.relative(repoRoot, zxp));
 } catch (err) {
