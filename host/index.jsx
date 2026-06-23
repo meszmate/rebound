@@ -9,10 +9,23 @@
  * It locates its own folder and evaluates each host module in dependency order.
  */
 (function () {
+  // Strip trailing slashes/backslashes without a regex literal: some
+  // ExtendScript builds mis-tokenize a "/" inside a regex character class
+  // (/[\\/]+$/), which aborts the whole bootstrap with a syntax error.
+  function stripTrailingSeparators(p) {
+    var s = String(p);
+    while (s.length) {
+      var last = s.charAt(s.length - 1);
+      if (last !== '/' && last !== '\\') break;
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
+
   function hostDir() {
     // Prefer the root the panel handed us (most reliable under CEP).
     if (typeof $.__rebound_root === 'string' && $.__rebound_root.length) {
-      return $.__rebound_root.replace(/[\\/]+$/, '') + '/host';
+      return stripTrailingSeparators($.__rebound_root) + '/host';
     }
     // Otherwise derive it from this file's own location.
     if ($.fileName) {

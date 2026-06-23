@@ -123,7 +123,8 @@
 
     boxes.sort(function (a, b) { return a[lo] - b[lo]; });
 
-    var sizes = boxes.map(function (b) { return b[hi] - b[lo]; });
+    var sizes = [];
+    for (var bi = 0; bi < boxes.length; bi++) sizes.push(boxes[bi][hi] - boxes[bi][lo]);
     var first = boxes[0][lo];
     var last = boxes[boxes.length - 1][hi];
 
