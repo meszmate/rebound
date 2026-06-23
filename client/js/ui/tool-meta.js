@@ -56,7 +56,8 @@
     plus: '<path d="M12 5v14M5 12h14"/>',
     check: '<path d="M4 12l5 5L20 6"/>',
     code: '<path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/>',
-    importIn: '<path d="M12 3v10M8 11l4 4 4-4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>'
+    importIn: '<path d="M12 3v10M8 11l4 4 4-4"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+    pin: '<path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>'
   };
 
   var SECTIONS = [
@@ -122,6 +123,7 @@
     separate: t('transform', ICONS.target, 'Separate position dimensions',
       'Same as right-click Separate Dimensions, but applied to every selected layer at once.'),
     link: t('transform', ICONS.link, 'Parent layers to one target'),
+    pins: t('transform', ICONS.pin, 'Add puppet mesh and rig-handle nulls'),
 
     // Layout & align
     align: t('layout', ICONS.align, 'Align layers to the comp or selection',

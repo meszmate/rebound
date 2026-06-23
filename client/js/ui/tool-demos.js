@@ -125,6 +125,19 @@
       '</svg>'
   );
 
+  // Pins: a shape with corner pins bends as one pin tugs (puppet-style warp).
+  D.pins = demo(
+    'Adds the Puppet mesh and drops <strong>rig-handle nulls</strong> at the layer’s bounding box.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<path style="fill:var(--rb-accent)" fill-opacity="0.85" d="M34 22 H86 V52 H34 Z">' +
+      '<animate attributeName="d" values="M34 22 H86 V52 H34 Z;M34 22 H86 C98 30, 98 44, 86 52 H34 Z;M34 22 H86 V52 H34 Z" keyTimes="0;0.5;1" dur="3s" repeatCount="indefinite"/>' +
+      '</path>' +
+      '<g fill="var(--rb-accent)" stroke="var(--rb-bg)" stroke-width="1">' +
+      '<circle cx="34" cy="22" r="4"/><circle cx="86" cy="22" r="4"/><circle cx="34" cy="52" r="4"/>' +
+      '<circle cx="86" cy="52" r="4"><animate attributeName="cx" values="86;94;86" keyTimes="0;0.5;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '</g></svg>'
+  );
+
   // Path Follow: a layer marker rides an S-curve, oriented along the path.
   D.pathfollow = demo(
     'Sends layers along a path you draw as a mask, with optional <strong>orient along the path</strong>.',
