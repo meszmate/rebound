@@ -32,11 +32,14 @@
     var frames = [];
     var settledFrame = null;
     for (var f = 0; f <= total; f++) {
-      frames.push({ x: x, y: y, ang: ang, s: squashS });
+      var sp = Math.sqrt(vx * vx + vy * vy);
+      var stretch = Math.min(sp * cfg.stretchSens / 1000, cfg.stretchMax);
+      frames.push({ x: x, y: y, ang: ang, s: squashS, st: stretch, va: Math.atan2(vy, vx) * 180 / Math.PI });
       for (var k = 0; k < sub; k++) {
         var damp = Math.exp(-cfg.drag * H);
         vx *= damp; vy *= damp;
         vy += cfg.gravity * H;
+        vx += cfg.windX * H; vy += cfg.windY * H;
         var nx = x + vx * H, ny = y + vy * H;
         var hit = false, impact = 0;
         if (cfg.bounce && ny > cfg.floor) {
@@ -90,8 +93,9 @@
     var fps = comp.frameRate;
     var t0 = comp.time;
     var spin = (args.spin === 'follow' || args.spin === 'roll') ? args.spin : 'off';
-    var doRot = spin !== 'off';
-    var doScale = !!args.squash;
+    var doRot = spin !== 'off' || !!args.stretch;
+    var doScale = !!args.squash || !!args.stretch;
+    if (args.motionBlur) { try { comp.motionBlur = true; } catch (e0) {} }
 
     var applied = 0, skipped = [];
     for (var i = 0; i < layers.length; i++) {
@@ -124,8 +128,12 @@
         floor: floorRel,
         wallMin: -(comp.width / 2), wallMax: comp.width / 2, ceiling: -(floorRel),
         spin: spin, spinAmount: args.spinAmount != null ? args.spinAmount : 1,
-        squash: doScale, squashStrength: args.squashStrength != null ? args.squashStrength : 12,
-        radius: radius
+        squash: !!args.squash, squashStrength: args.squashStrength != null ? args.squashStrength : 12,
+        radius: radius,
+        windX: (args.windStrength || 0) * Math.cos((args.windAngle || 0) * Math.PI / 180),
+        windY: (args.windStrength || 0) * Math.sin((args.windAngle || 0) * Math.PI / 180),
+        stretchSens: args.stretch ? (args.stretchAmt != null ? args.stretchAmt : 60) : 0,
+        stretchMax: (args.stretchAmt != null ? args.stretchAmt : 60) / 100
       };
 
       var sim = simulateThrow(cfg);
@@ -140,12 +148,13 @@
         var px = start[0] + frames[fr].x, py = start[1] + frames[fr].y;
         if (sep) { tg.property(M.positionX).setValueAtTime(t, px); tg.property(M.positionY).setValueAtTime(t, py); }
         else { pos.setValueAtTime(t, z != null ? [px, py, z] : [px, py]); }
-        if (rotProp) rotProp.setValueAtTime(t, baseRot + frames[fr].ang);
+        if (rotProp) rotProp.setValueAtTime(t, baseRot + (args.stretch ? frames[fr].va : frames[fr].ang));
         if (scaleProp) {
-          var s = frames[fr].s; if (s > 0.9) s = 0.9;
-          scaleProp.setValueAtTime(t, [baseScale[0] * (1 / (1 - s)), baseScale[1] * (1 - s)]);
+          if (args.stretch) { var stv = frames[fr].st; scaleProp.setValueAtTime(t, [baseScale[0] * (1 + stv), baseScale[1] / (1 + stv)]); }
+          else { var s = frames[fr].s; if (s > 0.9) s = 0.9; scaleProp.setValueAtTime(t, [baseScale[0] * (1 / (1 - s)), baseScale[1] * (1 - s)]); }
         }
       }
+      if (args.motionBlur) { try { layer.motionBlur = true; } catch (eMB) {} }
       applied++;
     }
     if (!applied) throw new Error('No supported layers to throw: ' + skipped.join(', '));

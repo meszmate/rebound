@@ -29,11 +29,14 @@
     var frames = [];
     var settledFrame = null;
     for (var f = 0; f <= total; f++) {
-      frames.push({ x: x, y: y, ang: ang, s: squashS });
+      var sp = Math.sqrt(vx * vx + vy * vy);
+      var stretch = Math.min(sp * cfg.stretchSens / 1000, cfg.stretchMax);
+      frames.push({ x: x, y: y, ang: ang, s: squashS, st: stretch, va: Math.atan2(vy, vx) * 180 / Math.PI });
       for (var k = 0; k < sub; k++) {
         var damp = Math.exp(-cfg.drag * H);
         vx *= damp; vy *= damp;
         vy += cfg.gravity * H;
+        vx += cfg.windX * H; vy += cfg.windY * H;
         var nx = x + vx * H, ny = y + vy * H;
         var hit = false, impact = 0;
         if (cfg.bounce && ny > cfg.floor) {
@@ -78,7 +81,11 @@
       fps: 60, duration: duration, angle: st.angle, strength: st.strength, gravity: st.gravity,
       drag: st.drag, bounce: st.bounce, e: Math.min(0.98, st.elasticity), friction: st.friction,
       bounds: st.bounds, floor: 200, wallMin: -150, wallMax: 150, ceiling: -240,
-      spin: st.spin, spinAmount: st.spinAmount, squash: st.squash, squashStrength: st.squashStrength, radius: 16
+      spin: st.spin, spinAmount: st.spinAmount, squash: st.squash, squashStrength: st.squashStrength, radius: 16,
+      windX: (st.windStrength || 0) * Math.cos((st.windAngle || 0) * Math.PI / 180),
+      windY: (st.windStrength || 0) * Math.sin((st.windAngle || 0) * Math.PI / 180),
+      stretchSens: st.stretch ? (st.stretchAmt || 60) : 0,
+      stretchMax: (st.stretchAmt || 60) / 100
     };
   }
 
@@ -135,7 +142,8 @@
 
   function mount(ctx) {
     var st = { angle: 45, strength: 700, gravity: 1400, drag: 0.5, duration: 1.8, bounce: true, elasticity: 0.6,
-      friction: 0.25, bounds: 'floor', useLayerFloor: false, spin: 'off', spinAmount: 1, squash: false, squashStrength: 12 };
+      friction: 0.25, bounds: 'floor', useLayerFloor: false, spin: 'off', spinAmount: 1, squash: false, squashStrength: 12,
+      windAngle: 0, windStrength: 0, stretch: false, stretchAmt: 50, motionBlur: false };
 
     // Live preview: static path/floor/ticks rebuilt on change, plus a marker
     // PLAYED by time so the motion accelerates and bounces like the real bake.
@@ -165,9 +173,13 @@
         var idx = t * 60; if (idx > f.length - 1) idx = f.length - 1;
         var i = Math.floor(idx), fr = idx - i, b = f[Math.min(f.length - 1, i + 1)], a = f[i];
         var x = a.x + (b.x - a.x) * fr, y = a.y + (b.y - a.y) * fr;
+        var stv = st.stretch ? (a.st || 0) : 0;
         var sq = st.squash ? (a.s || 0) : 0; if (sq > 0.8) sq = 0.8;
-        marker.setAttribute('cx', round(x)); marker.setAttribute('cy', round(y));
-        marker.setAttribute('rx', round(4.5 / (1 - sq))); marker.setAttribute('ry', round(4.5 * (1 - sq)));
+        var rx, ry, rot;
+        if (stv > 0.001) { rx = 4.5 * (1 + stv); ry = 4.5 / (1 + stv); rot = a.va || 0; }
+        else { rx = 4.5 / (1 - sq); ry = 4.5 * (1 - sq); rot = 0; }
+        marker.setAttribute('rx', round(rx)); marker.setAttribute('ry', round(ry));
+        marker.setAttribute('transform', 'translate(' + round(x) + ',' + round(y) + ') rotate(' + round(rot) + ')');
       }
       raf = requestAnimationFrame(play);
     }
@@ -200,6 +212,13 @@
     var squashTog = ui.toggle({ label: 'Squash on impact', value: st.squash, onChange: function (v) { st.squash = v; squashStrengthS.el.style.display = v ? '' : 'none'; renderPreview(); } });
     squashStrengthS.el.style.display = 'none';
 
+    var stretchAmtS = ui.slider({ label: 'Stretch amount', min: 0, max: 100, step: 1, value: st.stretchAmt, format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { st.stretchAmt = v; renderPreview(); } });
+    var stretchTog = ui.toggle({ label: 'Stretch with speed (smear)', value: st.stretch, onChange: function (v) { st.stretch = v; stretchAmtS.el.style.display = v ? '' : 'none'; renderPreview(); } });
+    stretchAmtS.el.style.display = 'none';
+    var windAngleS = ui.slider({ label: 'Wind angle', min: -180, max: 180, step: 1, value: st.windAngle, format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { st.windAngle = v; renderPreview(); } });
+    var windStrengthS = ui.slider({ label: 'Wind strength', min: 0, max: 2000, step: 10, value: st.windStrength, format: function (v) { return Math.round(v); }, onInput: function (v) { st.windStrength = v; renderPreview(); } });
+    var mblurTog = ui.toggle({ label: 'Motion blur', value: st.motionBlur, onChange: function (v) { st.motionBlur = v; } });
+
     renderPreview();
 
     ctx.body.appendChild(el('div.rb-col', null, [
@@ -210,9 +229,13 @@
       el('div.rb-row.rb-wrap', null, [autofit]),
       el('div.rb-section-label', { text: 'Bounce' }),
       bounceTog.el, bounceBox,
-      el('div.rb-section-label', { text: 'Extras' }),
+      el('div.rb-section-label', { text: 'Wind' }),
+      windAngleS.el, windStrengthS.el,
+      el('div.rb-section-label', { text: 'Style' }),
       ui.row('Spin', spinSeg.el), spinAmtS.el,
-      squashTog.el, squashStrengthS.el
+      squashTog.el, squashStrengthS.el,
+      stretchTog.el, stretchAmtS.el,
+      mblurTog.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -244,6 +267,11 @@
       if (s.squash != null) { st.squash = s.squash; squashTog.set(s.squash); squashStrengthS.el.style.display = s.squash ? '' : 'none'; }
       if (s.squashStrength != null) { st.squashStrength = s.squashStrength; squashStrengthS.set(s.squashStrength); }
       if (s.useLayerFloor != null) { st.useLayerFloor = s.useLayerFloor; floorTog.set(s.useLayerFloor); }
+      if (s.windAngle != null) { st.windAngle = s.windAngle; windAngleS.set(s.windAngle); }
+      if (s.windStrength != null) { st.windStrength = s.windStrength; windStrengthS.set(s.windStrength); }
+      if (s.stretch != null) { st.stretch = s.stretch; stretchTog.set(s.stretch); stretchAmtS.el.style.display = s.stretch ? '' : 'none'; }
+      if (s.stretchAmt != null) { st.stretchAmt = s.stretchAmt; stretchAmtS.set(s.stretchAmt); }
+      if (s.motionBlur != null) { st.motionBlur = s.motionBlur; mblurTog.set(s.motionBlur); }
       renderPreview();
     }
 
