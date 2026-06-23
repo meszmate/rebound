@@ -218,6 +218,36 @@
     return tl;
   }
 
+  // Find a layer by exact name (the user-chosen custom pin marker).
+  function findLayerByName(comp, name) {
+    var nm = '' + name;
+    for (var i = 1; i <= comp.numLayers; i++) { if (comp.layer(i).name === nm) return comp.layer(i); }
+    return null;
+  }
+  // Custom-layer pins: stamp a copy of the marker layer at every pin vertex.
+  function stampLayerPins(comp, marker, verts, args, master) {
+    var made = 0, pct = (args.pinLayerScale != null ? args.pinLayerScale : 100);
+    var max = Math.min(verts.length, 80);
+    for (var i = 0; i < max; i++) {
+      var dup;
+      try { dup = marker.duplicate(); } catch (e) { continue; }
+      try { dup.comment = TAG; } catch (e0) {}
+      try { dup.name = 'Pin ' + (i + 1); } catch (e1) {}
+      try { dup.property(M.transform).property(M.position).setValue(verts[i]); } catch (e2) {}
+      if (pct !== 100) {
+        try {
+          var sp = dup.property(M.transform).property(M.scale);
+          var cur = sp.value, nv = [cur[0] * pct / 100, cur[1] * pct / 100];
+          if (cur.length > 2) nv.push(cur[2] * pct / 100);
+          sp.setValue(nv);
+        } catch (e3) {}
+      }
+      if (master) { try { dup.parent = master; } catch (e4) {} }
+      made++;
+    }
+    return made;
+  }
+
   function build(args) {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
@@ -281,7 +311,15 @@
         for (var i = 0; i < verts.length; i++) { var hx = bb.cx + (verts[i][0] - bb.cx) * 1.18, hy = bb.cy + (verts[i][1] - bb.cy) * 1.18; addLine(root, verts[i], [hx, hy], accent, sw * 0.6, 50); addEllipse(root, hx, hy, mr * 0.55, null, accent, sw * 0.6, 80); }
         return lay;
       });
-      if (args.pins) gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
+      if (args.pins) {
+        if (args.pinSource === 'layer' && args.pinLayerName) {
+          var marker = findLayerByName(comp, args.pinLayerName);
+          if (marker && marker !== src) { try { made += stampLayerPins(comp, marker, verts, args, master); } catch (e) {} }
+          else gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
+        } else {
+          gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
+        }
+      }
 
       // measurement text (static snapshots at build time)
       if (args.edges) for (var e = 0; e < verts.length; e++) { var a0 = verts[e], a1 = verts[(e + 1) % verts.length]; var mx = (a0[0] + a1[0]) / 2, my = (a0[1] + a1[1]) / 2; var len = Math.round(Math.sqrt((a1[0] - a0[0]) * (a1[0] - a0[0]) + (a1[1] - a0[1]) * (a1[1] - a0[1]))); gen(function () { return addText(comp, len + 'px', [mx + (mx - bb.cx) * 0.18, my + (my - bb.cy) * 0.18], label, fs); }); }

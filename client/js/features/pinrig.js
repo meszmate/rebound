@@ -79,7 +79,10 @@
     if (st.coords) for (var q = 0; q < verts.length; q++) kids.push(txt(verts[q][0] + (verts[q][0] - CX) * 0.18, verts[q][1] + (verts[q][1] - CY) * 0.18 - 2, Math.round(verts[q][0]) + ',' + Math.round(verts[q][1]), lab, fs * 0.85));
     if (st.bezier) for (var z = 0; z < verts.length; z++) { var hx = verts[z][0] + (verts[z][0] - CX) * 0.18, hy = verts[z][1] + (verts[z][1] - CY) * 0.18; kids.push(svg('line', { x1: r1(verts[z][0]), y1: r1(verts[z][1]), x2: r1(hx), y2: r1(hy), stroke: ac, 'stroke-width': sw * 0.6, 'stroke-opacity': '0.5' })); kids.push(svg('circle', { cx: r1(hx), cy: r1(hy), r: mr * 0.55, fill: 'none', stroke: ac, 'stroke-width': sw * 0.6 })); }
 
-    if (st.pins) for (var p = 0; p < verts.length; p++) kids.push(pinShape(verts[p][0], verts[p][1], mr * 1.15, st, ac, sc));
+    if (st.pins) for (var p = 0; p < verts.length; p++) {
+      if (st.pinSource === 'layer') kids.push(layerPinMarker(verts[p][0], verts[p][1], mr * 1.6, st, sc));
+      else kids.push(pinShape(verts[p][0], verts[p][1], mr * 1.15, st, ac, sc));
+    }
 
     return svg('svg', { viewBox: '0 0 160 110', width: '100%', height: h }, kids);
   }
@@ -99,7 +102,8 @@
       edges: true, coords: false, angles: false,
       grid: false, circles: false, margin: false, dotgrid: true,
       controller: 'master',
-      pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40 };
+      pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40,
+      pinSource: 'shape', pinLayerName: '', pinLayerScale: 100 };
   }
 
   // Render one pin in the chosen style (its own stroke + fill colors).
@@ -113,6 +117,18 @@
     if (st.pinShape === 'cross') return svg('path', { d: 'M' + r1(cx - r) + ' ' + cy + 'H' + r1(cx + r) + 'M' + cx + ' ' + r1(cy - r) + 'V' + r1(cy + r), stroke: ac, 'stroke-width': sw, fill: 'none', 'stroke-linecap': 'round' });
     if (st.pinShape === 'diamond') return svg('path', { d: 'M' + cx + ' ' + r1(cy - r) + 'L' + r1(cx + r) + ' ' + cy + 'L' + cx + ' ' + r1(cy + r) + 'L' + r1(cx - r) + ' ' + cy + 'Z', fill: fill, stroke: ac, 'stroke-width': sw });
     return svg('circle', { cx: cx, cy: cy, r: r, fill: fill, stroke: ac, 'stroke-width': sw });
+  }
+
+  // Placeholder marker shown when pins are a custom layer: a small picture frame
+  // glyph, so the preview signals "your own layer is stamped here".
+  function layerPinMarker(cx, cy, r, st, sc) {
+    var ac = st.accent;
+    var sw = r1((st.pinStroke != null ? st.pinStroke : 1) * sc);
+    return svg('g', null, [
+      svg('rect', { x: r1(cx - r), y: r1(cy - r), width: r1(2 * r), height: r1(2 * r), rx: r1(r * 0.28), fill: 'var(--rb-bg)', stroke: ac, 'stroke-width': sw }),
+      svg('circle', { cx: r1(cx - r * 0.32), cy: r1(cy - r * 0.32), r: r1(r * 0.22), fill: ac }),
+      svg('path', { d: 'M' + r1(cx - r * 0.7) + ' ' + r1(cy + r * 0.6) + 'L' + r1(cx - r * 0.05) + ' ' + r1(cy - r * 0.1) + 'L' + r1(cx + r * 0.3) + ' ' + r1(cy + r * 0.25) + 'L' + r1(cx + r * 0.7) + ' ' + r1(cy - r * 0.15), fill: 'none', stroke: ac, 'stroke-width': r1(sw * 0.8), 'stroke-linejoin': 'round', 'stroke-linecap': 'round' })
+    ]);
   }
 
   function mount(ctx) {
@@ -143,6 +159,24 @@
     roundS.el.style.display = st.pinShape === 'square' ? '' : 'none';
     fillRow.style.display = st.pinFill ? '' : 'none';
 
+    // Marker mode: a built-in vector shape, or a copy of one of your own layers
+    // (image, icon, precomp) stamped at every pin.
+    var markerSeg = ui.segmented([{ value: 'shape', label: 'Shape' }, { value: 'layer', label: 'Custom layer' }],
+      { value: st.pinSource, onChange: function (v) { st.pinSource = v; syncMarker(); renderPreview(); } });
+    var shapeCtrlWrap = el('div.rb-col', null, [ui.row('Shape', pinShapeSeg.el), pinStrokeS.el, strokeRow, roundS.el, pinFillTog.el, fillRow]);
+    var markerName = el('div.rb-faint', { text: markerLabel(st.pinLayerName) });
+    var useMarkerBtn = el('button.rb-btn.is-ghost', { onclick: function () {
+      if (!ctx.invoke) { ctx.toast('Open this in After Effects to pick a layer', { kind: 'info' }); return; }
+      ctx.invoke('pinrig.read', {}).then(function (r) {
+        if (r && r.ok) { st.pinLayerName = r.name; markerName.textContent = markerLabel(r.name); ctx.toast('Pin marker: “' + r.name + '”', { kind: 'info' }); }
+        else ctx.toast('Select the layer to use as the marker first', { kind: 'warn' });
+      }).catch(function () {});
+    } }, ['Use selected layer']);
+    var markerScaleS = ui.slider({ label: 'Marker scale', min: 10, max: 300, step: 5, value: st.pinLayerScale, format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { st.pinLayerScale = v; } });
+    var layerCtrlWrap = el('div.rb-col', null, [el('div.rb-row', null, [useMarkerBtn]), markerName, markerScaleS.el]);
+    function syncMarker() { var isL = st.pinSource === 'layer'; shapeCtrlWrap.style.display = isL ? 'none' : ''; layerCtrlWrap.style.display = isL ? '' : 'none'; }
+    syncMarker();
+
     function tog(labelText, key) { return ui.toggle({ label: labelText, value: st[key], onChange: function (v) { st[key] = v; renderPreview(); } }); }
     var pinsTog = tog('Pins', 'pins'), bezTog = tog('Bezier handles', 'bezier'), selTog = tog('Selection bounds', 'selbounds'), bboxTog = tog('Bounding box', 'bbox');
     var edgesTog = tog('Edge lengths', 'edges'), coordsTog = tog('Vertex coords', 'coords'), anglesTog = tog('Vertex angles', 'angles');
@@ -160,8 +194,8 @@
       el('div.rb-row.rb-wrap', null, [pinsTog.el, bboxTog.el]),
       el('div.rb-row.rb-wrap', null, [bezTog.el, selTog.el]),
       el('div.rb-section-label', { text: 'Pin style' }),
-      ui.row('Shape', pinShapeSeg.el),
-      pinStrokeS.el, strokeRow, roundS.el, pinFillTog.el, fillRow,
+      ui.row('Marker', markerSeg.el),
+      shapeCtrlWrap, layerCtrlWrap,
       el('div.rb-section-label', { text: 'Measurements' }),
       el('div.rb-row.rb-wrap', null, [edgesTog.el, coordsTog.el, anglesTog.el]),
       el('div.rb-section-label', { text: 'Guides' }),
@@ -206,6 +240,7 @@
       scaleS.set(st.scale); infoTog.set(st.infographic);
       pinShapeSeg.set(st.pinShape); pinStrokeS.set(st.pinStroke); roundS.set(st.pinRound); pinFillTog.set(st.pinFill);
       roundS.el.style.display = st.pinShape === 'square' ? '' : 'none'; fillRow.style.display = st.pinFill ? '' : 'none';
+      markerSeg.set(st.pinSource); markerScaleS.set(st.pinLayerScale); markerName.textContent = markerLabel(st.pinLayerName); syncMarker();
       pinsTog.set(st.pins); bezTog.set(st.bezier); selTog.set(st.selbounds); bboxTog.set(st.bbox);
       edgesTog.set(st.edges); coordsTog.set(st.coords); anglesTog.set(st.angles);
       gridTog.set(st.grid); circTog.set(st.circles); marginTog.set(st.margin); dotTog.set(st.dotgrid);
@@ -230,6 +265,7 @@
     };
   }
 
+  function markerLabel(name) { return name ? ('Marker layer: “' + name + '”') : 'Select your marker layer, then click Use selected.'; }
   function over(o) { var s = defaultState(); for (var k in o) if (o.hasOwnProperty(k)) s[k] = o[k]; return s; }
   function mergeDefaults(s) { var d = defaultState(); for (var k in s) if (s && s.hasOwnProperty(k)) d[k] = s[k]; return d; }
 
