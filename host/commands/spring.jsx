@@ -102,20 +102,40 @@
     return { properties: propsTouched, segments: segments };
   }
 
-  // Make a keyframe a smooth, hand-editable CONTINUOUS bezier: bezier
-  // interpolation, not auto (so the two tangent handles stay where set and are
-  // draggable in the Graph Editor), with linked/continuous tangents through the
-  // point so the curve flows without a kink.
-  function smoothKey(prop, ki) {
+  // Make a keyframe a smooth, hand-editable CONTINUOUS bezier with LONG tangent
+  // handles, the buttery feel: bezier interpolation, not auto (so the two
+  // handles stay where set and are draggable in the Graph Editor), continuous
+  // tangents through the point so the curve flows without a kink, then the
+  // handles are lengthened by raising temporal-ease influence on both sides.
+  //
+  // Short (default 33%) handles make the arcs between peaks look pinched; longer
+  // handles round them into a smooth, Apple-like curve. We keep AE's
+  // continuous-computed speed (slope) and only stretch the influence, so the
+  // direction is unchanged but the handles reach further out.
+  function smoothKey(prop, ki, influence) {
+    influence = influence > 0 ? influence : 80;
+    if (influence > 95) influence = 95; // leave headroom so beziers stay valid
     try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
     try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
     try { prop.setTemporalContinuousAtKey(ki, true); } catch (e2) {}
+    // Lengthen both handles: reuse the continuous-computed speed, raise influence.
+    try {
+      var inE = prop.keyInTemporalEase(ki);
+      var outE = prop.keyOutTemporalEase(ki);
+      var nin = [];
+      var nout = [];
+      for (var d = 0; d < inE.length; d++) {
+        nin.push(new KeyframeEase(inE[d].speed, influence));
+        nout.push(new KeyframeEase(outE[d].speed, influence));
+      }
+      prop.setTemporalEaseAtKey(ki, nin, nout);
+    } catch (e3) {}
   }
 
   // Place one keyframe per turning point inside a segment (endpoints already
   // exist), then give every key in the segment a continuous bezier handle, so
   // the overshoot is a smooth, editable curve with the fewest possible keys.
-  function bakeSparseSegment(prop, pr, pts, dims) {
+  function bakeSparseSegment(prop, pr, pts, dims, influence) {
     removeKeysBetween(prop, pr.ta, pr.tb);
     var dt = pr.tb - pr.ta;
     for (var j = 0; j < pts.length; j++) {
@@ -134,7 +154,7 @@
     var eps = 1e-5;
     for (var ki = 1; ki <= prop.numKeys; ki++) {
       var kt = prop.keyTime(ki);
-      if (kt >= pr.ta - eps && kt <= pr.tb + eps) smoothKey(prop, ki);
+      if (kt >= pr.ta - eps && kt <= pr.tb + eps) smoothKey(prop, ki, influence);
     }
   }
 
@@ -142,6 +162,9 @@
   function bakeSparse(args) {
     var pts = args.points;
     if (!pts || pts.length < 2) throw new Error('No ease data supplied.');
+    // Handle length (temporal-ease influence, %) controls how long the bezier
+    // tangents reach: longer = smoother, more buttery arcs between peaks.
+    var influence = (args.handleLength > 0) ? args.handleLength : 80;
     var comp = util.activeComp();
     var props = comp.selectedProperties;
     var propsTouched = 0;
@@ -166,7 +189,7 @@
       for (var k = 0; k < pairs.length; k++) {
         var pr = pairs[k];
         if (pr.tb - pr.ta <= 0) continue;
-        bakeSparseSegment(p, pr, pts, dims);
+        bakeSparseSegment(p, pr, pts, dims, influence);
         segments++;
       }
       propsTouched++;
