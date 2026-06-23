@@ -71,6 +71,90 @@ describe('overshoot.autoDuration', () => {
   });
 });
 
+describe('overshoot.crossingTimes / extremaAndCrossings', () => {
+  it('crossings land where the shape is zero (k*PI/omega)', () => {
+    const freq = 2, decay = 5;
+    const s = overshoot.dampedSine(freq, decay);
+    const cr = overshoot.crossingTimes(freq, decay, 1.2);
+    expect(cr.length).toBeGreaterThan(0);
+    for (const t of cr) expect(Math.abs(s(t))).toBeLessThan(1e-9);
+  });
+
+  it('combines extrema and crossings, sorted and de-duped', () => {
+    const ts = overshoot.extremaAndCrossings(2, 5, 1.2);
+    for (let i = 1; i < ts.length; i++) expect(ts[i]).toBeGreaterThan(ts[i - 1]);
+    // every extremum and every crossing is present
+    const ex = overshoot.extremaTimes(2, 5, 1.2);
+    const cr = overshoot.crossingTimes(2, 5, 1.2);
+    expect(ts.length).toBe(ex.length + cr.length);
+  });
+});
+
+describe('overshoot.dampedSineDeriv', () => {
+  it('matches a numeric derivative of the shape', () => {
+    const s = overshoot.dampedSine(3, 4);
+    const sp = overshoot.dampedSineDeriv(3, 4);
+    const h = 1e-6;
+    for (const t of [0.05, 0.2, 0.4, 0.7]) {
+      const num = (s(t + h) - s(t - h)) / (2 * h);
+      expect(sp(t)).toBeCloseTo(num, 4);
+    }
+  });
+});
+
+describe('overshoot.fitAnchors fidelity', () => {
+  // Cubic Hermite between two anchors using their true slopes.
+  function hermite(a, b, t) {
+    const h = b.t - a.t;
+    const u = (t - a.t) / h;
+    const u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * a.s
+      + (u3 - 2 * u2 + u) * h * a.sp
+      + (-2 * u3 + 3 * u2) * b.s
+      + (u3 - u2) * h * b.sp;
+  }
+
+  it('quarter-cycle anchors + true slopes reconstruct the curve within ~1%', () => {
+    const freq = 2, decay = 6;
+    const s = overshoot.dampedSine(freq, decay);
+    const anchors = overshoot.fitAnchors(freq, decay, 0);
+    let maxErr = 0;
+    for (let i = 0; i < anchors.length - 1; i++) {
+      const a = anchors[i], b = anchors[i + 1];
+      for (let k = 0; k <= 20; k++) {
+        const t = a.t + (b.t - a.t) * (k / 20);
+        maxErr = Math.max(maxErr, Math.abs(hermite(a, b, t) - s(t)));
+      }
+    }
+    // Peak amplitude is ~0.6; staying within 0.02 absolute is ~2% of the peak,
+    // visually indistinguishable from the true curve.
+    expect(maxErr).toBeLessThan(0.02);
+  });
+
+  it('is dramatically more faithful than extrema-only baking', () => {
+    const freq = 2, decay = 6;
+    const s = overshoot.dampedSine(freq, decay);
+    // extrema-only with true slopes (slopes are ~0 there): big sag between peaks
+    const ex = [{ t: 0, s: 0, sp: overshoot.dampedSineDeriv(freq, decay)(0) }]
+      .concat(overshoot.extremaTimes(freq, decay, overshoot.autoDuration(decay)).map((t) => ({ t, s: s(t), sp: 0 })));
+    function maxErrOf(anchors) {
+      let m = 0;
+      for (let i = 0; i < anchors.length - 1; i++) {
+        const a = anchors[i], b = anchors[i + 1], h = b.t - a.t;
+        for (let k = 0; k <= 20; k++) {
+          const u = k / 20, u2 = u * u, u3 = u2 * u;
+          const v = (2 * u3 - 3 * u2 + 1) * a.s + (u3 - 2 * u2 + u) * h * a.sp
+            + (-2 * u3 + 3 * u2) * b.s + (u3 - u2) * h * b.sp;
+          m = Math.max(m, Math.abs(v - s(a.t + h * u)));
+        }
+      }
+      return m;
+    }
+    const fit = overshoot.fitAnchors(freq, decay, 0);
+    expect(maxErrOf(fit)).toBeLessThan(maxErrOf(ex) / 2);
+  });
+});
+
 describe('overshoot.followThroughAnchors', () => {
   it('begins at the landing (0,0) and ends near settled', () => {
     const a = overshoot.followThroughAnchors(2, 6, 0);

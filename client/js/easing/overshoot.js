@@ -58,6 +58,62 @@
     return out;
   }
 
+  // Derivative s'(t) = e^{-decay t}(omega*cos(omega t) - decay*sin(omega t)).
+  // The true temporal slope at each baked key; pinning it makes the cubic
+  // between keys hug the real curve instead of approximating it.
+  function dampedSineDeriv(freq, decay) {
+    var omega = 2 * PI * freq;
+    return function (t) {
+      if (t < 0) return 0;
+      return Math.exp(-decay * t) * (omega * Math.cos(omega * t) - decay * Math.sin(omega * t));
+    };
+  }
+
+  // Times (seconds) where the shape crosses zero (passes the target) within
+  // (0, dur): sin(omega t) = 0 => t = k*PI/omega. These are the STEEP mid-points
+  // between peaks and valleys; baking a key there (with its true slope) keeps the
+  // descent/ascent faithful, not just the turning points.
+  function crossingTimes(freq, decay, dur) {
+    var omega = 2 * PI * freq;
+    var out = [];
+    for (var k = 1; ; k++) {
+      var t = k * PI / omega;
+      if (t >= dur) break;
+      out.push(t);
+      if (out.length > 256) break;
+    }
+    return out;
+  }
+
+  // Sorted, de-duped union of extrema and zero-crossings in (0, dur): a key at
+  // every quarter-cycle, so each cubic segment spans a monotonic arc the bezier
+  // can match closely.
+  function extremaAndCrossings(freq, decay, dur) {
+    var all = extremaTimes(freq, decay, dur).concat(crossingTimes(freq, decay, dur));
+    all.sort(function (a, b) { return a - b; });
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      if (!out.length || all[i] - out[out.length - 1] > 1e-6) out.push(all[i]);
+    }
+    return out;
+  }
+
+  // Faithful anchor set for baking: { t, s, sp } at t=0, every quarter-cycle
+  // point, and the window end, where s is the shape value and sp its slope. The
+  // host bakes value = base + velocity*amp*s and sets each key's tangent to
+  // base' + velocity*amp*sp, so the keyframed curve matches the math.
+  function fitAnchors(freq, decay, dur) {
+    if (!(dur > 0)) dur = autoDuration(decay);
+    var s = dampedSine(freq, decay);
+    var sp = dampedSineDeriv(freq, decay);
+    var times = [0].concat(extremaAndCrossings(freq, decay, dur));
+    var last = times[times.length - 1];
+    if (dur - last > 1e-4) times.push(dur);
+    var out = [];
+    for (var i = 0; i < times.length; i++) out.push({ t: times[i], s: s(times[i]), sp: sp(times[i]) });
+    return out;
+  }
+
   // How long to bake for: until the envelope decays below ~0.8% of the start,
   // clamped to a sane window. Low decay never fully settles, so we cap it.
   function autoDuration(decay) {
@@ -84,7 +140,11 @@
 
   return {
     dampedSine: dampedSine,
+    dampedSineDeriv: dampedSineDeriv,
     extremaTimes: extremaTimes,
+    crossingTimes: crossingTimes,
+    extremaAndCrossings: extremaAndCrossings,
+    fitAnchors: fitAnchors,
     autoDuration: autoDuration,
     followThroughAnchors: followThroughAnchors
   };
