@@ -15,9 +15,12 @@
 
   R.easing = R.easing || {};
 
-  R.easing.applyCurve = function (ctx, curveDef, label) {
+  // modeOverride ('keys' | 'expression') wins over the global Settings choice,
+  // so a tool/tile/keybind can force a mode; omit it to follow Settings.
+  R.easing.applyCurve = function (ctx, curveDef, label, modeOverride) {
     var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};
-    var expr = s.applyMode === 'expression';
+    var mode = (modeOverride === 'expression' || modeOverride === 'keys') ? modeOverride : s.applyMode;
+    var expr = mode === 'expression';
     var method = expr ? 'ease.remap' : 'ease.bakeSparse';
     var handleLength = (s.handleLength > 0) ? s.handleLength : 45;
     var args = expr

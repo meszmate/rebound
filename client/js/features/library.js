@@ -337,20 +337,35 @@
   // shortcut. Applying eases the selected keyframes with that exact curve.
   R.presets.homeActions = function () {
     var user = (R.disk.read('user-presets', { items: [] }).items) || [];
-    var hl = (R.settings && R.settings.load) ? R.settings.load().handleLength : 45;
-    if (!(hl > 0)) hl = 45;
+    var s = (R.settings && R.settings.load) ? R.settings.load() : {};
+    var hl = (s.handleLength > 0) ? s.handleLength : 45;
+    var defMode = (s.applyMode === 'expression') ? 'expression' : 'keys';
     return (R.presets.defaults || []).concat(user).map(function (p) {
-      // Overshoot curves (elastic) bake to a few editable keyframes (visible in
-      // the Graph Editor); monotonic curves apply as native temporal ease.
-      var invoke = R.easing.sampler.strategy(p.curve) === 'bake'
-        ? { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(p.curve), handleLength: hl } }
-        : { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } };
-      return {
+      // Overshoot curves (elastic) can apply EITHER as a few editable keyframes
+      // OR as a live remap expression; the tile/keybind carries both datasets and
+      // an "Apply as" choice (default from Settings). Monotonic curves have no
+      // expression form, so they stay native temporal ease with no mode choice.
+      var bake = R.easing.sampler.strategy(p.curve) === 'bake';
+      var action = {
         id: 'easepreset-' + p.id, label: p.name, toolId: 'ease',
         group: p.builtin ? 'Easing presets' : 'Your presets', kind: 'apply', display: 'text',
         desc: (p.builtin ? 'Easing preset: ' : 'Your saved preset: ') + p.name + (p.collection && !p.builtin ? ' (' + p.collection + ')' : ''),
-        invoke: invoke
+        invoke: bake
+          ? { method: 'ease.applyMode', args: {
+              mode: defMode,
+              points: R.easing.sampler.sparseSamples(p.curve),
+              factors: R.easing.sampler.bakeFactors(p.curve, 256),
+              handleLength: hl
+            } }
+          : { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } }
       };
+      if (bake) {
+        action.config = [{ arg: 'mode', label: 'Apply as', type: 'select', options: [
+          { value: 'keys', label: 'Keyframes' },
+          { value: 'expression', label: 'Expression' }
+        ] }];
+      }
+      return action;
     });
   };
 })(window.Rebound = window.Rebound || {});
