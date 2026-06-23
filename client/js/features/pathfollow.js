@@ -51,14 +51,9 @@
     var seg = DLEN[hi] - DLEN[lo], f = seg > 0 ? (target - DLEN[lo]) / seg : 0;
     return [DENSE[lo][0] + (DENSE[hi][0] - DENSE[lo][0]) * f, DENSE[lo][1] + (DENSE[hi][1] - DENSE[lo][1]) * f];
   }
-  function pointAtIndex(p) {
-    var x = p * (DENSE.length - 1);
-    if (x <= 0) return DENSE[0];
-    if (x >= DENSE.length - 1) return DENSE[DENSE.length - 1];
-    var i = Math.floor(x), f = x - i;
-    return [DENSE[i][0] + (DENSE[i + 1][0] - DENSE[i][0]) * f, DENSE[i][1] + (DENSE[i + 1][1] - DENSE[i][1]) * f];
-  }
-  function sampleAt(st, p) { return st.speed === 'arclen' ? pointAtLen(p * DTOTAL) : pointAtIndex(p); }
+  // Always constant-speed (arc-length): an even pace through curves is what
+  // users want, and the only thing that read as "doing nothing" was the toggle.
+  function sampleAt(st, p) { return pointAtLen(p * DTOTAL); }
 
   R.tools.register({
     id: 'pathfollow',
@@ -123,9 +118,8 @@
     raf = requestAnimationFrame(tick);
 
     // ---- controls ----------------------------------------------------------
-    var speedSeg = ui.segmented([{ value: 'arclen', label: 'Constant' }, { value: 'event', label: 'Even' }], { value: st.speed, onChange: function (v) { st.speed = v; rebuildPath(); } });
     var easeSeg = ui.segmented([{ value: 'linear', label: 'Linear' }, { value: 'in', label: 'In' }, { value: 'out', label: 'Out' }, { value: 'both', label: 'Both' }], { value: st.ease, onChange: function (v) { st.ease = v; rebuildPath(); } });
-    var durationS = ui.slider({ label: 'Duration', min: 0.3, max: 8, step: 0.1, value: st.duration, format: function (v) { return R.units.round(v, 1) + 's'; }, onInput: function (v) { st.duration = v; } });
+    var durationS = ui.slider({ label: 'Duration', min: 0.3, max: 8, step: 0.1, value: st.duration, format: function (v) { return R.units.round(v, 1) + 's / pass'; }, onInput: function (v) { st.duration = v; } });
     var orientTog = ui.toggle({ label: 'Orient along the path', value: st.orient, onChange: function (v) { st.orient = v; angleS.el.style.display = v ? '' : 'none'; } });
     var angleS = ui.slider({ label: 'Angle offset', min: -180, max: 180, step: 1, value: st.angleOffset, format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { st.angleOffset = v; } });
     var startS = ui.slider({ label: 'Start', min: 0, max: 100, step: 1, value: st.startOffset, format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { st.startOffset = v; rebuildPath(); } });
@@ -138,11 +132,11 @@
     var loopTog = ui.toggle({ label: 'Loop', value: st.loop, onChange: function (v) { st.loop = v; loopBox.style.display = v ? '' : 'none'; } });
     var staggerS = ui.numberField({ label: 'Stagger', value: st.stagger, min: 0, max: 60, step: 1, decimals: 0, onChange: function (v) { st.stagger = v; }, suffix: 'f' });
     loopBox.style.display = 'none';
+    var advanced = el('details.rb-disclosure', null, [el('summary', { text: 'Advanced' }), el('div.rb-col', null, [qualityS.el])]);
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'The first selected layer’s mask is the path; the other layers are baked along it. Draw the route as a mask first.' }),
+      el('div.rb-faint', { text: 'Draw your route as a mask, then select that layer first and shift-select the layers to send. They travel the mask at a constant speed. Tip: select only the masked layer to send it along its own path.' }),
       previewHost,
-      ui.row('Speed', speedSeg.el),
       ui.row('Ease', easeSeg.el),
       durationS.el,
       orientTog.el, angleS.el,
@@ -151,14 +145,28 @@
       el('div.rb-section-label', { text: 'Repeat & spread' }),
       loopTog.el, loopBox,
       el('div.rb-row.rb-wrap', null, [staggerS.el]),
-      qualityS.el
+      advanced
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Send along path']));
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+
+    // Read the actual route (the first selected layer's mask) so the scope text
+    // tells the user exactly what will happen, not just a layer count.
+    function refreshScope(sel) {
+      scopeText.textContent = describe(sel);
+      if (!ctx.invoke) return;
+      ctx.invoke('pathfollow.read', {}).then(function (r) {
+        if (!r) return;
+        if (!r.ok) scopeText.textContent = r.reason === 'none' ? 'Select the masked layer, then the layers to send' : ('“' + (r.layerName || 'Layer') + '” has no mask, draw a path on it');
+        else if (r.self) scopeText.textContent = 'Self-follow: “' + r.layerName + '” rides its own mask';
+        else if (r.targets > 0) scopeText.textContent = 'Route: “' + r.maskName + '” mask, sending ' + r.targets + ' layer' + (r.targets === 1 ? '' : 's');
+        else scopeText.textContent = 'Route ready, now also select the layers to move';
+      }).catch(function () {});
+    }
+    var off = ctx.onSelection(refreshScope);
+    refreshScope(ctx.getSelection());
 
     function doApply() {
       var payload = {};
@@ -174,7 +182,6 @@
     function getState() { var o = {}; for (var k in st) if (st.hasOwnProperty(k)) o[k] = st[k]; return o; }
     function applyState(s) {
       if (!s) return;
-      if (s.speed) { st.speed = s.speed; speedSeg.set(s.speed); }
       if (s.ease) { st.ease = s.ease; easeSeg.set(s.ease); }
       if (s.duration != null) { st.duration = s.duration; durationS.set(s.duration); }
       if (s.orient != null) { st.orient = s.orient; orientTog.set(s.orient); angleS.el.style.display = s.orient ? '' : 'none'; }

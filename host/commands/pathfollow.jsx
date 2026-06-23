@@ -171,5 +171,21 @@
     return { applied: applied, skipped: skipped, points: pts.length };
   }
 
+  // Echo the resolved route so the panel can explain what will happen.
+  function read() {
+    var comp = util.activeComp();
+    var layers = comp.selectedLayers;
+    if (!layers.length) return { ok: false, reason: 'none' };
+    var ref = layers[0];
+    var parade = null;
+    try { parade = ref.property('ADBE Mask Parade'); } catch (e) { parade = null; }
+    if (!parade || parade.numProperties < 1) return { ok: false, reason: 'nomask', layerName: ref.name };
+    var mask = parade.property(1);
+    var pts = 0;
+    try { pts = mask.property('ADBE Mask Shape').value.vertices.length; } catch (e2) { pts = 0; }
+    return { ok: true, maskName: mask.name, points: pts, layerName: ref.name, targets: layers.length > 1 ? layers.length - 1 : 0, self: layers.length === 1 };
+  }
+
   R.register('pathfollow.apply', apply, 'Rebound: Path Follow');
+  R.register('pathfollow.read', read);
 })();
