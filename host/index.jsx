@@ -105,6 +105,7 @@
   load('commands/pathfollow.jsx');
   load('commands/pins.jsx');
   load('commands/pinrig.jsx');
+  load('commands/backdrop.jsx');
   load('commands/autocrop.jsx');
   load('commands/scatter.jsx');
   load('commands/bake.jsx');

@@ -125,6 +125,23 @@
       '</svg>'
   );
 
+  // Backdrop: a dot texture drifts; some dots pulse to suggest a live backdrop.
+  D.backdrop = demo(
+    'Generates a custom <strong>textured background</strong> and stylize effects (echo, radial blur, aberration).',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<g fill="var(--rb-accent)">' +
+      (function () {
+        var s = '';
+        for (var y = 10; y < 72; y += 12) for (var x = 10; x < 120; x += 12) {
+          var d = ((x + y) % 24 === 0);
+          s += '<circle cx="' + x + '" cy="' + y + '" r="2.4" fill-opacity="' + (d ? '0.85' : '0.3') + '">' +
+            (d ? '<animate attributeName="r" values="2.4;3.6;2.4" dur="2.4s" begin="' + ((x + y) % 5 * 0.2) + 's" repeatCount="indefinite"/>' : '') + '</circle>';
+        }
+        return s;
+      })() +
+      '</g></svg>'
+  );
+
   // Pin Rig (construction overlay): a mark gets a bounding box, grid, and pins.
   D.pinrig = demo(
     'Builds a <strong>construction overlay</strong> on your artwork: pins, bounds, guides and measurements in one theme.',

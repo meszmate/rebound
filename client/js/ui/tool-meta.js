@@ -141,6 +141,7 @@
     precompose: t('layout', ICONS.stack, 'Nest layers into a new comp'),
 
     // Generators
+    backdrop: t('generate', ICONS.grid, 'Make a textured background and stylize effects'),
     multiply: t('generate', ICONS.stack, 'Duplicate into a progressive stack'),
     radial: t('generate', ICONS.orbit, 'Duplicate into a ring'),
     echo: t('generate', ICONS.copy, 'Add an optical echo trail'),
