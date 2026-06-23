@@ -10,11 +10,11 @@
   (CSXS 9.0) is the floor; it ships with AE 2019+ and supports the CEF
   features (Node.js integration, file access) Rebound relies on.
 
-  CEFCommandLine flags:
-    --enable-nodejs               give the panel a Node.js runtime (preset
-                                  + settings files are read/written directly)
-    --allow-file-access-from-files  let the panel load local assets/icons
-    --disable-pinch               stop trackpad pinch from zooming the panel
+  CEFCommandLine flags (declared per extension below):
+    enable-nodejs               gives the panel a Node.js runtime (preset
+                                and settings files are read/written directly)
+    allow-file-access-from-files  lets the panel load local assets/icons
+    disable-pinch               stops trackpad pinch from zooming the panel
 -->
 <ExtensionManifest Version="9.0"
                    ExtensionBundleId="com.meszmate.rebound"
