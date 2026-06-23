@@ -69,10 +69,12 @@
       startOffset: 0, endOffset: 100, reverse: false, loop: false, loopCount: 2, pingpong: false, stagger: 0 };
 
     // ---- preview: static path + trail dots (rebuilt) + persistent marker (rAF)
+    // The marker is a rectangle (with a front notch) so orientation and the
+    // angle offset are clearly visible as it banks through the path.
     var pathGroup = svg('g');
-    var markerDot = svg('circle', { r: 4.5, fill: 'var(--rb-accent)' });
-    var markerArrow = svg('path', { d: 'M5 0 L-3 -3 L-1 0 L-3 3 Z', fill: 'var(--rb-accent)' });
-    var markerG = svg('g', null, [markerArrow, markerDot]);
+    var markerRect = svg('rect', { x: -8, y: -5.5, width: 16, height: 11, rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': '0.9' });
+    var markerArrow = svg('path', { d: 'M8 0 L3 -3.5 L3 3.5 Z', fill: 'var(--rb-bg)' });
+    var markerG = svg('g', null, [markerRect, markerArrow]);
     var stage = svg('svg', { viewBox: '0 0 120 76', width: '100%', height: '90' }, [
       svg('rect', { x: 1, y: 1, width: 118, height: 74, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
       pathGroup, markerG
@@ -110,8 +112,7 @@
       var p = st.startOffset / 100 + eph * (st.endOffset / 100 - st.startOffset / 100);
       var pt = sampleAt(st, p);
       var ahead = sampleAt(st, Math.min(1, p + 0.01));
-      var ang = st.orient ? (Math.atan2(ahead[1] - pt[1], ahead[0] - pt[0]) * 180 / Math.PI + st.angleOffset) : 0;
-      markerArrow.setAttribute('opacity', st.orient ? '0.95' : '0');
+      var ang = st.orient ? (Math.atan2(ahead[1] - pt[1], ahead[0] - pt[0]) * 180 / Math.PI + st.angleOffset) : st.angleOffset;
       markerG.setAttribute('transform', 'translate(' + r1(pt[0]) + ',' + r1(pt[1]) + ') rotate(' + r1(ang) + ')');
       raf = requestAnimationFrame(tick);
     }
