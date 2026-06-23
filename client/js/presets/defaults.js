@@ -20,6 +20,19 @@
     };
   }
 
+  // A Penner curve that overshoots/oscillates (elastic) and so can't be a single
+  // cubic-bezier; it applies by baking samples to keyframes, like a spring.
+  function pp(id, name, collection, pennerName, tags) {
+    return {
+      id: id,
+      name: name,
+      collection: collection,
+      builtin: true,
+      tags: tags || [],
+      curve: { type: 'penner', name: pennerName }
+    };
+  }
+
   var presets = [
     p('linear', 'Linear', 'Basic', 0, 0, 1, 1, ['linear', 'constant']),
 
@@ -53,7 +66,12 @@
 
     p('back-in', 'Back In', 'Back', 0.36, 0, 0.66, -0.56, ['anticipate', 'overshoot', 'in']),
     p('back-out', 'Back Out', 'Back', 0.34, 1.56, 0.64, 1, ['overshoot', 'out']),
-    p('back-inout', 'Back In Out', 'Back', 0.68, -0.6, 0.32, 1.6, ['overshoot', 'inout'])
+    p('back-inout', 'Back In Out', 'Back', 0.68, -0.6, 0.32, 1.6, ['overshoot', 'inout']),
+
+    // Elastic oscillates past the target and rings out, so it bakes to keyframes.
+    pp('elastic-in', 'Elastic In', 'Elastic', 'elasticIn', ['overshoot', 'elastic', 'in']),
+    pp('elastic-out', 'Elastic Out', 'Elastic', 'elasticOut', ['overshoot', 'elastic', 'out']),
+    pp('elastic-inout', 'Elastic In Out', 'Elastic', 'elasticInOut', ['overshoot', 'elastic', 'inout'])
   ];
 
   R.presets = R.presets || {};

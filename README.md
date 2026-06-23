@@ -87,28 +87,26 @@ in [docs/IR.md](docs/IR.md).
 
 ## Status
 
-Active early development, but already broad: **46 tools** ship today (including
-**Import**, the Figma/Illustrator bridge), reached through a searchable,
-keyboard-first **Home launcher** (grouped into goal-shaped sections with
-favorites + recents), and a **live Preview Stage** that loops the easing/spring
-motion on a sample shape or text, so you see what a curve does before you apply
-it. Built on a fully unit-tested easing/spring engine, a shared IR contract, and
-a clean panel↔host bridge.
+Active early development, but already broad: **58 tools** ship today (including
+**Import**, the Figma/Illustrator/Photoshop bridge), reached through a
+searchable, keyboard-first **Home launcher** (grouped into goal-shaped sections
+with favorites + recents), and a **live Preview Stage** that loops the
+easing/spring motion on a sample shape or text, so you see what a curve does
+before you apply it. Built on a fully unit-tested easing/spring engine, a shared
+IR contract, and a clean panel↔host bridge.
 
 | Group | Tools |
 | --- | --- |
 | **Easing** | Ease · Library · Velocity · Copy Ease · Smooth · Bake |
-| **Springs** | Spring |
-| **Physics** | Recoil · Drift · Bounce · Motion (orbit/spin/look-at) · Follow · Lean · Kinetic |
-| **Transform** | Anchor · Reset · Nullify · Separate · Link |
-| **Layout** | Align · Distribute · Arrange · Flip · Grids · Composition · Precompose |
-| **Timing** | Stagger · Sequence · Trim · Reverse · Fade · Keyframes |
-| **Generators** | Multiply · Radial · Echo · Vignette |
-| **Shapes** | Shapes · Trim Paths · Break · Text Break |
+| **Springs & physics** | Spring · Recoil · Drift · Bounce · Motion (orbit/spin/look-at) · Follow · Lean · Kinetic · Squash & Stretch · Throw · Path Follow |
+| **Timing** | Stagger · Sequence · Trim · Reverse · Fade · Keyframes · Retime · Clone |
+| **Transform & rig** | Anchor · Reset · Nullify · Separate · Link · Pins · Autocrop |
+| **Layout & align** | Align · Distribute · Arrange · Flip · Grids · Composition · Precompose |
+| **Generators** | Multiply · Radial · Echo · Vignette · Scatter · Expressions |
+| **Shapes & paths** | Shapes · Trim Paths · Break · Text Break |
 | **Color** | Color · Palette · Stroke · Gradient |
-| **Convert** | Import (Figma / Illustrator / `.rbir` to native layers) |
-| **Organization** | Tags |
-| **Help** | Demo |
+| **Convert & import** | Import (Figma / Illustrator / Photoshop / `.rbir` to native layers) |
+| **Organize & help** | Tags · Rename · Scripts · Share · Demo |
 
 The panel UI is verified in a browser; the ExtendScript host is reviewed against
 Adobe's API and best exercised live in After Effects (see install/testing

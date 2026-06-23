@@ -251,6 +251,18 @@
     }
 
     function apply(preset) {
+      // Overshooting/oscillating curves (elastic, spring) can't be a single
+      // temporal ease, so bake them to keyframes like the Spring tool does.
+      if (R.easing.sampler.strategy(preset.curve) === 'bake') {
+        var factors = R.easing.sampler.bakeFactors(preset.curve, 256);
+        ctx.invoke('bake.factors', { factors: factors })
+          .then(function (res) {
+            ctx.toast('Baked ' + preset.name + ' onto ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' });
+            ctx.refreshSelection();
+          })
+          .catch(function (err) { ctx.toast(err.message || 'Could not apply preset', { kind: 'error' }); });
+        return;
+      }
       ctx.invoke('ease.apply', { curve: preset.curve, scope: scope, applyToAll: applyToAll })
         .then(function (res) {
           ctx.toast('Applied ' + preset.name + ' to ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' });
@@ -330,11 +342,16 @@
   R.presets.homeActions = function () {
     var user = (R.disk.read('user-presets', { items: [] }).items) || [];
     return (R.presets.defaults || []).concat(user).map(function (p) {
+      // Bake-mode curves (elastic) embed a precomputed factor table so the
+      // one-click tile applies them exactly like the Library tool does.
+      var invoke = R.easing.sampler.strategy(p.curve) === 'bake'
+        ? { method: 'bake.factors', args: { factors: R.easing.sampler.bakeFactors(p.curve, 256) } }
+        : { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } };
       return {
         id: 'easepreset-' + p.id, label: p.name, toolId: 'ease',
         group: p.builtin ? 'Easing presets' : 'Your presets', kind: 'apply', display: 'text',
         desc: (p.builtin ? 'Easing preset: ' : 'Your saved preset: ') + p.name + (p.collection && !p.builtin ? ' (' + p.collection + ')' : ''),
-        invoke: { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } }
+        invoke: invoke
       };
     });
   };
