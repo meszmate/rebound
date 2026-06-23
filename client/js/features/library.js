@@ -337,11 +337,13 @@
   // shortcut. Applying eases the selected keyframes with that exact curve.
   R.presets.homeActions = function () {
     var user = (R.disk.read('user-presets', { items: [] }).items) || [];
+    var hl = (R.settings && R.settings.load) ? R.settings.load().handleLength : 80;
+    if (!(hl > 0)) hl = 80;
     return (R.presets.defaults || []).concat(user).map(function (p) {
       // Overshoot curves (elastic) bake to a few editable keyframes (visible in
       // the Graph Editor); monotonic curves apply as native temporal ease.
       var invoke = R.easing.sampler.strategy(p.curve) === 'bake'
-        ? { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(p.curve) } }
+        ? { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(p.curve), handleLength: hl } }
         : { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } };
       return {
         id: 'easepreset-' + p.id, label: p.name, toolId: 'ease',

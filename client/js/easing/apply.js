@@ -19,9 +19,10 @@
     var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};
     var expr = s.applyMode === 'expression';
     var method = expr ? 'ease.remap' : 'ease.bakeSparse';
+    var handleLength = (s.handleLength > 0) ? s.handleLength : 80;
     var args = expr
       ? { factors: R.easing.sampler.bakeFactors(curveDef, 256) }
-      : { points: R.easing.sampler.sparseSamples(curveDef) };
+      : { points: R.easing.sampler.sparseSamples(curveDef), handleLength: handleLength };
     return ctx.invoke(method, args)
       .then(function (res) {
         var n = (res && res.applied != null) ? res.applied : (res ? res.properties : 0);
