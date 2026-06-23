@@ -123,7 +123,7 @@
     separate: t('transform', ICONS.target, 'Separate position dimensions',
       'Same as right-click Separate Dimensions, but applied to every selected layer at once.'),
     link: t('transform', ICONS.link, 'Parent layers to one target'),
-    pins: t('transform', ICONS.pin, 'Add puppet mesh and rig-handle nulls'),
+    pins: t('transform', ICONS.pin, 'Rig puppet pins to controller nulls and sliders'),
 
     // Layout & align
     align: t('layout', ICONS.align, 'Align layers to the comp or selection',

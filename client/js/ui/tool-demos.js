@@ -125,17 +125,21 @@
       '</svg>'
   );
 
-  // Pins: a shape with corner pins bends as one pin tugs (puppet-style warp).
+  // Pin Rig: a controller null moves and the puppet mesh corner follows it.
   D.pins = demo(
-    'Adds the Puppet mesh and drops <strong>rig-handle nulls</strong> at the layer’s bounding box.',
+    'Binds Puppet pins to <strong>controller nulls</strong>, animate the nulls and the mesh follows.',
     '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
-      '<path style="fill:var(--rb-accent)" fill-opacity="0.85" d="M34 22 H86 V52 H34 Z">' +
-      '<animate attributeName="d" values="M34 22 H86 V52 H34 Z;M34 22 H86 C98 30, 98 44, 86 52 H34 Z;M34 22 H86 V52 H34 Z" keyTimes="0;0.5;1" dur="3s" repeatCount="indefinite"/>' +
+      '<path style="fill:var(--rb-accent)" fill-opacity="0.18" stroke="var(--rb-accent)" stroke-opacity="0.5" d="M30 26 L80 26 L80 52 L30 52 Z">' +
+      '<animate attributeName="d" values="M30 26 L80 26 L80 52 L30 52 Z;M30 26 L96 14 L80 52 L30 52 Z;M30 26 L80 26 L80 52 L30 52 Z" dur="3s" repeatCount="indefinite"/>' +
       '</path>' +
-      '<g fill="var(--rb-accent)" stroke="var(--rb-bg)" stroke-width="1">' +
-      '<circle cx="34" cy="22" r="4"/><circle cx="86" cy="22" r="4"/><circle cx="34" cy="52" r="4"/>' +
-      '<circle cx="86" cy="52" r="4"><animate attributeName="cx" values="86;94;86" keyTimes="0;0.5;1" dur="3s" repeatCount="indefinite"/></circle>' +
-      '</g></svg>'
+      '<line x1="80" y1="26" x2="94" y2="18" stroke="var(--rb-accent)" stroke-width="1" stroke-dasharray="2 2" stroke-opacity="0.6">' +
+      '<animate attributeName="x1" values="80;96;80" dur="3s" repeatCount="indefinite"/><animate attributeName="y1" values="26;14;26" dur="3s" repeatCount="indefinite"/>' +
+      '<animate attributeName="x2" values="94;110;94" dur="3s" repeatCount="indefinite"/><animate attributeName="y2" values="18;6;18" dur="3s" repeatCount="indefinite"/></line>' +
+      '<g fill="var(--rb-accent)"><circle cx="30" cy="26" r="2.6"/><circle cx="30" cy="52" r="2.6"/><circle cx="80" cy="52" r="2.6"/>' +
+      '<circle cx="80" cy="26" r="2.6"><animate attributeName="cx" values="80;96;80" dur="3s" repeatCount="indefinite"/><animate attributeName="cy" values="26;14;26" dur="3s" repeatCount="indefinite"/></circle></g>' +
+      '<rect x="91" y="15" width="6" height="6" fill="none" stroke="var(--rb-accent)" stroke-width="1.4">' +
+      '<animateTransform attributeName="transform" type="translate" values="0 0;16 -12;0 0" dur="3s" repeatCount="indefinite"/></rect>' +
+      '</svg>'
   );
 
   // Path Follow: a layer marker rides an S-curve, oriented along the path.
