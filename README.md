@@ -87,7 +87,7 @@ in [docs/IR.md](docs/IR.md).
 
 ## Status
 
-Active early development, but already broad: **59 tools** ship today (including
+Active early development, but already broad: **60 tools** ship today (including
 **Import**, the Figma/Illustrator/Photoshop bridge), reached through a
 searchable, keyboard-first **Home launcher** (grouped into goal-shaped sections
 with favorites + recents), and a **live Preview Stage** that loops the
@@ -102,7 +102,7 @@ IR contract, and a clean panel↔host bridge.
 | **Timing** | Stagger · Sequence · Trim · Reverse · Fade · Keyframes · Retime · Clone |
 | **Transform & rig** | Anchor · Reset · Nullify · Separate · Link · Puppet Rig · Autocrop |
 | **Layout & align** | Align · Distribute · Arrange · Flip · Grids · Pin Rig · Composition · Precompose |
-| **Generators** | Multiply · Radial · Echo · Vignette · Scatter · Expressions |
+| **Generators** | Multiply · Radial · Echo · Vignette · Scatter · Expressions · Backdrop |
 | **Shapes & paths** | Shapes · Trim Paths · Break · Text Break |
 | **Color** | Color · Palette · Stroke · Gradient |
 | **Convert & import** | Import (Figma / Illustrator / Photoshop / `.rbir` to native layers) |
