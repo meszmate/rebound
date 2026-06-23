@@ -94,6 +94,31 @@ $.__rebound.util = (function () {
     return [Math.round(c[0] * 255), Math.round(c[1] * 255), Math.round(c[2] * 255)];
   }
 
+  // Make a keyframe a smooth, hand-editable CONTINUOUS bezier with LONG tangent
+  // handles (the buttery feel): bezier interpolation (not auto, so the two
+  // handles stay where set and are draggable in the Graph Editor), continuous
+  // tangents through the point so the curve flows without a kink, then the
+  // handles are lengthened by raising temporal-ease influence on both sides.
+  // Keeps AE's continuous-computed speed and only stretches the influence.
+  function smoothTemporalKey(prop, ki, influence) {
+    influence = influence > 0 ? influence : 80;
+    if (influence > 95) influence = 95; // leave headroom so beziers stay valid
+    try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
+    try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
+    try { prop.setTemporalContinuousAtKey(ki, true); } catch (e2) {}
+    try {
+      var inE = prop.keyInTemporalEase(ki);
+      var outE = prop.keyOutTemporalEase(ki);
+      var nin = [];
+      var nout = [];
+      for (var d = 0; d < inE.length; d++) {
+        nin.push(new KeyframeEase(inE[d].speed, influence));
+        nout.push(new KeyframeEase(outE[d].speed, influence));
+      }
+      prop.setTemporalEaseAtKey(ki, nin, nout);
+    } catch (e3) {}
+  }
+
   // Remove every layer in the comp whose name matches, so a tool that drops a
   // named helper layer can replace it instead of piling up duplicates. Returns
   // the number removed. Highest index first so indices stay valid.
@@ -119,6 +144,7 @@ $.__rebound.util = (function () {
     resolveProperty: resolveProperty,
     layerByIndex: layerByIndex,
     color255: color255,
+    smoothTemporalKey: smoothTemporalKey,
     removeLayersNamed: removeLayersNamed
   };
 })();
