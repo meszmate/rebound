@@ -121,14 +121,16 @@
     // Land on the configurable Home: the user's own one-click action grid.
     showHome();
 
-    // CEP/CEF sometimes does not repaint or relayout when After Effects first
-    // shows or docks the panel: SVG icons stay unpainted and the grid keeps the
-    // stale (floating) width, leaving dead space on the right. Force the
-    // compositor to invalidate the whole tree on load and on every resize/dock.
+    // CEP/CEF can paint the panel blank on first show or after docking: inline
+    // SVG icons stay unpainted (and the grid can keep a stale width) until the
+    // user interacts, which rebuilds the DOM. Repaint on every relevant signal,
+    // plus timed kicks on load until it sticks, so it is right before any click.
     window.addEventListener('resize', scheduleRepaint);
+    window.addEventListener('focus', scheduleRepaint);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) scheduleRepaint(); });
+    var kicks = 0;
+    var kickTimer = setInterval(function () { nudgeRepaint(); if (++kicks >= 12) clearInterval(kickTimer); }, 250);
     nudgeRepaint();
-    setTimeout(nudgeRepaint, 80);
-    setTimeout(nudgeRepaint, 400);
 
     R.ui.toast('Rebound ready', { kind: 'info', duration: 1400 });
   }
@@ -141,13 +143,14 @@
   function nudgeRepaint() {
     var a = document.getElementById('rb-app');
     if (!a) return;
-    // Reading layout forces a synchronous reflow; toggling a compositing layer
-    // forces CEF to repaint the subtree it had cached.
-    a.style.transform = 'translateZ(0)';
+    // Force a full relayout + repaint so CEF re-rasterizes inline SVG icons its
+    // GPU compositor left blank on the first paint. A synchronous display toggle
+    // never paints the hidden state, so there is no visible flash.
+    var d = a.style.display;
+    a.style.display = 'none';
     void a.offsetHeight;
-    var clear = function () { a.style.transform = ''; };
-    requestAnimationFrame(clear);
-    setTimeout(clear, 30); // fallback if rAF is throttled
+    a.style.display = d || '';
+    void a.offsetHeight;
   }
 
   function icon(inner) {

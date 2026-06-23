@@ -47,6 +47,7 @@
             <Parameter>--enable-nodejs</Parameter>
             <Parameter>--allow-file-access-from-files</Parameter>
             <Parameter>--disable-pinch</Parameter>
+            <Parameter>--disable-gpu-compositing</Parameter>
           </CEFCommandLine>
         </Resources>
         <Lifecycle>
