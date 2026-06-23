@@ -42,10 +42,10 @@
 
   R.tools.register({
     id: 'pins',
-    title: 'Pin Rig',
+    title: 'Puppet Rig',
     group: 'Transform',
     order: 6,
-    keywords: ['pin', 'rig', 'puppet', 'bind', 'null', 'controller', 'slider', 'link', 'joystick', 'rigging', 'character'],
+    keywords: ['puppet', 'pin', 'rig', 'bind', 'null', 'controller', 'slider', 'link', 'joystick', 'rigging', 'character'],
     mount: mount
   });
 

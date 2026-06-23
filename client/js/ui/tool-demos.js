@@ -125,6 +125,28 @@
       '</svg>'
   );
 
+  // Pin Rig (construction overlay): a mark gets a bounding box, grid, and pins.
+  D.pinrig = demo(
+    'Builds a <strong>construction overlay</strong> on your artwork: pins, bounds, guides and measurements in one theme.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<g stroke="var(--rb-accent)" stroke-width="0.6" stroke-opacity="0.3" fill="none">' +
+      '<line x1="42" y1="16" x2="42" y2="56"/><line x1="60" y1="16" x2="60" y2="56"/><line x1="78" y1="16" x2="78" y2="56"/>' +
+      '<line x1="42" y1="16" x2="78" y2="16"/><line x1="42" y1="36" x2="78" y2="36"/><line x1="42" y1="56" x2="78" y2="56"/></g>' +
+      '<rect x="42" y="16" width="36" height="40" fill="none" stroke="var(--rb-accent)" stroke-width="1" stroke-opacity="0.55"/>' +
+      '<path d="M60 16 L78 26 L78 46 L60 56 L42 46 L42 26 Z" fill="var(--rb-accent)" fill-opacity="0.12" stroke="var(--rb-accent)" stroke-width="1"/>' +
+      '<g fill="var(--rb-accent)" stroke="var(--rb-bg)" stroke-width="0.8">' +
+      '<circle cx="60" cy="16" r="3"><animate attributeName="r" values="0;3;3" keyTimes="0;0.2;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="78" cy="26" r="3"><animate attributeName="r" values="0;0;3;3" keyTimes="0;0.15;0.3;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="78" cy="46" r="3"><animate attributeName="r" values="0;0;3;3" keyTimes="0;0.25;0.4;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="60" cy="56" r="3"><animate attributeName="r" values="0;0;3;3" keyTimes="0;0.35;0.5;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="42" cy="46" r="3"><animate attributeName="r" values="0;0;3;3" keyTimes="0;0.45;0.6;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="42" cy="26" r="3"><animate attributeName="r" values="0;0;3;3" keyTimes="0;0.55;0.7;1" dur="3s" repeatCount="indefinite"/></circle>' +
+      '</g>' +
+      '<g fill="var(--rb-accent)" font-size="5" font-family="monospace" text-anchor="middle" opacity="0.8">' +
+      '<text x="88" y="36">40</text><text x="69" y="13">20</text></g>' +
+      '</svg>'
+  );
+
   // Pin Rig: a controller null moves and the puppet mesh corner follows it.
   D.pins = demo(
     'Binds Puppet pins to <strong>controller nulls</strong>, animate the nulls and the mesh follows.',

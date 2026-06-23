@@ -123,7 +123,7 @@
     separate: t('transform', ICONS.target, 'Separate position dimensions',
       'Same as right-click Separate Dimensions, but applied to every selected layer at once.'),
     link: t('transform', ICONS.link, 'Parent layers to one target'),
-    pins: t('transform', ICONS.pin, 'Rig puppet pins to controller nulls and sliders'),
+    pins: t('transform', ICONS.pin, 'Bind puppet pins to controller nulls and sliders'),
 
     // Layout & align
     align: t('layout', ICONS.align, 'Align layers to the comp or selection',
@@ -132,6 +132,8 @@
       'The Align panel can only distribute along one axis. Rebound packs the selection into a true rows-and-columns grid.'),
     flip: t('layout', ICONS.align, 'Mirror layers across an axis',
       'Scaling to -100% flips around the anchor and shifts the layer. Rebound mirrors across the layer or comp axis and compensates so it stays put.'),
+    pinrig: t('layout', ICONS.target, 'Build a construction overlay: pins, guides, and measurements',
+      'A logo/typography construction rig: generates pins, bounding box, bezier handles, edge/coord/angle measurements, grid/circle/margin guides, and a dot field in one custom color theme, all editable and removable.'),
     grids: t('layout', ICONS.layout, 'Add guide grids and overlays',
       'AE guides are single draggable lines. Rebound drops a full thirds, golden, column, or safe-area overlay as one non-rendering guide layer.'),
     comp: t('layout', ICONS.layout, 'Edit the composition settings',
