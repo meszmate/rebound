@@ -21,9 +21,7 @@
 
   function mount(ctx) {
     var elasticity = 0.7;
-    var gravity = 4;
     var maxBounces = 4;
-    var eachKey = false;
 
     // Preview the REAL motion: a gravitational ball-bounce (rise to target, then
     // a series of decreasing rebounds settling onto it), not a spring overshoot.
@@ -68,65 +66,48 @@
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, { getCurve: previewCurve, property: 'position', sample: 'shape', duration: 1600 });
     function updateReadout() {
-      // Gravity sets how fast the bounce plays (higher gravity, faster), so it
-      // drives the preview pacing; elasticity and max bounces shape the curve.
       editor.setCurve(previewCurve());
-      preview.setDuration(Math.round(R.units.clamp(6400 / gravity, 600, 3200)));
-      preview.setReadout('Elasticity ' + Math.round(elasticity * 100) + '% · gravity ' + R.units.round(gravity, 1));
+      preview.setReadout('Elasticity ' + Math.round(elasticity * 100) + '% · ' + Math.round(maxBounces) + ' bounce' + (Math.round(maxBounces) === 1 ? '' : 's'));
     }
 
     var elasticitySlider = ui.slider({ label: 'Elasticity', min: 0, max: 1, step: 0.01, value: elasticity,
       format: function (v) { return Math.round(v * 100) + '%'; }, onInput: function (v) { elasticity = v; updateReadout(); } });
-    var gravitySlider = ui.slider({ label: 'Gravity', min: 0.5, max: 20, step: 0.1, value: gravity,
-      onInput: function (v) { gravity = v; updateReadout(); } });
     var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 24, step: 1, decimals: 0,
       width: '100%', onChange: function (v) { maxBounces = v; updateReadout(); } });
-    var eachKeyToggle = ui.toggle({ label: 'After every keyframe', value: eachKey,
-      title: 'On: the value rebounds after every keyframe it passes. Off: only after the final keyframe (a single ball drop).',
-      onChange: function (v) { eachKey = v; } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-faint', { text: 'Rebounds the value off its target after a keyframe, each bounce smaller. Non-destructive, your keyframes stay.' }),
+      el('div.rb-faint', { text: 'Select two or more keyframes; Bounce bakes a real ball-bounce into the transition, each rebound smaller. Undo reverts it.' }),
       elasticitySlider.el,
-      gravitySlider.el,
-      bouncesField.el,
-      eachKeyToggle.el
+      bouncesField.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply bounce']));
 
     var off = ctx.onSelection(function (sel) {
       scopeText.textContent = sel && sel.hasComp
-        ? (sel.totalSelectedKeys >= 2 ? sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies') : 'Select a keyframed property')
+        ? (sel.totalSelectedKeys >= 2 ? sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies') : 'Select 2+ keyframes')
         : 'Open a composition';
     });
     scopeText.textContent = '';
 
     function doApply() {
-      ctx.invoke('bounce.apply', { elasticity: elasticity, gravity: gravity, maxBounces: maxBounces, eachKey: eachKey })
-        .then(function (res) { ctx.toast('Bounce on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' }); ctx.refreshSelection(); })
+      var factors = R.easing.sampler.bakeFactors(previewCurve(), 256);
+      ctx.invoke('bake.factors', { factors: factors })
+        .then(function (res) { ctx.toast('Baked bounce onto ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Bounce', { kind: 'error' }); });
-    }
-    function doRemove() {
-      ctx.invoke('bounce.remove', {})
-        .then(function (res) { ctx.toast('Removed Bounce from ' + res.cleared + ' propert' + (res.cleared === 1 ? 'y' : 'ies'), { kind: 'info' }); })
-        .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
     function getState() {
-      return { elasticity: elasticity, gravity: gravity, maxBounces: maxBounces, eachKey: eachKey };
+      return { elasticity: elasticity, maxBounces: maxBounces };
     }
     function applyState(s) {
       if (!s) return;
       if (s.elasticity != null) { elasticity = s.elasticity; elasticitySlider.set(s.elasticity); }
-      if (s.gravity != null) { gravity = s.gravity; gravitySlider.set(s.gravity); }
       if (s.maxBounces != null) { maxBounces = s.maxBounces; bouncesField.set(s.maxBounces); }
-      if (s.eachKey != null) { eachKey = s.eachKey; eachKeyToggle.set(s.eachKey); }
       updateReadout();
     }
 
@@ -138,10 +119,10 @@
         set: applyState,
         previewFor: function (s) { return makeBounce(s.elasticity, s.maxBounces); },
         defaults: [
-          { name: 'Rubber Ball', state: { elasticity: 0.8, gravity: 6, maxBounces: 6, eachKey: false } },
-          { name: 'Heavy Drop', state: { elasticity: 0.4, gravity: 12, maxBounces: 3, eachKey: false } },
-          { name: 'Floaty', state: { elasticity: 0.9, gravity: 2, maxBounces: 8, eachKey: false } },
-          { name: 'Every Key', state: { elasticity: 0.6, gravity: 5, maxBounces: 4, eachKey: true } }
+          { name: 'Rubber Ball', state: { elasticity: 0.8, maxBounces: 6 } },
+          { name: 'Heavy Drop', state: { elasticity: 0.4, maxBounces: 3 } },
+          { name: 'Floaty', state: { elasticity: 0.9, maxBounces: 8 } },
+          { name: 'Single Bounce', state: { elasticity: 0.6, maxBounces: 2 } }
         ]
       },
       destroy: function () { off(); preview.destroy(); editor.destroy(); }
