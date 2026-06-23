@@ -71,15 +71,18 @@
   }
 
   // ---- Baked follow-through (the same motion as the expression, as keyframes).
-  // Exactly mirrors the expression: baked = value(t) + velocity*amp*s(t), where
-  // value(t) is the property's ORIGINAL interpolated value (sampled before any
-  // mutation) and s(t) = sin(2*PI*freq*t)*exp(-decay*t). Keyframes land only at
-  // the EXACT peaks/valleys of s(t), so a clean handful of editable keys, not
-  // one per frame. velocity is the real per-dimension speed of arrival, read
-  // just before the keyframe (matching velocityAtTime(key.time - fd/10)).
+  // baked = value(t) + velocity*amp*s(t), where value(t) is the property's
+  // ORIGINAL interpolated value (sampled before mutation) and
+  // s(t) = sin(2*PI*freq*t)*exp(-decay*t).
   //
-  // NOTE: the extrema phase math and autoDuration are duplicated, validated, in
-  // client/js/easing/overshoot.js (unit-tested). Keep the two in sync.
+  // To look IDENTICAL to the curve (not a rough approximation) with few editable
+  // keys, we place a keyframe at every quarter-cycle (each peak/valley AND each
+  // zero-crossing) and set each key's bezier tangent to the curve's TRUE slope
+  // (base' + velocity*amp*s'). With the right slopes the cubic between keys is a
+  // Hermite that hugs the math; the handles stay draggable.
+  //
+  // NOTE: the anchor + slope math is duplicated, validated, in
+  // client/js/easing/overshoot.js (unit-tested fidelity). Keep the two in sync.
   var PI = Math.PI;
 
   function asArray(v) {
@@ -111,8 +114,8 @@
     }
   }
 
-  // Exact extrema times of s(t)=sin(omega t)exp(-dec t) in (0, dur), the peaks
-  // and valleys: tan(omega t) = omega/dec => omega t = atan2(omega,dec)+k*PI.
+  // Extrema (peaks/valleys) of s(t)=sin(omega t)exp(-dec t) in (0, dur):
+  // tan(omega t) = omega/dec => omega t = atan2(omega,dec)+k*PI.
   function extremaTimes(omega, dec, dur) {
     var phase = Math.atan2(omega, dec); // in (0, PI/2)
     var out = [];
@@ -124,11 +127,44 @@
     return out;
   }
 
+  // Zero-crossings (target passes) of s(t) in (0, dur): sin(omega t)=0 => k*PI/omega.
+  function crossingTimes(omega, dur) {
+    var out = [];
+    for (var k = 1; k <= 256; k++) {
+      var tt = k * PI / omega;
+      if (tt >= dur) break;
+      out.push(tt);
+    }
+    return out;
+  }
+
+  // Sorted, de-duped union of extrema and crossings: a key every quarter-cycle so
+  // each cubic segment spans a monotonic arc the bezier can match.
+  function extremaAndCrossings(omega, dec, dur) {
+    var all = extremaTimes(omega, dec, dur).concat(crossingTimes(omega, dur));
+    all.sort(function (a, b) { return a - b; });
+    var out = [];
+    for (var i = 0; i < all.length; i++) {
+      if (!out.length || all[i] - out[out.length - 1] > 1e-6) out.push(all[i]);
+    }
+    return out;
+  }
+
+  function sShape(omega, dec, tt) { return Math.sin(omega * tt) * Math.exp(-dec * tt); }
+  function sSlope(omega, dec, tt) { return Math.exp(-dec * tt) * (omega * Math.cos(omega * tt) - dec * Math.sin(omega * tt)); }
+
   function autoDuration(dec) {
     var d = Math.log(120) / Math.max(0.4, dec);
     if (d < 0.25) return 0.25;
     if (d > 2.0) return 2.0;
     return d;
+  }
+
+  function keyIndexAtTime(p, t, eps) {
+    for (var i = 1; i <= p.numKeys; i++) {
+      if (Math.abs(p.keyTime(i) - t) <= eps) return i;
+    }
+    return -1;
   }
 
   // Straight (linear) spatial path on a key so the baked oscillation traces the
@@ -142,40 +178,88 @@
     } catch (e) {}
   }
 
-  // Bake one follow-through described by `job` (times + the original base value
-  // at each, captured before mutation).
-  function bakeJob(p, job, amp, omega, dec, dims, influence, spatial) {
-    var tk = job.tk, dur = job.dur, v = job.v, times = job.times, bases = job.bases;
+  // AE's standard ease influence; with the true slope set, a 33.33% handle makes
+  // the cubic between keys the Hermite that matches the math curve.
+  var FIT_INFLUENCE = 33.3333;
+
+  // Build the temporal ease array from a per-dim slope vector vp. Reads the live
+  // ease-array length so the arity is right: spatial props share one speed graph
+  // (length 1, the magnitude); other props get one signed speed per dimension.
+  function easeFromSlope(cur, vp, dims) {
+    var arr = [];
+    if (cur.length === 1) {
+      var speed;
+      if (dims > 1) { var mag = 0; for (var d = 0; d < dims; d++) mag += vp[d] * vp[d]; speed = Math.sqrt(mag); }
+      else speed = vp[0];
+      arr.push(new KeyframeEase(speed, FIT_INFLUENCE));
+    } else {
+      for (var d2 = 0; d2 < cur.length; d2++) arr.push(new KeyframeEase(d2 < vp.length ? vp[d2] : 0, FIT_INFLUENCE));
+    }
+    return arr;
+  }
+
+  // Smooth, editable bezier key whose in == out tangent slope IS the curve's true
+  // slope vp, so the cubic hugs the math (no kink: in == out).
+  function setFitEase(p, ki, vp, dims) {
+    try { p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
+    try { p.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
+    try { p.setTemporalContinuousAtKey(ki, false); } catch (e2) {}
+    try {
+      var cur = p.keyInTemporalEase(ki);
+      var a = easeFromSlope(cur, vp, dims);
+      p.setTemporalEaseAtKey(ki, a, a);
+    } catch (e3) {}
+  }
+
+  // The landing key: set ONLY its OUT tangent to the follow-through's initial
+  // slope (so the overshoot leaves at the arrival speed); preserve the user's
+  // arrival (IN) interpolation type and ease untouched.
+  function setLandingOutEase(p, ki, vp, dims) {
+    try {
+      var curIn = p.keyInTemporalEase(ki);
+      var inType = p.keyInInterpolationType(ki);
+      var outA = easeFromSlope(curIn, vp, dims);
+      try { p.setInterpolationTypeAtKey(ki, inType, KeyframeInterpolationType.BEZIER); } catch (e0) {}
+      try { p.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
+      p.setTemporalEaseAtKey(ki, curIn, outA);
+    } catch (e) {}
+  }
+
+  // Bake one follow-through described by `job` (anchor times, plus the original
+  // base value AND base slope at each, captured before mutation).
+  function bakeJob(p, job, amp, omega, dec, dims, spatial) {
+    var tk = job.tk, dur = job.dur, v = job.v;
+    var times = job.times, bases = job.bases, derivs = job.derivs;
     removeKeysBetween(p, tk, tk + dur);
+    // 1) Values: original base + velocity*amp*shape.
     for (var a = 0; a < times.length; a++) {
       var tt = times[a];
-      var sval = Math.sin(omega * tt) * Math.exp(-dec * tt);
+      var sval = sShape(omega, dec, tt);
       var base = bases[a];
       var val;
-      if (dims === 1) {
-        val = base[0] + v[0] * amp * sval;
-      } else {
-        val = [];
-        for (var d = 0; d < dims; d++) val.push(base[d] + v[d] * amp * sval);
-      }
+      if (dims === 1) val = base[0] + v[0] * amp * sval;
+      else { val = []; for (var d = 0; d < dims; d++) val.push(base[d] + v[d] * amp * sval); }
       p.setValueAtTime(tk + tt, val);
     }
-    // Buttery continuous-bezier handles on the NEW keys only; the landing key
-    // (the user's arrival) is left untouched so its velocity stays intact.
+    // 2) Tangents: true slope = base' + velocity*amp*shape', on each new key.
     var eps = 1e-5;
-    for (var ki = 1; ki <= p.numKeys; ki++) {
-      var kt = p.keyTime(ki);
-      if (kt > tk + eps && kt <= tk + dur + eps) {
-        util.smoothTemporalKey(p, ki, influence);
-        if (spatial) linearSpatial(p, ki, dims, false);
-      }
+    for (var b = 0; b < times.length; b++) {
+      var tt2 = times[b];
+      var ki = keyIndexAtTime(p, tk + tt2, eps);
+      if (ki < 1) continue;
+      var sp = sSlope(omega, dec, tt2);
+      var vp = [];
+      for (var d3 = 0; d3 < dims; d3++) vp.push(derivs[b][d3] + v[d3] * amp * sp);
+      setFitEase(p, ki, vp, dims);
+      if (spatial) linearSpatial(p, ki, dims, false);
     }
-    // Straighten just the landing's OUT spatial tangent so it departs along the
-    // velocity line; its arrival (IN) is preserved.
-    if (spatial) {
-      for (var li = 1; li <= p.numKeys; li++) {
-        if (Math.abs(p.keyTime(li) - tk) <= eps) { linearSpatial(p, li, dims, true); break; }
-      }
+    // 3) Landing OUT: leaves at the arrival speed (s'(0) = omega), arrival kept.
+    var lk = keyIndexAtTime(p, tk, eps);
+    if (lk >= 1) {
+      var lvp = [];
+      for (var d4 = 0; d4 < dims; d4++) lvp.push(job.landingDeriv[d4] + v[d4] * amp * omega);
+      setLandingOutEase(p, lk, lvp, dims);
+      if (spatial) linearSpatial(p, lk, dims, true);
     }
   }
 
@@ -186,7 +270,6 @@
     var dec = args.friction != null ? args.friction : 6;
     if (dec < 0.01) dec = 0.01; // guard: <=0 would never decay (runaway amplitude)
     var eachKey = args.eachKey === true; // default: only the last selected key
-    var influence = args.handleLength > 0 ? args.handleLength : 45;
     var reqDur = args.duration > 0 ? args.duration : 0;
     var omega = 2 * PI * freq;
 
@@ -240,17 +323,35 @@
           if (maxDur <= 0) continue; // keys too close to settle between
           if (dur > maxDur) dur = maxDur;
         }
-        var times = extremaTimes(omega, dec, dur);
+        var times = extremaAndCrossings(omega, dec, dur);
         var lastT = times.length ? times[times.length - 1] : 0;
         if (dur - lastT > 1e-4) times.push(dur); // close the window
+        // Capture, per anchor, the original base value AND its slope (central
+        // difference), all from the un-mutated animation.
+        var hh = frameDur / 20;
+        if (hh <= 0) hh = 0.001;
         var bases = [];
-        for (var b = 0; b < times.length; b++) bases.push(asArray(p.valueAtTime(tk + times[b], true)));
-        jobs.push({ tk: tk, v: vel, dur: dur, times: times, bases: bases });
+        var derivs = [];
+        for (var b = 0; b < times.length; b++) {
+          var at = tk + times[b];
+          bases.push(asArray(p.valueAtTime(at, true)));
+          var fwd = asArray(p.valueAtTime(at + hh, true));
+          var bwd = asArray(p.valueAtTime(at - hh, true));
+          var dv = [];
+          for (var db = 0; db < dims; db++) dv.push((fwd[db] - bwd[db]) / (2 * hh));
+          derivs.push(dv);
+        }
+        // Post-landing base slope (forward difference at tk).
+        var l0 = asArray(p.valueAtTime(tk, true));
+        var lf = asArray(p.valueAtTime(tk + hh, true));
+        var ld = [];
+        for (var dl = 0; dl < dims; dl++) ld.push((lf[dl] - l0[dl]) / hh);
+        jobs.push({ tk: tk, v: vel, dur: dur, times: times, bases: bases, derivs: derivs, landingDeriv: ld });
       }
 
       if (!jobs.length) { skipped.push(p.name + ' (no incoming motion)'); continue; }
       for (var q = 0; q < jobs.length; q++) {
-        bakeJob(p, jobs[q], amp, omega, dec, dims, influence, spatial);
+        bakeJob(p, jobs[q], amp, omega, dec, dims, spatial);
         segments++;
       }
       applied++;
