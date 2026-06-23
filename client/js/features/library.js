@@ -252,12 +252,13 @@
 
     function apply(preset) {
       // Overshooting/oscillating curves (elastic, spring) can't be a single
-      // temporal ease, so bake them to keyframes like the Spring tool does.
+      // temporal ease, so drive them with one clean remap expression (no baked
+      // keyframes); monotonic curves fall through to native temporal ease below.
       if (R.easing.sampler.strategy(preset.curve) === 'bake') {
         var factors = R.easing.sampler.bakeFactors(preset.curve, 256);
-        ctx.invoke('bake.factors', { factors: factors })
+        ctx.invoke('ease.remap', { factors: factors })
           .then(function (res) {
-            ctx.toast('Baked ' + preset.name + ' onto ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' });
+            ctx.toast(preset.name + ' on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' });
             ctx.refreshSelection();
           })
           .catch(function (err) { ctx.toast(err.message || 'Could not apply preset', { kind: 'error' }); });
@@ -342,10 +343,10 @@
   R.presets.homeActions = function () {
     var user = (R.disk.read('user-presets', { items: [] }).items) || [];
     return (R.presets.defaults || []).concat(user).map(function (p) {
-      // Bake-mode curves (elastic) embed a precomputed factor table so the
-      // one-click tile applies them exactly like the Library tool does.
+      // Overshoot curves (elastic) embed a precomputed factor table applied as a
+      // clean remap expression; monotonic curves apply as native temporal ease.
       var invoke = R.easing.sampler.strategy(p.curve) === 'bake'
-        ? { method: 'bake.factors', args: { factors: R.easing.sampler.bakeFactors(p.curve, 256) } }
+        ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(p.curve, 256) } }
         : { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } };
       return {
         id: 'easepreset-' + p.id, label: p.name, toolId: 'ease',

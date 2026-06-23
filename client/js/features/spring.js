@@ -129,8 +129,9 @@
 
     // --- Footer ---
     var scopeText = el('span.rb-scope', { text: '' });
-    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Bake spring']);
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply spring']);
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
     ctx.footer.appendChild(applyBtn);
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
@@ -144,12 +145,17 @@
 
     function doApply() {
       var factors = R.easing.sampler.bakeFactors(curve(), 256);
-      ctx.invoke('bake.factors', { factors: factors })
+      ctx.invoke('ease.remap', { factors: factors })
         .then(function (res) {
-          ctx.toast('Baked spring onto ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' });
+          ctx.toast('Spring on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' });
           ctx.refreshSelection();
         })
-        .catch(function (err) { ctx.toast(err.message || 'Could not bake spring', { kind: 'error' }); });
+        .catch(function (err) { ctx.toast(err.message || 'Could not apply spring', { kind: 'error' }); });
+    }
+    function doRemove() {
+      ctx.invoke('ease.clear', {})
+        .then(function (res) { ctx.toast('Removed ease from ' + res.cleared + ' propert' + (res.cleared === 1 ? 'y' : 'ies'), { kind: 'info' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
     function getState() {

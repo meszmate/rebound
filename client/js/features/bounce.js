@@ -78,13 +78,14 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-faint', { text: 'Select two or more keyframes; Bounce bakes a real ball-bounce into the transition, each rebound smaller. Undo reverts it.' }),
+      el('div.rb-faint', { text: 'Select 2+ keyframes; Bounce adds a real ball-bounce as one live expression, no extra keyframes. Tweak or Remove anytime; the Bake tool flattens it for export.' }),
       elasticitySlider.el,
       bouncesField.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply bounce']));
 
     var off = ctx.onSelection(function (sel) {
@@ -96,9 +97,14 @@
 
     function doApply() {
       var factors = R.easing.sampler.bakeFactors(previewCurve(), 256);
-      ctx.invoke('bake.factors', { factors: factors })
-        .then(function (res) { ctx.toast('Baked bounce onto ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+      ctx.invoke('ease.remap', { factors: factors })
+        .then(function (res) { ctx.toast('Bounce on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Bounce', { kind: 'error' }); });
+    }
+    function doRemove() {
+      ctx.invoke('ease.clear', {})
+        .then(function (res) { ctx.toast('Removed ease from ' + res.cleared + ' propert' + (res.cleared === 1 ? 'y' : 'ies'), { kind: 'info' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
     }
 
     function getState() {
