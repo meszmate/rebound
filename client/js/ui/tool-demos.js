@@ -125,6 +125,17 @@
       '</svg>'
   );
 
+  // Throw: a ball arcs through the air under gravity and lands with a bounce.
+  D['throw'] = demo(
+    'Bakes a thrown trajectory into Position keyframes, with <strong>momentum, drag, and gravity</strong>.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<line x1="14" y1="58" x2="106" y2="58" stroke="currentColor" stroke-width="1.5" opacity="0.25"/>' +
+      '<path d="M16 56 Q 44 0 68 48 Q 77 58 86 52" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.4"/>' +
+      '<circle r="5" style="fill:var(--rb-accent)">' +
+      '<animateMotion dur="2.6s" repeatCount="indefinite" path="M16 56 Q 44 0 68 48 Q 77 58 86 52"/>' +
+      '</circle></svg>'
+  );
+
   // Squash: a ball drops, squashes wide on impact, stretches tall on rebound.
   D.squash = demo(
     'Squashes and stretches a layer while preserving volume, by hand or <strong>automatically from its motion</strong>.',
