@@ -101,8 +101,8 @@ $.__rebound.util = (function () {
   // handles are lengthened by raising temporal-ease influence on both sides.
   // Keeps AE's continuous-computed speed and only stretches the influence.
   function smoothTemporalKey(prop, ki, influence) {
-    influence = influence > 0 ? influence : 80;
-    if (influence > 95) influence = 95; // leave headroom so beziers stay valid
+    influence = influence > 0 ? influence : 45;
+    if (influence > 90) influence = 90; // leave headroom so beziers stay valid
     try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
     try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
     try { prop.setTemporalContinuousAtKey(ki, true); } catch (e2) {}

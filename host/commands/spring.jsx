@@ -108,13 +108,13 @@
   // tangents through the point so the curve flows without a kink, then the
   // handles are lengthened by raising temporal-ease influence on both sides.
   //
-  // Short (default 33%) handles make the arcs between peaks look pinched; longer
-  // handles round them into a smooth, Apple-like curve. We keep AE's
-  // continuous-computed speed (slope) and only stretch the influence, so the
-  // direction is unchanged but the handles reach further out.
+  // Handle length is a sweet spot, not "longer is better": ~45% gives a clean
+  // ease-in-out arc between peaks. Too short pinches the corners; too long
+  // (70%+) flattens each turning point into a shelf. We keep AE's
+  // continuous-computed speed (slope) and only set the influence.
   function smoothKey(prop, ki, influence) {
-    influence = influence > 0 ? influence : 80;
-    if (influence > 95) influence = 95; // leave headroom so beziers stay valid
+    influence = influence > 0 ? influence : 45;
+    if (influence > 90) influence = 90; // leave headroom so beziers stay valid
     try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
     try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
     try { prop.setTemporalContinuousAtKey(ki, true); } catch (e2) {}
@@ -164,7 +164,7 @@
     if (!pts || pts.length < 2) throw new Error('No ease data supplied.');
     // Handle length (temporal-ease influence, %) controls how long the bezier
     // tangents reach: longer = smoother, more buttery arcs between peaks.
-    var influence = (args.handleLength > 0) ? args.handleLength : 80;
+    var influence = (args.handleLength > 0) ? args.handleLength : 45;
     var comp = util.activeComp();
     var props = comp.selectedProperties;
     var propsTouched = 0;

@@ -186,7 +186,7 @@
     var dec = args.friction != null ? args.friction : 6;
     if (dec < 0.01) dec = 0.01; // guard: <=0 would never decay (runaway amplitude)
     var eachKey = args.eachKey === true; // default: only the last selected key
-    var influence = args.handleLength > 0 ? args.handleLength : 80;
+    var influence = args.handleLength > 0 ? args.handleLength : 45;
     var reqDur = args.duration > 0 ? args.duration : 0;
     var omega = 2 * PI * freq;
 
