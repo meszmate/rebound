@@ -102,5 +102,84 @@
     return { properties: propsTouched, segments: segments };
   }
 
+  function findKeyAt(prop, t) {
+    for (var i = 1; i <= prop.numKeys; i++) {
+      if (Math.abs(prop.keyTime(i) - t) < 1e-5) return i;
+    }
+    return -1;
+  }
+
+  // Place one keyframe per sparse anchor inside a segment (skipping the existing
+  // endpoints), then auto-bezier the new interior keys so the curve flows. This
+  // gives a Graph-Editor-visible, editable overshoot with a handful of keys
+  // instead of one per frame.
+  function bakeSparseSegment(prop, pr, pts, dims) {
+    removeKeysBetween(prop, pr.ta, pr.tb);
+    var dt = pr.tb - pr.ta;
+    var added = [];
+    for (var j = 0; j < pts.length; j++) {
+      var pt = pts[j];
+      if (pt.t <= 1e-6 || pt.t >= 1 - 1e-6) continue; // endpoints already exist
+      var t = pr.ta + pt.t * dt;
+      var val;
+      if (dims === 1) {
+        val = pr.va[0] + (pr.vb[0] - pr.va[0]) * pt.y;
+      } else {
+        val = [];
+        for (var d = 0; d < dims; d++) val.push(pr.va[d] + (pr.vb[d] - pr.va[d]) * pt.y);
+      }
+      prop.setValueAtTime(t, val);
+      added.push(t);
+    }
+    for (var a = 0; a < added.length; a++) {
+      var ki = findKeyAt(prop, added[a]);
+      if (ki > 0) {
+        try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
+        try { prop.setTemporalAutoBezierAtKey(ki, true); } catch (e2) {}
+      }
+    }
+  }
+
+  // Bake a sparse { t, y } anchor set onto each adjacent selected keyframe pair.
+  function bakeSparse(args) {
+    var pts = args.points;
+    if (!pts || pts.length < 2) throw new Error('No ease data supplied.');
+    var comp = util.activeComp();
+    var props = comp.selectedProperties;
+    var propsTouched = 0;
+    var segments = 0;
+
+    for (var i = 0; i < props.length; i++) {
+      var p = props[i];
+      if (!(p instanceof Property)) continue;
+      if (!p.canVaryOverTime || p.numKeys < 2) continue;
+      var idx = p.selectedKeys;
+      if (!idx || idx.length < 2) continue;
+      var dims = util.dimensionsOf(p);
+      var pairs = [];
+      for (var s = 0; s < idx.length - 1; s++) {
+        pairs.push({
+          ta: p.keyTime(idx[s]),
+          tb: p.keyTime(idx[s + 1]),
+          va: valuesAt(p, idx[s]),
+          vb: valuesAt(p, idx[s + 1])
+        });
+      }
+      for (var k = 0; k < pairs.length; k++) {
+        var pr = pairs[k];
+        if (pr.tb - pr.ta <= 0) continue;
+        bakeSparseSegment(p, pr, pts, dims);
+        segments++;
+      }
+      propsTouched++;
+    }
+
+    if (!segments) {
+      throw new Error('Select at least two keyframes on an animated property.');
+    }
+    return { properties: propsTouched, segments: segments };
+  }
+
   R.register('bake.factors', bake, 'Rebound: Bake Spring');
+  R.register('ease.bakeSparse', bakeSparse, 'Rebound: Ease');
 })();

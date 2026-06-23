@@ -65,7 +65,7 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-faint', { text: 'Select 2+ keyframes; Recoil adds clean elastic overshoot as one live expression, no extra keyframes. Tweak or Remove anytime; the Bake tool flattens it for export.' }),
+      el('div.rb-faint', { text: 'Select 2+ keyframes and apply elastic overshoot. By default it bakes a few editable keyframes you can see in the graph; set Apply as → Expression in Settings for a clean, keyframe-free version.' }),
       overshootSlider.el,
       bounceSlider.el,
       frictionSlider.el,
@@ -74,7 +74,6 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply recoil']));
 
     var off = ctx.onSelection(function (sel) {
@@ -85,15 +84,7 @@
     scopeText.textContent = '';
 
     function doApply() {
-      var factors = R.easing.sampler.bakeFactors(previewCurve(), 256);
-      ctx.invoke('ease.remap', { factors: factors })
-        .then(function (res) { ctx.toast('Recoil on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' }); ctx.refreshSelection(); })
-        .catch(function (err) { ctx.toast(err.message || 'Could not apply Recoil', { kind: 'error' }); });
-    }
-    function doRemove() {
-      ctx.invoke('ease.clear', {})
-        .then(function (res) { ctx.toast('Removed ease from ' + res.cleared + ' propert' + (res.cleared === 1 ? 'y' : 'ies'), { kind: 'info' }); ctx.refreshSelection(); })
-        .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
+      R.easing.applyCurve(ctx, previewCurve(), 'Recoil');
     }
 
     function getState() {

@@ -124,6 +124,56 @@
   }
 
   /**
+   * Turning points (local minima/maxima) of a curve plus both endpoints, as
+   * { t, y } in [0, 1]. The basis for baking an overshooting curve to a FEW
+   * editable keyframes (one per peak/valley) instead of one per frame.
+   */
+  function turningPoints(curve, samples) {
+    var fn = toFunction(curve);
+    var N = samples || 600;
+    var out = [{ t: 0, y: fn(0) }];
+    var prev = fn(0);
+    var prevT = 0;
+    var prevSign = 0;
+    for (var i = 1; i <= N; i++) {
+      var t = i / N;
+      var y = fn(t);
+      var dy = y - prev;
+      var sign = dy > 1e-9 ? 1 : (dy < -1e-9 ? -1 : prevSign);
+      if (prevSign !== 0 && sign !== 0 && sign !== prevSign) {
+        out.push({ t: prevT, y: prev }); // extremum at the previous sample
+      }
+      prevSign = sign;
+      prev = y;
+      prevT = t;
+    }
+    out.push({ t: 1, y: fn(1) });
+    return out;
+  }
+
+  /**
+   * A sparse set of { t, y } anchors that captures an overshooting curve's
+   * shape: every turning point and endpoint, plus the curve-sampled midpoint of
+   * each gap so the arcs between extrema stay faithful. Typically 8-20 points
+   * for an elastic/bounce, vs hundreds for a per-frame bake. The host places a
+   * keyframe at each (auto-bezier smoothed) so the curve is visible and editable
+   * in the Graph Editor.
+   */
+  function sparseSamples(curve) {
+    var fn = toFunction(curve);
+    var tp = turningPoints(curve, 600);
+    var out = [];
+    for (var i = 0; i < tp.length; i++) {
+      out.push(tp[i]);
+      if (i < tp.length - 1) {
+        var mt = (tp[i].t + tp[i + 1].t) / 2;
+        out.push({ t: mt, y: fn(mt) });
+      }
+    }
+    return out;
+  }
+
+  /**
    * Approximate a monotonic easing function with a single cubic bezier by
    * matching the slopes at both endpoints. Used to apply penner monotonic
    * shapes (sine/expo/circ/quad/...) as a native, editable AE ease.
@@ -156,6 +206,8 @@
     samplePoints: samplePoints,
     range: range,
     bakeFactors: bakeFactors,
+    turningPoints: turningPoints,
+    sparseSamples: sparseSamples,
     fitBezierHandles: fitBezierHandles,
     toTemporalEase: toTemporalEase,
   };

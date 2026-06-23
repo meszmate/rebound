@@ -252,16 +252,11 @@
 
     function apply(preset) {
       // Overshooting/oscillating curves (elastic, spring) can't be a single
-      // temporal ease, so drive them with one clean remap expression (no baked
-      // keyframes); monotonic curves fall through to native temporal ease below.
+      // temporal ease; apply them per the "Apply as" setting (sparse editable
+      // keyframes by default, or a clean remap expression). Monotonic curves
+      // fall through to native temporal ease below.
       if (R.easing.sampler.strategy(preset.curve) === 'bake') {
-        var factors = R.easing.sampler.bakeFactors(preset.curve, 256);
-        ctx.invoke('ease.remap', { factors: factors })
-          .then(function (res) {
-            ctx.toast(preset.name + ' on ' + res.applied + ' propert' + (res.applied === 1 ? 'y' : 'ies'), { kind: 'success' });
-            ctx.refreshSelection();
-          })
-          .catch(function (err) { ctx.toast(err.message || 'Could not apply preset', { kind: 'error' }); });
+        R.easing.applyCurve(ctx, preset.curve, preset.name);
         return;
       }
       ctx.invoke('ease.apply', { curve: preset.curve, scope: scope, applyToAll: applyToAll })
@@ -343,10 +338,10 @@
   R.presets.homeActions = function () {
     var user = (R.disk.read('user-presets', { items: [] }).items) || [];
     return (R.presets.defaults || []).concat(user).map(function (p) {
-      // Overshoot curves (elastic) embed a precomputed factor table applied as a
-      // clean remap expression; monotonic curves apply as native temporal ease.
+      // Overshoot curves (elastic) bake to a few editable keyframes (visible in
+      // the Graph Editor); monotonic curves apply as native temporal ease.
       var invoke = R.easing.sampler.strategy(p.curve) === 'bake'
-        ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(p.curve, 256) } }
+        ? { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(p.curve) } }
         : { method: 'ease.apply', args: { curve: p.curve, scope: 'inout', applyToAll: false } };
       return {
         id: 'easepreset-' + p.id, label: p.name, toolId: 'ease',
