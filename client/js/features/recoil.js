@@ -43,7 +43,17 @@
     };
   }
 
+  // Between-keys curve: a damped elastic that rises from the first keyframe,
+  // overshoots the second, oscillates, and settles to EXACTLY the second
+  // keyframe by its time (a normalized 0 -> 1 curve). Overshoot is how far past
+  // the target the first peak goes, Bounce the wobble count, Friction the decay.
+  function elasticBetween(overshoot, bounce, friction) {
+    var amp = 1 + Math.max(0, overshoot) / 100;
+    return R.easing.penner.elasticOutWith(amp, bounce, friction);
+  }
+
   function mount(ctx) {
+    var mode = 'after'; // after (follow-through) | between (settle on key 2)
     // Defaults match the reference Apple-style expression exactly:
     // amp 0.04 (Overshoot 4%), freq 1.8 (Bounce), decay 4 (Friction). So
     // "As expression" emits that expression verbatim out of the box.
@@ -52,7 +62,9 @@
     var friction = 4;
 
     function previewCurve() {
-      return { type: 'fn', fn: followPreview(overshoot, bounce, friction) };
+      return mode === 'between'
+        ? { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) }
+        : { type: 'fn', fn: followPreview(overshoot, bounce, friction) };
     }
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
@@ -67,6 +79,18 @@
       preview.setReadout('Overshoot ' + R.units.round(overshoot, 1) + '% · half-life ' + R.units.round(hl, 2) + 's');
     }
 
+    var modeCtl = ui.segmented([
+      { value: 'after', label: 'After key' },
+      { value: 'between', label: 'Between keys' }
+    ], { value: mode, onChange: function (v) { mode = v; refreshMode(); refreshChip(); } });
+
+    var hint = el('div.rb-faint', { text: '' });
+    function refreshMode() {
+      hint.textContent = mode === 'between'
+        ? 'Reshapes the move between your two keyframes so it overshoots the target and settles exactly on the second keyframe (same clip length). Apply bakes editable keys; "As expression" uses a keyframe-free remap.'
+        : 'Adds Apple-style overshoot AFTER the last keyframe, scaled by how fast it arrives (extends past it). Apply bakes editable keys; "As expression" drops the exact velocity expression.';
+    }
+
     var overshootSlider = ui.slider({ label: 'Overshoot', min: 0, max: 40, step: 0.5, value: overshoot,
       format: function (v) { return R.units.round(v, 1) + '%'; }, onInput: function (v) { overshoot = v; refreshChip(); } });
     var bounceSlider = ui.slider({ label: 'Bounce', min: 0.5, max: 8, step: 0.1, value: bounce,
@@ -76,12 +100,15 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-faint', { text: 'Select 2+ keyframes. Recoil adds Apple-style overshoot AFTER the last keyframe, scaled by how fast it arrives. Apply bakes a few editable keyframes that match the curve; "As expression" drops the live, keyframe-free rig instead.' }),
+      el('div.rb-section-label', { text: 'Where' }),
+      modeCtl.el,
+      hint,
       overshootSlider.el,
       bounceSlider.el,
       frictionSlider.el,
       el('div.rb-row', null, [halfLife])
     ]));
+    refreshMode();
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
@@ -126,22 +153,43 @@
     }
     function fail(err) { ctx.toast((err && err.message) || 'Could not apply Recoil', { kind: 'error' }); }
 
-    // Bake the follow-through as a few editable keyframes that match the curve.
-    function doApplyKeys() {
-      ctx.invoke('recoil.bake', { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false })
-        .then(function (res) { finish(res, 'baked'); }).catch(fail);
+    function settingsHL() {
+      var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};
+      return (s.handleLength > 0) ? s.handleLength : 45;
     }
-    // Apply the EXACT overshoot expression, verbatim and keyframe-free.
+
+    // Bake editable keyframes that match the curve. After: velocity-driven
+    // follow-through past the last key. Between: overshoot the target and settle
+    // on the second selected key (baked between the pair).
+    function doApplyKeys() {
+      if (mode === 'between') {
+        var curve = { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
+        ctx.invoke('ease.bakeSparse', { points: R.easing.sampler.sparseSamples(curve), handleLength: settingsHL() })
+          .then(function (res) { finish(res, 'baked'); }).catch(fail);
+      } else {
+        ctx.invoke('recoil.bake', { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false })
+          .then(function (res) { finish(res, 'baked'); }).catch(fail);
+      }
+    }
+    // Keyframe-free. After: the EXACT velocity overshoot expression, verbatim.
+    // Between: a between-keyframe remap expression of the same elastic curve.
     function doApplyExpr() {
-      ctx.invoke('expressions.apply', { code: recoilExpression() })
-        .then(function (res) { finish(res, 'expression'); }).catch(fail);
+      if (mode === 'between') {
+        var curve = { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
+        ctx.invoke('ease.remap', { factors: R.easing.sampler.bakeFactors(curve, 256) })
+          .then(function (res) { finish(res, 'expression'); }).catch(fail);
+      } else {
+        ctx.invoke('expressions.apply', { code: recoilExpression() })
+          .then(function (res) { finish(res, 'expression'); }).catch(fail);
+      }
     }
 
     function getState() {
-      return { overshoot: overshoot, bounce: bounce, friction: friction };
+      return { mode: mode, overshoot: overshoot, bounce: bounce, friction: friction };
     }
     function applyState(s) {
       if (!s) return;
+      if (s.mode === 'after' || s.mode === 'between') { mode = s.mode; modeCtl.set(mode); refreshMode(); }
       if (s.overshoot != null) { overshoot = s.overshoot; overshootSlider.set(s.overshoot); }
       if (s.bounce != null) { bounce = s.bounce; bounceSlider.set(s.bounce); }
       if (s.friction != null) { friction = s.friction; frictionSlider.set(s.friction); }
@@ -155,7 +203,9 @@
         get: getState,
         set: applyState,
         previewFor: function (s) {
-          return followPreview(s.overshoot, s.bounce, s.friction);
+          return s.mode === 'between'
+            ? elasticBetween(s.overshoot, s.bounce, s.friction)
+            : followPreview(s.overshoot, s.bounce, s.friction);
         },
         defaults: [
           { name: 'Apple', state: { overshoot: 4, bounce: 1.8, friction: 4 } },
