@@ -82,9 +82,14 @@
     };
   }
 
-  function throwSvg(st, h) {
+  // Fit the simulation to the preview canvas. fitted[] is one point per comp
+  // frame (TIME-ordered), so a player indexing it by elapsed time replays the
+  // real physics, accelerating under gravity and pausing at the apex (a
+  // constant-speed animateMotion would not, which read as unnatural).
+  function computeGeom(st) {
     var W = 160, H = 90, m = 12;
-    var frames = simulateThrow(previewCfg(st, st.duration)).frames;
+    var sim = simulateThrow(previewCfg(st, st.duration));
+    var frames = sim.frames;
     var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
     for (var i = 0; i < frames.length; i++) {
       if (frames[i].x < minx) minx = frames[i].x;
@@ -92,25 +97,30 @@
       if (frames[i].y < miny) miny = frames[i].y;
       if (frames[i].y > maxy) maxy = frames[i].y;
     }
-    if (st.bounce && 200 > maxy) maxy = 200; // keep the floor in view
+    if (st.bounce && 200 > maxy) maxy = 200;
     var s = Math.min((W - 2 * m) / Math.max(1, maxx - minx), (H - 2 * m) / Math.max(1, maxy - miny));
     function mx(x) { return m + (x - minx) * s; }
     function my(y) { return m + (y - miny) * s; }
-    var d = '';
-    for (var k = 0; k < frames.length; k++) d += (k === 0 ? 'M' : 'L') + round(mx(frames[k].x)) + ' ' + round(my(frames[k].y));
-    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
-    if (st.bounce) kids.push(svg('line', { x1: 2, y1: my(200), x2: W - 2, y2: my(200), stroke: 'var(--rb-text-faint)', 'stroke-width': 1 }));
-    // apex ticks: local minima of y (highest points), show shrinking bounces
-    for (var a = 2; a < frames.length - 2; a++) {
-      if (frames[a].y < frames[a - 2].y && frames[a].y <= frames[a + 2].y) {
-        kids.push(svg('line', { x1: mx(frames[a].x), y1: my(frames[a].y) - 4, x2: mx(frames[a].x), y2: my(frames[a].y), stroke: 'var(--rb-accent)', 'stroke-width': 1, opacity: '0.5' }));
-      }
+    var fitted = [], d = '';
+    for (var k = 0; k < frames.length; k++) {
+      var px = mx(frames[k].x), py = my(frames[k].y);
+      fitted.push({ x: px, y: py, s: frames[k].s, ang: frames[k].ang });
+      d += (k === 0 ? 'M' : 'L') + round(px) + ' ' + round(py);
     }
-    kids.push(svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.4, 'stroke-linejoin': 'round', opacity: '0.45' }));
-    var ball = svg('circle', { r: 4.5, fill: 'var(--rb-accent)' }, [
-      svg('animateMotion', { dur: Math.max(0.4, st.duration) + 's', repeatCount: 'indefinite', path: d, calcMode: 'linear' })
-    ]);
-    kids.push(ball);
+    var ticks = [];
+    for (var a = 2; a < frames.length - 2; a++) {
+      if (frames[a].y < frames[a - 2].y && frames[a].y <= frames[a + 2].y) ticks.push({ x: mx(frames[a].x), y: my(frames[a].y) });
+    }
+    return { fitted: fitted, d: d, floorY: st.bounce ? my(200) : null, ticks: ticks, settled: sim.settledFrame };
+  }
+
+  // Static thumbnail (preset tiles): the trajectory + a dot at the launch point.
+  function throwSvg(st, h) {
+    var g = computeGeom(st);
+    var kids = [svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
+    if (g.floorY != null) kids.push(svg('line', { x1: 2, y1: g.floorY, x2: 158, y2: g.floorY, stroke: 'var(--rb-text-faint)', 'stroke-width': 1 }));
+    kids.push(svg('path', { d: g.d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.4, 'stroke-linejoin': 'round', opacity: '0.5' }));
+    if (g.fitted.length) kids.push(svg('circle', { cx: round(g.fitted[0].x), cy: round(g.fitted[0].y), r: 4, fill: 'var(--rb-accent)' }));
     return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
   }
 
@@ -127,8 +137,41 @@
     var st = { angle: 45, strength: 700, gravity: 1400, drag: 0.5, duration: 1.8, bounce: true, elasticity: 0.6,
       friction: 0.25, bounds: 'floor', useLayerFloor: false, spin: 'off', spinAmount: 1, squash: false, squashStrength: 12 };
 
-    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(throwSvg(st, 90)); }
+    // Live preview: static path/floor/ticks rebuilt on change, plus a marker
+    // PLAYED by time so the motion accelerates and bounces like the real bake.
+    var pathGroup = svg('g');
+    var marker = svg('ellipse', { cx: 0, cy: 0, rx: 4.5, ry: 4.5, fill: 'var(--rb-accent)' });
+    var stage = svg('svg', { viewBox: '0 0 160 90', width: '100%', height: '90' }, [
+      svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      pathGroup, marker
+    ]);
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stage]);
+    var geom = computeGeom(st);
+    function renderPreview() {
+      geom = computeGeom(st);
+      R.dom.clear(pathGroup);
+      if (geom.floorY != null) pathGroup.appendChild(svg('line', { x1: 2, y1: geom.floorY, x2: 158, y2: geom.floorY, stroke: 'var(--rb-text-faint)', 'stroke-width': 1 }));
+      for (var i = 0; i < geom.ticks.length; i++) pathGroup.appendChild(svg('line', { x1: geom.ticks[i].x, y1: geom.ticks[i].y - 4, x2: geom.ticks[i].x, y2: geom.ticks[i].y, stroke: 'var(--rb-accent)', 'stroke-width': 1, opacity: '0.5' }));
+      pathGroup.appendChild(svg('path', { d: geom.d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.4, 'stroke-linejoin': 'round', opacity: '0.4' }));
+    }
+    var raf = null, start = (window.performance && performance.now) ? performance.now() : 0, running = true;
+    function play(now) {
+      if (!running) return;
+      var f = geom.fitted;
+      if (f.length) {
+        var te = ((window.performance && performance.now) ? now : Date.now()) / 1000 - start / 1000;
+        var span = (geom.settled != null ? geom.settled / 60 : st.duration);   // loop once it has settled
+        var t = te % (span + 0.6);                     // hold briefly, then replay
+        var idx = t * 60; if (idx > f.length - 1) idx = f.length - 1;
+        var i = Math.floor(idx), fr = idx - i, b = f[Math.min(f.length - 1, i + 1)], a = f[i];
+        var x = a.x + (b.x - a.x) * fr, y = a.y + (b.y - a.y) * fr;
+        var sq = st.squash ? (a.s || 0) : 0; if (sq > 0.8) sq = 0.8;
+        marker.setAttribute('cx', round(x)); marker.setAttribute('cy', round(y));
+        marker.setAttribute('rx', round(4.5 / (1 - sq))); marker.setAttribute('ry', round(4.5 * (1 - sq)));
+      }
+      raf = requestAnimationFrame(play);
+    }
+    raf = requestAnimationFrame(play);
 
     var angleS = ui.slider({ label: 'Angle', min: -180, max: 180, step: 1, value: st.angle, format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { st.angle = v; renderPreview(); } });
     var strengthS = ui.slider({ label: 'Strength', min: 0, max: 4000, step: 10, value: st.strength, format: function (v) { return Math.round(v) + ' px/s'; }, onInput: function (v) { st.strength = v; renderPreview(); } });
@@ -215,7 +258,7 @@
           { name: 'Lob', state: { angle: 62, strength: 760, gravity: 1500, drag: 0.4, duration: 1.7, bounce: false, spin: 'follow', spinAmount: 1, squash: false } }
         ]
       },
-      destroy: off
+      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
     };
   }
 
