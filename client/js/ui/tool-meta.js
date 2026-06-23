@@ -156,6 +156,8 @@
 
     // Organize & help
     tags: t('organize', ICONS.tag, 'Tag and select layers'),
+    rename: t('organize', ICONS.text, 'Batch-rename layers with numbering',
+      'Renames every selected layer at once with find/replace, prefix/suffix, and top-to-bottom sequential numbering, in one undoable step.'),
     scripts: t('organize', ICONS.code, 'Save, run and organize scripts and expressions'),
     demo: t('organize', ICONS.play, 'Build a practice composition')
   };

@@ -547,3 +547,22 @@
   text-align: center;
   color: var(--rb-text-muted);
 }
+
+/* ---- Text field (full-width / row-sharing variant of rb-field) ----------- */
+.rb-field-text { display: flex; flex: 1 1 0; min-width: 0; }
+.rb-field-text input { padding-left: var(--rb-gap-3); }
+
+/* ---- Rename live preview ------------------------------------------------- */
+.rb-rename-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--rb-gap-3);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  background: var(--rb-bg-sunken);
+}
+.rb-rename-row { display: flex; align-items: center; gap: var(--rb-gap-2); font-size: calc(var(--rb-font-size) - 1px); min-width: 0; }
+.rb-rename-old { color: var(--rb-text-faint); flex: 0 0 auto; }
+.rb-rename-arrow { color: var(--rb-text-faint); opacity: 0.6; flex: 0 0 auto; }
+.rb-rename-new { color: var(--rb-accent); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

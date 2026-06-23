@@ -99,6 +99,7 @@
   load('commands/clone.jsx');
   load('commands/expressions.jsx');
   load('commands/scripts.jsx');
+  load('commands/rename.jsx');
   load('commands/autocrop.jsx');
   load('commands/scatter.jsx');
   load('commands/bake.jsx');

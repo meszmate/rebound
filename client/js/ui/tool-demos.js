@@ -125,6 +125,21 @@
       '</svg>'
   );
 
+  // Rename: three layer name rows get a sequential number badge, top to bottom.
+  D.rename = demo(
+    'Batch-renames the selected layers, with find/replace, prefix/suffix, and <strong>top-to-bottom numbering</strong>.',
+    '<svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid meet">' +
+      '<g fill="currentColor" opacity="0.5">' +
+      '<rect x="14" y="13" width="50" height="8" rx="2"/>' +
+      '<rect x="14" y="31" width="50" height="8" rx="2"/>' +
+      '<rect x="14" y="49" width="50" height="8" rx="2"/></g>' +
+      '<g style="fill:var(--rb-accent)">' +
+      '<rect x="72" y="11" width="20" height="12" rx="3"><animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.18;0.9;1" dur="4s" repeatCount="indefinite"/></rect>' +
+      '<rect x="72" y="29" width="20" height="12" rx="3"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.18;0.36;0.9;1" dur="4s" repeatCount="indefinite"/></rect>' +
+      '<rect x="72" y="47" width="20" height="12" rx="3"><animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.36;0.54;0.9;1" dur="4s" repeatCount="indefinite"/></rect></g>' +
+      '</svg>'
+  );
+
   R.toolDemos = D;
   R.registerToolDemo = function (id, caption, svg) { D[id] = demo(caption, svg); };
 })(window.Rebound = window.Rebound || {});
