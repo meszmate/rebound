@@ -80,7 +80,7 @@
     // own args (e.g. an easing preset as Keyframes vs Expression).
     var actions = (R.homeActions && R.homeActions.all) ? R.homeActions.all() : [];
     actions.forEach(function (a) {
-      if (a.kind === 'open' || !a.invoke || !a.invoke.method) return;
+      if (a.kind === 'open' || (!a.build && (!a.invoke || !a.invoke.method))) return;
       list.push({ id: 'action:' + a.id, label: a.label, group: a.group || 'Apply', action: a, run: function (over) { runAction(a, over); } });
     });
 
@@ -101,7 +101,8 @@
 
   function runAction(a, override) {
     if (!hooks.invoke) return;
-    hooks.invoke(a.invoke.method, mergedArgs(a, override))
+    var inv = a.build ? a.build() : { method: a.invoke.method, args: mergedArgs(a, override) };
+    hooks.invoke(inv.method, inv.args)
       .then(function () { if (hooks.toast) hooks.toast(a.label + ' applied', { kind: 'success' }); if (hooks.refreshSelection) hooks.refreshSelection(); })
       .catch(function (err) { if (hooks.toast) hooks.toast((err && err.message) || ('Could not apply ' + a.label), { kind: 'error' }); });
   }

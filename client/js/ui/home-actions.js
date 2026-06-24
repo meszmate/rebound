@@ -66,6 +66,10 @@
     // tune the sliders.
     { id: 'apply-bounce', label: 'Bounce', toolId: 'bounce', group: 'Physics', kind: 'apply', display: 'visual', curve: 'bounce', desc: 'Rebound the value off its target after its last keyframe.', invoke: { method: 'bounce.apply', args: { elasticity: 0.7, gravity: 4, maxBounces: 4, eachKey: false } } },
     { id: 'apply-recoil', label: 'Recoil', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'visual', curve: 'overshoot', desc: 'Add elastic overshoot after a keyframe, scaled by the incoming velocity.', invoke: { method: 'recoil.apply', args: { overshoot: 60, bounce: 2, friction: 6, eachKey: true } } },
+    // The Apple-style contained overshoot, one click on the selected keyframes
+    // (12% past, settles on the 2nd key). Args are built at click time by sampling
+    // the live Recoil curve into ease.bakeSparse points.
+    { id: 'recoil-apple', label: 'Recoil: Apple', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'visual', curve: 'overshoot', desc: 'Apple-style overshoot between the selected keyframes: 12% past, settles on the 2nd.', build: function () { return { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples({ type: 'fn', fn: R.recoilCurve(12, 1.6, 5) }), handleLength: 45 } }; } },
     { id: 'apply-drift', label: 'Drift', toolId: 'drift', group: 'Physics', kind: 'apply', display: 'visual', curve: 'drift', desc: 'Add living, organic random motion to the selected properties.', invoke: { method: 'drift.apply', args: { type: 'smooth', amount: 20, frequency: 2 } } }
   ];
 

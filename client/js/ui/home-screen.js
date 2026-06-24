@@ -503,7 +503,10 @@
     }
     function runAction(action) {
       if (action.kind === 'open') { opts.openTool(action.toolId); return; }
-      opts.invoke(action.invoke.method, mergedArgs(action, metaOf(action.id).args))
+      // build() computes {method, args} at click time (e.g. sampling a live
+      // curve); otherwise use the static invoke + any per-tile arg overrides.
+      var inv = action.build ? action.build() : { method: action.invoke.method, args: mergedArgs(action, metaOf(action.id).args) };
+      opts.invoke(inv.method, inv.args)
         .then(function () { opts.toast(action.label + ' applied', { kind: 'success' }); if (opts.refreshSelection) opts.refreshSelection(); })
         .catch(function (err) { opts.toast((err && err.message) || ('Could not apply ' + action.label), { kind: 'error' }); });
     }

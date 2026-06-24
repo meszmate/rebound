@@ -54,6 +54,10 @@
     };
   }
 
+  // Exposed so a one-click Home tile / keybind can bake the same contained
+  // overshoot without opening the tool (samples this into ease.bakeSparse points).
+  R.recoilCurve = overshootCurve;
+
   R.tools.register({
     id: 'recoil',
     title: 'Recoil',
