@@ -467,41 +467,42 @@
 
 /* In a home widget the rich picker (frame, pivot ghost, reticle, layer name) is
    too much and leans on idle animation the CEF panel may not repaint. Collapse
-   it to a simple, boldly visible 3x3 grid of accent boxes: the nine anchor
-   points. The selected point is the small solid box. STATIC, no animation, only
-   :hover/:active transitions. Same nine buttons, same behaviour. */
+   it to one seamless full-bleed 3x3 grid of accent boxes: the nine anchor
+   points, edge to edge, no gaps, square corners, divided only by border lines.
+   STATIC, no scale or animation on hover/select. Same nine buttons, same
+   behaviour. */
 .rb-home-widget .rb-anchor-ghost,
 .rb-home-widget .rb-anchor-face,
 .rb-home-widget .rb-anchor-grid,
 .rb-home-widget .rb-anchor-pin { display: none !important; }
 
-/* Tile body: a calm dark stage so the accent boxes pop. */
+/* Tile body: the grid fills it completely, framed by a border. */
 .rb-home-widget .rb-anchor-box {
-  background: var(--rb-bg-sunken);
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px var(--rb-border);
+  background: var(--rb-accent);
+  border-radius: 0;
+  border: 1px solid var(--rb-border);
   overflow: hidden;
 }
 
-/* The card becomes the 3x3 grid container filling the whole tile; the nine dots
-   flow into the cells as large boxes with only a thin gap between them. */
+/* The card becomes the full-bleed 3x3 grid; the nine dots flow into the cells
+   with no gap, divided by 1px border lines. */
 .rb-home-widget .rb-anchor-card {
   position: absolute;
-  inset: 4%;
+  inset: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 5%;
+  gap: 0;
   background: none;
   box-shadow: none;
   border-radius: 0;
   overflow: visible;
 }
 
-/* Each anchor point is a big, bright accent box that fills its cell. All nine
-   are the SAME solid accent (no color-mix, no dimming: the AE CEF Chromium does
-   not render color-mix(), and dimming over the dark stage looks muddy). The
-   selected point is simply the smaller box, exactly like the reference. */
+/* Each anchor point is a flat accent box filling its cell, square, divided from
+   its neighbours by a border line. All nine are the SAME solid accent (no
+   color-mix: the AE CEF Chromium does not render it). No scale, no animation,
+   no selected-state differentiation. */
 .rb-home-widget .rb-anchor-dot {
   position: static;
   width: 100%;
@@ -509,16 +510,15 @@
   margin: 0;
   padding: 0;
   transform: none;
-  border: 0;
-  border-radius: 20%;
+  border: 1px solid var(--rb-border);
+  border-radius: 0;
   background: var(--rb-accent);
   cursor: pointer;
-  transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  transition: none;
 }
-.rb-home-widget .rb-anchor-dot:hover { transform: scale(1.06); }
-.rb-home-widget .rb-anchor-dot:active { transform: scale(0.9); }
-/* The selected anchor point: the smaller box (like the reference centre). */
-.rb-home-widget .rb-anchor-dot.is-active { transform: scale(0.55); }
+.rb-home-widget .rb-anchor-dot:hover,
+.rb-home-widget .rb-anchor-dot:active,
+.rb-home-widget .rb-anchor-dot.is-active { transform: none; }
 
 /* Fill mode (any widget): keep only the tool's primary element and stretch it to
    the whole widget. JS marks the kept element + its ancestors .rb-focus-fill and
