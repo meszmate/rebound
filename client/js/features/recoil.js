@@ -152,11 +152,16 @@
     }
     function fail(err) { ctx.toast((err && err.message) || 'Could not apply Recoil', { kind: 'error' }); }
 
-    // Remove easing from the selected keyframes (clears Rebound expressions and
-    // sets the selected keys back to linear), so you can start clean.
+    // Remove the recoil cleanly: clears a recoil expression, or deletes the
+    // overshoot keyframes we inserted between the selected pair and relinearises
+    // the endpoints, leaving the plain move back.
     function doRemove() {
-      ctx.invoke('ease.reset', {})
-        .then(function () { ctx.toast('Removed easing', { kind: 'success' }); ctx.refreshSelection(); })
+      ctx.invoke('recoil.clean', {})
+        .then(function (res) {
+          var n = (res && res.cleaned != null) ? res.cleaned : 0;
+          ctx.toast('Removed recoil from ' + n + ' propert' + (n === 1 ? 'y' : 'ies'), { kind: 'success' });
+          ctx.refreshSelection();
+        })
         .catch(fail);
     }
 

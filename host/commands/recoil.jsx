@@ -70,6 +70,64 @@
     return { cleared: cleared };
   }
 
+  function nearAny(t, arr, eps) {
+    for (var i = 0; i < arr.length; i++) { if (Math.abs(t - arr[i]) <= eps) return true; }
+    return false;
+  }
+
+  // Remove a recoil cleanly, back to the plain move:
+  //  - expression recoil: clearing the Rebound expression restores the original
+  //    keyframes exactly (the remap added none), so that is the whole job.
+  //  - baked recoil: delete the overshoot keyframes WE inserted between the first
+  //    and last selected key (any UNSELECTED key in that span), then set the two
+  //    endpoints back to linear, leaving a clean straight move. Selected keys are
+  //    never deleted, so your own in-between keys survive if you select them.
+  function clean() {
+    var comp = util.activeComp();
+    var props = comp.selectedProperties;
+    var cleaned = 0;
+    var eps = 1e-5;
+
+    app.beginUndoGroup('Rebound: Remove Recoil');
+    try {
+      for (var i = 0; i < props.length; i++) {
+        var p = props[i];
+        if (!(p instanceof Property)) continue;
+
+        var hadExpr = rig.clearExpression(p);
+        if (!p.canVaryOverTime || p.numKeys < 2) { if (hadExpr) cleaned++; continue; }
+
+        var sel = p.selectedKeys; // ascending indices
+        if (sel.length < 2) { if (hadExpr) cleaned++; continue; }
+
+        if (hadExpr) { cleaned++; continue; } // expression path: keys already restored
+
+        var firstT = p.keyTime(sel[0]);
+        var lastT = p.keyTime(sel[sel.length - 1]);
+        var selTimes = [];
+        for (var s = 0; s < sel.length; s++) selTimes.push(p.keyTime(sel[s]));
+
+        // Delete the inserted overshoot keys (unselected, strictly between).
+        for (var k = p.numKeys; k >= 1; k--) {
+          var t = p.keyTime(k);
+          if (t > firstT + eps && t < lastT - eps && !nearAny(t, selTimes, eps)) p.removeKey(k);
+        }
+
+        // Linearise the surviving endpoints for a clean move.
+        var fi = keyIndexAtTime(p, firstT, eps);
+        var li = keyIndexAtTime(p, lastT, eps);
+        if (fi >= 1) { try { p.setInterpolationTypeAtKey(fi, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR); } catch (e1) {} }
+        if (li >= 1) { try { p.setInterpolationTypeAtKey(li, KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR); } catch (e2) {} }
+        cleaned++;
+      }
+    } finally {
+      app.endUndoGroup();
+    }
+
+    if (!cleaned) throw new Error('Nothing to remove. Select the recoiled keyframes.');
+    return { cleaned: cleaned };
+  }
+
   // ---- Baked follow-through (the same motion as the expression, as keyframes).
   // baked = value(t) + velocity*amp*s(t), where value(t) is the property's
   // ORIGINAL interpolated value (sampled before mutation) and
@@ -366,4 +424,5 @@
   R.register('recoil.apply', apply, 'Rebound: Recoil');
   R.register('recoil.bake', bake, 'Rebound: Recoil');
   R.register('recoil.remove', remove, 'Rebound: Remove Recoil');
+  R.register('recoil.clean', clean, 'Rebound: Remove Recoil');
 })();
