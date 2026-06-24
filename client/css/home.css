@@ -476,49 +476,63 @@
 .rb-home-widget .rb-anchor-grid,
 .rb-home-widget .rb-anchor-pin { display: none !important; }
 
-/* Tile body: the grid fills it completely, framed by a border. */
+/* Divider lines: the same accent, a touch darker. A translucent black overlay
+   derives from whatever the accent is (no color-mix, which the AE CEF Chromium
+   does not render), so it always reads as the same colour just slightly darker. */
+.rb-home-widget .rb-anchor-stage { --rb-anchor-line: rgba(0, 0, 0, 0.3); }
+
+/* Tile body: the grid fills it completely. The box background shows through the
+   gaps as the divider colour, and frames the whole grid. */
 .rb-home-widget .rb-anchor-box {
-  background: var(--rb-accent);
+  background: var(--rb-anchor-line);
   border-radius: 0;
-  border: 1px solid var(--rb-border);
+  border: 0;
   overflow: hidden;
 }
 
-/* The card becomes the full-bleed 3x3 grid; the nine dots flow into the cells
-   with no gap, divided by 1px border lines. */
+/* The card becomes the full-bleed 3x3 grid; the nine boxes flow into the cells
+   with a 2px gap that reveals the divider colour behind them. */
 .rb-home-widget .rb-anchor-card {
   position: absolute;
   inset: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 0;
-  background: none;
+  gap: 2px;
+  padding: 2px;
+  background: var(--rb-anchor-line);
   box-shadow: none;
   border-radius: 0;
   overflow: visible;
 }
 
 /* Each anchor point is a flat accent box filling its cell, square, divided from
-   its neighbours by a border line. All nine are the SAME solid accent (no
-   color-mix: the AE CEF Chromium does not render it). No scale, no animation,
-   no selected-state differentiation. */
+   its neighbours by the divider lines. All nine are the SAME solid accent. No
+   scale, no glow, no animation, no selected-state differentiation; only the
+   native tooltip (the button's title) on hover. */
 .rb-home-widget .rb-anchor-dot {
   position: static;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   margin: 0;
   padding: 0;
   transform: none;
-  border: 1px solid var(--rb-border);
+  border: 0;
   border-radius: 0;
   background: var(--rb-accent);
+  box-shadow: none;
   cursor: pointer;
   transition: none;
+  animation: none;
 }
 .rb-home-widget .rb-anchor-dot:hover,
 .rb-home-widget .rb-anchor-dot:active,
-.rb-home-widget .rb-anchor-dot.is-active { transform: none; }
+.rb-home-widget .rb-anchor-dot.is-active {
+  transform: none;
+  box-shadow: none;
+  background: var(--rb-accent);
+}
 
 /* Fill mode (any widget): keep only the tool's primary element and stretch it to
    the whole widget. JS marks the kept element + its ancestors .rb-focus-fill and
