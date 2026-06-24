@@ -45,6 +45,47 @@
     return [rot[0], rot[1], dA.length > 2 ? dA[2] * (scale[2] ? scale[2] / 100 : 1) : 0];
   }
 
+  // Offset a 1D property (a separated X/Y/Z Position) by d, keys included.
+  function offsetScalar(prop, d) {
+    if (prop.numKeys > 0) {
+      for (var k = 1; k <= prop.numKeys; k++) prop.setValueAtTime(prop.keyTime(k), prop.keyValue(k) + d);
+    } else {
+      prop.setValue(prop.value + d);
+    }
+  }
+
+  // Offset a 2D/3D vector property by delta, keys included.
+  function offsetVector(prop, delta) {
+    if (prop.numKeys > 0) {
+      for (var k = 1; k <= prop.numKeys; k++) {
+        var v = prop.keyValue(k);
+        var nv = [v[0] + delta[0], v[1] + delta[1]];
+        if (v.length > 2) nv.push(v[2] + (delta[2] || 0));
+        prop.setValueAtTime(prop.keyTime(k), nv);
+      }
+    } else {
+      var pv = prop.value;
+      var np = [pv[0] + delta[0], pv[1] + delta[1]];
+      if (pv.length > 2) np.push(pv[2] + (delta[2] || 0));
+      prop.setValue(np);
+    }
+  }
+
+  // Apply the compensation delta to Position. When Separate Dimensions is on the
+  // unified Position is HIDDEN (setting it throws "a parent property is hidden"),
+  // so we must drive the X / Y / Z follower properties individually instead.
+  function offsetPosition(posProp, delta) {
+    if (posProp.dimensionsSeparated) {
+      for (var d = 0; d < 3; d++) {
+        var fol = null;
+        try { fol = posProp.getSeparationFollower(d); } catch (e) { fol = null; }
+        if (fol) offsetScalar(fol, delta[d] || 0);
+      }
+    } else {
+      offsetVector(posProp, delta);
+    }
+  }
+
   function moveAnchor(args) {
     var gx = args.gx;
     var gy = args.gy;
@@ -58,53 +99,47 @@
     var moved = 0;
     var skipped = [];
 
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i];
-      if (!hasBounds(layer)) {
-        skipped.push(layer.name + ' (no bounds)');
-        continue;
-      }
-
-      var tr = transformOf(layer);
-      var anchorProp = tr.property(M.anchor);
-      var posProp = tr.property(M.position);
-
-      if (anchorProp.numKeys > 0) {
-        skipped.push(layer.name + ' (animated anchor)');
-        continue;
-      }
-      if (posProp.expressionEnabled && posProp.expression !== '') {
-        skipped.push(layer.name + ' (position expression)');
-        continue;
-      }
-
-      // extents=true grows the box to include masks, strokes, and effects, for
-      // a result closer to the visible content bounds than raw geometry.
-      var rect = layer.sourceRectAtTime(time, !!args.extents);
-      var is3d = anchorProp.value.length > 2;
-      var a0 = anchorProp.value;
-      var a1 = [rect.left + gx * rect.width, rect.top + gy * rect.height];
-      if (is3d) a1.push(a0[2]);
-
-      var dA = [a1[0] - a0[0], a1[1] - a0[1], is3d ? 0 : 0];
-      var delta = compensate(tr, dA, time);
-
-      anchorProp.setValue(a1);
-
-      if (posProp.numKeys > 0) {
-        for (var k = 1; k <= posProp.numKeys; k++) {
-          var v = posProp.keyValue(k);
-          var nv = [v[0] + delta[0], v[1] + delta[1]];
-          if (v.length > 2) nv.push(v[2] + delta[2]);
-          posProp.setValueAtTime(posProp.keyTime(k), nv);
+    app.beginUndoGroup('Rebound: Move Anchor');
+    try {
+      for (var i = 0; i < layers.length; i++) {
+        var layer = layers[i];
+        if (!hasBounds(layer)) {
+          skipped.push(layer.name + ' (no bounds)');
+          continue;
         }
-      } else {
-        var pv = posProp.value;
-        var np = [pv[0] + delta[0], pv[1] + delta[1]];
-        if (pv.length > 2) np.push(pv[2] + delta[2]);
-        posProp.setValue(np);
+
+        var tr = transformOf(layer);
+        var anchorProp = tr.property(M.anchor);
+        var posProp = tr.property(M.position);
+
+        if (anchorProp.numKeys > 0) {
+          skipped.push(layer.name + ' (animated anchor)');
+          continue;
+        }
+        if (posProp.expressionEnabled && posProp.expression !== '') {
+          skipped.push(layer.name + ' (position expression)');
+          continue;
+        }
+
+        // extents=true grows the box to include masks, strokes, and effects, for
+        // a result closer to the visible content bounds than raw geometry.
+        var rect = layer.sourceRectAtTime(time, !!args.extents);
+        var is3d = anchorProp.value.length > 2;
+        var a0 = anchorProp.value;
+        var a1 = [rect.left + gx * rect.width, rect.top + gy * rect.height];
+        if (is3d) a1.push(a0[2]);
+
+        var dA = [a1[0] - a0[0], a1[1] - a0[1], is3d ? 0 : 0];
+        var delta = compensate(tr, dA, time);
+
+        // Compensate Position FIRST: if the property is somehow unsettable, the
+        // anchor stays put too (the layer never visibly jumps).
+        offsetPosition(posProp, delta);
+        anchorProp.setValue(a1);
+        moved++;
       }
-      moved++;
+    } finally {
+      app.endUndoGroup();
     }
 
     return { moved: moved, skipped: skipped };
