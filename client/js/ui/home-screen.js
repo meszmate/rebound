@@ -85,6 +85,28 @@
     return keys.filter(function (k) { return ICONS[k]; });
   }
 
+  // A readable "ink" for marks/labels drawn directly ON an accent fill: white on
+  // a dark or saturated accent, near-black on a light one (so it stays visible
+  // even on a white tile). Computed alongside every --rb-accent we set.
+  function inkFor(hex) {
+    var m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || '').trim());
+    if (!m) return '#fff';
+    var n = parseInt(m[1], 16);
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    return lum > 0.62 ? 'rgba(0, 0, 0, 0.66)' : '#fff';
+  }
+  // Set (or clear) --rb-accent on a node together with its companion ink.
+  function setAccentVar(node, color) {
+    if (color) {
+      node.style.setProperty('--rb-accent', color);
+      node.style.setProperty('--rb-accent-ink', inkFor(color));
+    } else {
+      node.style.removeProperty('--rb-accent');
+      node.style.removeProperty('--rb-accent-ink');
+    }
+  }
+
   // Current theme accent as a hex, for seeding the per-tile colour picker.
   function accentHex() {
     var v = window.getComputedStyle(document.documentElement).getPropertyValue('--rb-accent').trim();
@@ -203,7 +225,7 @@
     // each board can have its own colour. Cards and widgets inherit it.
     function applyBoardTheme() {
       var th = boards[activeIdx].theme;
-      if (th && th.accent) grid.style.setProperty('--rb-accent', th.accent); else grid.style.removeProperty('--rb-accent');
+      setAccentVar(grid, th && th.accent);
       if (boardColorInput) boardColorInput.value = (th && th.accent) || accentHex();
     }
     function destroyAllWidgets() {
@@ -413,7 +435,7 @@
     function colsBtn(n) { var x = el('button.rb-home-sizebtn', { type: 'button', title: n + ' columns', onclick: function () { setCols(n); } }, [String(n)]); colsBtns[n] = x; return x; }
     var colsControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Columns' }), colsBtn(3), colsBtn(4), colsBtn(5), colsBtn(6)]);
     var boardColorInput = el('input.rb-appe-color.rb-home-boardcolor', { type: 'color', title: 'Board accent colour' });
-    boardColorInput.addEventListener('input', function () { boards[activeIdx].theme = { accent: boardColorInput.value }; grid.style.setProperty('--rb-accent', boardColorInput.value); persist(); });
+    boardColorInput.addEventListener('input', function () { boards[activeIdx].theme = { accent: boardColorInput.value }; setAccentVar(grid, boardColorInput.value); persist(); });
     var boardColorClear = el('button.rb-home-sizebtn.rb-home-autobtn', { type: 'button', title: 'Use the global theme', onclick: function () { boards[activeIdx].theme = null; grid.style.removeProperty('--rb-accent'); boardColorInput.value = accentHex(); persist(); } }, ['Auto']);
     var boardThemeControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Board' }), boardColorInput, boardColorClear]);
     var hintText = el('span.rb-grow', { text: '' });
@@ -618,7 +640,7 @@
         type: 'button', 'data-id': action.id,
         onclick: function () { if (editing) return; runAction(action); if (action.kind === 'apply') playOnce(node, 'rb-pulse'); }
       }, tileContent(action, m));
-      if (m.color) node.style.setProperty('--rb-accent', m.color);
+      if (m.color) setAccentVar(node, m.color);
       applySpan(node, action.id, false);
       attachTip(node, label, action.desc || (action.kind === 'open' ? 'Opens the full tool' : 'One-click action'));
       if (editing) {
@@ -633,7 +655,7 @@
     }
     function previewTile(action, m) {
       var node = el(tileClass(action, m, 'div.rb-home-tile') + '.is-static', null, tileContent(action, m));
-      if (m && m.color) node.style.setProperty('--rb-accent', m.color);
+      if (m && m.color) setAccentVar(node, m.color);
       return node;
     }
 
@@ -820,8 +842,8 @@
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
       var removeBtn = el('button.rb-home-wbtn.rb-home-wbtn-x.rb-home-wbtn-edit', { type: 'button', title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']);
       var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour' });
-      function autoWColor() { if (meta[action.id]) delete meta[action.id].color; card.style.removeProperty('--rb-accent'); wColor.value = accentHex(); persist(); }
-      wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; card.style.setProperty('--rb-accent', wColor.value); persist(); });
+      function autoWColor() { if (meta[action.id]) delete meta[action.id].color; setAccentVar(card, null); wColor.value = accentHex(); persist(); }
+      wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; setAccentVar(card, wColor.value); persist(); });
       wColor.addEventListener('dblclick', autoWColor);
       // Explicit Auto (use the theme accent), matching the tile and board controls.
       var wColorAuto = el('button.rb-home-wbtn.rb-home-wbtn-edit.rb-home-wbtn-auto', { type: 'button', title: 'Auto colour (use the theme)', onclick: function (e) { e.stopPropagation(); autoWColor(); } }, ['Auto']);
@@ -885,7 +907,7 @@
       entry.collapseBtn.textContent = collapsedOf(action.id) ? '▸' : '▾';
       entry.maxBtn.textContent = maximizedId === action.id ? '⤡' : '⤢';
       var mc = (meta[action.id] || {}).color;
-      if (mc) card.style.setProperty('--rb-accent', mc); else card.style.removeProperty('--rb-accent');
+      setAccentVar(card, mc);
       if (entry.wColor) entry.wColor.value = mc || accentHex();
       applyFocus(action);
     }

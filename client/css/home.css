@@ -561,10 +561,16 @@
   content: '';
   position: absolute;
   display: none;
-  background: var(--rb-anchor-mark, rgba(0, 0, 0, 0.42));
+  border-radius: 1px;
+  /* Same family as the box, but readable: white on a dark/saturated accent,
+     darker on a light/white one (see --rb-accent-ink, computed per tile). */
+  background: var(--rb-accent-ink, #fff);
 }
-.rb-home-widget .rb-anchor-dot::before { left: 26%; right: 26%; height: 2px; } /* horizontal arm */
-.rb-home-widget .rb-anchor-dot::after  { top: 26%; bottom: 26%; width: 2px; }  /* vertical arm */
+/* Stroke thickness scales with the box (--rb-anchor-mark-w, a % of the cell) so
+   it grows with the widget; bump it for a bolder mark. */
+.rb-home-widget .rb-anchor-stage { --rb-anchor-mark-w: 9%; }
+.rb-home-widget .rb-anchor-dot::before { left: 22%; right: 22%; height: var(--rb-anchor-mark-w); } /* horizontal arm */
+.rb-home-widget .rb-anchor-dot::after  { top: 22%; bottom: 22%; width: var(--rb-anchor-mark-w); }  /* vertical arm */
 
 /* Horizontal arm sits on the top or bottom edge of the box. */
 .rb-home-widget .rb-ap-tl::before,

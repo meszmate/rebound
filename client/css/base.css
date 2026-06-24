@@ -18,6 +18,9 @@
   --rb-text-faint: #6e727a;
   --rb-accent: #5496fa;
   --rb-accent-text: #fff;
+  /* Readable ink for marks drawn directly on an accent fill. JS recomputes this
+     per tile/board when a custom accent is set (white on dark, dark on light). */
+  --rb-accent-ink: #fff;
   --rb-danger: #e5534b;
   --rb-warning: #e8a838;
   --rb-success: #5cb878;
