@@ -479,11 +479,23 @@
 /* Divider lines: the same accent, a touch darker. A translucent black overlay
    derives from whatever the accent is (no color-mix, which the AE CEF Chromium
    does not render), so it always reads as the same colour just slightly darker. */
-.rb-home-widget .rb-anchor-stage { --rb-anchor-line: rgba(0, 0, 0, 0.3); }
+.rb-home-widget .rb-anchor-stage {
+  --rb-anchor-line: rgba(0, 0, 0, 0.3);
+  /* Fill the whole tile: drop the stage's vertical padding so the grid reaches
+     the tile edges instead of floating with a margin. */
+  padding: 0;
+  height: 100%;
+}
 
-/* Tile body: the grid fills it completely. The box background shows through the
-   gaps as the divider colour, and frames the whole grid. */
+/* Tile body: the grid fills the whole tile. Drop the full-tool's fixed aspect
+   ratio / height caps so the box stretches edge to edge. The box background
+   shows through the gaps as the divider colour, and frames the whole grid. */
 .rb-home-widget .rb-anchor-box {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  min-height: 0;
+  max-height: none;
   background: var(--rb-anchor-line);
   border-radius: 0;
   border: 0;
@@ -515,6 +527,11 @@
   box-sizing: border-box;
   width: 100%;
   height: 100%;
+  /* The dots carry inline left/top % (the full tool positions them absolutely).
+     As grid items here those inline offsets would shove each box right/down, so
+     neutralise them. !important is needed to beat the inline style. */
+  left: auto !important;
+  top: auto !important;
   margin: 0;
   padding: 0;
   transform: none;
