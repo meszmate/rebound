@@ -53,7 +53,10 @@
   }
 
   function mount(ctx) {
-    var mode = 'after'; // after (follow-through) | between (settle on key 2)
+    // Default to "between": select 2 keyframes, Apply -> the move overshoots the
+    // second keyframe and settles ON it (same clip length), which is what most
+    // people expect. "After key" (follow-through past the last key) is opt-in.
+    var mode = 'between'; // between (settle on key 2) | after (follow-through)
     // Defaults match the reference Apple-style expression exactly:
     // amp 0.04 (Overshoot 4%), freq 1.8 (Bounce), decay 4 (Friction). So
     // "As expression" emits that expression verbatim out of the box.
