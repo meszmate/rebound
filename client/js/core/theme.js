@@ -71,7 +71,10 @@
       r = +m[1]; g = +m[2]; b = +m[3];
     } else { return 'rgba(255,255,255,0.9)'; }
     var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-    var t = lum > 0.62 ? 0.46 : 0.5, tc = lum > 0.62 ? 0 : 255; // toward black / white
+    // Lighten the accent by default; only darken when it is genuinely light
+    // (near-white), so on the dark UI the marks read as a lighter shade.
+    var light = lum > 0.78;
+    var t = light ? 0.5 : 0.55, tc = light ? 0 : 255; // toward black / white
     function mx(c) { return Math.round(c + (tc - c) * t); }
     return 'rgb(' + mx(r) + ',' + mx(g) + ',' + mx(b) + ')';
   }
