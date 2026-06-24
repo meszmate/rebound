@@ -497,8 +497,11 @@
   50% { transform: rotate(13deg); opacity: 0.9; }
 }
 .rb-anchor-box.is-dragging .rb-anchor-ghost { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) { .rb-anchor-ghost { animation: none; opacity: 0; } }
-:root.rb-tiles-static .rb-anchor-ghost { animation: none; opacity: 0; }
+/* With motion off (or if the CEF panel stops repainting the idle animation) the
+   ghost still reads as a pivot by resting at a fixed tilt around the anchor,
+   rather than vanishing. */
+@media (prefers-reduced-motion: reduce) { .rb-anchor-ghost { animation: none; transform: rotate(11deg); opacity: 0.7; } }
+:root.rb-tiles-static .rb-anchor-ghost { animation: none; transform: rotate(11deg); opacity: 0.7; }
 
 /* Nine handles, straddling the card edges/corners. Spring on hover, glow active. */
 .rb-anchor-dot {
