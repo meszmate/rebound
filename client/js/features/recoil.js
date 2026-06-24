@@ -23,6 +23,12 @@
   // oscillation overshoots past it and settles back to EXACTLY 1 by u=1 (so the
   // remap lands on the second keyframe). The (1-tau) taper guarantees the settle
   // even at low friction; the 1/P normalisation makes the first peak == overshoot.
+  //
+  // The rise is a Hermite that HANDS OFF its slope to the oscillation at the
+  // target, so the curve passes THROUGH the target at speed instead of easing to
+  // a near-stop there and kicking back up (that "shoulder" looked wrong on the
+  // graph). The overshoot peak / valley / settle are untouched, so the baked
+  // keyframes -- which sit on those turning points -- animate exactly as before.
   function overshootCurve(overshoot, bounce, friction) {
     var O = Math.max(0, overshoot) / 100;
     var freq = Math.max(0.1, bounce);
@@ -31,11 +37,20 @@
     function wob(tau) { return Math.sin(2 * Math.PI * freq * tau) * Math.exp(-dec * tau) * (1 - tau); }
     var P = 1e-6;
     for (var i = 1; i <= 160; i++) { var w = wob(i / 160); if (w > P) P = w; }
+    // Slope (in u) the oscillation leaves the target with: O * wob'(0)/P, where
+    // wob'(0) = 2*PI*freq, rescaled from tau to u by 1/(1-R0).
+    var mTarget = (O * 2 * Math.PI * freq / P) / (1 - R0);
+    var k = R0 * mTarget;
     return function (u) {
       if (u <= 0) return 0;
       if (u >= 1) return 1;
-      if (u < R0) { var x = u / R0; return x * x * (3 - 2 * x); } // smooth rise to 1
-      return 1 + O * wob((u - R0) / (1 - R0)) / P;               // overshoot, settle to 1
+      if (u < R0) {
+        // Hermite (0,0,slope 0) -> (R0,1,slope mTarget): monotonic, reaches 1
+        // moving at the overshoot's entry speed (no shoulder at the target).
+        var s = u / R0;
+        return (3 * s * s - 2 * s * s * s) + k * (s * s * s - s * s);
+      }
+      return 1 + O * wob((u - R0) / (1 - R0)) / P; // overshoot, settle to 1
     };
   }
 
