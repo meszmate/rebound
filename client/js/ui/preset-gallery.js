@@ -275,7 +275,7 @@
             group: 'Presets',
             run: function () {
               if (R.shell && R.shell.openTool) R.shell.openTool(toolId);
-              if (config.set) { try { config.set(p.state); } catch (e) {} }
+              if (config.set) { try { config.set(p.state); } catch (e) { /* ignore */ } }
               mark(p.name);
             }
           };
