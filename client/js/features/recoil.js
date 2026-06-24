@@ -58,6 +58,43 @@
   // overshoot without opening the tool (samples this into ease.bakeSparse points).
   R.recoilCurve = overshootCurve;
 
+  // Built-in presets (also the gallery defaults). Module-level so they can be
+  // exposed as applyable Home actions at load, without opening the tool.
+  var RECOIL_DEFAULTS = [
+    { name: 'Apple', state: { overshoot: 12, bounce: 1.6, friction: 5 } },
+    { name: 'Subtle', state: { overshoot: 6, bounce: 1.5, friction: 6 } },
+    { name: 'Snappy', state: { overshoot: 18, bounce: 2.2, friction: 6 } },
+    { name: 'Big Overshoot', state: { overshoot: 32, bounce: 1.8, friction: 3.5 } }
+  ];
+  function slugify(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function recoilApplyBuild(state, mode) {
+    var c = { type: 'fn', fn: overshootCurve(state.overshoot, state.bounce, state.friction) };
+    return (mode === 'expression')
+      ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(c, 256) } }
+      : { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(c), handleLength: 45 } };
+  }
+  // Every recoil preset (built-in + your saved ones) is an applyable Home action
+  // with a Keyframes / Expression choice: pin it to Home or bind it to a key and
+  // pressing it APPLIES that overshoot to the selected keyframes. Registered at
+  // load so the actions exist without opening the tool.
+  R.presetProviders = R.presetProviders || [];
+  R.presetProviders.push(function () {
+    var modes = [{ value: 'keys', label: 'Keyframes' }, { value: 'expression', label: 'Expression' }];
+    var user = [];
+    try { var d = R.disk.read('presets:recoil', null); if (d && d.items) user = d.items; } catch (e) { /* none */ }
+    return RECOIL_DEFAULTS.concat(user).map(function (p) {
+      var st = p.state;
+      return {
+        id: 'toolpreset-recoil-' + slugify(p.name), label: 'Recoil: ' + p.name, toolId: 'recoil',
+        group: 'Presets', kind: 'apply', display: 'visual', curve: 'overshoot',
+        desc: 'Overshoot the selected keyframes the ' + p.name + ' way (' + p.state.overshoot + '% past, settles on the 2nd).',
+        config: [{ arg: 'mode', label: 'Apply as', type: 'select', options: modes }],
+        args: { mode: 'keys' },
+        build: function (args) { return recoilApplyBuild(st, (args && args.mode) || 'keys'); }
+      };
+    });
+  });
+
   R.tools.register({
     id: 'recoil',
     title: 'Recoil',
@@ -207,13 +244,21 @@
         previewFor: function (s) {
           return overshootCurve(s.overshoot, s.bounce, s.friction);
         },
+        // Lets each preset be applied directly from a Home tile or a keybind, with
+        // a Keyframes / Expression choice. build(state, mode) -> {method, args}.
+        apply: {
+          modes: [{ value: 'keys', label: 'Keyframes' }, { value: 'expression', label: 'Expression' }],
+          defaultMode: 'keys',
+          visual: 'overshoot',
+          build: function (state, mode) {
+            var c = { type: 'fn', fn: overshootCurve(state.overshoot, state.bounce, state.friction) };
+            return (mode === 'expression')
+              ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(c, 256) } }
+              : { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(c), handleLength: settingsHL() } };
+          }
+        },
         // Buttery feels: a single gentle overshoot up to a bigger, springier one.
-        defaults: [
-          { name: 'Apple', state: { overshoot: 12, bounce: 1.6, friction: 5 } },
-          { name: 'Subtle', state: { overshoot: 6, bounce: 1.5, friction: 6 } },
-          { name: 'Snappy', state: { overshoot: 18, bounce: 2.2, friction: 6 } },
-          { name: 'Big Overshoot', state: { overshoot: 32, bounce: 1.8, friction: 3.5 } }
-        ]
+        defaults: RECOIL_DEFAULTS
       },
       destroy: function () { off(); preview.destroy(); editor.destroy(); }
     };

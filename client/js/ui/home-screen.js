@@ -496,7 +496,7 @@
     // Merge a tile's saved setup (meta.args) over the action's default args, so a
     // tile can be pointed at a specific easing, expression or shape.
     function mergedArgs(action, override) {
-      var base = action.invoke.args || {}, out = {}, k;
+      var base = (action.invoke && action.invoke.args) || action.args || {}, out = {}, k;
       for (k in base) if (base.hasOwnProperty(k)) out[k] = base[k];
       if (override) for (k in override) if (override.hasOwnProperty(k) && override[k] != null && override[k] !== '') out[k] = override[k];
       return out;
@@ -504,8 +504,10 @@
     function runAction(action) {
       if (action.kind === 'open') { opts.openTool(action.toolId); return; }
       // build() computes {method, args} at click time (e.g. sampling a live
-      // curve); otherwise use the static invoke + any per-tile arg overrides.
-      var inv = action.build ? action.build() : { method: action.invoke.method, args: mergedArgs(action, metaOf(action.id).args) };
+      // curve, honouring config like keyframes-vs-expression); otherwise use the
+      // static invoke. Either way config overrides flow through mergedArgs.
+      var cfgArgs = mergedArgs(action, metaOf(action.id).args);
+      var inv = action.build ? action.build(cfgArgs) : { method: action.invoke.method, args: cfgArgs };
       opts.invoke(inv.method, inv.args)
         .then(function () { opts.toast(action.label + ' applied', { kind: 'success' }); if (opts.refreshSelection) opts.refreshSelection(); })
         .catch(function (err) { opts.toast((err && err.message) || ('Could not apply ' + action.label), { kind: 'error' }); });

@@ -65,11 +65,9 @@
     // (one click with sensible defaults), not live widgets. Open the full tool to
     // tune the sliders.
     { id: 'apply-bounce', label: 'Bounce', toolId: 'bounce', group: 'Physics', kind: 'apply', display: 'visual', curve: 'bounce', desc: 'Rebound the value off its target after its last keyframe.', invoke: { method: 'bounce.apply', args: { elasticity: 0.7, gravity: 4, maxBounces: 4, eachKey: false } } },
-    { id: 'apply-recoil', label: 'Recoil', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'visual', curve: 'overshoot', desc: 'Add elastic overshoot after a keyframe, scaled by the incoming velocity.', invoke: { method: 'recoil.apply', args: { overshoot: 60, bounce: 2, friction: 6, eachKey: true } } },
-    // The Apple-style contained overshoot, one click on the selected keyframes
-    // (12% past, settles on the 2nd key). Args are built at click time by sampling
-    // the live Recoil curve into ease.bakeSparse points.
-    { id: 'recoil-apple', label: 'Recoil: Apple', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'visual', curve: 'overshoot', desc: 'Apple-style overshoot between the selected keyframes: 12% past, settles on the 2nd.', build: function () { return { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples({ type: 'fn', fn: R.recoilCurve(12, 1.6, 5) }), handleLength: 45 } }; } },
+    // Recoil presets (Apple etc.) are applyable Home actions registered by the
+    // Recoil tool itself (toolpreset-recoil-*), each with a Keyframes/Expression
+    // choice. See client/js/features/recoil.js.
     { id: 'apply-drift', label: 'Drift', toolId: 'drift', group: 'Physics', kind: 'apply', display: 'visual', curve: 'drift', desc: 'Add living, organic random motion to the selected properties.', invoke: { method: 'drift.apply', args: { type: 'smooth', amount: 20, frequency: 2 } } }
   ];
 
@@ -106,12 +104,21 @@
   // to a keyboard shortcut, not just the whole tool.
   function expressionActions() { return (R.userExpressions && R.userExpressions.homeActions) ? R.userExpressions.homeActions() : []; }
   function presetActions() { return (R.presets && R.presets.homeActions) ? R.presets.homeActions() : []; }
+  // Per-tool gallery presets that expose presets.apply (e.g. Recoil): each is an
+  // apply action with a Keyframes/Expression choice. Providers are registered by
+  // the preset gallery when a tool with apply support mounts.
+  function toolPresetActions() {
+    var out = [];
+    (R.presetProviders || []).forEach(function (p) { try { out = out.concat(p() || []); } catch (e) { /* skip */ } });
+    return out;
+  }
 
   function all() {
     return applyActions()
       .concat(scriptActions())
       .concat(expressionActions())
       .concat(presetActions())
+      .concat(toolPresetActions())
       .concat(widgetActions())
       .concat(openActions());
   }
@@ -151,7 +158,7 @@
     items: [
       'widget-ease',
       'widget-align', 'widget-color',
-      'easy-ease', 'ease-in', 'ease-out', 'recoil-apple',
+      'easy-ease', 'ease-in', 'ease-out', 'toolpreset-recoil-apple',
       'widget-anchor',
       'add-null', 'expr-wiggle', 'expr-loop'
     ],

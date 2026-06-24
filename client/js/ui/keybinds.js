@@ -55,7 +55,7 @@
   // Same merge semantics as home-screen.js mergedArgs: override wins only when
   // its value is non-null/non-empty, otherwise the action's baked-in arg stands.
   function mergedArgs(action, override) {
-    var base = (action && action.invoke && action.invoke.args) || {}, out = {}, k;
+    var base = (action && action.invoke && action.invoke.args) || (action && action.args) || {}, out = {}, k;
     for (k in base) if (base.hasOwnProperty(k)) out[k] = base[k];
     if (override) for (k in override) if (override.hasOwnProperty(k) && override[k] != null && override[k] !== '') out[k] = override[k];
     return out;
@@ -101,7 +101,8 @@
 
   function runAction(a, override) {
     if (!hooks.invoke) return;
-    var inv = a.build ? a.build() : { method: a.invoke.method, args: mergedArgs(a, override) };
+    var args = mergedArgs(a, override);
+    var inv = a.build ? a.build(args) : { method: a.invoke.method, args: args };
     hooks.invoke(inv.method, inv.args)
       .then(function () { if (hooks.toast) hooks.toast(a.label + ' applied', { kind: 'success' }); if (hooks.refreshSelection) hooks.refreshSelection(); })
       .catch(function (err) { if (hooks.toast) hooks.toast((err && err.message) || ('Could not apply ' + a.label), { kind: 'error' }); });
@@ -241,7 +242,7 @@
       a.config.forEach(function (f) {
         if (f.type !== 'select' || !f.options) return;
         var cur = (argsOf(load()[cmd.id]) || {})[f.arg];
-        if (cur == null) cur = (a.invoke.args || {})[f.arg];
+        if (cur == null) cur = ((a.invoke && a.invoke.args) || a.args || {})[f.arg];
         var sel = el('select.rb-kb-select', { title: f.label });
         f.options.forEach(function (o) {
           sel.appendChild(el('option', { value: o.value, text: o.label, selected: (o.value === cur) ? 'selected' : null }));

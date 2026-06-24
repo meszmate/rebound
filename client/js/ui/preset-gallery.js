@@ -66,8 +66,13 @@
       }
     }
 
-    // A stable keybind id for a preset, so a shortcut survives renames-by-name.
-    function bindId(name) { return 'preset:' + toolId + ':' + name; }
+    function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+    // The Home-action id for an applyable preset (tools that expose presets.apply).
+    function presetActionId(name) { return 'toolpreset-' + toolId + '-' + slug(name); }
+    // The keybind id for a preset's badge: when the tool can apply a preset
+    // directly, bind to that APPLY action (so the key applies it); otherwise bind
+    // to an open-the-tool-and-load command.
+    function bindId(name) { return config.apply ? ('action:' + presetActionId(name)) : ('preset:' + toolId + ':' + name); }
 
     function tile(p) {
       var children = [];
@@ -261,18 +266,18 @@
       grid.appendChild(saveTile());
     }
 
-    // Make every preset of this tool bindable to a key: the shortcut opens the
-    // tool and loads that preset's settings. Registered once; reads current
-    // presets each time the keybind registry is built (so saves/deletes show up).
-    if (R.keybinds && R.keybinds.addProvider) {
+    function toolTitle() { var t = (R.tools && R.tools.get) ? R.tools.get(toolId) : null; return (t && t.title) || toolId; }
+
+    // When the tool can APPLY a preset directly (presets.apply), the preset's
+    // applyable Home action is registered by the tool itself (R.toolPresets), so
+    // it exists without opening the tool; the badge just binds to it. Otherwise,
+    // the shortcut opens the tool and loads the preset.
+    if (!config.apply && R.keybinds && R.keybinds.addProvider) {
       R.keybinds.addProvider(function () {
-        var tool = (R.tools && R.tools.get) ? R.tools.get(toolId) : null;
-        var title = (tool && tool.title) || toolId;
+        var title = toolTitle();
         return all().map(function (p) {
           return {
-            id: bindId(p.name),
-            label: title + ': ' + p.name,
-            group: 'Presets',
+            id: bindId(p.name), label: title + ': ' + p.name, group: 'Presets',
             run: function () {
               if (R.shell && R.shell.openTool) R.shell.openTool(toolId);
               if (config.set) { try { config.set(p.state); } catch (e) { /* ignore */ } }
