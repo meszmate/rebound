@@ -67,12 +67,20 @@
     { name: 'Big Overshoot', state: { overshoot: 32, bounce: 1.8, friction: 3.5 } }
   ];
   function slugify(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function userHandleLength() {
+    var s = (R.disk && R.disk.read) ? (R.disk.read('settings', {}) || {}) : {};
+    return (s.handleLength > 0) ? s.handleLength : 45;
+  }
+  // THE single apply path for a recoil preset (state -> host {method,args}). Used
+  // by the tool's Apply buttons AND the Home tile / pinned actions, so a preset
+  // applied from anywhere is byte-for-byte identical (same curve, same handles).
   function recoilApplyBuild(state, mode) {
     var c = { type: 'fn', fn: overshootCurve(state.overshoot, state.bounce, state.friction) };
     return (mode === 'expression')
       ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(c, 256) } }
-      : { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(c), handleLength: 45 } };
+      : { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(c), handleLength: userHandleLength() } };
   }
+  R.recoilApply = recoilApplyBuild;
   // Every recoil preset (built-in + your saved ones) is an applyable Home action
   // with a Keyframes / Expression choice: pin it to Home or bind it to a key and
   // pressing it APPLIES that overshoot to the selected keyframes. Registered at
@@ -82,7 +90,9 @@
     var modes = [{ value: 'keys', label: 'Keyframes' }, { value: 'expression', label: 'Expression' }];
     var user = [];
     try { var d = R.disk.read('presets:recoil', null); if (d && d.items) user = d.items; } catch (e) { /* none */ }
-    return RECOIL_DEFAULTS.concat(user).map(function (p) {
+    // Apple is the generic "Recoil" tile (home-actions apply-recoil); skip it here
+    // so it is not listed twice.
+    return RECOIL_DEFAULTS.filter(function (p) { return p.name !== 'Apple'; }).concat(user).map(function (p) {
       var st = p.state;
       return {
         id: 'toolpreset-recoil-' + slugify(p.name), label: 'Recoil: ' + p.name, toolId: 'recoil',
@@ -206,21 +216,19 @@
         .catch(fail);
     }
 
-    function settingsHL() {
-      var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};
-      return (s.handleLength > 0) ? s.handleLength : 45;
-    }
-
     // Bake the overshoot between the selected keyframes as a few editable keys
-    // (one per peak/valley), settling exactly on the second keyframe.
+    // (one per peak/valley), settling exactly on the second keyframe. Routed
+    // through recoilApplyBuild so it is identical to the Home tile / pinned action.
     function doApplyKeys() {
-      ctx.invoke('ease.bakeSparse', { points: R.easing.sampler.sparseSamples(curve()), handleLength: settingsHL() })
+      var inv = recoilApplyBuild(getState(), 'keys');
+      ctx.invoke(inv.method, inv.args)
         .then(function (res) { finish(res, 'baked'); }).catch(fail);
     }
     // Keyframe-free: one remap expression that drives the same overshoot between
     // the keys, landing on each. The original keyframes stay; clean timeline.
     function doApplyExpr() {
-      ctx.invoke('ease.remap', { factors: R.easing.sampler.bakeFactors(curve(), 256) })
+      var inv = recoilApplyBuild(getState(), 'expression');
+      ctx.invoke(inv.method, inv.args)
         .then(function (res) { finish(res, 'expression'); }).catch(fail);
     }
 
@@ -243,19 +251,6 @@
         set: applyState,
         previewFor: function (s) {
           return overshootCurve(s.overshoot, s.bounce, s.friction);
-        },
-        // Lets each preset be applied directly from a Home tile or a keybind, with
-        // a Keyframes / Expression choice. build(state, mode) -> {method, args}.
-        apply: {
-          modes: [{ value: 'keys', label: 'Keyframes' }, { value: 'expression', label: 'Expression' }],
-          defaultMode: 'keys',
-          visual: 'overshoot',
-          build: function (state, mode) {
-            var c = { type: 'fn', fn: overshootCurve(state.overshoot, state.bounce, state.friction) };
-            return (mode === 'expression')
-              ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(c, 256) } }
-              : { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(c), handleLength: settingsHL() } };
-          }
         },
         // Buttery feels: a single gentle overshoot up to a bigger, springier one.
         defaults: RECOIL_DEFAULTS
