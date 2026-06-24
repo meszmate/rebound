@@ -65,9 +65,12 @@
     // (one click with sensible defaults), not live widgets. Open the full tool to
     // tune the sliders.
     { id: 'apply-bounce', label: 'Bounce', toolId: 'bounce', group: 'Physics', kind: 'apply', display: 'visual', curve: 'bounce', desc: 'Rebound the value off its target after its last keyframe.', invoke: { method: 'bounce.apply', args: { elasticity: 0.7, gravity: 4, maxBounces: 4, eachKey: false } } },
-    // Recoil presets (Apple etc.) are applyable Home actions registered by the
-    // Recoil tool itself (toolpreset-recoil-*), each with a Keyframes/Expression
-    // choice. See client/js/features/recoil.js.
+    // The generic "Recoil" tile: the Apple-style contained overshoot (12% past,
+    // settles on the 2nd key) in one click, with a Keyframes/Expression choice.
+    // Kept (id apply-recoil) so existing boards that pinned it keep working; now
+    // applies the same contained overshoot as the tool. Per-preset variants are
+    // registered by the Recoil tool itself (toolpreset-recoil-*).
+    { id: 'apply-recoil', label: 'Recoil', toolId: 'recoil', group: 'Physics', kind: 'apply', display: 'visual', curve: 'overshoot', desc: 'Apple-style overshoot between the selected keyframes: 12% past, settles on the 2nd.', config: [{ arg: 'mode', label: 'Apply as', type: 'select', options: [{ value: 'keys', label: 'Keyframes' }, { value: 'expression', label: 'Expression' }] }], args: { mode: 'keys' }, build: function (args) { var c = { type: 'fn', fn: R.recoilCurve(12, 1.6, 5) }; return (args && args.mode === 'expression') ? { method: 'ease.remap', args: { factors: R.easing.sampler.bakeFactors(c, 256) } } : { method: 'ease.bakeSparse', args: { points: R.easing.sampler.sparseSamples(c), handleLength: 45 } }; } },
     { id: 'apply-drift', label: 'Drift', toolId: 'drift', group: 'Physics', kind: 'apply', display: 'visual', curve: 'drift', desc: 'Add living, organic random motion to the selected properties.', invoke: { method: 'drift.apply', args: { type: 'smooth', amount: 20, frequency: 2 } } }
   ];
 
