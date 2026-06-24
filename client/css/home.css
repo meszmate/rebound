@@ -465,48 +465,104 @@
 .rb-home-widget-body .rb-anchor-readout,
 .rb-home-widget-body .rb-readout { font-size: calc(var(--rb-font-size) - 2px); }
 
-/* In a home widget the rich picker (layer card, pivot ghost, reticle, name) is
-   too busy and leans on idle animation the CEF panel may not keep repainting.
-   Collapse it to a dead-simple, fully static 3x3 grid of the nine anchor points,
-   the current one filled. Same nine buttons, same behaviour, no motion. */
+/* In a home widget the rich picker (pivot ghost, layer name, idle animation)
+   is too busy and the CEF panel may not keep repainting motion. Collapse it to
+   the universal anchor glyph instead: a layer FRAME floating on the stage with
+   a single crosshair TARGET reticle parked on the current anchor, the nine
+   points demoted to small ring handles riding the frame's corners/edges/centre.
+   STATIC ONLY (the base pin pulse is killed); only :hover/:active transitions
+   remain. This reads instantly as "anchor point", unlike a grid of squares. */
 .rb-home-widget .rb-anchor-ghost,
 .rb-home-widget .rb-anchor-face,
-.rb-home-widget .rb-anchor-grid,
-.rb-home-widget .rb-anchor-pin { display: none !important; }
+.rb-home-widget .rb-anchor-grid { display: none !important; }
+
+/* Tile body: calm sunken stage with a hairline edge. */
 .rb-home-widget .rb-anchor-box {
   background: var(--rb-bg-sunken);
+  border-radius: 12px;
   box-shadow: inset 0 0 0 1px var(--rb-border);
+  overflow: visible;
 }
+
+/* The layer frame: a bounded plate with real body (accent fill + inset border),
+   never a black box. overflow:visible lets edge/corner handles straddle it. */
 .rb-home-widget .rb-anchor-card {
-  inset: 11%;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 9%;
-  background: none;
-  box-shadow: none;
-  border-radius: 0;
+  position: absolute;
+  inset: 24%;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--rb-accent) 9%, var(--rb-bg-raised));
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rb-accent) 42%, var(--rb-border));
+  overflow: visible;
 }
+
+/* The nine point buttons: small hollow ring handles riding the frame, not loose
+   squares. (left/top % come from JS inline styles.) */
 .rb-home-widget .rb-anchor-dot {
-  position: static;
-  width: 100%;
-  height: 100%;
-  transform: none;
-  border-radius: 22%;
-  background: color-mix(in srgb, var(--rb-accent) 15%, var(--rb-bg-raised));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rb-accent) 28%, var(--rb-border));
-  transition: background var(--rb-transition), transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--rb-bg-sunken);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rb-accent) 48%, var(--rb-border));
+  cursor: pointer;
+  z-index: 4;
+  transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
+              background var(--rb-transition, 0.16s ease),
+              box-shadow var(--rb-transition, 0.16s ease);
 }
 .rb-home-widget .rb-anchor-dot:hover {
-  transform: scale(1.08);
-  background: color-mix(in srgb, var(--rb-accent) 40%, var(--rb-bg-raised));
-  box-shadow: inset 0 0 0 1.5px var(--rb-accent);
+  transform: translate(-50%, -50%) scale(1.35);
+  background: color-mix(in srgb, var(--rb-accent) 25%, var(--rb-bg-raised));
+  box-shadow: inset 0 0 0 2px var(--rb-accent);
 }
-.rb-home-widget .rb-anchor-dot:active { transform: scale(0.96); }
+.rb-home-widget .rb-anchor-dot:active {
+  transform: translate(-50%, -50%) scale(1.12);
+}
+/* The active handle is solid accent; the reticle sits on top of it. */
 .rb-home-widget .rb-anchor-dot.is-active {
   background: var(--rb-accent);
-  box-shadow: 0 2px 8px -2px color-mix(in srgb, var(--rb-accent) 60%, transparent);
-  transform: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--rb-accent) 26%, transparent),
+              inset 0 0 0 1.5px var(--rb-bg-raised);
+}
+
+/* THE HERO: target reticle marking the current anchor. Ring + centre dot + four
+   crosshair ticks pushing past the ring (the tell that it's an anchor, not an
+   align dot). A soft sunken knockout halo lifts it off the frame, no glow/pulse.
+   STATIC: kill the base pulse animation. */
+.rb-home-widget .rb-anchor-pin {
+  display: block !important;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid var(--rb-accent);
+  background: radial-gradient(circle at 50% 50%, var(--rb-accent) 0 2.5px, transparent 3.5px);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rb-bg-sunken) 65%, transparent);
+  animation: none !important;
+  pointer-events: none;
+  z-index: 6;
+}
+.rb-home-widget .rb-anchor-pin::before,
+.rb-home-widget .rb-anchor-pin::after {
+  content: '';
+  position: absolute;
+  background: var(--rb-accent);
+}
+.rb-home-widget .rb-anchor-pin::before {
+  left: 50%; top: -6px; bottom: -6px; width: 2px; transform: translateX(-50%);
+}
+.rb-home-widget .rb-anchor-pin::after {
+  top: 50%; left: -6px; right: -6px; height: 2px; transform: translateY(-50%);
+}
+/* If the anchor is dragged outside the frame, keep the marker legible. */
+.rb-home-widget .rb-anchor-pin.is-outside {
+  border-style: dashed;
+  opacity: 0.85;
 }
 
 /* Fill mode (any widget): keep only the tool's primary element and stretch it to
