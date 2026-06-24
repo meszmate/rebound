@@ -60,6 +60,22 @@
     };
   }
 
+  // A readable "ink" for marks drawn directly on the accent: a lighter shade of
+  // the accent on a dark/saturated accent, a darker shade on a light one. Keeps
+  // the hue (it is the same colour, just lighter or darker), never pure white.
+  function accentInk(accent) {
+    var r, g, b, m;
+    if ((m = /^#?([0-9a-fA-F]{6})$/.exec(String(accent || '').trim()))) {
+      var n = parseInt(m[1], 16); r = (n >> 16) & 255; g = (n >> 8) & 255; b = n & 255;
+    } else if ((m = /rgba?\(\s*([0-9.]+)[,\s]+([0-9.]+)[,\s]+([0-9.]+)/i.exec(String(accent || '')))) {
+      r = +m[1]; g = +m[2]; b = +m[3];
+    } else { return 'rgba(255,255,255,0.9)'; }
+    var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    var t = lum > 0.62 ? 0.46 : 0.5, tc = lum > 0.62 ? 0 : 255; // toward black / white
+    function mx(c) { return Math.round(c + (tc - c) * t); }
+    return 'rgb(' + mx(r) + ',' + mx(g) + ',' + mx(b) + ')';
+  }
+
   function applyPalette(p, fontSize) {
     var root = document.documentElement;
     function set(name, value) { root.style.setProperty(name, value); }
@@ -75,6 +91,7 @@
     set('--rb-text-faint', p.textFaint);
     set('--rb-accent', p.accent);
     set('--rb-accent-text', p.accentText);
+    set('--rb-accent-ink', accentInk(p.accent));
     set('--rb-danger', p.danger);
     set('--rb-warning', p.warning);
     set('--rb-success', p.success);

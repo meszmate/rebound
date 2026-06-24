@@ -90,11 +90,13 @@
   // even on a white tile). Computed alongside every --rb-accent we set.
   function inkFor(hex) {
     var m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || '').trim());
-    if (!m) return '#fff';
+    if (!m) return 'rgba(255,255,255,0.9)';
     var n = parseInt(m[1], 16);
     var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-    return lum > 0.62 ? 'rgba(0, 0, 0, 0.66)' : '#fff';
+    var t = lum > 0.62 ? 0.46 : 0.5, tc = lum > 0.62 ? 0 : 255; // toward black / white
+    function mx(c) { return Math.round(c + (tc - c) * t); }
+    return 'rgb(' + mx(r) + ',' + mx(g) + ',' + mx(b) + ')';
   }
   // Set (or clear) --rb-accent on a node together with its companion ink.
   function setAccentVar(node, color) {

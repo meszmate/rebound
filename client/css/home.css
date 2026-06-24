@@ -569,24 +569,25 @@
 /* Stroke thickness scales with the box (--rb-anchor-mark-w, a % of the cell) so
    it grows with the widget; bump it for a bolder mark. */
 .rb-home-widget .rb-anchor-stage { --rb-anchor-mark-w: 9%; }
-.rb-home-widget .rb-anchor-dot::before { left: 22%; right: 22%; height: var(--rb-anchor-mark-w); } /* horizontal arm */
-.rb-home-widget .rb-anchor-dot::after  { top: 22%; bottom: 22%; width: var(--rb-anchor-mark-w); }  /* vertical arm */
+.rb-home-widget .rb-anchor-dot::before { height: var(--rb-anchor-mark-w); } /* horizontal arm */
+.rb-home-widget .rb-anchor-dot::after  { width: var(--rb-anchor-mark-w); }  /* vertical arm */
 
-/* Horizontal arm sits on the top or bottom edge of the box. */
-.rb-home-widget .rb-ap-tl::before,
-.rb-home-widget .rb-ap-tc::before,
-.rb-home-widget .rb-ap-tr::before { display: block; top: 26%; }
-.rb-home-widget .rb-ap-bl::before,
-.rb-home-widget .rb-ap-bc::before,
-.rb-home-widget .rb-ap-br::before { display: block; bottom: 26%; }
+/* Corner boxes: a short L-bracket. The two arms meet at that corner and reach
+   only partway in (they stop before the centre) so they never cross. */
+.rb-home-widget .rb-ap-tl::before { display: block; top: 24%; left: 24%; right: 52%; }
+.rb-home-widget .rb-ap-tl::after  { display: block; left: 24%; top: 24%; bottom: 52%; }
+.rb-home-widget .rb-ap-tr::before { display: block; top: 24%; right: 24%; left: 52%; }
+.rb-home-widget .rb-ap-tr::after  { display: block; right: 24%; top: 24%; bottom: 52%; }
+.rb-home-widget .rb-ap-bl::before { display: block; bottom: 24%; left: 24%; right: 52%; }
+.rb-home-widget .rb-ap-bl::after  { display: block; left: 24%; bottom: 24%; top: 52%; }
+.rb-home-widget .rb-ap-br::before { display: block; bottom: 24%; right: 24%; left: 52%; }
+.rb-home-widget .rb-ap-br::after  { display: block; right: 24%; bottom: 24%; top: 52%; }
 
-/* Vertical arm sits on the left or right edge of the box. */
-.rb-home-widget .rb-ap-tl::after,
-.rb-home-widget .rb-ap-ml::after,
-.rb-home-widget .rb-ap-bl::after { display: block; left: 26%; }
-.rb-home-widget .rb-ap-tr::after,
-.rb-home-widget .rb-ap-mr::after,
-.rb-home-widget .rb-ap-br::after { display: block; right: 26%; }
+/* Edge boxes: a single line centred on that edge. */
+.rb-home-widget .rb-ap-tc::before { display: block; top: 24%; left: 30%; right: 30%; }
+.rb-home-widget .rb-ap-bc::before { display: block; bottom: 24%; left: 30%; right: 30%; }
+.rb-home-widget .rb-ap-ml::after  { display: block; left: 24%; top: 30%; bottom: 30%; }
+.rb-home-widget .rb-ap-mr::after  { display: block; right: 24%; top: 30%; bottom: 30%; }
 
 /* Centre box: a small plus. */
 .rb-home-widget .rb-ap-mc::before { display: block; top: 50%; left: 34%; right: 34%; transform: translateY(-50%); }
