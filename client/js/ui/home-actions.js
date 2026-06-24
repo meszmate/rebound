@@ -151,7 +151,7 @@
     items: [
       'widget-ease',
       'widget-align', 'widget-color',
-      'easy-ease', 'ease-in', 'ease-out', 'apply-recoil',
+      'easy-ease', 'ease-in', 'ease-out', 'recoil-apple',
       'widget-anchor',
       'add-null', 'expr-wiggle', 'expr-loop'
     ],
