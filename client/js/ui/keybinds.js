@@ -83,8 +83,21 @@
       if (a.kind === 'open' || !a.invoke || !a.invoke.method) return;
       list.push({ id: 'action:' + a.id, label: a.label, group: a.group || 'Apply', action: a, run: function (over) { runAction(a, over); } });
     });
+
+    // Providers contribute live commands they own (e.g. each tool's preset
+    // tiles, each colour swatch), so anything on screen can be bound by key.
+    for (var pi = 0; pi < providers.length; pi++) {
+      var extra;
+      try { extra = providers[pi]() || []; } catch (e) { extra = []; }
+      for (var ei = 0; ei < extra.length; ei++) list.push(extra[ei]);
+    }
     return list;
   }
+
+  // Anything can register a function returning bindable commands. Called fresh
+  // each time the registry is built, so it always reflects current state.
+  var providers = [];
+  function addProvider(fn) { if (typeof fn === 'function') providers.push(fn); }
 
   function runAction(a, override) {
     if (!hooks.invoke) return;
@@ -296,5 +309,5 @@
     }
   }
 
-  R.keybinds = { init: init, open: open, comboFor: comboFor, record: record, clearBind: clearBind };
+  R.keybinds = { init: init, open: open, comboFor: comboFor, record: record, clearBind: clearBind, addProvider: addProvider };
 })(window.Rebound = window.Rebound || {});

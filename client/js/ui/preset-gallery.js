@@ -66,6 +66,9 @@
       }
     }
 
+    // A stable keybind id for a preset, so a shortcut survives renames-by-name.
+    function bindId(name) { return 'preset:' + toolId + ':' + name; }
+
     function tile(p) {
       var children = [];
       if (thumbFor) {
@@ -81,6 +84,32 @@
           mark(p.name);
         }
       }, children);
+
+      // Hover key-badge: bind a shortcut to this exact preset. Shows the current
+      // combo when set (always visible), a key glyph to set otherwise (on hover).
+      // Click to (re)record, right-click to clear.
+      if (R.keybinds && R.keybinds.record) {
+        var id = bindId(p.name);
+        var keyBadge = el('button.rb-tile-key', { type: 'button' });
+        function refreshKey() {
+          var combo = R.keybinds.comboFor ? R.keybinds.comboFor(id) : '';
+          keyBadge.textContent = combo || '⌨';
+          keyBadge.classList.toggle('is-set', !!combo);
+          keyBadge.title = combo
+            ? 'Shortcut ' + combo + ' — click to change, right-click to remove'
+            : 'Set a keyboard shortcut for ' + p.name;
+        }
+        keyBadge.addEventListener('click', function (e) {
+          e.stopPropagation();
+          R.keybinds.record(id, function () { refreshKey(); }, keyBadge);
+        });
+        keyBadge.addEventListener('contextmenu', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          if (R.keybinds.clearBind) { R.keybinds.clearBind(id); refreshKey(); if (R.ui.toast) R.ui.toast('Shortcut removed', { kind: 'info' }); }
+        });
+        refreshKey();
+        node.appendChild(keyBadge);
+      }
       if (!p.builtin) {
         node.appendChild(el('span.rb-tile-del', {
           title: 'Delete preset', 'aria-label': 'Delete ' + p.name,
@@ -230,6 +259,28 @@
       R.dom.clear(grid);
       all().forEach(function (p) { grid.appendChild(tile(p)); });
       grid.appendChild(saveTile());
+    }
+
+    // Make every preset of this tool bindable to a key: the shortcut opens the
+    // tool and loads that preset's settings. Registered once; reads current
+    // presets each time the keybind registry is built (so saves/deletes show up).
+    if (R.keybinds && R.keybinds.addProvider) {
+      R.keybinds.addProvider(function () {
+        var tool = (R.tools && R.tools.get) ? R.tools.get(toolId) : null;
+        var title = (tool && tool.title) || toolId;
+        return all().map(function (p) {
+          return {
+            id: bindId(p.name),
+            label: title + ': ' + p.name,
+            group: 'Presets',
+            run: function () {
+              if (R.shell && R.shell.openTool) R.shell.openTool(toolId);
+              if (config.set) { try { config.set(p.state); } catch (e) {} }
+              mark(p.name);
+            }
+          };
+        });
+      });
     }
 
     rebuild();

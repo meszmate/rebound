@@ -554,6 +554,10 @@
     var tool = R.tools.get(id);
     if (tool) openTool(tool);
   }
+  // Expose the opener so other surfaces (e.g. a preset keybind) can bring a tool
+  // up before acting on it.
+  R.shell = R.shell || {};
+  R.shell.openTool = openToolById;
 
   function sectionMeta(sid) {
     var list = R.toolMeta.SECTIONS;
