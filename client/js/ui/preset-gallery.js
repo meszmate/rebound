@@ -66,14 +66,6 @@
       }
     }
 
-    function slug(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
-    // The Home-action id for an applyable preset (tools that expose presets.apply).
-    function presetActionId(name) { return 'toolpreset-' + toolId + '-' + slug(name); }
-    // The keybind id for a preset's badge: when the tool can apply a preset
-    // directly, bind to that APPLY action (so the key applies it); otherwise bind
-    // to an open-the-tool-and-load command.
-    function bindId(name) { return config.apply ? ('action:' + presetActionId(name)) : ('preset:' + toolId + ':' + name); }
-
     function tile(p) {
       var children = [];
       if (thumbFor) {
@@ -90,31 +82,6 @@
         }
       }, children);
 
-      // Hover key-badge: bind a shortcut to this exact preset. Shows the current
-      // combo when set (always visible), a key glyph to set otherwise (on hover).
-      // Click to (re)record, right-click to clear.
-      if (R.keybinds && R.keybinds.record) {
-        var id = bindId(p.name);
-        var keyBadge = el('button.rb-tile-key', { type: 'button' });
-        function refreshKey() {
-          var combo = R.keybinds.comboFor ? R.keybinds.comboFor(id) : '';
-          keyBadge.textContent = combo || '⌨';
-          keyBadge.classList.toggle('is-set', !!combo);
-          keyBadge.title = combo
-            ? 'Shortcut ' + combo + ' — click to change, right-click to remove'
-            : 'Set a keyboard shortcut for ' + p.name;
-        }
-        keyBadge.addEventListener('click', function (e) {
-          e.stopPropagation();
-          R.keybinds.record(id, function () { refreshKey(); }, keyBadge);
-        });
-        keyBadge.addEventListener('contextmenu', function (e) {
-          e.preventDefault(); e.stopPropagation();
-          if (R.keybinds.clearBind) { R.keybinds.clearBind(id); refreshKey(); if (R.ui.toast) R.ui.toast('Shortcut removed', { kind: 'info' }); }
-        });
-        refreshKey();
-        node.appendChild(keyBadge);
-      }
       if (!p.builtin) {
         node.appendChild(el('span.rb-tile-del', {
           title: 'Delete preset', 'aria-label': 'Delete ' + p.name,
@@ -264,28 +231,6 @@
       R.dom.clear(grid);
       all().forEach(function (p) { grid.appendChild(tile(p)); });
       grid.appendChild(saveTile());
-    }
-
-    function toolTitle() { var t = (R.tools && R.tools.get) ? R.tools.get(toolId) : null; return (t && t.title) || toolId; }
-
-    // When the tool can APPLY a preset directly (presets.apply), the preset's
-    // applyable Home action is registered by the tool itself (R.toolPresets), so
-    // it exists without opening the tool; the badge just binds to it. Otherwise,
-    // the shortcut opens the tool and loads the preset.
-    if (!config.apply && R.keybinds && R.keybinds.addProvider) {
-      R.keybinds.addProvider(function () {
-        var title = toolTitle();
-        return all().map(function (p) {
-          return {
-            id: bindId(p.name), label: title + ': ' + p.name, group: 'Presets',
-            run: function () {
-              if (R.shell && R.shell.openTool) R.shell.openTool(toolId);
-              if (config.set) { try { config.set(p.state); } catch (e) { /* ignore */ } }
-              mark(p.name);
-            }
-          };
-        });
-      });
     }
 
     rebuild();
