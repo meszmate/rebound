@@ -95,7 +95,7 @@
     var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
     var lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
     var light = lum > 0.78; // only near-white accents darken; everything else lightens
-    var t = light ? 0.5 : 0.55, tc = light ? 0 : 255; // toward black / white
+    var t = 0.32, tc = light ? 0 : 255; // gently toward black / white, so it blends
     function mx(c) { return Math.round(c + (tc - c) * t); }
     return 'rgb(' + mx(r) + ',' + mx(g) + ',' + mx(b) + ')';
   }

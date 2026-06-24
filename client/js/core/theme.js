@@ -74,7 +74,7 @@
     // Lighten the accent by default; only darken when it is genuinely light
     // (near-white), so on the dark UI the marks read as a lighter shade.
     var light = lum > 0.78;
-    var t = light ? 0.5 : 0.55, tc = light ? 0 : 255; // toward black / white
+    var t = 0.32, tc = light ? 0 : 255; // gently toward black / white, so it blends
     function mx(c) { return Math.round(c + (tc - c) * t); }
     return 'rgb(' + mx(r) + ',' + mx(g) + ',' + mx(b) + ')';
   }

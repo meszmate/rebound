@@ -63,8 +63,11 @@
    is a soft, modern, rounded card; data-cards on :root selects other styles. */
 :root {
   --rb-card-radius: 12px;
-  --rb-card-bg: color-mix(in srgb, var(--rb-bg-raised) 48%, var(--rb-bg));
-  --rb-card-border: color-mix(in srgb, var(--rb-border) 65%, transparent);
+  /* Plain theme vars, NOT color-mix: AE's CEF Chromium does not support
+     color-mix(), so a mixed border falls back to currentColor (white) and shows
+     as white dashes in edit mode. These track the theme and render in AE. */
+  --rb-card-bg: var(--rb-bg-raised);
+  --rb-card-border: var(--rb-border);
   --rb-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
   --rb-card-hover-bg: var(--rb-bg-raised);
 }
