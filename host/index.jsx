@@ -57,6 +57,18 @@
     $.evalFile(f);
   }
 
+  // Command modules are independent of each other, so a broken one must NOT abort
+  // the whole bootstrap (which would silently leave every command after it
+  // unregistered -> "none of the features work"). Isolate each; collect failures.
+  var loadErrors = [];
+  function loadCmd(relative) {
+    try {
+      load(relative);
+    } catch (e) {
+      loadErrors.push(relative + ': ' + ((e && e.message) ? e.message : String(e)));
+    }
+  }
+
   // Order matters: JSON polyfill, then the RPC core, then shared utils, then
   // each command module registers itself.
   load('lib/json.jsx');
@@ -74,80 +86,81 @@
   load('lib/ir.jsx');
   load('lib/grad.jsx');
 
-  load('commands/system.jsx');
-  load('commands/ease.jsx');
-  load('commands/ease-remap.jsx');
-  load('commands/ease-mode.jsx');
-  load('commands/spring.jsx');
-  load('commands/anchor.jsx');
-  load('commands/align.jsx');
-  load('commands/recoil.jsx');
-  load('commands/drift.jsx');
-  load('commands/bounce.jsx');
-  load('commands/multiply.jsx');
-  load('commands/radial.jsx');
-  load('commands/flip.jsx');
-  load('commands/stagger.jsx');
-  load('commands/trim.jsx');
-  load('commands/arrange.jsx');
-  load('commands/keys.jsx');
-  load('commands/motion.jsx');
-  load('commands/follow.jsx');
-  load('commands/comp.jsx');
-  load('commands/fade.jsx');
-  load('commands/trimpaths.jsx');
-  load('commands/shapes.jsx');
-  load('commands/grids.jsx');
-  load('commands/color.jsx');
-  load('commands/vignette.jsx');
-  load('commands/reset.jsx');
-  load('commands/echo.jsx');
-  load('commands/sequence.jsx');
-  load('commands/smooth.jsx');
-  load('commands/nullify.jsx');
-  load('commands/lean.jsx');
-  load('commands/tags.jsx');
-  load('commands/precompose.jsx');
-  load('commands/velocity.jsx');
-  load('commands/copyease.jsx');
-  load('commands/retime.jsx');
-  load('commands/clone.jsx');
-  load('commands/expressions.jsx');
-  load('commands/scripts.jsx');
-  load('commands/rename.jsx');
-  load('commands/squash.jsx');
-  load('commands/throw.jsx');
-  load('commands/pathfollow.jsx');
-  load('commands/pins.jsx');
-  load('commands/pinrig.jsx');
-  load('commands/backdrop.jsx');
-  load('commands/autocrop.jsx');
-  load('commands/scatter.jsx');
-  load('commands/bake.jsx');
-  load('commands/kinetic.jsx');
-  load('commands/separate.jsx');
-  load('commands/break.jsx');
-  load('commands/reverse.jsx');
-  load('commands/demo.jsx');
-  load('commands/link.jsx');
-  load('commands/stroke.jsx');
-  load('commands/textbreak.jsx');
-  load('commands/gradient.jsx');
+  loadCmd('commands/system.jsx');
+  loadCmd('commands/ease.jsx');
+  loadCmd('commands/ease-remap.jsx');
+  loadCmd('commands/ease-mode.jsx');
+  loadCmd('commands/spring.jsx');
+  loadCmd('commands/anchor.jsx');
+  loadCmd('commands/align.jsx');
+  loadCmd('commands/recoil.jsx');
+  loadCmd('commands/drift.jsx');
+  loadCmd('commands/bounce.jsx');
+  loadCmd('commands/multiply.jsx');
+  loadCmd('commands/radial.jsx');
+  loadCmd('commands/flip.jsx');
+  loadCmd('commands/stagger.jsx');
+  loadCmd('commands/trim.jsx');
+  loadCmd('commands/arrange.jsx');
+  loadCmd('commands/keys.jsx');
+  loadCmd('commands/motion.jsx');
+  loadCmd('commands/follow.jsx');
+  loadCmd('commands/comp.jsx');
+  loadCmd('commands/fade.jsx');
+  loadCmd('commands/trimpaths.jsx');
+  loadCmd('commands/shapes.jsx');
+  loadCmd('commands/grids.jsx');
+  loadCmd('commands/color.jsx');
+  loadCmd('commands/vignette.jsx');
+  loadCmd('commands/reset.jsx');
+  loadCmd('commands/echo.jsx');
+  loadCmd('commands/sequence.jsx');
+  loadCmd('commands/smooth.jsx');
+  loadCmd('commands/nullify.jsx');
+  loadCmd('commands/lean.jsx');
+  loadCmd('commands/tags.jsx');
+  loadCmd('commands/precompose.jsx');
+  loadCmd('commands/velocity.jsx');
+  loadCmd('commands/copyease.jsx');
+  loadCmd('commands/retime.jsx');
+  loadCmd('commands/clone.jsx');
+  loadCmd('commands/expressions.jsx');
+  loadCmd('commands/scripts.jsx');
+  loadCmd('commands/rename.jsx');
+  loadCmd('commands/squash.jsx');
+  loadCmd('commands/throw.jsx');
+  loadCmd('commands/pathfollow.jsx');
+  loadCmd('commands/pins.jsx');
+  loadCmd('commands/pinrig.jsx');
+  loadCmd('commands/backdrop.jsx');
+  loadCmd('commands/autocrop.jsx');
+  loadCmd('commands/scatter.jsx');
+  loadCmd('commands/bake.jsx');
+  loadCmd('commands/kinetic.jsx');
+  loadCmd('commands/separate.jsx');
+  loadCmd('commands/break.jsx');
+  loadCmd('commands/reverse.jsx');
+  loadCmd('commands/demo.jsx');
+  loadCmd('commands/link.jsx');
+  loadCmd('commands/stroke.jsx');
+  loadCmd('commands/textbreak.jsx');
+  loadCmd('commands/gradient.jsx');
 
   // Import / receive (rebuild a design from another app as native AE layers).
   // build.jsx defines the importer namespace + walk; the rest add builders and
   // the transform / paint / effect helpers they use.
-  load('commands/import/build.jsx');
-  load('commands/import/transform.jsx');
-  load('commands/import/effect.jsx');
-  load('commands/import/layerstyle.jsx');
-  load('commands/import/paint.jsx');
-  load('commands/import/geometry.jsx');
-  load('commands/import/shape.jsx');
-  load('commands/import/mask.jsx');
-  load('commands/import/image.jsx');
-  load('commands/import/text.jsx');
-  load('commands/import/fonts.jsx');
+  loadCmd('commands/import/build.jsx');
+  loadCmd('commands/import/transform.jsx');
+  loadCmd('commands/import/effect.jsx');
+  loadCmd('commands/import/layerstyle.jsx');
+  loadCmd('commands/import/paint.jsx');
+  loadCmd('commands/import/geometry.jsx');
+  loadCmd('commands/import/shape.jsx');
+  loadCmd('commands/import/mask.jsx');
+  loadCmd('commands/import/image.jsx');
+  loadCmd('commands/import/text.jsx');
+  loadCmd('commands/import/fonts.jsx');
 
+  $.__rebound.loadErrors = loadErrors;
   $.__rebound.loaded = true;
 })();

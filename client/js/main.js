@@ -100,6 +100,14 @@
     if (R.bridge.available) {
       pollSelection();
       setInterval(pollSelection, 800);
+      // Surface any host command modules that failed to load, so missing
+      // features are diagnosable instead of silently absent.
+      R.bridge.invoke('system.loadErrors').then(function (r) {
+        if (r && r.errors && r.errors.length) {
+          R.log.error('Host module load errors', r.errors);
+          R.ui.toast(r.errors.length + ' feature module(s) failed to load — ' + r.errors[0], { kind: 'error', duration: 9000 });
+        }
+      }).catch(function () { /* old host without the command */ });
     } else {
       R.log.info('Running outside the host, selection polling disabled.');
       // Dev-only hook so the panel can be driven with a fake selection in the

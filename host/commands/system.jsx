@@ -164,6 +164,12 @@
     return { pong: true, version: R.version, time: (new Date()).getTime() };
   });
 
+  // Which command modules failed to load (so the panel can warn instead of
+  // silently missing features). Populated by host/index.jsx.
+  R.register('system.loadErrors', function () {
+    return { errors: ($.__rebound && $.__rebound.loadErrors) ? $.__rebound.loadErrors : [] };
+  });
+
   R.register('system.env', function () {
     return {
       appName: app.appName,

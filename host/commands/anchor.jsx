@@ -45,10 +45,14 @@
     return [rot[0], rot[1], dA.length > 2 ? dA[2] * (scale[2] ? scale[2] / 100 : 1) : 0];
   }
 
-  // Short, readable form of an AE/JS error for a skipped-layer note.
+  // Short, readable form of an AE/JS error for a skipped-layer note. Avoids regex
+  // literals (some ExtendScript builds mis-tokenize them and abort the file).
   function brief(err) {
     var s = (err && err.message) ? err.message : String(err);
-    s = s.replace(/^Error:\s*/, '').replace(/After Effects error:\s*/i, '');
+    var prefixes = ['Error: ', 'After Effects error: ', 'After Effects warning: '];
+    for (var i = 0; i < prefixes.length; i++) {
+      if (s.substring(0, prefixes[i].length) === prefixes[i]) { s = s.substring(prefixes[i].length); break; }
+    }
     return s.length > 90 ? s.substring(0, 90) : s;
   }
 
