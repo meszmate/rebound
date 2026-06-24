@@ -45,6 +45,13 @@
     return [rot[0], rot[1], dA.length > 2 ? dA[2] * (scale[2] ? scale[2] / 100 : 1) : 0];
   }
 
+  // Short, readable form of an AE/JS error for a skipped-layer note.
+  function brief(err) {
+    var s = (err && err.message) ? err.message : String(err);
+    s = s.replace(/^Error:\s*/, '').replace(/After Effects error:\s*/i, '');
+    return s.length > 90 ? s.substring(0, 90) : s;
+  }
+
   // Offset a 1D property (a separated X/Y/Z Position) by d, keys included.
   function offsetScalar(prop, d) {
     if (prop.numKeys > 0) {
@@ -89,8 +96,14 @@
     var sep = false;
     try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
     if (sep) { offsetSeparated(tr, delta); return; }
-    try { offsetVector(posProp, delta); }
-    catch (e2) { offsetSeparated(tr, delta); } // hidden/separated leader after all
+    try {
+      offsetVector(posProp, delta);
+    } catch (e2) {
+      // The unified Position refused (hidden / separated leader). If separated
+      // followers exist, drive those; otherwise surface the real error.
+      if (tr.property(M.positionX)) { offsetSeparated(tr, delta); return; }
+      throw e2;
+    }
   }
 
   function moveAnchor(args) {
@@ -139,10 +152,22 @@
         var dA = [a1[0] - a0[0], a1[1] - a0[1], is3d ? 0 : 0];
         var delta = compensate(tr, dA, time);
 
-        // Compensate Position FIRST: if the property is somehow unsettable, the
-        // anchor stays put too (the layer never visibly jumps).
-        offsetPosition(tr, posProp, delta);
-        anchorProp.setValue(a1);
+        // Atomic: move the anchor, then compensate Position. If either step
+        // fails, restore the anchor so the layer never ends up half-moved, and
+        // report exactly which property AE refused (and why).
+        try {
+          anchorProp.setValue(a1);
+        } catch (ea) {
+          skipped.push(layer.name + ' (anchor: ' + brief(ea) + ')');
+          continue;
+        }
+        try {
+          offsetPosition(tr, posProp, delta);
+        } catch (ep) {
+          try { anchorProp.setValue(a0); } catch (er) {}
+          skipped.push(layer.name + ' (position: ' + brief(ep) + ')');
+          continue;
+        }
         moved++;
       }
     } finally {
