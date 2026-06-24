@@ -1,19 +1,24 @@
 /*
  * Rebound, Recoil tool.
- * Velocity-driven overshoot (the classic Apple-style follow-through): after a
- * keyframe lands, the property keeps moving in the arrival direction then
- * oscillates back and settles, scaled by how fast it arrived. Apply bakes that
- * motion as a few editable keyframes; "As expression" drops the live rig.
+ * Velocity-driven overshoot (the classic Apple-style follow-through): after the
+ * keyframe a property arrives on, it keeps moving in the arrival direction, then
+ * oscillates back and settles, scaled by how fast it arrived. One behaviour, no
+ * modes. Apply bakes that exact motion as a few editable keyframes; "As
+ * expression" drops the same thing as a live, keyframe-free rig.
  *
- * Overshoot = amp (how much of the arrival velocity carries past the target),
- * Bounce = frequency, Friction = decay. These map 1:1 to the expression
- * value + v * (overshoot/100) * sin(2*PI*bounce*t) / exp(friction*t).
+ * The motion is, verbatim, the canonical overshoot expression:
+ *   v = velocityAtTime(key.time - frameDuration/10);
+ *   value + v * amp * sin(2*PI*freq*t) / exp(decay*t)
+ * Overshoot = amp*100 (how much of the arrival velocity carries past the
+ * target), Bounce = freq (wobble speed), Friction = decay (how fast it settles).
  */
 ;(function (R) {
   'use strict';
 
   var el = R.dom.el;
   var ui = R.ui;
+
+  function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 
   R.tools.register({
     id: 'recoil',
@@ -24,57 +29,38 @@
     mount: mount
   });
 
-  // A faithful, subtle preview of the real follow-through: a smooth rise to the
-  // target, then a damped oscillation whose amplitude is the actual velocity-
-  // driven overshoot (small, Apple-like), not a giant elastic. The post-rise
-  // amplitude is amp scaled by a representative arrival velocity (1 / riseSec).
-  function followPreview(overshoot, freq, decay) {
+  // A FAITHFUL preview of the applied expression, not an approximation. We model
+  // a representative move that eases into the target and arrives with a real
+  // velocity v, then add exactly the expression's tail:
+  //   value(t) = base(t) + v * amp * sin(2*PI*freq*t) * exp(-decay*t)
+  // The base is a u^2 ease-in so it arrives at a defined speed (a smoothstep
+  // would arrive at zero speed -> no recoil, which is why the old preview lied).
+  // This is the same math host/commands/recoil.jsx bakes, so preview == result.
+  function overshootPreview(overshoot, freq, decay) {
     var amp = Math.max(0, overshoot) / 100;
-    var rise = 0.34;          // fraction of the timeline spent reaching the mark
-    var riseSec = 0.34;       // representative rise seconds -> arrival velocity
-    var oamp = amp / riseSec; // overshoot as a fraction of the move
     var dec = Math.max(0.4, decay);
-    var win = R.easing.overshoot.autoDuration(dec); // settle seconds after arrival
+    var riseSec = 0.32;                                    // representative move time
+    var settleSec = clamp(Math.log(140) / dec, 0.3, 2.0);  // until the tail ~ 0
+    var total = riseSec + settleSec;
+    var v = 2 / riseSec;                                   // arrival velocity of u^2
     return function (t) {
-      if (t <= 0) return 0;
-      if (t < rise) { var u = t / rise; return u * u * (3 - 2 * u); }
-      var tau = (t - rise) / (1 - rise) * win;
-      return 1 + oamp * Math.sin(2 * Math.PI * freq * tau) * Math.exp(-dec * tau);
+      var s = t * total;
+      if (s <= 0) return 0;
+      if (s < riseSec) { var u = s / riseSec; return u * u; }
+      var tau = s - riseSec;
+      return 1 + v * amp * Math.sin(2 * Math.PI * freq * tau) * Math.exp(-dec * tau);
     };
   }
 
-  // Between-keys curve: a damped elastic that rises from the first keyframe,
-  // overshoots the second, oscillates, and settles to EXACTLY the second
-  // keyframe by its time (a normalized 0 -> 1 curve). Overshoot is how far past
-  // the target the first peak goes, Bounce the wobble count, Friction the decay.
-  function elasticBetween(overshoot, bounce, friction) {
-    var amp = 1 + Math.max(0, overshoot) / 100;
-    return R.easing.penner.elasticOutWith(amp, bounce, friction);
-  }
-
   function mount(ctx) {
-    // Smart by default: with exactly 2 keyframes selected the overshoot happens
-    // BETWEEN them (settles on the 2nd key); with any other count it follows
-    // through AFTER the last key. You can still force a mode.
-    var mode = 'auto'; // auto | between | after
-
-    // ~15% reads as a clear recoil between keys (4% is barely visible); freq 1.8,
-    // decay 4 settle quickly. The "Apple" preset keeps the subtle 4% velocity feel.
-    var overshoot = 15;
+    // The reference Apple-style follow-through: amp 0.06, freq 1.8, decay 5. One
+    // gentle overshoot that settles in ~0.7s (half-life ln2/5 = 0.14s).
+    var overshoot = 6;
     var bounce = 1.8;
-    var friction = 4;
-
-    // Resolve 'auto' from the live selection: exactly 2 selected keys -> between.
-    function resolveMode() {
-      if (mode !== 'auto') return mode;
-      var sel = ctx.getSelection ? ctx.getSelection() : null;
-      return (sel && (sel.totalSelectedKeys || 0) === 2) ? 'between' : 'after';
-    }
+    var friction = 5;
 
     function previewCurve() {
-      return resolveMode() === 'after'
-        ? { type: 'fn', fn: followPreview(overshoot, bounce, friction) }
-        : { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
+      return { type: 'fn', fn: overshootPreview(overshoot, bounce, friction) };
     }
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
@@ -89,21 +75,6 @@
       preview.setReadout('Overshoot ' + R.units.round(overshoot, 1) + '% · half-life ' + R.units.round(hl, 2) + 's');
     }
 
-    var modeCtl = ui.segmented([
-      { value: 'auto', label: 'Auto' },
-      { value: 'between', label: 'Between keys' },
-      { value: 'after', label: 'After key' }
-    ], { value: mode, onChange: function (v) { mode = v; refreshMode(); refreshChip(); } });
-
-    var hint = el('div.rb-faint', { text: '' });
-    function refreshMode() {
-      hint.textContent = mode === 'auto'
-        ? 'Auto: 2 keyframes selected → overshoots BETWEEN them (settles on the 2nd); any other count → follows through AFTER the last key. Apply bakes editable keys; "As expression" is keyframe-free.'
-        : mode === 'between'
-        ? 'Overshoots the target between your two keyframes and settles exactly on the second (same clip length).'
-        : 'Velocity follow-through AFTER the last keyframe (extends past it), scaled by how fast it arrives.';
-    }
-
     var overshootSlider = ui.slider({ label: 'Overshoot', min: 0, max: 40, step: 0.5, value: overshoot,
       format: function (v) { return R.units.round(v, 1) + '%'; }, onInput: function (v) { overshoot = v; refreshChip(); } });
     var bounceSlider = ui.slider({ label: 'Bounce', min: 0.5, max: 8, step: 0.1, value: bounce,
@@ -113,15 +84,12 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
-      el('div.rb-section-label', { text: 'Where' }),
-      modeCtl.el,
-      hint,
+      el('div.rb-faint', { text: 'Overshoot past the keyframe, scaled by how fast the property arrives. Apply bakes editable keys; "As expression" is the live, keyframe-free rig.' }),
       overshootSlider.el,
       bounceSlider.el,
       frictionSlider.el,
       el('div.rb-row', null, [halfLife])
     ]));
-    refreshMode();
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
@@ -144,17 +112,15 @@
       }
       return base;
     }
-    // Refresh the preview too: in Auto mode the resolved feel depends on how many
-    // keyframes are selected.
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); refreshChip(); });
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); });
     scopeText.textContent = describeSel(ctx.getSelection());
 
     function num(x) { return String(Math.round(x * 10000) / 10000); }
 
-    // The EXACT overshoot expression (the form the user hand-writes), with the
-    // current slider values baked in as amp / freq / decay. Applied verbatim via
-    // expressions.apply, so "As expression" is identical to pasting it by hand
-    // (set Overshoot 4 / Bounce 1.8 / Friction 4 to match the reference exactly).
+    // The EXACT overshoot expression (the form you hand-write), with the current
+    // slider values baked in as amp / freq / decay. Applied verbatim via
+    // expressions.apply, so "As expression" is identical to pasting it by hand.
+    // Defaults (Overshoot 6 / Bounce 1.8 / Friction 5) reproduce the reference.
     function recoilExpression() {
       return [
         'n = 0;',
@@ -187,43 +153,23 @@
         .catch(fail);
     }
 
-    function settingsHL() {
-      var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};
-      return (s.handleLength > 0) ? s.handleLength : 45;
-    }
-
-    // Bake editable keyframes that match the curve. After: velocity-driven
-    // follow-through past the last key. Between: overshoot the target and settle
-    // on the second selected key (baked between the pair).
+    // Bake the velocity-driven follow-through past the arrival key as a few
+    // editable keyframes (the host fits true tangents so the keys hug the math).
     function doApplyKeys() {
-      if (resolveMode() === 'between') {
-        var curve = { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
-        ctx.invoke('ease.bakeSparse', { points: R.easing.sampler.sparseSamples(curve), handleLength: settingsHL() })
-          .then(function (res) { finish(res, 'baked'); }).catch(fail);
-      } else {
-        ctx.invoke('recoil.bake', { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false })
-          .then(function (res) { finish(res, 'baked'); }).catch(fail);
-      }
+      ctx.invoke('recoil.bake', { overshoot: overshoot, bounce: bounce, friction: friction, eachKey: false })
+        .then(function (res) { finish(res, 'baked'); }).catch(fail);
     }
-    // Keyframe-free. After: the EXACT velocity overshoot expression, verbatim.
-    // Between: a between-keyframe remap expression of the same elastic curve.
+    // Keyframe-free: the EXACT velocity overshoot expression, verbatim.
     function doApplyExpr() {
-      if (resolveMode() === 'between') {
-        var curve = { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
-        ctx.invoke('ease.remap', { factors: R.easing.sampler.bakeFactors(curve, 256) })
-          .then(function (res) { finish(res, 'expression'); }).catch(fail);
-      } else {
-        ctx.invoke('expressions.apply', { code: recoilExpression() })
-          .then(function (res) { finish(res, 'expression'); }).catch(fail);
-      }
+      ctx.invoke('expressions.apply', { code: recoilExpression() })
+        .then(function (res) { finish(res, 'expression'); }).catch(fail);
     }
 
     function getState() {
-      return { mode: mode, overshoot: overshoot, bounce: bounce, friction: friction };
+      return { overshoot: overshoot, bounce: bounce, friction: friction };
     }
     function applyState(s) {
       if (!s) return;
-      if (s.mode === 'auto' || s.mode === 'after' || s.mode === 'between') { mode = s.mode; modeCtl.set(mode); refreshMode(); }
       if (s.overshoot != null) { overshoot = s.overshoot; overshootSlider.set(s.overshoot); }
       if (s.bounce != null) { bounce = s.bounce; bounceSlider.set(s.bounce); }
       if (s.friction != null) { friction = s.friction; frictionSlider.set(s.friction); }
@@ -237,15 +183,15 @@
         get: getState,
         set: applyState,
         previewFor: function (s) {
-          return s.mode === 'after'
-            ? followPreview(s.overshoot, s.bounce, s.friction)
-            : elasticBetween(s.overshoot, s.bounce, s.friction);
+          return overshootPreview(s.overshoot, s.bounce, s.friction);
         },
+        // Buttery feels. Damping zeta = friction/(2*PI*bounce): ~0.4 = a couple of
+        // soft settles, ~0.7 = a single gentle overshoot.
         defaults: [
-          { name: 'Apple', state: { overshoot: 4, bounce: 1.8, friction: 4 } },
-          { name: 'Subtle', state: { overshoot: 6, bounce: 1.6, friction: 5 } },
-          { name: 'Snappy', state: { overshoot: 10, bounce: 2.4, friction: 6 } },
-          { name: 'Big Overshoot', state: { overshoot: 22, bounce: 2, friction: 4 } }
+          { name: 'Apple', state: { overshoot: 6, bounce: 1.8, friction: 5 } },
+          { name: 'Subtle', state: { overshoot: 4, bounce: 1.6, friction: 7 } },
+          { name: 'Snappy', state: { overshoot: 9, bounce: 2.4, friction: 8 } },
+          { name: 'Big Overshoot', state: { overshoot: 18, bounce: 1.6, friction: 3.5 } }
         ]
       },
       destroy: function () { off(); preview.destroy(); editor.destroy(); }
