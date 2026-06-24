@@ -84,15 +84,33 @@
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('span.rb-spacer'));
-    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove, title: 'Remove easing from the selected keyframes' }, ['Remove']));
-    ctx.footer.appendChild(el('button.rb-btn', { onclick: doApplyExpr, title: 'Apply as a live expression instead of baked keyframes' }, ['As expression']));
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApplyKeys }, ['Apply recoil']));
+    var removeBtn = el('button.rb-btn.is-ghost', { onclick: doRemove, title: 'Remove easing from the selected keyframes' }, ['Remove']);
+    var exprBtn = el('button.rb-btn', { onclick: doApplyExpr, title: 'Apply as a live remap expression instead of baked keyframes' }, ['As expression']);
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApplyKeys }, ['Apply recoil']);
+    ctx.footer.appendChild(removeBtn);
+    ctx.footer.appendChild(exprBtn);
+    ctx.footer.appendChild(applyBtn);
+
+    // Recoil overshoots BETWEEN keyframes, so a property needs at least two
+    // selected keys (a move to overshoot). One key is nothing to recoil from.
+    function canApply(sel) {
+      if (!sel || !sel.hasComp) return false;
+      var props = sel.properties || [];
+      for (var i = 0; i < props.length; i++) {
+        if ((props[i].selectedKeys || []).length >= 2) return true;
+      }
+      return false;
+    }
 
     // Read what is currently applied on the selected keyframes, so you can see
     // it before you change or remove it.
     function describeSel(sel) {
       if (!sel || !sel.hasComp) return 'Open a composition';
-      if ((sel.totalSelectedKeys || 0) < 2) return 'Select 2+ keyframes';
+      if (!canApply(sel)) {
+        return (sel.totalSelectedKeys || 0) === 1
+          ? 'Select 2+ keyframes (one is nothing to overshoot from)'
+          : 'Select 2+ keyframes on a property';
+      }
       var base = sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies');
       var props = sel.properties || [];
       for (var i = 0; i < props.length; i++) {
@@ -102,8 +120,14 @@
       }
       return base;
     }
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); });
+    function syncButtons(sel) {
+      var ok = canApply(sel);
+      applyBtn.disabled = !ok;
+      exprBtn.disabled = !ok;
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); syncButtons(sel); });
     scopeText.textContent = describeSel(ctx.getSelection());
+    syncButtons(ctx.getSelection());
 
     function finish(res, kind) {
       var n = (res && res.applied != null) ? res.applied : 0;
