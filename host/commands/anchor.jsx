@@ -16,6 +16,16 @@
     return layer.property(M.transform);
   }
 
+  // Whether a layer has 2D source bounds we can anchor to. Camera and light
+  // layers have none. Everything else (footage, solid, precomp, AND shape / text
+  // layers) supports sourceRectAtTime. We test the capability directly rather
+  // than `instanceof AVLayer`, which is unreliable for shape and text layers in
+  // ExtendScript even though they are documented AVLayer subclasses.
+  function hasBounds(layer) {
+    if (layer instanceof CameraLayer || layer instanceof LightLayer) return false;
+    return typeof layer.sourceRectAtTime === 'function';
+  }
+
   function rotate2d(v, deg) {
     var r = (deg * Math.PI) / 180;
     var c = Math.cos(r);
@@ -50,7 +60,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) {
+      if (!hasBounds(layer)) {
         skipped.push(layer.name + ' (no bounds)');
         continue;
       }
