@@ -170,6 +170,17 @@
   .rb-kbd-hint-label { display: none; }
 }
 
+/* In-context tool shortcut control in the detail bar. */
+.rb-tool-sc { display: flex; align-items: center; gap: 5px; flex: none; font-size: calc(var(--rb-font-size) - 2px); }
+.rb-tool-sc-label { color: var(--rb-text-faint); }
+.rb-tool-sc-combo {
+  padding: 1px 5px; border: 1px solid var(--rb-border); border-radius: var(--rb-radius-1);
+  background: var(--rb-bg-raised); color: var(--rb-text-faint);
+}
+.rb-tool-sc-combo.is-set { color: var(--rb-text); border-color: var(--rb-accent); }
+.rb-tool-sc-set { padding: 1px 7px; }
+@media (max-width: 420px) { .rb-tool-sc-label { display: none; } }
+
 /* ---- Favorites star + first-run intro ------------------------------------ */
 .rb-launch-row-star {
   flex: none;

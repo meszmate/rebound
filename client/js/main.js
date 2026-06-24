@@ -29,7 +29,7 @@
   var cards = [];             // [{ tool, el }] currently shown
   var activeIndex = -1;
 
-  var railEl, browseEl, detailEl, mountsEl, breadcrumbEl, searchInput, homeEl;
+  var railEl, browseEl, detailEl, mountsEl, breadcrumbEl, searchInput, homeEl, shortcutEl;
   var homeScreenEl, homeScreenApi, homeRailBtn, browseBtn;
   var railButtons = {};
 
@@ -52,11 +52,13 @@
     var backBtn = el('button.rb-btn.is-ghost.is-icon', {
       'aria-label': 'Back to category', title: 'Back (Esc)', onclick: back
     }, [icon('<path d="M15 6l-6 6 6 6"/>')]);
+    shortcutEl = el('span.rb-tool-sc-wrap');
     detailEl = el('div.rb-detail.rb-hidden', null, [
       el('div.rb-detail-bar', null, [
         backBtn,
         breadcrumbEl,
         el('span.rb-rail-spacer'),
+        shortcutEl,
         el('span.rb-kbd-hint', { title: 'Run this tool’s main action' }, [
           el('span.rb-kbd', { text: ctrlSymbol() + '⏎' }),
           el('span.rb-kbd-hint-label', { text: 'Apply' })
@@ -436,6 +438,32 @@
 
   // ---- Detail ---------------------------------------------------------------
 
+  // In-context keyboard shortcut for the open tool: shows the bound combo and
+  // lets you set / change / remove it right here, using the keybinds API. Binds
+  // 'tool:<id>' (open this tool).
+  function renderToolShortcut(toolId) {
+    if (!shortcutEl) return;
+    var kb = R.keybinds;
+    R.dom.clear(shortcutEl);
+    if (!kb || !kb.comboFor) return;
+    var id = 'tool:' + toolId;
+    function draw() {
+      R.dom.clear(shortcutEl);
+      var combo = kb.comboFor(id);
+      var comboLabel = el('span.rb-tool-sc-combo' + (combo ? '.is-set' : ''), { text: combo || 'No shortcut' });
+      var setBtn = el('button.rb-btn.is-ghost.rb-tool-sc-set', { type: 'button', title: 'Set a keyboard shortcut that opens this tool' }, [combo ? 'Change' : 'Set shortcut']);
+      setBtn.addEventListener('click', function () { kb.record(id, draw, setBtn); });
+      var kids = [el('span.rb-tool-sc-label', { text: 'Shortcut' }), comboLabel, setBtn];
+      if (combo) {
+        var clr = el('button.rb-kb-clr', { type: 'button', title: 'Remove shortcut' }, ['×']);
+        clr.addEventListener('click', function () { kb.clearBind(id); draw(); });
+        kids.push(clr);
+      }
+      shortcutEl.appendChild(el('span.rb-tool-sc', null, kids));
+    }
+    draw();
+  }
+
   function openTool(tool) {
     // Remember where to return: opening from the Home goes back to the Home,
     // opening from a category browse goes back to that category.
@@ -484,6 +512,7 @@
     breadcrumbEl.appendChild(el('span.rb-crumb-section', { text: m ? sectionName(m.section) : (tool.group || '') }));
     breadcrumbEl.appendChild(el('span.rb-crumb-sep', { text: '›' }));
     breadcrumbEl.appendChild(el('span.rb-crumb-tool', { text: tool.title }));
+    renderToolShortcut(tool.id);
 
     view = 'detail';
     browseEl.classList.add('rb-hidden');
