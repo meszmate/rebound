@@ -387,76 +387,175 @@
 .rb-iconbar button svg { width: 18px; height: 18px; }
 
 /* ---- Anchor picker ------------------------------------------------------- */
+/* Place a pin on a proxy of your layer. The scene holds a ghost (pivots around
+   the anchor to show it IS the origin), the layer card, nine handles on its
+   corners/edges/centre, and the draggable pin. */
 .rb-anchor-stage { display: block; padding: var(--rb-gap-2) 0; }
 .rb-anchor-box {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 280px;
-  border: 1.5px solid var(--rb-border);
-  border-radius: 14px;
+  aspect-ratio: 16 / 11;
+  max-height: 300px;
+  min-height: 190px;
+  border-radius: 16px;
   background:
-    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--rb-text-faint) 26%, transparent) 1.4px, transparent 0) 0 0 / 18px 18px,
-    radial-gradient(130% 110% at 50% 0%, color-mix(in srgb, var(--rb-accent) 14%, transparent), transparent 62%),
+    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--rb-accent) 12%, transparent), transparent 60%),
     var(--rb-bg-sunken);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent), inset 0 0 0 1px var(--rb-border);
   cursor: crosshair;
   touch-action: none;
   overflow: hidden;
-  transition: border-color var(--rb-transition);
 }
-.rb-anchor-box:hover { border-color: var(--rb-accent); }
-/* faint centre cross guide */
-.rb-anchor-cross::before,
-.rb-anchor-cross::after { content: ''; position: absolute; background: var(--rb-border); }
-.rb-anchor-cross::before { left: 0; right: 0; top: 50%; height: 1px; }
-.rb-anchor-cross::after { top: 0; bottom: 0; left: 50%; width: 1px; }
 
-/* Playful candy dots: soft accent discs that spring on hover, glow when active. */
+/* The selected layer, drawn as a card. 17% inset == PAD in anchor.js. */
+.rb-anchor-card,
+.rb-anchor-ghost {
+  position: absolute;
+  inset: 17%;
+}
+.rb-anchor-card {
+  border-radius: 11px;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--rb-anchor-tint, var(--rb-accent)) 24%, var(--rb-bg-raised)), var(--rb-bg-raised));
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px color-mix(in srgb, var(--rb-anchor-tint, var(--rb-accent)) 40%, var(--rb-border));
+  overflow: visible;
+}
+.rb-anchor-card.is-empty {
+  background: var(--rb-bg-raised);
+  box-shadow: inset 0 0 0 1.5px var(--rb-border);
+}
+.rb-anchor-card.is-empty .rb-anchor-glyph,
+.rb-anchor-card.is-empty .rb-anchor-name { opacity: 0.45; }
+
+/* 3x3 rule-of-thirds grid inside the card. */
+.rb-anchor-grid {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.rb-anchor-grid::before,
+.rb-anchor-grid::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+.rb-anchor-grid::before {
+  background-image:
+    linear-gradient(var(--rb-border), var(--rb-border)),
+    linear-gradient(var(--rb-border), var(--rb-border));
+  background-size: 100% 1px, 100% 1px;
+  background-position: 0 33.33%, 0 66.66%;
+}
+.rb-anchor-grid::after {
+  background-image:
+    linear-gradient(var(--rb-border), var(--rb-border)),
+    linear-gradient(var(--rb-border), var(--rb-border));
+  background-size: 1px 100%, 1px 100%;
+  background-position: 33.33% 0, 66.66% 0;
+}
+
+/* Card face: layer kind glyph + name, so it reads as the real layer. */
+.rb-anchor-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  pointer-events: none;
+  text-align: center;
+}
+.rb-anchor-glyph { width: 30px; height: 30px; color: color-mix(in srgb, var(--rb-text) 70%, var(--rb-anchor-tint, var(--rb-accent))); }
+.rb-anchor-glyph svg { width: 100%; height: 100%; display: block; }
+.rb-anchor-name {
+  max-width: 90%;
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-weight: 600;
+  color: var(--rb-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The pivot demo: a ghost of the card that wobbles around the anchor point. */
+.rb-anchor-ghost {
+  border-radius: 11px;
+  border: 1.5px dashed color-mix(in srgb, var(--rb-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--rb-accent) 7%, transparent);
+  pointer-events: none;
+  z-index: 1;
+  animation: rb-anchor-pivot 4.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+@keyframes rb-anchor-pivot {
+  0%, 100% { transform: rotate(-13deg); opacity: 0.55; }
+  50% { transform: rotate(13deg); opacity: 0.9; }
+}
+.rb-anchor-box.is-dragging .rb-anchor-ghost { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .rb-anchor-ghost { animation: none; opacity: 0; } }
+:root.rb-tiles-static .rb-anchor-ghost { animation: none; opacity: 0; }
+
+/* Nine handles, straddling the card edges/corners. Spring on hover, glow active. */
 .rb-anchor-dot {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border-radius: 50%;
   border: 0;
-  background: color-mix(in srgb, var(--rb-accent) 24%, var(--rb-bg-raised));
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 0 0 2px var(--rb-bg-raised);
+  background: color-mix(in srgb, var(--rb-accent) 22%, var(--rb-bg-raised));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 0 0 2px var(--rb-bg-raised);
   cursor: pointer;
-  z-index: 2;
+  z-index: 3;
   transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
     background var(--rb-transition), box-shadow var(--rb-transition);
 }
-.rb-anchor-dot:hover { transform: translate(-50%, -50%) scale(1.45); background: color-mix(in srgb, var(--rb-accent) 50%, var(--rb-bg-raised)); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rb-accent) 16%, transparent); }
-.rb-anchor-dot:active { transform: translate(-50%, -50%) scale(1.2); }
-.rb-anchor-dot.is-active { background: var(--rb-accent); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rb-accent) 24%, transparent), 0 3px 10px color-mix(in srgb, var(--rb-accent) 55%, transparent); }
+.rb-anchor-dot:hover { transform: translate(-50%, -50%) scale(1.5); background: color-mix(in srgb, var(--rb-accent) 55%, var(--rb-bg-raised)); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rb-accent) 16%, transparent); }
+.rb-anchor-dot:active { transform: translate(-50%, -50%) scale(1.25); }
+.rb-anchor-dot.is-active { background: var(--rb-accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--rb-accent) 22%, transparent); }
 
-/* The draggable anchor: a glowing orb that pulses. */
-.rb-anchor-target {
+/* The draggable anchor pin: a target reticle that floats above the card. */
+.rb-anchor-pin {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  border: 2.5px solid var(--rb-accent);
-  background: radial-gradient(circle, color-mix(in srgb, var(--rb-accent) 55%, transparent), transparent 68%);
+  border: 3px solid var(--rb-accent);
+  background:
+    radial-gradient(circle at 50% 50%, var(--rb-accent) 0 3px, transparent 4px),
+    radial-gradient(circle, color-mix(in srgb, var(--rb-accent) 30%, transparent), transparent 70%);
   pointer-events: none;
-  z-index: 3;
-  box-shadow: 0 0 16px color-mix(in srgb, var(--rb-accent) 60%, transparent);
-  animation: rb-anchor-pulse 1.9s ease-in-out infinite;
+  z-index: 5;
+  box-shadow: 0 3px 12px -2px color-mix(in srgb, var(--rb-accent) 70%, transparent), 0 0 0 4px color-mix(in srgb, var(--rb-bg-sunken) 55%, transparent);
+  animation: rb-anchor-pulse 2.4s ease-in-out infinite;
 }
+/* North/East/South/West ticks on the reticle. */
+.rb-anchor-pin::before,
+.rb-anchor-pin::after { content: ''; position: absolute; background: var(--rb-accent); }
+.rb-anchor-pin::before { left: 50%; top: -7px; bottom: -7px; width: 2px; transform: translateX(-50%); }
+.rb-anchor-pin::after { top: 50%; left: -7px; right: -7px; height: 2px; transform: translateY(-50%); }
+.rb-anchor-pin.is-outside { border-style: dashed; opacity: 0.85; }
 @keyframes rb-anchor-pulse {
-  0%, 100% { box-shadow: 0 0 10px color-mix(in srgb, var(--rb-accent) 45%, transparent); transform: translate(-50%, -50%) scale(1); }
-  50% { box-shadow: 0 0 22px color-mix(in srgb, var(--rb-accent) 80%, transparent); transform: translate(-50%, -50%) scale(1.08); }
+  0%, 100% { box-shadow: 0 3px 12px -2px color-mix(in srgb, var(--rb-accent) 55%, transparent), 0 0 0 0 color-mix(in srgb, var(--rb-accent) 35%, transparent); }
+  50% { box-shadow: 0 3px 12px -2px color-mix(in srgb, var(--rb-accent) 70%, transparent), 0 0 0 9px color-mix(in srgb, var(--rb-accent) 0%, transparent); }
 }
-@media (prefers-reduced-motion: reduce) { .rb-anchor-target { animation: none; } }
-:root.rb-tiles-static .rb-anchor-target { animation: none; }
-.rb-anchor-target::before,
-.rb-anchor-target::after { content: ''; position: absolute; background: var(--rb-accent-text, #fff); border-radius: 2px; }
-.rb-anchor-target::before { left: 50%; top: 6px; bottom: 6px; width: 2px; transform: translateX(-50%); }
-.rb-anchor-target::after { top: 50%; left: 6px; right: 6px; height: 2px; transform: translateY(-50%); }
+@media (prefers-reduced-motion: reduce) { .rb-anchor-pin { animation: none; } }
+:root.rb-tiles-static .rb-anchor-pin { animation: none; }
 
-.rb-anchor-readout { text-align: center; font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted); }
+.rb-anchor-readout {
+  text-align: center;
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--rb-text-muted);
+}
 
 /* ---- Script & expression manager ---------------------------------------- */
 .rb-scripts-list { display: flex; flex-direction: column; gap: 4px; }
