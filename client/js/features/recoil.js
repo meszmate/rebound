@@ -53,21 +53,28 @@
   }
 
   function mount(ctx) {
-    // Default to "between": select 2 keyframes, Apply -> the move overshoots the
-    // second keyframe and settles ON it (same clip length), which is what most
-    // people expect. "After key" (follow-through past the last key) is opt-in.
-    var mode = 'between'; // between (settle on key 2) | after (follow-through)
-    // Defaults match the reference Apple-style expression exactly:
-    // amp 0.04 (Overshoot 4%), freq 1.8 (Bounce), decay 4 (Friction). So
-    // "As expression" emits that expression verbatim out of the box.
-    var overshoot = 4;
+    // Smart by default: with exactly 2 keyframes selected the overshoot happens
+    // BETWEEN them (settles on the 2nd key); with any other count it follows
+    // through AFTER the last key. You can still force a mode.
+    var mode = 'auto'; // auto | between | after
+
+    // ~15% reads as a clear recoil between keys (4% is barely visible); freq 1.8,
+    // decay 4 settle quickly. The "Apple" preset keeps the subtle 4% velocity feel.
+    var overshoot = 15;
     var bounce = 1.8;
     var friction = 4;
 
+    // Resolve 'auto' from the live selection: exactly 2 selected keys -> between.
+    function resolveMode() {
+      if (mode !== 'auto') return mode;
+      var sel = ctx.getSelection ? ctx.getSelection() : null;
+      return (sel && (sel.totalSelectedKeys || 0) === 2) ? 'between' : 'after';
+    }
+
     function previewCurve() {
-      return mode === 'between'
-        ? { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) }
-        : { type: 'fn', fn: followPreview(overshoot, bounce, friction) };
+      return resolveMode() === 'after'
+        ? { type: 'fn', fn: followPreview(overshoot, bounce, friction) }
+        : { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
     }
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
@@ -83,15 +90,18 @@
     }
 
     var modeCtl = ui.segmented([
-      { value: 'after', label: 'After key' },
-      { value: 'between', label: 'Between keys' }
+      { value: 'auto', label: 'Auto' },
+      { value: 'between', label: 'Between keys' },
+      { value: 'after', label: 'After key' }
     ], { value: mode, onChange: function (v) { mode = v; refreshMode(); refreshChip(); } });
 
     var hint = el('div.rb-faint', { text: '' });
     function refreshMode() {
-      hint.textContent = mode === 'between'
-        ? 'Reshapes the move between your two keyframes so it overshoots the target and settles exactly on the second keyframe (same clip length). Apply bakes editable keys; "As expression" uses a keyframe-free remap.'
-        : 'Adds Apple-style overshoot AFTER the last keyframe, scaled by how fast it arrives (extends past it). Apply bakes editable keys; "As expression" drops the exact velocity expression.';
+      hint.textContent = mode === 'auto'
+        ? 'Auto: 2 keyframes selected → overshoots BETWEEN them (settles on the 2nd); any other count → follows through AFTER the last key. Apply bakes editable keys; "As expression" is keyframe-free.'
+        : mode === 'between'
+        ? 'Overshoots the target between your two keyframes and settles exactly on the second (same clip length).'
+        : 'Velocity follow-through AFTER the last keyframe (extends past it), scaled by how fast it arrives.';
     }
 
     var overshootSlider = ui.slider({ label: 'Overshoot', min: 0, max: 40, step: 0.5, value: overshoot,
@@ -134,7 +144,9 @@
       }
       return base;
     }
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); });
+    // Refresh the preview too: in Auto mode the resolved feel depends on how many
+    // keyframes are selected.
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); refreshChip(); });
     scopeText.textContent = describeSel(ctx.getSelection());
 
     function num(x) { return String(Math.round(x * 10000) / 10000); }
@@ -184,7 +196,7 @@
     // follow-through past the last key. Between: overshoot the target and settle
     // on the second selected key (baked between the pair).
     function doApplyKeys() {
-      if (mode === 'between') {
+      if (resolveMode() === 'between') {
         var curve = { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
         ctx.invoke('ease.bakeSparse', { points: R.easing.sampler.sparseSamples(curve), handleLength: settingsHL() })
           .then(function (res) { finish(res, 'baked'); }).catch(fail);
@@ -196,7 +208,7 @@
     // Keyframe-free. After: the EXACT velocity overshoot expression, verbatim.
     // Between: a between-keyframe remap expression of the same elastic curve.
     function doApplyExpr() {
-      if (mode === 'between') {
+      if (resolveMode() === 'between') {
         var curve = { type: 'fn', fn: elasticBetween(overshoot, bounce, friction) };
         ctx.invoke('ease.remap', { factors: R.easing.sampler.bakeFactors(curve, 256) })
           .then(function (res) { finish(res, 'expression'); }).catch(fail);
@@ -211,7 +223,7 @@
     }
     function applyState(s) {
       if (!s) return;
-      if (s.mode === 'after' || s.mode === 'between') { mode = s.mode; modeCtl.set(mode); refreshMode(); }
+      if (s.mode === 'auto' || s.mode === 'after' || s.mode === 'between') { mode = s.mode; modeCtl.set(mode); refreshMode(); }
       if (s.overshoot != null) { overshoot = s.overshoot; overshootSlider.set(s.overshoot); }
       if (s.bounce != null) { bounce = s.bounce; bounceSlider.set(s.bounce); }
       if (s.friction != null) { friction = s.friction; frictionSlider.set(s.friction); }
@@ -225,9 +237,9 @@
         get: getState,
         set: applyState,
         previewFor: function (s) {
-          return s.mode === 'between'
-            ? elasticBetween(s.overshoot, s.bounce, s.friction)
-            : followPreview(s.overshoot, s.bounce, s.friction);
+          return s.mode === 'after'
+            ? followPreview(s.overshoot, s.bounce, s.friction)
+            : elasticBetween(s.overshoot, s.bounce, s.friction);
         },
         defaults: [
           { name: 'Apple', state: { overshoot: 4, bounce: 1.8, friction: 4 } },
