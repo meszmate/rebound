@@ -143,17 +143,24 @@
 /* Physics motions get a dot that moves like the motion, not the plain run the
    eases use: Recoil springs and settles, Bounce rebounds in diminishing hops,
    Drift wanders organically. */
-.is-ez-overshoot .rb-ez-dot { animation-name: rb-ez-recoil; animation-timing-function: cubic-bezier(0.34, 0, 0.3, 1); }
+/* The dot RIDES the curve (left + top), constant-time, so it rises through the
+   target, overshoots, and settles smoothly, exactly like the motion. */
+.is-ez-overshoot .rb-ez-dot { animation-name: rb-ez-recoil; animation-timing-function: linear; bottom: auto; }
 @keyframes rb-ez-recoil {
-  0% { left: 6%; opacity: 0; }
-  8% { opacity: 1; }
-  34% { left: 90%; }
-  47% { left: 73%; }
-  57% { left: 87%; }
-  65% { left: 80%; }
-  71% { left: 84%; opacity: 1; }
-  80% { left: 84%; opacity: 0; }
-  100% { left: 6%; opacity: 0; }
+  0% { left: 6%; top: 88.5%; opacity: 0; }
+  8% { left: 6.0%; top: 88.5%; opacity: 1; }
+  12% { left: 14.8%; top: 78.7%; opacity: 1; }
+  16% { left: 23.6%; top: 54.7%; opacity: 1; }
+  20% { left: 32.4%; top: 24.0%; opacity: 1; }
+  24% { left: 41.2%; top: 2.4%; opacity: 1; }
+  28% { left: 50.0%; top: 8.6%; opacity: 1; }
+  31% { left: 58.8%; top: 12.8%; opacity: 1; }
+  35% { left: 67.6%; top: 12.0%; opacity: 1; }
+  39% { left: 76.4%; top: 11.4%; opacity: 1; }
+  43% { left: 85.2%; top: 11.5%; opacity: 1; }
+  47% { left: 94.0%; top: 11.5%; opacity: 1; }
+  70% { left: 94%; top: 11.5%; opacity: 0; }
+  100% { left: 6%; top: 88.5%; opacity: 0; }
 }
 .is-ez-bounce .rb-ez-dot { animation-name: rb-ez-bounce; animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
 @keyframes rb-ez-bounce {

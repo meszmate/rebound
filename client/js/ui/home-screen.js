@@ -583,8 +583,9 @@
       easeOut: 'M6,46 C 24,20 48,6 94,6',
       hold: 'M6,46 L50,46 L50,6 L94,6',
       // Recoil: shoots up past the target line then settles back onto it, the
-      // springy elastic overshoot, so the tile reads as motion like the eases.
-      overshoot: 'M6,46 C 32,46 40,1 56,1 C 70,1 76,10 94,6',
+      // springy elastic overshoot. Sampled from the real Apple curve (no shoulder),
+      // so the tile reads as the actual motion, and the dot rides it (rb-ez-recoil).
+      overshoot: 'M6.0,46.0 L9.1,45.3 L12.3,43.3 L15.4,40.3 L18.6,36.3 L21.7,31.6 L24.9,26.3 L28.0,20.6 L31.1,14.8 L34.3,9.0 L37.4,3.7 L40.6,1.4 L43.7,1.5 L46.9,2.9 L50.0,4.5 L53.1,5.7 L56.3,6.4 L59.4,6.7 L62.6,6.6 L65.7,6.4 L68.9,6.1 L72.0,6.0 L75.1,5.9 L78.3,5.9 L81.4,6.0 L84.6,6.0 L87.7,6.0 L90.9,6.0 L94.0,6.0',
       // Bounce: rises to the target then rebounds off it in diminishing hops.
       bounce: 'M6,46 C 16,46 26,6 36,6 C 42,6 44,22 52,22 C 60,22 62,6 70,6 C 74,6 75,14 80,14 C 84,14 85,6 94,6',
       // Drift: a living, organic wander, never settling on a single line.
