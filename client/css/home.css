@@ -511,7 +511,7 @@
    scale, no glow, no animation, no selected-state differentiation; only the
    native tooltip (the button's title) on hover. */
 .rb-home-widget .rb-anchor-dot {
-  position: static;
+  position: relative;
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -533,6 +533,41 @@
   box-shadow: none;
   background: var(--rb-accent);
 }
+
+/* Inside each box, a little mark drawn from the box edges shows where this
+   anchor point sits: an L-bracket in a corner box, a single line on an edge
+   box, a plus in the centre. Same colour family as the boxes, a touch darker
+   (translucent black, no color-mix). Built from the two pseudo-elements:
+   ::before = horizontal arm, ::after = vertical arm. */
+.rb-home-widget .rb-anchor-dot::before,
+.rb-home-widget .rb-anchor-dot::after {
+  content: '';
+  position: absolute;
+  display: none;
+  background: var(--rb-anchor-mark, rgba(0, 0, 0, 0.42));
+}
+.rb-home-widget .rb-anchor-dot::before { left: 26%; right: 26%; height: 2px; } /* horizontal arm */
+.rb-home-widget .rb-anchor-dot::after  { top: 26%; bottom: 26%; width: 2px; }  /* vertical arm */
+
+/* Horizontal arm sits on the top or bottom edge of the box. */
+.rb-home-widget .rb-ap-tl::before,
+.rb-home-widget .rb-ap-tc::before,
+.rb-home-widget .rb-ap-tr::before { display: block; top: 26%; }
+.rb-home-widget .rb-ap-bl::before,
+.rb-home-widget .rb-ap-bc::before,
+.rb-home-widget .rb-ap-br::before { display: block; bottom: 26%; }
+
+/* Vertical arm sits on the left or right edge of the box. */
+.rb-home-widget .rb-ap-tl::after,
+.rb-home-widget .rb-ap-ml::after,
+.rb-home-widget .rb-ap-bl::after { display: block; left: 26%; }
+.rb-home-widget .rb-ap-tr::after,
+.rb-home-widget .rb-ap-mr::after,
+.rb-home-widget .rb-ap-br::after { display: block; right: 26%; }
+
+/* Centre box: a small plus. */
+.rb-home-widget .rb-ap-mc::before { display: block; top: 50%; left: 34%; right: 34%; transform: translateY(-50%); }
+.rb-home-widget .rb-ap-mc::after  { display: block; left: 50%; top: 34%; bottom: 34%; transform: translateX(-50%); }
 
 /* Fill mode (any widget): keep only the tool's primary element and stretch it to
    the whole widget. JS marks the kept element + its ancestors .rb-focus-fill and

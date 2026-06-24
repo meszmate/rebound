@@ -83,7 +83,11 @@
     box.appendChild(card);
 
     var dots = POINTS.map(function (pt) {
-      var d = el('button.rb-anchor-dot', {
+      // Position tag (t/m/b + l/c/r) so the home widget can draw a little
+      // corner / edge mark inside each box showing where the anchor sits.
+      var ny = pt[1] === 0 ? 't' : pt[1] === 1 ? 'b' : 'm';
+      var nx = pt[0] === 0 ? 'l' : pt[0] === 1 ? 'r' : 'c';
+      var d = el('button.rb-anchor-dot.rb-ap-' + ny + nx, {
         style: { left: (pt[0] * 100) + '%', top: (pt[1] * 100) + '%' },
         title: labelFor(pt), 'aria-label': labelFor(pt)
       });
