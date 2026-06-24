@@ -112,10 +112,12 @@
 
     // CEP/CEF can paint the panel blank on first show or after docking: inline
     // SVG icons stay unpainted (and the grid can keep a stale width) until the
-    // user interacts, which rebuilds the DOM. Repaint on every relevant signal,
-    // plus timed kicks on load until it sticks, so it is right before any click.
+    // user interacts, which rebuilds the DOM. Nudge a repaint on the signals that
+    // actually accompany a blank paint (first show / re-show / resize) plus timed
+    // kicks on load. NOT on window 'focus': that fires every time AE hands focus
+    // back after a host op (e.g. applying from a tile), and the full #rb-app
+    // display toggle reads as the whole panel reloading on every click.
     window.addEventListener('resize', scheduleRepaint);
-    window.addEventListener('focus', scheduleRepaint);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) scheduleRepaint(); });
     var kicks = 0;
     var kickTimer = setInterval(function () { nudgeRepaint(); if (++kicks >= 12) clearInterval(kickTimer); }, 250);
