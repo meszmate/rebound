@@ -48,6 +48,10 @@
   width: var(--rb-control-h);
   padding: 0;
 }
+/* A colour swatch that has a keyboard shortcut bound: a small accent ring. */
+.rb-btn.is-icon.is-bound {
+  box-shadow: inset 0 0 0 2px var(--rb-bg-sunken), inset 0 0 0 3px var(--rb-accent);
+}
 
 /* ---- Segmented control --------------------------------------------------- */
 .rb-segmented {

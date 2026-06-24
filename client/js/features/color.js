@@ -174,6 +174,17 @@
       swatchRow.appendChild(makeSwatch(PALETTE[i]));
     }
 
+    // Make every palette colour bindable to a key (the shortcut applies it to the
+    // selection). Bound in-context by right-clicking a swatch, or via the keybind
+    // manager. Registered once for the full tool (widgets return earlier).
+    if (R.keybinds && R.keybinds.addProvider) {
+      R.keybinds.addProvider(function () {
+        return PALETTE.map(function (hex) {
+          return { id: 'color:' + hex, label: 'Colour ' + hex, group: 'Color', run: function () { apply(hexToRgb(hex)); } };
+        });
+      });
+    }
+
     var applyBtn = el('button.rb-btn.is-icon', {
       title: 'Apply the slider color',
       onclick: function () { apply(currentRgb()); }
@@ -229,10 +240,26 @@
 
     function makeSwatch(hex) {
       var rgb = hexToRgb(hex);
-      var b = el('button.rb-btn.is-icon', { title: 'Set ' + hex });
+      var id = 'color:' + hex;
+      var b = el('button.rb-btn.is-icon');
       b.style.background = hex;
       b.style.borderColor = hex;
+      function refresh() {
+        var combo = (R.keybinds && R.keybinds.comboFor) ? R.keybinds.comboFor(id) : '';
+        b.classList.toggle('is-bound', !!combo);
+        b.title = combo
+          ? ('Set ' + hex + ' · shortcut ' + combo + ' (right-click to change)')
+          : ('Set ' + hex + ' · right-click to set a shortcut');
+      }
       b.addEventListener('click', function () { apply(rgb); });
+      if (R.keybinds && R.keybinds.record) {
+        b.addEventListener('contextmenu', function (e) {
+          e.preventDefault(); e.stopPropagation();
+          if (R.ui.toast) R.ui.toast('Press a key for ' + hex + ' (Esc to cancel)', { kind: 'info' });
+          R.keybinds.record(id, function () { refresh(); });
+        });
+      }
+      refresh();
       return b;
     }
 
