@@ -116,15 +116,26 @@
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('span.rb-spacer'));
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove, title: 'Remove easing from the selected keyframes' }, ['Remove']));
     ctx.footer.appendChild(el('button.rb-btn', { onclick: doApplyExpr, title: 'Apply as a live expression instead of baked keyframes' }, ['As expression']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApplyKeys }, ['Apply recoil']));
 
-    var off = ctx.onSelection(function (sel) {
-      scopeText.textContent = sel && sel.hasComp
-        ? (sel.totalSelectedKeys >= 2 ? sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies') : 'Select 2+ keyframes')
-        : 'Open a composition';
-    });
-    scopeText.textContent = '';
+    // Read what is currently applied on the selected keyframes, so you can see
+    // it before you change or remove it.
+    function describeSel(sel) {
+      if (!sel || !sel.hasComp) return 'Open a composition';
+      if ((sel.totalSelectedKeys || 0) < 2) return 'Select 2+ keyframes';
+      var base = sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies');
+      var props = sel.properties || [];
+      for (var i = 0; i < props.length; i++) {
+        if ((props[i].selectedKeys || []).length >= 2 && props[i].currentEase && R.ui.curveName) {
+          base += ' · ' + R.ui.curveName(props[i].currentEase.curve); break;
+        }
+      }
+      return base;
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describeSel(sel); });
+    scopeText.textContent = describeSel(ctx.getSelection());
 
     function num(x) { return String(Math.round(x * 10000) / 10000); }
 
@@ -155,6 +166,14 @@
       ctx.refreshSelection();
     }
     function fail(err) { ctx.toast((err && err.message) || 'Could not apply Recoil', { kind: 'error' }); }
+
+    // Remove easing from the selected keyframes (clears Rebound expressions and
+    // sets the selected keys back to linear), so you can start clean.
+    function doRemove() {
+      ctx.invoke('ease.reset', {})
+        .then(function () { ctx.toast('Removed easing', { kind: 'success' }); ctx.refreshSelection(); })
+        .catch(fail);
+    }
 
     function settingsHL() {
       var s = (ctx.store && ctx.store.get) ? (ctx.store.get().settings || {}) : {};

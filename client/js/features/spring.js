@@ -131,19 +131,34 @@
     var scopeText = el('span.rb-scope', { text: '' });
     var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply spring']);
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('span.rb-spacer'));
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove, title: 'Remove easing from the selected keyframes' }, ['Remove']));
     ctx.footer.appendChild(applyBtn);
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
     scopeText.textContent = describe(ctx.getSelection());
 
+    // Reads what is currently applied on the selected keyframes, so you can see
+    // it before changing or removing it.
     function describe(sel) {
       if (!sel || !sel.hasComp) return 'Open a composition';
       if (sel.totalSelectedKeys < 2) return 'Select 2+ keyframes';
-      return sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' properties';
+      var base = sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' properties';
+      var props = sel.properties || [];
+      for (var i = 0; i < props.length; i++) {
+        if ((props[i].selectedKeys || []).length >= 2 && props[i].currentEase && R.ui.curveName) { base += ' · ' + R.ui.curveName(props[i].currentEase.curve); break; }
+      }
+      return base;
     }
 
     function doApply() {
       R.easing.applyCurve(ctx, curve(), 'Spring');
+    }
+    // Remove easing from the selected keyframes (clears expressions + linearizes).
+    function doRemove() {
+      ctx.invoke('ease.reset', {})
+        .then(function () { ctx.toast('Removed easing', { kind: 'success' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast((err && err.message) || 'Could not remove', { kind: 'error' }); });
     }
 
     function getState() {

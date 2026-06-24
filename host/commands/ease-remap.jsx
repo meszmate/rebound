@@ -94,6 +94,35 @@
     return { cleared: cleared };
   }
 
+  // Remove easing from the selection: clear any Rebound expression AND set the
+  // selected keyframes back to linear, so a tool can "remove it" before applying
+  // a different feel. Works for both expression-driven and baked easing.
+  function reset() {
+    var comp = util.activeComp();
+    var props = comp.selectedProperties;
+    var changed = 0;
+    app.beginUndoGroup('Rebound: Remove ease');
+    try {
+      for (var i = 0; i < props.length; i++) {
+        var p = props[i];
+        if (!(p instanceof Property)) continue;
+        if (rig.clearExpression(p)) changed++;
+        if (!p.canVaryOverTime || p.numKeys < 1) continue;
+        var sel = p.selectedKeys;
+        for (var j = 0; j < sel.length; j++) {
+          try {
+            p.setInterpolationTypeAtKey(sel[j], KeyframeInterpolationType.LINEAR, KeyframeInterpolationType.LINEAR);
+            changed++;
+          } catch (e) {}
+        }
+      }
+    } finally {
+      app.endUndoGroup();
+    }
+    return { changed: changed };
+  }
+
   R.register('ease.remap', remap, 'Rebound: Ease');
   R.register('ease.clear', clear, 'Rebound: Remove ease');
+  R.register('ease.reset', reset, 'Rebound: Remove ease');
 })();
