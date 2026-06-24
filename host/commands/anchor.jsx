@@ -73,17 +73,24 @@
 
   // Apply the compensation delta to Position. When Separate Dimensions is on the
   // unified Position is HIDDEN (setting it throws "a parent property is hidden"),
-  // so we must drive the X / Y / Z follower properties individually instead.
-  function offsetPosition(posProp, delta) {
-    if (posProp.dimensionsSeparated) {
-      for (var d = 0; d < 3; d++) {
-        var fol = null;
-        try { fol = posProp.getSeparationFollower(d); } catch (e) { fol = null; }
-        if (fol) offsetScalar(fol, delta[d] || 0);
-      }
-    } else {
-      offsetVector(posProp, delta);
-    }
+  // so we drive the X / Y / Z properties (ADBE Position_0/_1/_2) individually,
+  // the same way throw / pathfollow do. We try the unified property first and
+  // fall back to the separated trio on any failure, so it works even if
+  // dimensionsSeparated reports unreliably.
+  function offsetSeparated(tr, delta) {
+    var fx = tr.property(M.positionX);
+    var fy = tr.property(M.positionY);
+    var fz = tr.property(M.positionZ);
+    if (fx) offsetScalar(fx, delta[0] || 0);
+    if (fy) offsetScalar(fy, delta[1] || 0);
+    if (fz && (delta[2] || 0) !== 0) offsetScalar(fz, delta[2] || 0);
+  }
+  function offsetPosition(tr, posProp, delta) {
+    var sep = false;
+    try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
+    if (sep) { offsetSeparated(tr, delta); return; }
+    try { offsetVector(posProp, delta); }
+    catch (e2) { offsetSeparated(tr, delta); } // hidden/separated leader after all
   }
 
   function moveAnchor(args) {
@@ -134,7 +141,7 @@
 
         // Compensate Position FIRST: if the property is somehow unsettable, the
         // anchor stays put too (the layer never visibly jumps).
-        offsetPosition(posProp, delta);
+        offsetPosition(tr, posProp, delta);
         anchorProp.setValue(a1);
         moved++;
       }
