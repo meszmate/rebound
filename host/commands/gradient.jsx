@@ -15,7 +15,8 @@
   var util = R.util;
 
   var ROOT = 'ADBE Root Vectors Group';
-  var GROUP_CONTENTS = 'ADBE Vectors Group';
+  var VGROUP = 'ADBE Vector Group';      // a group wrapper ("Rectangle 1")
+  var GROUP_CONTENTS = 'ADBE Vectors Group'; // its child container
   var GFILL = 'ADBE Vector Graphic - G-Fill';
   var GRAD_TYPE = 'ADBE Vector Grad Type';
   var GRAD_START = 'ADBE Vector Grad Start Pt';
@@ -72,6 +73,11 @@
       var child = group.property(i);
       if (child.matchName === GROUP_CONTENTS) {
         nested.push(child);
+      } else if (child.matchName === VGROUP) {
+        // A group wrapper ("Rectangle 1"): its contents collection is one level
+        // deeper. Tool-drawn shapes always sit inside such a wrapper.
+        var contents = child.property(GROUP_CONTENTS);
+        if (contents) nested.push(contents);
       }
     }
 
@@ -128,8 +134,10 @@
         skipped++;
         continue;
       }
-      fillGroups(root, gradType, colorsData, sp, ep);
-      applied++;
+      // Only count layers where at least one gradient fill was actually added;
+      // a shape with no paintable group is a no-op, not a success.
+      if (fillGroups(root, gradType, colorsData, sp, ep) > 0) applied++;
+      else skipped++;
     }
 
     return { applied: applied, skipped: skipped };
@@ -145,6 +153,12 @@
       if (child.matchName === GROUP_CONTENTS) {
         var found = findFirstGFill(child);
         if (found) return found;
+      } else if (child.matchName === VGROUP) {
+        var contents = child.property(GROUP_CONTENTS);
+        if (contents) {
+          var fg = findFirstGFill(contents);
+          if (fg) return fg;
+        }
       }
     }
     return null;

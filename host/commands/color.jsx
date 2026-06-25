@@ -14,7 +14,8 @@
   var M = util.MATCH;
 
   var ROOT = 'ADBE Root Vectors Group';
-  var GROUP_CONTENTS = 'ADBE Vectors Group';
+  var VGROUP = 'ADBE Vector Group';      // a group wrapper ("Rectangle 1")
+  var GROUP_CONTENTS = 'ADBE Vectors Group'; // its child container
   var FILL = 'ADBE Vector Graphic - Fill';
   var FILL_COLOR = 'ADBE Vector Fill Color';
   var STROKE = 'ADBE Vector Graphic - Stroke';
@@ -62,6 +63,10 @@
         if (setColorProp(child.property(colorMatch), rgb)) hit++;
       } else if (child.matchName === GROUP_CONTENTS) {
         hit += recolorOp(child, rgb, opMatch, colorMatch);
+      } else if (child.matchName === VGROUP) {
+        // A group wrapper ("Rectangle 1"): its operators live in its contents.
+        var contents = child.property(GROUP_CONTENTS);
+        if (contents) hit += recolorOp(contents, rgb, opMatch, colorMatch);
       }
     }
     return hit;
@@ -159,6 +164,12 @@
       } else if (child.matchName === GROUP_CONTENTS) {
         var r = firstOpColor(child, opMatch, colorMatch);
         if (r) return r;
+      } else if (child.matchName === VGROUP) {
+        var contents = child.property(GROUP_CONTENTS);
+        if (contents) {
+          var rg = firstOpColor(contents, opMatch, colorMatch);
+          if (rg) return rg;
+        }
       }
     }
     return null;
