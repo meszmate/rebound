@@ -201,7 +201,8 @@
       el('div.rb-section-label', { text: 'Guides' }),
       el('div.rb-row.rb-wrap', null, [gridTog.el, circTog.el, marginTog.el, dotTog.el]),
       el('div.rb-section-label', { text: 'Controllers' }),
-      ui.row('Rig with', ctrlSeg.el)
+      ui.row('Rig with', ctrlSeg.el),
+      el('div.rb-faint', { text: 'The rig is parented to your artwork, so it follows the layer as it moves, scales, and rotates. Master null adds one handle to grab the whole overlay; Per layer parents each piece straight to the source.' })
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });

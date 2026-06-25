@@ -24,31 +24,79 @@
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
-  function readPos(tg, t0) {
-    var pos = tg.property(M.position);
-    var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
-    if (sep) return [tg.property(M.positionX).valueAtTime(t0, false), tg.property(M.positionY).valueAtTime(t0, false)];
-    var v = pos.valueAtTime(t0, false);
-    return (v instanceof Array) ? v : [v, 0];
+  // ---- geometry, collected in the source layer's OWN space ------------------
+  // The overlay is built in the source's coordinate space and then parented to
+  // the source, so AE applies the layer's live transform (and its parent chain)
+  // to the whole rig every frame. THAT is what makes it track the artwork as it
+  // moves / scales / rotates, instead of being frozen at the comp-space
+  // positions it happened to have when it was built.
+
+  // 2x3 affine [a,b,c,d,e,f] mapping (x,y) -> (a*x + c*y + e, b*x + d*y + f).
+  function matIdent() { return [1, 0, 0, 1, 0, 0]; }
+  function matLin(M, v) { return [M[0] * v[0] + M[2] * v[1], M[1] * v[0] + M[3] * v[1]]; }
+  function matApply(M, v) { return [M[0] * v[0] + M[2] * v[1] + M[4], M[1] * v[0] + M[3] * v[1] + M[5]]; }
+  function matMul(A, B) {
+    return [
+      A[0] * B[0] + A[2] * B[1], A[1] * B[0] + A[3] * B[1],
+      A[0] * B[2] + A[2] * B[3], A[1] * B[2] + A[3] * B[3],
+      A[0] * B[4] + A[2] * B[5] + A[4], A[1] * B[4] + A[3] * B[5] + A[5]
+    ];
   }
-  function layerToComp(pt, ref, t0) {
-    var tg = ref.property(M.transform);
-    var anchor = tg.property(M.anchor).valueAtTime(t0, false);
-    var pos = readPos(tg, t0);
-    var scale = tg.property(M.scale).valueAtTime(t0, false);
-    var rot = tg.property(M.rotation).valueAtTime(t0, false);
-    var lx = (pt[0] - anchor[0]) * (scale[0] / 100), ly = (pt[1] - anchor[1]) * (scale[1] / 100);
-    var r = rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
-    return [pos[0] + (lx * c - ly * s), pos[1] + (lx * s + ly * c)];
+  // A shape group's own transform: v -> pos + R*S*(v - anchor).
+  function groupMat(anchor, pos, scale, rotDeg) {
+    var sx = (scale && scale.length ? scale[0] : 100) / 100;
+    var sy = (scale && scale.length > 1 ? scale[1] : 100) / 100;
+    var r = (rotDeg || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+    var rs = [c * sx, s * sx, -s * sy, c * sy, 0, 0];
+    var ax = anchor && anchor.length ? anchor[0] : 0, ay = anchor && anchor.length > 1 ? anchor[1] : 0;
+    var ra = matLin(rs, [ax, ay]);
+    var px = pos && pos.length ? pos[0] : 0, py = pos && pos.length > 1 ? pos[1] : 0;
+    return [rs[0], rs[1], rs[2], rs[3], px - ra[0], py - ra[1]];
   }
 
-  // Collect comp-space vertices from a shape layer's paths, else bbox corners.
+  // Collect explicit path vertices in LAYER space, composing each shape group's
+  // transform on the way down so grouped / offset paths land correctly.
+  // Parametric shapes (rect / ellipse / star) expose no vertices and fall back
+  // to the layer's bounding box, which is enough to rig their corners.
+  function collectShapeVerts(group, t0, out, mat) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var p = group.property(i);
+      var mn = ''; try { mn = p.matchName; } catch (em) { mn = ''; }
+      var shapeProp = null;
+      try { shapeProp = p.property('ADBE Vector Shape'); } catch (e) { shapeProp = null; }
+      if (shapeProp) {
+        var sh = shapeProp.value;
+        if (sh && sh.vertices) for (var k = 0; k < sh.vertices.length; k++) out.push(matApply(mat, sh.vertices[k]));
+        continue;
+      }
+      if (mn === 'ADBE Vector Group') {
+        var gm = mat, tr = null;
+        try { tr = p.property('ADBE Vector Transform - Group'); } catch (et) { tr = null; }
+        if (tr) {
+          var ga = null, gp = null, gs = null, gr = 0;
+          try { ga = tr.property('ADBE Vector Anchor').valueAtTime(t0, false); } catch (e1) {}
+          try { gp = tr.property('ADBE Vector Position').valueAtTime(t0, false); } catch (e2) {}
+          try { gs = tr.property('ADBE Vector Scale').valueAtTime(t0, false); } catch (e3) {}
+          try { gr = tr.property('ADBE Vector Rotation').valueAtTime(t0, false); } catch (e4) {}
+          gm = matMul(mat, groupMat(ga || [0, 0], gp || [0, 0], gs || [100, 100], gr || 0));
+        }
+        var contents = null; try { contents = p.property('ADBE Vectors Group'); } catch (ec) { contents = null; }
+        if (contents) collectShapeVerts(contents, t0, out, gm);
+        continue;
+      }
+      var n = 0; try { n = p.numProperties; } catch (e5) { n = 0; }
+      if (n > 0) collectShapeVerts(p, t0, out, mat);
+    }
+  }
+
+  // Read the source artwork as LAYER-space vertices (shape paths) or the four
+  // corners of its bounding box, plus the layer-space bbox of whatever we found.
   function readGeometry(layer, t0) {
     var verts = [], kind = 'bounds';
     try {
       var root = layer.property('ADBE Root Vectors Group');
       if (root) {
-        collectShapeVerts(root, layer, t0, verts);
+        collectShapeVerts(root, t0, verts, matIdent());
         if (verts.length) kind = 'shape';
       }
     } catch (e) {}
@@ -56,26 +104,14 @@
       var rect = null;
       try { rect = layer.sourceRectAtTime(t0, false); } catch (e2) { rect = null; }
       if (!rect) rect = { left: -50, top: -50, width: 100, height: 100 };
-      var cs = [[rect.left, rect.top], [rect.left + rect.width, rect.top], [rect.left + rect.width, rect.top + rect.height], [rect.left, rect.top + rect.height]];
-      for (var i = 0; i < cs.length; i++) verts.push(layerToComp(cs[i], layer, t0));
+      verts.push([rect.left, rect.top]);
+      verts.push([rect.left + rect.width, rect.top]);
+      verts.push([rect.left + rect.width, rect.top + rect.height]);
+      verts.push([rect.left, rect.top + rect.height]);
     }
     var minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
-    for (var v = 0; v < verts.length; v++) { var p = verts[v]; if (p[0] < minx) minx = p[0]; if (p[0] > maxx) maxx = p[0]; if (p[1] < miny) miny = p[1]; if (p[1] > maxy) maxy = p[1]; }
+    for (var v = 0; v < verts.length; v++) { var pt = verts[v]; if (pt[0] < minx) minx = pt[0]; if (pt[0] > maxx) maxx = pt[0]; if (pt[1] < miny) miny = pt[1]; if (pt[1] > maxy) maxy = pt[1]; }
     return { verts: verts, kind: kind, bbox: { minx: minx, miny: miny, maxx: maxx, maxy: maxy, w: maxx - minx, h: maxy - miny, cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 } };
-  }
-  function collectShapeVerts(group, layer, t0, out) {
-    for (var i = 1; i <= group.numProperties; i++) {
-      var p = group.property(i);
-      var shapeProp = null;
-      try { shapeProp = p.property('ADBE Vector Shape'); } catch (e) { shapeProp = null; }
-      if (shapeProp) {
-        var sh = shapeProp.value;
-        if (sh && sh.vertices) for (var k = 0; k < sh.vertices.length; k++) out.push(layerToComp(sh.vertices[k], layer, t0));
-        continue;
-      }
-      var n = 0; try { n = p.numProperties; } catch (e2) { n = 0; }
-      if (n > 0) collectShapeVerts(p, layer, t0, out);
-    }
   }
 
   // ---- generated-layer helpers --------------------------------------------
@@ -225,7 +261,11 @@
     return null;
   }
   // Custom-layer pins: stamp a copy of the marker layer at every pin vertex.
-  function stampLayerPins(comp, marker, verts, args, master) {
+  // The vertices are in the source's layer space, so we parent each copy to the
+  // rig FIRST and set its Position afterwards (parenting rewrites Position to
+  // keep the old comp location, which would otherwise undo the placement). The
+  // marker keeps its own anchor / look; only an optional scale tweak is applied.
+  function stampLayerPins(comp, marker, verts, args, rigParent) {
     var made = 0, pct = (args.pinLayerScale != null ? args.pinLayerScale : 100);
     var max = Math.min(verts.length, 80);
     for (var i = 0; i < max; i++) {
@@ -233,7 +273,6 @@
       try { dup = marker.duplicate(); } catch (e) { continue; }
       try { dup.comment = TAG; } catch (e0) {}
       try { dup.name = 'Pin ' + (i + 1); } catch (e1) {}
-      try { dup.property(M.transform).property(M.position).setValue(verts[i]); } catch (e2) {}
       if (pct !== 100) {
         try {
           var sp = dup.property(M.transform).property(M.scale);
@@ -242,7 +281,8 @@
           sp.setValue(nv);
         } catch (e3) {}
       }
-      if (master) { try { dup.parent = master; } catch (e4) {} }
+      if (rigParent) { try { dup.parent = rigParent; } catch (e4) {} }
+      try { dup.property(M.transform).property(M.position).setValue(verts[i]); } catch (e2) {}
       made++;
     }
     return made;
@@ -265,21 +305,56 @@
       var geo = readGeometry(src, t0);
       var verts = geo.verts, bb = geo.bbox;
 
+      // The rig tracks the source by being parented to it. 'master' hangs
+      // everything off one null handle (itself parented to the source, with an
+      // identity local transform so its space coincides with the source's layer
+      // space); 'individual' parents each overlay straight to the source. Either
+      // way AE applies the source's live transform to the whole overlay.
       var master = null;
-      if (args.controller === 'master') { master = comp.layers.addNull(); master.name = src.name + ' Rig'; master.comment = TAG; master.property(M.transform).property(M.position).setValue([bb.cx, bb.cy]); made++; }
-      function parentTo(lay) { try { if (master) lay.parent = master; } catch (e) {} }
+      if (args.controller !== 'individual') {
+        master = comp.layers.addNull();
+        master.name = src.name + ' Rig'; master.comment = TAG;
+        try { master.parent = src; } catch (em) {}
+        var mtg = master.property(M.transform);
+        try { mtg.property(M.position).setValue([0, 0]); } catch (em1) {}
+        try { mtg.property(M.anchor).setValue([0, 0]); } catch (em2) {}
+        try { mtg.property(M.scale).setValue([100, 100]); } catch (em3) {}
+        try { mtg.property(M.rotation).setValue(0); } catch (em4) {}
+        made++;
+      }
+      var rigParent = master || src;
+
+      // Parent a generated layer to the rig so it rides the source's transform.
+      // Shapes carry their geometry in layer space, so their own Position is
+      // zeroed. Text layers ARE placed by their Position, so we preserve the
+      // layer-space point and re-apply it after parenting (which would otherwise
+      // rewrite the value to keep the old comp-space location).
+      function parentTo(lay) {
+        if (!rigParent || lay === master) return;
+        var isText = false; try { isText = lay instanceof TextLayer; } catch (et) { isText = false; }
+        var tg = lay.property(M.transform);
+        var keepPos = isText ? tg.property(M.position).value : null;
+        try { lay.parent = rigParent; } catch (ep) { return; }
+        try { tg.property(M.anchor).setValue([0, 0]); } catch (e5) {}
+        try { tg.property(M.scale).setValue([100, 100]); } catch (e6) {}
+        try { tg.property(M.rotation).setValue(0); } catch (e7) {}
+        try { tg.property(M.position).setValue(isText ? keepPos : [0, 0]); } catch (e8) {}
+      }
 
       function gen(fn) { try { var lay = fn(); if (lay) { parentTo(lay); made++; } } catch (e) {} }
 
-      // background dot grid (bottom)
-      if (args.dotgrid) gen(function () {
-        var lay = newShape(comp, 'Dot Grid'); var root = rootOf(lay);
-        var step = Math.max(16, Math.round(Math.min(comp.width, comp.height) / 36));
-        var count = 0;
-        for (var y = step; y < comp.height && count < 700; y += step) for (var x = step; x < comp.width && count < 700; x += step) { addEllipse(root, x, y, 1 * sc, accent, null, 0, 18); count++; }
-        try { lay.moveToEnd(); } catch (e) {}
-        return lay;
-      });
+      // Background dot grid: a full-comp backdrop, so it stays in comp space and
+      // is deliberately NOT parented to the artwork (it shouldn't move with it).
+      if (args.dotgrid) {
+        try {
+          var dlay = newShape(comp, 'Dot Grid'); var droot = rootOf(dlay);
+          var step = Math.max(16, Math.round(Math.min(comp.width, comp.height) / 36));
+          var count = 0;
+          for (var dy = step; dy < comp.height && count < 700; dy += step) for (var dx = step; dx < comp.width && count < 700; dx += step) { addEllipse(droot, dx, dy, 1 * sc, accent, null, 0, 18); count++; }
+          try { dlay.moveToEnd(); } catch (ed) {}
+          made++;
+        } catch (edg) {}
+      }
       if (args.circles) gen(function () {
         var lay = newShape(comp, 'Circle Guides'); var root = rootOf(lay);
         var base = Math.max(bb.w, bb.h) / 2;
@@ -314,7 +389,7 @@
       if (args.pins) {
         if (args.pinSource === 'layer' && args.pinLayerName) {
           var marker = findLayerByName(comp, args.pinLayerName);
-          if (marker && marker !== src) { try { made += stampLayerPins(comp, marker, verts, args, master); } catch (e) {} }
+          if (marker && marker !== src) { try { made += stampLayerPins(comp, marker, verts, args, rigParent); } catch (e) {} }
           else gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
         } else {
           gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
