@@ -302,26 +302,51 @@
   // Custom-layer pins: stamp a copy of the marker layer at every pin vertex.
   // The vertices are in the source's layer space, so we parent each copy to the
   // rig FIRST and set its Position afterwards (parenting rewrites Position to
-  // keep the old comp location, which would otherwise undo the placement). The
-  // marker keeps its own anchor / look; only an optional scale tweak is applied.
+  // keep the old comp location, which would otherwise undo the placement).
+  //
+  // Position places the copy's ANCHOR POINT at the vertex, but a layer's anchor
+  // is usually NOT at the art's centre (a shape layer's defaults to [0,0], its
+  // layer-space origin), so the marker would land offset by however far its art
+  // sits from that origin. We first move each copy's anchor to the marker's
+  // bounding-box centre so the marker is centred on the pin, whatever its art.
   function stampLayerPins(comp, marker, verts, args, rigParent) {
     var made = 0, pct = (args.pinLayerScale != null ? args.pinLayerScale : 100);
     var max = Math.min(verts.length, 80);
+
+    // Marker's visual centre in its own layer space (so the anchor can sit there).
+    var ctr = null;
+    try {
+      var rect = marker.sourceRectAtTime(comp.time, false);
+      if (rect) ctr = [rect.left + rect.width / 2, rect.top + rect.height / 2];
+    } catch (er) { ctr = null; }
+
     for (var i = 0; i < max; i++) {
       var dup;
       try { dup = marker.duplicate(); } catch (e) { continue; }
       try { dup.comment = TAG; } catch (e0) {}
       try { dup.name = 'Pin ' + (i + 1); } catch (e1) {}
+      var dtg = dup.property(M.transform);
+      if (ctr) {
+        try {
+          var ap = dtg.property(M.anchor), av = ap.value;
+          var na = [ctr[0], ctr[1]]; if (av.length > 2) na.push(av[2]);
+          ap.setValue(na);
+        } catch (ea) {}
+      }
       if (pct !== 100) {
         try {
-          var sp = dup.property(M.transform).property(M.scale);
+          var sp = dtg.property(M.scale);
           var cur = sp.value, nv = [cur[0] * pct / 100, cur[1] * pct / 100];
           if (cur.length > 2) nv.push(cur[2] * pct / 100);
           sp.setValue(nv);
         } catch (e3) {}
       }
       if (rigParent) { try { dup.parent = rigParent; } catch (e4) {} }
-      try { dup.property(M.transform).property(M.position).setValue(verts[i]); } catch (e2) {}
+      try {
+        var pp = dtg.property(M.position), pv = pp.value;
+        var npv = (pv && pv.length > 2) ? [verts[i][0], verts[i][1], 0] : verts[i];
+        pp.setValue(npv);
+      } catch (e2) {}
       made++;
     }
     return made;
