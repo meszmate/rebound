@@ -89,14 +89,76 @@
     }
   }
 
+  // Average scale factor of an affine, for converting layer-unit values (e.g. a
+  // rect's corner radius) that were defined inside a scaled group.
+  function matAvgScale(M) {
+    var sx = Math.sqrt(M[0] * M[0] + M[1] * M[1]);
+    var sy = Math.sqrt(M[2] * M[2] + M[3] * M[3]);
+    return (sx + sy) / 2;
+  }
+
+  // Collect the REAL bezier handles for each path vertex (its in / out tangents,
+  // as absolute layer-space points), and the first non-zero corner radius found
+  // on a parametric rectangle. This is what lets the Bezier Handles overlay draw
+  // the actual control handles instead of a decorative approximation, the way
+  // PinRig does. info.radius is filled in if a rounded rect is present.
+  function collectHandles(group, t0, out, mat, info) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var p = group.property(i);
+      var mn = ''; try { mn = p.matchName; } catch (em) { mn = ''; }
+      var shapeProp = null;
+      try { shapeProp = p.property('ADBE Vector Shape'); } catch (e) { shapeProp = null; }
+      if (shapeProp) {
+        var sh = shapeProp.value;
+        if (sh && sh.vertices) {
+          var inT = sh.inTangents || [], outT = sh.outTangents || [];
+          for (var k = 0; k < sh.vertices.length; k++) {
+            var vtx = sh.vertices[k], it = inT[k] || [0, 0], ot = outT[k] || [0, 0];
+            out.push({
+              v: matApply(mat, vtx),
+              cin: matApply(mat, [vtx[0] + it[0], vtx[1] + it[1]]),
+              cout: matApply(mat, [vtx[0] + ot[0], vtx[1] + ot[1]]),
+              hasIn: (it[0] !== 0 || it[1] !== 0),
+              hasOut: (ot[0] !== 0 || ot[1] !== 0)
+            });
+          }
+        }
+        continue;
+      }
+      if (mn === 'ADBE Vector Shape - Rect' && info.radius == null) {
+        try { var rp = p.property('ADBE Vector Rect Roundness'); if (rp) { var rv = rp.valueAtTime(t0, false); if (rv > 0) info.radius = rv * matAvgScale(mat); } } catch (er) {}
+        continue;
+      }
+      if (mn === 'ADBE Vector Group') {
+        var gm = mat, tr = null;
+        try { tr = p.property('ADBE Vector Transform - Group'); } catch (et) { tr = null; }
+        if (tr) {
+          var ga = null, gp = null, gs = null, gr = 0;
+          try { ga = tr.property('ADBE Vector Anchor').valueAtTime(t0, false); } catch (e1) {}
+          try { gp = tr.property('ADBE Vector Position').valueAtTime(t0, false); } catch (e2) {}
+          try { gs = tr.property('ADBE Vector Scale').valueAtTime(t0, false); } catch (e3) {}
+          try { gr = tr.property('ADBE Vector Rotation').valueAtTime(t0, false); } catch (e4) {}
+          gm = matMul(mat, groupMat(ga || [0, 0], gp || [0, 0], gs || [100, 100], gr || 0));
+        }
+        var contents = null; try { contents = p.property('ADBE Vectors Group'); } catch (ec) { contents = null; }
+        if (contents) collectHandles(contents, t0, out, gm, info);
+        continue;
+      }
+      var n2 = 0; try { n2 = p.numProperties; } catch (e6) { n2 = 0; }
+      if (n2 > 0) collectHandles(p, t0, out, mat, info);
+    }
+  }
+
   // Read the source artwork as LAYER-space vertices (shape paths) or the four
-  // corners of its bounding box, plus the layer-space bbox of whatever we found.
+  // corners of its bounding box, plus the layer-space bbox of whatever we found,
+  // the real bezier handles, and any detected corner radius.
   function readGeometry(layer, t0) {
-    var verts = [], kind = 'bounds';
+    var verts = [], kind = 'bounds', handles = [], info = { radius: null };
     try {
       var root = layer.property('ADBE Root Vectors Group');
       if (root) {
         collectShapeVerts(root, t0, verts, matIdent());
+        try { collectHandles(root, t0, handles, matIdent(), info); } catch (eh) {}
         if (verts.length) kind = 'shape';
       }
     } catch (e) {}
@@ -111,7 +173,7 @@
     }
     var minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
     for (var v = 0; v < verts.length; v++) { var pt = verts[v]; if (pt[0] < minx) minx = pt[0]; if (pt[0] > maxx) maxx = pt[0]; if (pt[1] < miny) miny = pt[1]; if (pt[1] > maxy) maxy = pt[1]; }
-    return { verts: verts, kind: kind, bbox: { minx: minx, miny: miny, maxx: maxx, maxy: maxy, w: maxx - minx, h: maxy - miny, cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 } };
+    return { verts: verts, kind: kind, handles: handles, cornerRadius: info.radius, bbox: { minx: minx, miny: miny, maxx: maxx, maxy: maxy, w: maxx - minx, h: maxy - miny, cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 } };
   }
 
   // Where pins go, independent of the rest of the overlay. 'auto' uses the real
@@ -447,7 +509,19 @@
       });
       if (args.bezier) gen(function () {
         var lay = newShape(comp, 'Bezier Handles'); var root = rootOf(lay);
-        for (var i = 0; i < verts.length; i++) { var hx = bb.cx + (verts[i][0] - bb.cx) * 1.18, hy = bb.cy + (verts[i][1] - bb.cy) * 1.18; addLine(root, verts[i], [hx, hy], accent, sw * 0.6, 50); addEllipse(root, hx, hy, mr * 0.55, null, accent, sw * 0.6, 80); }
+        var hs = geo.handles;
+        if (hs && hs.length) {
+          // Real control handles: a line from each vertex to its in / out tangent
+          // point, with a small ring at the tangent point (PinRig's bezier handles).
+          for (var i = 0; i < hs.length; i++) {
+            var h = hs[i];
+            if (h.hasIn) { addLine(root, h.v, h.cin, accent, sw * 0.6, 60); addEllipse(root, h.cin[0], h.cin[1], mr * 0.5, null, accent, sw * 0.6, 85); }
+            if (h.hasOut) { addLine(root, h.v, h.cout, accent, sw * 0.6, 60); addEllipse(root, h.cout[0], h.cout[1], mr * 0.5, null, accent, sw * 0.6, 85); }
+          }
+        } else {
+          // Bounds-only sources have no path tangents: fall back to a radial stub.
+          for (var j = 0; j < verts.length; j++) { var hx = bb.cx + (verts[j][0] - bb.cx) * 1.18, hy = bb.cy + (verts[j][1] - bb.cy) * 1.18; addLine(root, verts[j], [hx, hy], accent, sw * 0.6, 50); addEllipse(root, hx, hy, mr * 0.55, null, accent, sw * 0.6, 80); }
+        }
         return lay;
       });
       if (args.pins) {
@@ -465,6 +539,17 @@
       if (args.edges) for (var e = 0; e < verts.length; e++) { var a0 = verts[e], a1 = verts[(e + 1) % verts.length]; var mx = (a0[0] + a1[0]) / 2, my = (a0[1] + a1[1]) / 2; var len = Math.round(Math.sqrt((a1[0] - a0[0]) * (a1[0] - a0[0]) + (a1[1] - a0[1]) * (a1[1] - a0[1]))); gen(function () { return addText(comp, len + 'px', [mx + (mx - bb.cx) * 0.18, my + (my - bb.cy) * 0.18], label, fs); }); }
       if (args.coords) for (var q = 0; q < verts.length; q++) { var vx = verts[q]; gen(function () { return addText(comp, Math.round(vx[0]) + ', ' + Math.round(vx[1]), [vx[0] + (vx[0] - bb.cx) * 0.16, vx[1] + (vx[1] - bb.cy) * 0.16], label, fs * 0.85); }); }
       if (args.angles) for (var g = 0; g < verts.length; g++) { var pa = verts[(g - 1 + verts.length) % verts.length], pb = verts[g], pcc = verts[(g + 1) % verts.length]; var a1a = Math.atan2(pa[1] - pb[1], pa[0] - pb[0]), a2a = Math.atan2(pcc[1] - pb[1], pcc[0] - pb[0]); var ang = Math.abs(a1a - a2a) * 180 / Math.PI; if (ang > 180) ang = 360 - ang; gen((function (pbx, pby, deg) { return function () { return addText(comp, Math.round(deg) + '°', [bb.cx + (pbx - bb.cx) * 0.7, bb.cy + (pby - bb.cy) * 0.7], label, fs * 0.9); }; })(pb[0], pb[1], ang)); }
+      // Bezier coordinates: label each real tangent point (matches PinRig).
+      if (args.bezierCoords && geo.handles) for (var bz = 0; bz < geo.handles.length; bz++) {
+        var hh = geo.handles[bz];
+        if (hh.hasOut) gen((function (cx, cy) { return function () { return addText(comp, Math.round(cx) + ', ' + Math.round(cy), [cx, cy - 6 * sc], label, fs * 0.8); }; })(hh.cout[0], hh.cout[1]));
+        if (hh.hasIn) gen((function (cx, cy) { return function () { return addText(comp, Math.round(cx) + ', ' + Math.round(cy), [cx, cy - 6 * sc], label, fs * 0.8); }; })(hh.cin[0], hh.cin[1]));
+      }
+      // Corner radius: one readout near the top-left corner if a rounded rect
+      // was detected on the source (PinRig's Corner Radius).
+      if (args.cornerRadius && geo.cornerRadius != null && geo.cornerRadius > 0) {
+        gen((function (rad) { return function () { return addText(comp, 'R ' + Math.round(rad) + 'px', [bb.minx + bb.w * 0.18, bb.miny - 8 * sc], label, fs * 0.9); }; })(geo.cornerRadius));
+      }
     } finally {
       app.endUndoGroup();
     }

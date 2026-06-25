@@ -77,7 +77,12 @@
     }
     if (st.angles) for (var g = 0; g < verts.length; g++) kids.push(txt(CX + (verts[g][0] - CX) * 0.72, CY + (verts[g][1] - CY) * 0.72, '120°', lab, fs * 0.9));
     if (st.coords) for (var q = 0; q < verts.length; q++) kids.push(txt(verts[q][0] + (verts[q][0] - CX) * 0.18, verts[q][1] + (verts[q][1] - CY) * 0.18 - 2, Math.round(verts[q][0]) + ',' + Math.round(verts[q][1]), lab, fs * 0.85));
-    if (st.bezier) for (var z = 0; z < verts.length; z++) { var hx = verts[z][0] + (verts[z][0] - CX) * 0.18, hy = verts[z][1] + (verts[z][1] - CY) * 0.18; kids.push(svg('line', { x1: r1(verts[z][0]), y1: r1(verts[z][1]), x2: r1(hx), y2: r1(hy), stroke: ac, 'stroke-width': sw * 0.6, 'stroke-opacity': '0.5' })); kids.push(svg('circle', { cx: r1(hx), cy: r1(hy), r: mr * 0.55, fill: 'none', stroke: ac, 'stroke-width': sw * 0.6 })); }
+    if (st.bezier || st.bezierCoords) for (var z = 0; z < verts.length; z++) {
+      var hx = verts[z][0] + (verts[z][0] - CX) * 0.18, hy = verts[z][1] + (verts[z][1] - CY) * 0.18;
+      if (st.bezier) { kids.push(svg('line', { x1: r1(verts[z][0]), y1: r1(verts[z][1]), x2: r1(hx), y2: r1(hy), stroke: ac, 'stroke-width': sw * 0.6, 'stroke-opacity': '0.5' })); kids.push(svg('circle', { cx: r1(hx), cy: r1(hy), r: mr * 0.55, fill: 'none', stroke: ac, 'stroke-width': sw * 0.6 })); }
+      if (st.bezierCoords) kids.push(txt(hx, hy - 2, Math.round(hx) + ',' + Math.round(hy), lab, fs * 0.8));
+    }
+    if (st.cornerRadius) kids.push(txt(bb.minx + bb.w * 0.2, bb.miny - 3, 'R 8px', lab, fs * 0.9));
 
     if (st.pins) {
       var pinPts = placePinsPreview(verts, bb, st);
@@ -102,7 +107,7 @@
   function defaultState() {
     return { accent: '#39C2FF', label: '#E6F4FF', scale: 1, infographic: false,
       pins: true, bbox: true, selbounds: false, bezier: false,
-      edges: true, coords: false, angles: false,
+      edges: true, coords: false, angles: false, bezierCoords: false, cornerRadius: false,
       grid: false, circles: false, margin: false, dotgrid: true,
       controller: 'master',
       pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40,
@@ -226,6 +231,7 @@
     function tog(labelText, key) { return ui.toggle({ label: labelText, value: st[key], onChange: function (v) { st[key] = v; renderPreview(); } }); }
     var pinsTog = tog('Pins', 'pins'), bezTog = tog('Bezier handles', 'bezier'), selTog = tog('Selection bounds', 'selbounds'), bboxTog = tog('Bounding box', 'bbox');
     var edgesTog = tog('Edge lengths', 'edges'), coordsTog = tog('Vertex coords', 'coords'), anglesTog = tog('Vertex angles', 'angles');
+    var bezCoordTog = tog('Bezier coords', 'bezierCoords'), radiusTog = tog('Corner radius', 'cornerRadius');
     var gridTog = tog('Grid', 'grid'), circTog = tog('Circles', 'circles'), marginTog = tog('Margin', 'margin'), dotTog = tog('Dot grid', 'dotgrid');
     var ctrlSeg = ui.segmented([{ value: 'master', label: 'Master null' }, { value: 'individual', label: 'Per layer' }], { value: st.controller, onChange: function (v) { st.controller = v; } });
 
@@ -247,6 +253,7 @@
       el('div.rb-faint', { text: 'Already built? Change the style above and click Restyle pins to update the rig in place. Size, stroke, fill and color are also live on the Pins layer’s Effect Controls.' }),
       el('div.rb-section-label', { text: 'Measurements' }),
       el('div.rb-row.rb-wrap', null, [edgesTog.el, coordsTog.el, anglesTog.el]),
+      el('div.rb-row.rb-wrap', null, [bezCoordTog.el, radiusTog.el]),
       el('div.rb-section-label', { text: 'Guides' }),
       el('div.rb-row.rb-wrap', null, [gridTog.el, circTog.el, marginTog.el, dotTog.el]),
       el('div.rb-section-label', { text: 'Controllers' }),
@@ -300,6 +307,7 @@
       markerSeg.set(st.pinSource); markerScaleS.set(st.pinLayerScale); markerName.textContent = markerLabel(st.pinLayerName); syncMarker();
       pinsTog.set(st.pins); bezTog.set(st.bezier); selTog.set(st.selbounds); bboxTog.set(st.bbox);
       edgesTog.set(st.edges); coordsTog.set(st.coords); anglesTog.set(st.angles);
+      bezCoordTog.set(st.bezierCoords); radiusTog.set(st.cornerRadius);
       gridTog.set(st.grid); circTog.set(st.circles); marginTog.set(st.margin); dotTog.set(st.dotgrid);
       ctrlSeg.set(st.controller);
       renderPreview();
