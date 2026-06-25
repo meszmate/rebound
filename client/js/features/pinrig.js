@@ -196,6 +196,7 @@
       el('div.rb-section-label', { text: 'Pin style' }),
       ui.row('Marker', markerSeg.el),
       shapeCtrlWrap, layerCtrlWrap,
+      el('div.rb-faint', { text: 'Already built? Change the style above and click Restyle pins to update the rig in place. Size, stroke, fill and color are also live on the Pins layer’s Effect Controls.' }),
       el('div.rb-section-label', { text: 'Measurements' }),
       el('div.rb-row.rb-wrap', null, [edgesTog.el, coordsTog.el, anglesTog.el]),
       el('div.rb-section-label', { text: 'Guides' }),
@@ -208,6 +209,7 @@
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove rig']));
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRestyle, title: 'Update the pins on the already-built rig to the current style' }, ['Restyle pins']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doBuild }, ['Build rig']));
 
     function refreshScope(sel) {
@@ -226,6 +228,11 @@
       ctx.invoke('pinrig.build', st)
         .then(function (res) { ctx.toast('Built rig: ' + res.layers + ' layer' + (res.layers === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not build the rig', { kind: 'error' }); });
+    }
+    function doRestyle() {
+      ctx.invoke('pinrig.restyle', st)
+        .then(function (res) { if (res && res.restyled) ctx.toast('Restyled the pins', { kind: 'success' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not restyle the pins', { kind: 'error' }); });
     }
     function doRemove() {
       ctx.invoke('pinrig.remove', {})

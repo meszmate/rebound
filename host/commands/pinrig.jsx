@@ -419,6 +419,67 @@
     return { removed: removed };
   }
 
+  // ---- restyle pins on an already-built rig (no full rebuild) ---------------
+
+  function isPinsLayer(L) { return L.comment && L.comment.indexOf(TAG) !== -1 && L.name === 'Pins'; }
+
+  // Walk up the parent chain to the first ancestor that is NOT part of the rig:
+  // that is the rigged artwork (Pins -> master null -> source, or Pins -> source).
+  function rigSourceOf(layer) {
+    var cur = layer, hops = 0;
+    while (cur && cur.parent && hops < 20) {
+      var par = cur.parent;
+      if (!(par.comment && par.comment.indexOf(TAG) !== -1)) return par;
+      cur = par; hops++;
+    }
+    return null;
+  }
+
+  // Pick the Pins layer to restyle: a selected Pins layer, else the rig whose
+  // source is selected, else the only Pins layer in the comp.
+  function pickPins(comp) {
+    var sel = comp.selectedLayers, i, L;
+    for (i = 0; i < sel.length; i++) if (isPinsLayer(sel[i])) return sel[i];
+    var list = [];
+    for (i = 1; i <= comp.numLayers; i++) { L = comp.layer(i); if (isPinsLayer(L)) list.push(L); }
+    for (var s = 0; s < sel.length; s++) for (var p = 0; p < list.length; p++) if (rigSourceOf(list[p]) === sel[s]) return list[p];
+    if (list.length === 1) return list[0];
+    return null;
+  }
+
+  function restyle(args) {
+    if (args && args.pinSource === 'layer') throw new Error('Restyle changes shape pins. Remove and rebuild to swap a custom-layer marker.');
+    var comp = util.activeComp();
+    var target = pickPins(comp);
+    if (!target) throw new Error('No pin rig found here. Build one first, or select its artwork (or the Pins layer).');
+    var src = rigSourceOf(target);
+    if (!src) { var sel = comp.selectedLayers; src = sel.length ? sel[0] : null; }
+    if (!src) throw new Error('Could not find the rigged artwork to re-read.');
+
+    app.beginUndoGroup('Rebound: Restyle Pins');
+    try {
+      var t0 = comp.time;
+      var sc = (args && args.scale != null) ? args.scale : 1;
+      var mr = 3 * sc;
+      var geo = readGeometry(src, t0);
+      var parent = target.parent;
+      var nl = buildPinsLayer(comp, geo.verts, args || {}, sc, mr * 1.15);
+      try { nl.moveBefore(target); } catch (em) {}
+      if (parent) {
+        try { nl.parent = parent; } catch (ep) {}
+        var tg = nl.property(M.transform);
+        try { tg.property(M.anchor).setValue([0, 0]); } catch (e1) {}
+        try { tg.property(M.scale).setValue([100, 100]); } catch (e2) {}
+        try { tg.property(M.rotation).setValue(0); } catch (e3) {}
+        try { tg.property(M.position).setValue([0, 0]); } catch (e4) {}
+      }
+      try { target.remove(); } catch (er) {}
+    } finally {
+      app.endUndoGroup();
+    }
+    return { restyled: true };
+  }
+
   function read() {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
@@ -429,6 +490,7 @@
   }
 
   R.register('pinrig.build', build, 'Rebound: Pin Rig');
+  R.register('pinrig.restyle', restyle, 'Rebound: Restyle Pins');
   R.register('pinrig.remove', remove, 'Rebound: Remove Pin Rig');
   R.register('pinrig.read', read);
 })();
