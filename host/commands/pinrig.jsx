@@ -114,6 +114,31 @@
     return { verts: verts, kind: kind, bbox: { minx: minx, miny: miny, maxx: maxx, maxy: maxy, w: maxx - minx, h: maxy - miny, cx: (minx + maxx) / 2, cy: (miny + maxy) / 2 } };
   }
 
+  // Where pins go, independent of the rest of the overlay. 'auto' uses the real
+  // geometry (shape vertices, or bbox corners for an image / footage layer);
+  // the others lay pins out on the bounding box so even a flat image can carry a
+  // useful set of pins.
+  function placePins(geo, args) {
+    var mode = (args && args.pinPlacement) || 'auto';
+    var bb = geo.bbox;
+    if (mode === 'corners') return [[bb.minx, bb.miny], [bb.maxx, bb.miny], [bb.maxx, bb.maxy], [bb.minx, bb.maxy]];
+    if (mode === 'midpoints') return [
+      [bb.minx, bb.miny], [bb.cx, bb.miny], [bb.maxx, bb.miny], [bb.maxx, bb.cy],
+      [bb.maxx, bb.maxy], [bb.cx, bb.maxy], [bb.minx, bb.maxy], [bb.minx, bb.cy]
+    ];
+    if (mode === 'center') return [[bb.cx, bb.cy]];
+    if (mode === 'grid') {
+      var n = Math.round((args && args.pinGrid) || 3);
+      if (n < 2) n = 2; if (n > 8) n = 8;
+      var pts = [];
+      for (var r = 0; r < n; r++) for (var col = 0; col < n; col++) {
+        pts.push([bb.minx + bb.w * col / (n - 1), bb.miny + bb.h * r / (n - 1)]);
+      }
+      return pts;
+    }
+    return geo.verts;
+  }
+
   // ---- generated-layer helpers --------------------------------------------
 
   function newShape(comp, name) {
@@ -197,13 +222,23 @@
   function pathPoly(c, pts) { var sg = c.addProperty('ADBE Vector Shape - Group'); var sh = new Shape(); var t = []; for (var i = 0; i < pts.length; i++) t.push([0, 0]); sh.vertices = pts; sh.inTangents = t; sh.outTangents = t; sh.closed = true; sg.property('ADBE Vector Shape').setValue(sh); return sg; }
   function pathLine(c, p0, p1) { var sg = c.addProperty('ADBE Vector Shape - Group'); var sh = new Shape(); sh.vertices = [p0, p1]; sh.inTangents = [[0, 0], [0, 0]]; sh.outTangents = [[0, 0], [0, 0]]; sh.closed = false; sg.property('ADBE Vector Shape').setValue(sh); return sg; }
 
+  // Vertices for a closed polygon pin of radius r centered at (cx, cy).
+  function polyPoints(shape, cx, cy, r) {
+    var pts = [], i, a, rr;
+    if (shape === 'triangle') return [[cx, cy - r], [cx + r * 0.866, cy + r * 0.5], [cx - r * 0.866, cy + r * 0.5]];
+    if (shape === 'hexagon') { for (i = 0; i < 6; i++) { a = Math.PI / 180 * (60 * i - 90); pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return pts; }
+    if (shape === 'star') { for (i = 0; i < 10; i++) { rr = (i % 2 === 0) ? r : r * 0.45; a = Math.PI / 180 * (36 * i - 90); pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]); } return pts; }
+    return [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]]; // diamond
+  }
+
   // Build the Pins layer so its appearance is driven by Effect Controls on the
   // layer (Pin Size, Stroke Width/Color, Fill Color/Opacity, Roundness). Select
   // the layer in AE and edit those controls to restyle every pin live.
   function buildPinsLayer(comp, verts, args, sc, baseR) {
     var lay = newShape(comp, 'Pins'); var root = rootOf(lay);
     var shape = args.pinShape || 'dot';
-    var hasFill = (shape === 'dot' || shape === 'square' || shape === 'diamond') && args.pinFill;
+    var FILLABLE = { dot: 1, square: 1, diamond: 1, triangle: 1, hexagon: 1, star: 1 };
+    var hasFill = FILLABLE[shape] && args.pinFill;
     var fillRgb = args.fillRgb || hexToRgb01(args.fillColor || '#39C2FF');
     var strokeRgb = args.strokeRgb || hexToRgb01(args.strokeColor || '#0E1116');
 
@@ -225,8 +260,12 @@
         try { rig.setExpression(rc.property('ADBE Vector Rect Roundness'), 'effect("Roundness")("Slider") / 100 * effect("Pin Size")("Slider");'); } catch (e3) {}
       } else if (shape === 'cross') {
         pathLine(c, [cx - baseR, cy], [cx + baseR, cy]); pathLine(c, [cx, cy - baseR], [cx, cy + baseR]);
+      } else if (shape === 'target') {
+        var ot = pathEllipse(c, cx, cy);
+        rig.setExpression(ot.property('ADBE Vector Ellipse Size'), 's = effect("Pin Size")("Slider"); [s * 2, s * 2];');
+        pathLine(c, [cx - baseR * 0.5, cy], [cx + baseR * 0.5, cy]); pathLine(c, [cx, cy - baseR * 0.5], [cx, cy + baseR * 0.5]);
       } else {
-        pathPoly(c, [[cx, cy - baseR], [cx + baseR, cy], [cx, cy + baseR], [cx - baseR, cy]]);
+        pathPoly(c, polyPoints(shape, cx, cy, baseR));
       }
     }
     if (hasFill) {
@@ -387,12 +426,13 @@
         return lay;
       });
       if (args.pins) {
+        var pinVerts = placePins(geo, args);
         if (args.pinSource === 'layer' && args.pinLayerName) {
           var marker = findLayerByName(comp, args.pinLayerName);
-          if (marker && marker !== src) { try { made += stampLayerPins(comp, marker, verts, args, rigParent); } catch (e) {} }
-          else gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
+          if (marker && marker !== src) { try { made += stampLayerPins(comp, marker, pinVerts, args, rigParent); } catch (e) {} }
+          else gen(function () { return buildPinsLayer(comp, pinVerts, args, sc, mr * 1.15); });
         } else {
-          gen(function () { return buildPinsLayer(comp, verts, args, sc, mr * 1.15); });
+          gen(function () { return buildPinsLayer(comp, pinVerts, args, sc, mr * 1.15); });
         }
       }
 
@@ -463,7 +503,7 @@
       var mr = 3 * sc;
       var geo = readGeometry(src, t0);
       var parent = target.parent;
-      var nl = buildPinsLayer(comp, geo.verts, args || {}, sc, mr * 1.15);
+      var nl = buildPinsLayer(comp, placePins(geo, args || {}), args || {}, sc, mr * 1.15);
       try { nl.moveBefore(target); } catch (em) {}
       if (parent) {
         try { nl.parent = parent; } catch (ep) {}

@@ -58,6 +58,9 @@
   padding: 2px;
   gap: 2px;
 }
+/* For pickers with many options: let the buttons wrap to a second row instead
+   of overflowing a narrow panel. */
+.rb-segmented.rb-seg-wrap { display: flex; flex-wrap: wrap; }
 .rb-segmented button {
   flex: 1 1 auto;
   height: calc(var(--rb-control-h) - 6px);

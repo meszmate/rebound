@@ -79,9 +79,12 @@
     if (st.coords) for (var q = 0; q < verts.length; q++) kids.push(txt(verts[q][0] + (verts[q][0] - CX) * 0.18, verts[q][1] + (verts[q][1] - CY) * 0.18 - 2, Math.round(verts[q][0]) + ',' + Math.round(verts[q][1]), lab, fs * 0.85));
     if (st.bezier) for (var z = 0; z < verts.length; z++) { var hx = verts[z][0] + (verts[z][0] - CX) * 0.18, hy = verts[z][1] + (verts[z][1] - CY) * 0.18; kids.push(svg('line', { x1: r1(verts[z][0]), y1: r1(verts[z][1]), x2: r1(hx), y2: r1(hy), stroke: ac, 'stroke-width': sw * 0.6, 'stroke-opacity': '0.5' })); kids.push(svg('circle', { cx: r1(hx), cy: r1(hy), r: mr * 0.55, fill: 'none', stroke: ac, 'stroke-width': sw * 0.6 })); }
 
-    if (st.pins) for (var p = 0; p < verts.length; p++) {
-      if (st.pinSource === 'layer') kids.push(layerPinMarker(verts[p][0], verts[p][1], mr * 1.6, st, sc));
-      else kids.push(pinShape(verts[p][0], verts[p][1], mr * 1.15, st, ac, sc));
+    if (st.pins) {
+      var pinPts = placePinsPreview(verts, bb, st);
+      for (var p = 0; p < pinPts.length; p++) {
+        if (st.pinSource === 'layer') kids.push(layerPinMarker(pinPts[p][0], pinPts[p][1], mr * 1.6, st, sc));
+        else kids.push(pinShape(pinPts[p][0], pinPts[p][1], mr * 1.15, st, ac, sc));
+      }
     }
 
     return svg('svg', { viewBox: '0 0 160 110', width: '100%', height: h }, kids);
@@ -92,7 +95,7 @@
     title: 'Pin Rig',
     group: 'Layout',
     order: 7,
-    keywords: ['pinrig', 'pin', 'rig', 'construction', 'guides', 'measurements', 'bounding box', 'logo', 'blueprint', 'bezier', 'grid', 'dots', 'overlay', 'design'],
+    keywords: ['pinrig', 'pin', 'rig', 'construction', 'guides', 'measurements', 'bounding box', 'logo', 'blueprint', 'bezier', 'grid', 'dots', 'overlay', 'design', 'image', 'photo', 'star', 'hexagon', 'triangle', 'marker'],
     mount: mount
   });
 
@@ -103,8 +106,19 @@
       grid: false, circles: false, margin: false, dotgrid: true,
       controller: 'master',
       pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40,
+      pinPlacement: 'auto', pinGrid: 3,
       pinSource: 'shape', pinLayerName: '', pinLayerScale: 100 };
   }
+
+  // Vertices for a closed polygon pin (mirrors the host's polyPoints).
+  function pinPoly(shape, cx, cy, r) {
+    var pts = [], i, a, rr;
+    if (shape === 'triangle') return [[cx, cy - r], [cx + r * 0.866, cy + r * 0.5], [cx - r * 0.866, cy + r * 0.5]];
+    if (shape === 'hexagon') { for (i = 0; i < 6; i++) { a = Math.PI / 180 * (60 * i - 90); pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return pts; }
+    if (shape === 'star') { for (i = 0; i < 10; i++) { rr = (i % 2 === 0) ? r : r * 0.45; a = Math.PI / 180 * (36 * i - 90); pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]); } return pts; }
+    return [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]];
+  }
+  function polyD(shape, cx, cy, r) { return 'M' + pinPoly(shape, cx, cy, r).map(function (p) { return r1(p[0]) + ' ' + r1(p[1]); }).join('L') + 'Z'; }
 
   // Render one pin in the chosen style (its own stroke + fill colors).
   function pinShape(cx, cy, r, st, ac, sc) {
@@ -115,8 +129,27 @@
     if (st.pinShape === 'ring') return svg('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: ac, 'stroke-width': sw });
     if (st.pinShape === 'square') { var rr = r1((st.pinRound / 100) * r); return svg('rect', { x: r1(cx - r), y: r1(cy - r), width: r1(2 * r), height: r1(2 * r), rx: rr, fill: fill, stroke: ac, 'stroke-width': sw }); }
     if (st.pinShape === 'cross') return svg('path', { d: 'M' + r1(cx - r) + ' ' + cy + 'H' + r1(cx + r) + 'M' + cx + ' ' + r1(cy - r) + 'V' + r1(cy + r), stroke: ac, 'stroke-width': sw, fill: 'none', 'stroke-linecap': 'round' });
-    if (st.pinShape === 'diamond') return svg('path', { d: 'M' + cx + ' ' + r1(cy - r) + 'L' + r1(cx + r) + ' ' + cy + 'L' + cx + ' ' + r1(cy + r) + 'L' + r1(cx - r) + ' ' + cy + 'Z', fill: fill, stroke: ac, 'stroke-width': sw });
+    if (st.pinShape === 'target') return svg('g', null, [
+      svg('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: ac, 'stroke-width': sw }),
+      svg('path', { d: 'M' + r1(cx - r * 0.5) + ' ' + cy + 'H' + r1(cx + r * 0.5) + 'M' + cx + ' ' + r1(cy - r * 0.5) + 'V' + r1(cy + r * 0.5), stroke: ac, 'stroke-width': sw, fill: 'none', 'stroke-linecap': 'round' })
+    ]);
+    if (st.pinShape === 'triangle' || st.pinShape === 'hexagon' || st.pinShape === 'star' || st.pinShape === 'diamond') return svg('path', { d: polyD(st.pinShape, cx, cy, r), fill: fill, stroke: ac, 'stroke-width': sw });
     return svg('circle', { cx: cx, cy: cy, r: r, fill: fill, stroke: ac, 'stroke-width': sw });
+  }
+
+  // Where pins sit, for the preview (mirrors the host's placePins).
+  function placePinsPreview(verts, bb, st) {
+    var mode = st.pinPlacement || 'auto';
+    if (mode === 'corners') return [[bb.minx, bb.miny], [bb.maxx, bb.miny], [bb.maxx, bb.maxy], [bb.minx, bb.maxy]];
+    if (mode === 'midpoints') return [[bb.minx, bb.miny], [bb.cx, bb.miny], [bb.maxx, bb.miny], [bb.maxx, bb.cy], [bb.maxx, bb.maxy], [bb.cx, bb.maxy], [bb.minx, bb.maxy], [bb.minx, bb.cy]];
+    if (mode === 'center') return [[bb.cx, bb.cy]];
+    if (mode === 'grid') {
+      var n = Math.round(st.pinGrid || 3); if (n < 2) n = 2; if (n > 8) n = 8;
+      var pts = [];
+      for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) pts.push([bb.minx + bb.w * c / (n - 1), bb.miny + bb.h * r / (n - 1)]);
+      return pts;
+    }
+    return verts;
   }
 
   // Placeholder marker shown when pins are a custom layer: a small picture frame
@@ -151,8 +184,21 @@
     var infoTog = ui.toggle({ label: 'Infographic look', value: st.infographic, onChange: function (v) { st.infographic = v; renderPreview(); } });
 
     // Pin appearance editor
-    var pinShapeSeg = ui.segmented([{ value: 'dot', label: 'Dot' }, { value: 'ring', label: 'Ring' }, { value: 'square', label: 'Square' }, { value: 'cross', label: 'Cross' }, { value: 'diamond', label: 'Diamond' }],
+    var pinShapeSeg = ui.segmented([
+      { value: 'dot', label: 'Dot' }, { value: 'ring', label: 'Ring' }, { value: 'square', label: 'Square' },
+      { value: 'cross', label: 'Cross' }, { value: 'diamond', label: 'Diamond' }, { value: 'triangle', label: 'Triangle' },
+      { value: 'hexagon', label: 'Hexagon' }, { value: 'star', label: 'Star' }, { value: 'target', label: 'Target' }],
       { value: st.pinShape, onChange: function (v) { st.pinShape = v; roundS.el.style.display = v === 'square' ? '' : 'none'; renderPreview(); } });
+    pinShapeSeg.el.classList.add('rb-seg-wrap');
+
+    // Where pins are placed, so even a flat image gets a useful set of pins.
+    var gridS = ui.slider({ label: 'Grid size', min: 2, max: 8, step: 1, value: st.pinGrid, format: function (v) { var n = Math.round(v); return n + '×' + n; }, onInput: function (v) { st.pinGrid = Math.round(v); renderPreview(); } });
+    var placeSeg = ui.segmented([
+      { value: 'auto', label: 'Auto', title: 'Shape vertices, or image corners' }, { value: 'corners', label: 'Corners' },
+      { value: 'midpoints', label: '+ Mids' }, { value: 'grid', label: 'Grid' }, { value: 'center', label: 'Center' }],
+      { value: st.pinPlacement, onChange: function (v) { st.pinPlacement = v; gridS.el.style.display = v === 'grid' ? '' : 'none'; renderPreview(); } });
+    placeSeg.el.classList.add('rb-seg-wrap');
+    gridS.el.style.display = st.pinPlacement === 'grid' ? '' : 'none';
     var pinStrokeS = ui.slider({ label: 'Stroke width', min: 0, max: 6, step: 0.5, value: st.pinStroke, format: function (v) { return R.units.round(v, 1); }, onInput: function (v) { st.pinStroke = v; renderPreview(); } });
     var roundS = ui.slider({ label: 'Roundness', min: 0, max: 100, step: 1, value: st.pinRound, format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { st.pinRound = v; renderPreview(); } });
     var pinFillTog = ui.toggle({ label: 'Fill', value: st.pinFill, onChange: function (v) { st.pinFill = v; fillRow.style.display = v ? '' : 'none'; renderPreview(); } });
@@ -186,7 +232,7 @@
     renderPreview();
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Select your artwork, choose what to draw, and Pin Rig builds an editable construction overlay that tracks the layer, all in one color theme.' }),
+      el('div.rb-faint', { text: 'Select any layer (shape, image, photo, precomp), choose what to draw, and Pin Rig builds an editable overlay that tracks it. Pins can be any built-in shape or a copy of your own layer, placed on the vertices, corners, or a grid.' }),
       previewHost,
       el('div.rb-section-label', { text: 'Theme' }),
       accentRow, labelRow, scaleS.el, infoTog.el,
@@ -194,6 +240,8 @@
       el('div.rb-row.rb-wrap', null, [pinsTog.el, bboxTog.el]),
       el('div.rb-row.rb-wrap', null, [bezTog.el, selTog.el]),
       el('div.rb-section-label', { text: 'Pin style' }),
+      ui.row('Place', placeSeg.el),
+      gridS.el,
       ui.row('Marker', markerSeg.el),
       shapeCtrlWrap, layerCtrlWrap,
       el('div.rb-faint', { text: 'Already built? Change the style above and click Restyle pins to update the rig in place. Size, stroke, fill and color are also live on the Pins layer’s Effect Controls.' }),
@@ -248,6 +296,7 @@
       scaleS.set(st.scale); infoTog.set(st.infographic);
       pinShapeSeg.set(st.pinShape); pinStrokeS.set(st.pinStroke); roundS.set(st.pinRound); pinFillTog.set(st.pinFill);
       roundS.el.style.display = st.pinShape === 'square' ? '' : 'none'; fillRow.style.display = st.pinFill ? '' : 'none';
+      placeSeg.set(st.pinPlacement); gridS.set(st.pinGrid); gridS.el.style.display = st.pinPlacement === 'grid' ? '' : 'none';
       markerSeg.set(st.pinSource); markerScaleS.set(st.pinLayerScale); markerName.textContent = markerLabel(st.pinLayerName); syncMarker();
       pinsTog.set(st.pins); bezTog.set(st.bezier); selTog.set(st.selbounds); bboxTog.set(st.bbox);
       edgesTog.set(st.edges); coordsTog.set(st.coords); anglesTog.set(st.angles);
