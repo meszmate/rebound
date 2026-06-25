@@ -16,6 +16,30 @@
   var M = util.MATCH;
   var rig = R.rig;
   var TAG = '[PinRig]';
+  // We stamp the full build settings (as JSON) into one rig layer's comment, so
+  // selecting a rigged object can read back EXACTLY what it was built with and
+  // show it in the panel. The comment still starts with TAG, so every existing
+  // indexOf(TAG) check keeps working. The host has a JSON polyfill (lib/json).
+  var STASH_SEP = '::';
+  var SETTINGS_KEYS = ['accent', 'label', 'scale', 'infographic', 'pins', 'bbox', 'selbounds', 'bezier',
+    'edges', 'coords', 'angles', 'bezierCoords', 'cornerRadius', 'grid', 'circles', 'margin', 'dotgrid',
+    'controller', 'pinShape', 'pinStroke', 'pinFill', 'fillColor', 'strokeColor', 'pinRound',
+    'pinPlacement', 'pinGrid', 'pinSource', 'pinLayerName', 'pinLayerScale'];
+
+  function encodeSettings(args) {
+    var o = {};
+    for (var i = 0; i < SETTINGS_KEYS.length; i++) { var k = SETTINGS_KEYS[i]; if (args[k] !== undefined && args[k] !== null) o[k] = args[k]; }
+    var json = ''; try { json = JSON.stringify(o); } catch (e) { json = ''; }
+    return TAG + (json ? ' ' + STASH_SEP + json : '');
+  }
+  function stampSettings(layer, args) { if (layer) { try { layer.comment = encodeSettings(args); } catch (e) {} } }
+  function parseSettings(comment) {
+    if (!comment) return null;
+    var idx = comment.indexOf(STASH_SEP);
+    if (idx < 0) return null;
+    try { return JSON.parse(comment.substring(idx + STASH_SEP.length)); } catch (e) { return null; }
+  }
+  function sameLayer(a, b) { return !!(a && b && a.index === b.index); }
 
   function hexToRgb01(hex) {
     var m = /^#?([0-9a-fA-F]{6})$/.exec('' + hex);
@@ -467,7 +491,10 @@
         try { tg.property(M.position).setValue(isText ? keepPos : [0, 0]); } catch (e8) {}
       }
 
-      function gen(fn) { try { var lay = fn(); if (lay) { parentTo(lay); made++; } } catch (e) {} }
+      // The first rig-parented layer (or the master null) carries the settings
+      // stash, so readRig can recover them from any rig.
+      var stashLayer = master;
+      function gen(fn) { try { var lay = fn(); if (lay) { parentTo(lay); if (!stashLayer) stashLayer = lay; made++; } } catch (e) {} }
 
       // Background dot grid: a full-comp backdrop, so it stays in comp space and
       // is deliberately NOT parented to the artwork (it shouldn't move with it).
@@ -550,6 +577,10 @@
       if (args.cornerRadius && geo.cornerRadius != null && geo.cornerRadius > 0) {
         gen((function (rad) { return function () { return addText(comp, 'R ' + Math.round(rad) + 'px', [bb.minx + bb.w * 0.18, bb.miny - 8 * sc], label, fs * 0.9); }; })(geo.cornerRadius));
       }
+
+      // Remember exactly what we built, so selecting this object later restores
+      // the panel to these settings.
+      stampSettings(stashLayer, args);
     } finally {
       app.endUndoGroup();
     }
@@ -597,6 +628,16 @@
     return null;
   }
 
+  // The rig layer that carries the JSON settings stash, scoped to one source.
+  function findStash(comp, src) {
+    for (var i = 1; i <= comp.numLayers; i++) {
+      var L = comp.layer(i);
+      if (!(L.comment && L.comment.indexOf(STASH_SEP) !== -1)) continue;
+      if (sameLayer(L, src) || sameLayer(rigSourceOf(L), src)) return L;
+    }
+    return null;
+  }
+
   function restyle(args) {
     if (args && args.pinSource === 'layer') throw new Error('Restyle changes shape pins. Remove and rebuild to swap a custom-layer marker.');
     var comp = util.activeComp();
@@ -624,10 +665,37 @@
         try { tg.property(M.position).setValue([0, 0]); } catch (e4) {}
       }
       try { target.remove(); } catch (er) {}
+      // Keep the settings stash in sync with the restyle (args carries full UI state).
+      var stash = findStash(comp, src);
+      if (stash) stampSettings(stash, args || {});
     } finally {
       app.endUndoGroup();
     }
     return { restyled: true };
+  }
+
+  // Read back the settings a rig was built with, given a selected layer (the
+  // source artwork, the master null, or any overlay of the rig). Lets the panel
+  // show the object's current Pin Rig settings the moment it is selected.
+  function readRig() {
+    var comp = util.activeComp();
+    if (!comp) return { ok: false };
+    var sel = comp.selectedLayers;
+    if (!sel || !sel.length) return { ok: false };
+    var first = sel[0];
+    var src = null;
+    if (first.comment && first.comment.indexOf(TAG) !== -1) src = rigSourceOf(first);
+    if (!src) src = first;
+    var settings = null, hasRig = false, i, L;
+    for (i = 1; i <= comp.numLayers; i++) {
+      L = comp.layer(i);
+      if (!(L.comment && L.comment.indexOf(TAG) !== -1)) continue;
+      if (!(sameLayer(L, first) || sameLayer(rigSourceOf(L), src))) continue;
+      hasRig = true;
+      var s = parseSettings(L.comment);
+      if (s) { settings = s; break; }
+    }
+    return { ok: true, hasRig: hasRig, sourceName: src ? src.name : null, settings: settings };
   }
 
   function read() {
@@ -643,4 +711,5 @@
   R.register('pinrig.restyle', restyle, 'Rebound: Restyle Pins');
   R.register('pinrig.remove', remove, 'Rebound: Remove Pin Rig');
   R.register('pinrig.read', read);
+  R.register('pinrig.readRig', readRig);
 })();

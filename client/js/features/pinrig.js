@@ -171,6 +171,10 @@
 
   function mount(ctx) {
     var st = defaultState();
+    // When a rigged object is selected we load its saved settings once (keyed by
+    // source) so the panel mirrors what that object currently has.
+    var lastRigKey = null;
+    var rigStatus = el('div.rb-faint', { text: '', style: { color: 'var(--rb-accent)' } });
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(overlaySvg(st, 110)); }
@@ -239,6 +243,7 @@
 
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Select any layer (shape, image, photo, precomp), choose what to draw, and Pin Rig builds an editable overlay that tracks it. Pins can be any built-in shape or a copy of your own layer, placed on the vertices, corners, or a grid.' }),
+      rigStatus,
       previewHost,
       el('div.rb-section-label', { text: 'Theme' }),
       accentRow, labelRow, scaleS.el, infoTog.el,
@@ -274,6 +279,18 @@
         if (!r) return;
         if (!r.ok) scopeText.textContent = 'Select artwork to rig';
         else scopeText.textContent = 'Source: “' + r.name + '” · ' + r.kind + (r.vertexCount ? ' · ' + r.vertexCount + ' vertices' : '');
+      }).catch(function () {});
+      // If the selected object already has a Pin Rig, mirror its saved settings.
+      ctx.invoke('pinrig.readRig', {}).then(function (rr) {
+        if (!rr || !rr.ok || !rr.hasRig) { rigStatus.textContent = ''; lastRigKey = null; return; }
+        if (rr.settings) {
+          rigStatus.textContent = '● Editing this object’s Pin Rig — showing its current settings.';
+          var key = (rr.sourceName || '') + '#rig';
+          if (key !== lastRigKey) { lastRigKey = key; applyState(rr.settings); }
+        } else {
+          rigStatus.textContent = '● This object has a Pin Rig (built before settings memory) — rebuild to refresh.';
+          lastRigKey = null;
+        }
       }).catch(function () {});
     }
     var off = ctx.onSelection(refreshScope);
