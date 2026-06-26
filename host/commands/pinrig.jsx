@@ -462,20 +462,15 @@
     return made;
   }
 
-  function build(args) {
-    var comp = util.activeComp();
-    var layers = comp.selectedLayers;
-    if (!layers.length) throw new Error('Select artwork to rig.');
-    var t0 = comp.time;
-    var accent = args.accentRgb || hexToRgb01(args.accent || '#39C2FF');
-    var label = args.labelRgb || hexToRgb01(args.label || '#E6F4FF');
-    var sc = args.scale != null ? args.scale : 1;
-    var sw = 1 * sc, mr = 3 * sc, fs = 11 * sc;
+  // Build the full overlay for ONE source layer and return { made, stash }.
+  // Factored out of build() so multiple selected layers each get a complete,
+  // independently-tracking rig: because every source is handled in its OWN call,
+  // the per-source rigParent / geometry never leak across layers (no shared-var
+  // closure bug). The global dot-grid backdrop is built once by build(), not here.
+  function buildOne(comp, src, args, env) {
+    var t0 = env.t0, accent = env.accent, label = env.label, sc = env.sc, sw = env.sw, mr = env.mr, fs = env.fs;
     var made = 0;
-
-    app.beginUndoGroup('Rebound: Pin Rig');
-    try {
-      var src = layers[0];
+    {
       var geo = readGeometry(src, t0);
       var verts = geo.verts, bb = geo.bbox;
 
@@ -520,18 +515,6 @@
       var stashLayer = master;
       function gen(fn) { try { var lay = fn(); if (lay) { parentTo(lay); if (!stashLayer) stashLayer = lay; made++; } } catch (e) {} }
 
-      // Background dot grid: a full-comp backdrop, so it stays in comp space and
-      // is deliberately NOT parented to the artwork (it shouldn't move with it).
-      if (args.dotgrid) {
-        try {
-          var dlay = newShape(comp, 'Dot Grid'); var droot = rootOf(dlay);
-          var step = Math.max(16, Math.round(Math.min(comp.width, comp.height) / 36));
-          var count = 0;
-          for (var dy = step; dy < comp.height && count < 700; dy += step) for (var dx = step; dx < comp.width && count < 700; dx += step) { addEllipse(droot, dx, dy, 1 * sc, accent, null, 0, 18); count++; }
-          try { dlay.moveToEnd(); } catch (ed) {}
-          made++;
-        } catch (edg) {}
-      }
       // Styled controller handle (Null Style) + optional name label.
       if (master && args.ctrlShape && args.ctrlShape !== 'null') {
         gen(function () { return buildController(comp, src.name, args, sc); });
@@ -637,13 +620,52 @@
         gen((function (rad) { return function () { return addText(comp, 'R ' + Math.round(rad) + 'px', [bb.minx + bb.w * 0.18, bb.miny - 8 * sc], label, fs * 0.9); }; })(geo.cornerRadius));
       }
 
-      // Remember exactly what we built, so selecting this object later restores
-      // the panel to these settings.
-      stampSettings(stashLayer, args);
+    }
+    return { made: made, stash: stashLayer };
+  }
+
+  function build(args) {
+    var comp = util.activeComp();
+    var layers = comp.selectedLayers;
+    if (!layers.length) throw new Error('Select artwork to rig.');
+    var sc = args.scale != null ? args.scale : 1;
+    var env = {
+      t0: comp.time,
+      accent: args.accentRgb || hexToRgb01(args.accent || '#39C2FF'),
+      label: args.labelRgb || hexToRgb01(args.label || '#E6F4FF'),
+      sc: sc, sw: 1 * sc, mr: 3 * sc, fs: 11 * sc
+    };
+    var cap = Math.min(layers.length, 12);
+    var total = 0, rigged = 0;
+
+    app.beginUndoGroup('Rebound: Pin Rig');
+    try {
+      // Background dot grid: a full-comp backdrop, built once (comp space, not
+      // parented to any artwork), regardless of how many layers are rigged.
+      if (args.dotgrid) {
+        try {
+          var dlay = newShape(comp, 'Dot Grid'); var droot = rootOf(dlay);
+          var step = Math.max(16, Math.round(Math.min(comp.width, comp.height) / 36));
+          var count = 0;
+          for (var dy = step; dy < comp.height && count < 700; dy += step) for (var dx = step; dx < comp.width && count < 700; dx += step) { addEllipse(droot, dx, dy, 1 * env.sc, env.accent, null, 0, 18); count++; }
+          try { dlay.moveToEnd(); } catch (ed) {}
+          total++;
+        } catch (edg) {}
+      }
+      // Each selected layer gets its own complete rig that tracks itself.
+      var primaryStash = null;
+      for (var i = 0; i < cap; i++) {
+        var r = buildOne(comp, layers[i], args, env);
+        total += r.made;
+        if (i === 0) primaryStash = r.stash;
+      }
+      // Stash settings on the primary rig so reselecting it restores the panel.
+      stampSettings(primaryStash, args);
+      rigged = cap;
     } finally {
       app.endUndoGroup();
     }
-    return { layers: made };
+    return { layers: total, rigged: rigged, capped: layers.length > cap };
   }
 
   function remove() {

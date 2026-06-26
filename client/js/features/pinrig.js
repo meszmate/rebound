@@ -358,7 +358,7 @@
     var advBtn = el('button.rb-btn.is-ghost', { style: { width: '100%' }, onclick: function () { advOpen = !advOpen; advWrap.style.display = advOpen ? '' : 'none'; advBtn.textContent = (advOpen ? '▾ ' : '▸ ') + 'Advanced options'; } }, ['▸ Advanced options']);
 
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Select any layer (shape, image, photo, precomp), choose what to draw, and Pin Rig builds an editable overlay that tracks it.' }),
+      el('div.rb-faint', { text: 'Select any layer (shape, image, photo, precomp), choose what to draw, and Pin Rig builds an editable overlay that tracks it. Select several layers to rig them all at once (each tracks itself).' }),
       el('div.rb-row', { style: { justifyContent: 'space-between', alignItems: 'center' } }, [rigStatus, hideBtn]),
       previewHost,
       el('div.rb-section-label', { text: 'Theme' }),
@@ -419,7 +419,10 @@
         note = placementNote(r.pinPlacement, r.pinGrid);
       }
       ctx.invoke('pinrig.build', args)
-        .then(function (res) { ctx.toast('Built rig: ' + res.layers + ' layer' + (res.layers === 1 ? '' : 's') + (note ? ' · ' + note : ''), { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          var msg = (res && res.rigged > 1) ? ('Rigged ' + res.rigged + ' layers' + (res.capped ? ' (max 12)' : '')) : ('Built rig: ' + res.layers + ' layer' + (res.layers === 1 ? '' : 's'));
+          ctx.toast(msg + (note ? ' · ' + note : ''), { kind: 'success' }); ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not build the rig', { kind: 'error' }); });
     }
     function doRestyle() {
