@@ -30,9 +30,19 @@
     };
   }
 
+  // Offset a 1D follower (a separated X/Y Position) by d, keys included.
+  function offsetScalar(p, d) {
+    if (!p) return;
+    if (p.numKeys > 0) { for (var k = 1; k <= p.numKeys; k++) p.setValueAtTime(p.keyTime(k), p.keyValue(k) + d); }
+    else p.setValue(p.value + d);
+  }
   function offsetPosition(layer, dx, dy) {
-    var pos = layer.property(M.transform).property(M.position);
+    var tr = layer.property(M.transform);
+    var pos = tr.property(M.position);
     if (pos.expressionEnabled && pos.expression !== '') return false;
+    // Separate Dimensions hides the unified Position; drive the X/Y followers.
+    var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+    if (sep) { offsetScalar(tr.property(M.positionX), dx); offsetScalar(tr.property(M.positionY), dy); return true; }
     if (pos.numKeys > 0) {
       for (var k = 1; k <= pos.numKeys; k++) {
         var v = pos.keyValue(k);

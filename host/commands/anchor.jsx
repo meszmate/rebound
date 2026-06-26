@@ -194,8 +194,17 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      var pos = layer.property(M.transform).property(M.position);
+      var tr = layer.property(M.transform);
+      var pos = tr.property(M.position);
       if (pos.numKeys > 0 || (pos.expressionEnabled && pos.expression !== '')) continue;
+      var sep = false; try { sep = pos.dimensionsSeparated; } catch (eSep) { sep = false; }
+      if (sep) {
+        var px = tr.property(M.positionX), py = tr.property(M.positionY);
+        if (axisX && px) px.setValue(cx);
+        if (axisY && py) py.setValue(cy);
+        moved++;
+        continue;
+      }
       var v = pos.value;
       var nv = [axisX ? cx : v[0], axisY ? cy : v[1]];
       if (v.length > 2) nv.push(v[2]);

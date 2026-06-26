@@ -26,8 +26,16 @@
   }
 
   function setPosition(layer, x, y) {
-    var pos = layer.property(M.transform).property(M.position);
+    var tr = layer.property(M.transform);
+    var pos = tr.property(M.position);
     if (!isStatic(pos)) return;
+    var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+    if (sep) {
+      var px = tr.property(M.positionX), py = tr.property(M.positionY);
+      if (px && isStatic(px)) px.setValue(x);
+      if (py && isStatic(py)) py.setValue(y);
+      return;
+    }
     var v = pos.value;
     var nv = [x, y];
     if (v.length > 2) nv.push(v[2]);

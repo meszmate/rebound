@@ -28,5 +28,5 @@
     return { ok: true, result: out };
   }
 
-  R.register('scripts.run', run, 'Rebound: Run Script');
+  R.register('scripts.run', run);
 })();

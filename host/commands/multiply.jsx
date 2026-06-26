@@ -20,8 +20,16 @@
   }
 
   function offsetPosition(layer, dx, dy) {
-    var pos = layer.property(M.transform).property(M.position);
+    var tr = layer.property(M.transform);
+    var pos = tr.property(M.position);
     if (!isStatic(pos)) return;
+    var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+    if (sep) {
+      var px = tr.property(M.positionX), py = tr.property(M.positionY);
+      if (px && isStatic(px)) px.setValue(px.value + dx);
+      if (py && isStatic(py)) py.setValue(py.value + dy);
+      return;
+    }
     var v = pos.value;
     var nv = [v[0] + dx, v[1] + dy];
     if (v.length > 2) nv.push(v[2]);

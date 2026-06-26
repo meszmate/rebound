@@ -258,5 +258,5 @@
   }
 
   R.register('textbreak.apply', apply, 'Rebound: Text Break');
-  R.register('textbreak.read', read, 'Rebound: Read Text');
+  R.register('textbreak.read', read);
 })();

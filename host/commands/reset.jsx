@@ -23,8 +23,16 @@
   }
 
   function resetPosition(layer, comp) {
-    var pos = layer.property(M.transform).property(M.position);
+    var tr = layer.property(M.transform);
+    var pos = tr.property(M.position);
     if (!isStatic(pos)) return false;
+    var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+    if (sep) {
+      var px = tr.property(M.positionX), py = tr.property(M.positionY);
+      if (px && isStatic(px)) px.setValue(comp.width / 2);
+      if (py && isStatic(py)) py.setValue(comp.height / 2);
+      return true;
+    }
     var v = pos.value;
     var nv = [comp.width / 2, comp.height / 2];
     if (v.length > 2) nv.push(v[2]);
