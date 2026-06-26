@@ -184,5 +184,71 @@
     return { created: 1 };
   }
 
+  // ---- native AE composition ruler guides ----------------------------------
+  // Item.addGuide/removeGuide/guides exist since AE 16.1 (CC 2019). orientation
+  // 0 = horizontal guide (position = Y), 1 = vertical guide (position = X).
+
+  function pushG(list, seen, o, p, maxp) {
+    var pp = Math.round(p);
+    if (pp < 0) pp = 0; if (pp > maxp) pp = maxp;
+    var key = o + ':' + pp;
+    if (seen[key]) return;
+    seen[key] = true;
+    list.push({ o: o, p: pp });
+  }
+
+  // The same line geometry apply() draws, expressed as {o,p} guide descriptors.
+  function guidePositions(comp, args) {
+    var list = [], seen = {}, W = comp.width, H = comp.height;
+    var preset = args.preset || 'thirds';
+    if (preset === 'columns') {
+      var count = Math.round(num(args.count, 12)); if (count < 1) count = 1; if (count > 100) count = 100;
+      var gutter = num(args.gutter, 20); if (gutter < 0) gutter = 0;
+      var margin = num(args.margin, 0); if (margin < 0) margin = 0;
+      var usable = W - 2 * margin - (count - 1) * gutter;
+      var colW = usable / count; if (colW < 1) colW = 1;
+      for (var i = 0; i < count; i++) { var left = margin + i * (colW + gutter); pushG(list, seen, 1, left, W); pushG(list, seen, 1, left + colW, W); }
+      var rows = Math.round(num(args.rows, 0)); if (rows > 100) rows = 100;
+      if (rows >= 1) {
+        var usableH = H - 2 * margin - (rows - 1) * gutter;
+        var rowH = usableH / rows; if (rowH < 1) rowH = 1;
+        for (var r = 0; r < rows; r++) { var top = margin + r * (rowH + gutter); pushG(list, seen, 0, top, H); pushG(list, seen, 0, top + rowH, H); }
+      }
+    } else if (preset === 'safe') {
+      var insets = [0.05, 0.10];
+      for (var s = 0; s < insets.length; s++) { var mx = W * insets[s], my = H * insets[s]; pushG(list, seen, 1, mx, W); pushG(list, seen, 1, W - mx, W); pushG(list, seen, 0, my, H); pushG(list, seen, 0, H - my, H); }
+    } else if (preset === 'social') {
+      var plat = SOCIAL[args.platform] || SOCIAL.tiktok;
+      pushG(list, seen, 1, W * plat.l, W); pushG(list, seen, 1, W * (1 - plat.r), W);
+      pushG(list, seen, 0, H * plat.t, H); pushG(list, seen, 0, H * (1 - plat.b), H);
+    } else {
+      var fr = preset === 'golden' ? [0.382, 0.618] : [1 / 3, 2 / 3];
+      for (var f = 0; f < fr.length; f++) { pushG(list, seen, 1, fr[f] * W, W); pushG(list, seen, 0, fr[f] * H, H); }
+    }
+    if (args && args.crosshair) { pushG(list, seen, 1, W / 2, W); pushG(list, seen, 0, H / 2, H); }
+    return list;
+  }
+
+  function clearGuides() {
+    var comp = util.activeComp();
+    var n = 0, guard = 0;
+    while (comp.guides && comp.guides.length > 0 && guard < 10000) { comp.removeGuide(0); n++; guard++; }
+    return { removed: n };
+  }
+
+  function toGuides(args) {
+    var comp = util.activeComp();
+    args = args || {};
+    if (args.replace !== false) { var g = 0; while (comp.guides && comp.guides.length > 0 && g < 10000) { comp.removeGuide(0); g++; } }
+    var list = guidePositions(comp, args);
+    var added = 0;
+    for (var i = 0; i < list.length; i++) { try { comp.addGuide(list[i].o, list[i].p); added++; } catch (e) {} }
+    // Best-effort: make guides visible + snapping in the active viewer.
+    try { var v = app.activeViewer; if (v) { var vo = v.views[v.activeViewIndex].options; vo.guidesVisibility = true; vo.guidesSnap = true; } } catch (e2) {}
+    return { added: added };
+  }
+
   R.register('grids.apply', apply, 'Rebound: Grids');
+  R.register('grids.toGuides', toGuides, 'Rebound: Grid to Guides');
+  R.register('grids.clearGuides', clearGuides, 'Rebound: Clear Guides');
 })();

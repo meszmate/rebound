@@ -152,15 +152,30 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { title: 'Create real AE ruler guides (snap with View > Snap to Guides)', onclick: doGuides }, ['To guides']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+
+    ctx.body.appendChild(el('div.rb-faint', { text: 'Apply draws a non-rendering guide layer (tracks/keyframes, full color control). To guides makes real comp ruler guides instead — they snap (View > Snap to Guides) but are comp-level and uncolored.' }));
+    ctx.body.appendChild(el('div.rb-row', null, [el('button.rb-btn.is-ghost', { onclick: doClearGuides }, ['Clear ruler guides'])]));
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
     scopeText.textContent = describe(ctx.getSelection());
 
+    function gridArgs() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, color: rgbFor(colorName), platform: platform, replace: replace }; }
     function doApply() {
-      ctx.invoke('grids.apply', { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, color: rgbFor(colorName), platform: platform, replace: replace })
+      ctx.invoke('grids.apply', gridArgs())
         .then(function () { ctx.toast('Added guide layer', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not add grids', { kind: 'error' }); });
+    }
+    function doGuides() {
+      ctx.invoke('grids.toGuides', gridArgs())
+        .then(function (res) { ctx.toast('Added ' + (res ? res.added : 0) + ' ruler guide' + (res && res.added === 1 ? '' : 's'), { kind: 'success' }); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not add ruler guides', { kind: 'error' }); });
+    }
+    function doClearGuides() {
+      ctx.invoke('grids.clearGuides', {})
+        .then(function (res) { ctx.toast('Cleared ' + (res ? res.removed : 0) + ' ruler guide' + (res && res.removed === 1 ? '' : 's'), { kind: 'info' }); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not clear guides', { kind: 'error' }); });
     }
 
     function getState() { return { preset: preset, count: count, rows: rows, gutter: gutter, margin: margin, lineWidth: lineWidth, crosshair: crosshair, colorName: colorName, platform: platform }; }
