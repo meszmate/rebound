@@ -92,6 +92,10 @@
       }
     }
 
+    if (st.controller === 'master' && st.ctrlShape && st.ctrlShape !== 'null') {
+      kids.push(ctrlMarker(bb.cx, bb.cy, Math.max(5, (st.ctrlSize || 18) * 0.35), st.ctrlShape, st.ctrlColor, sw));
+    }
+
     return svg('svg', { viewBox: '0 0 160 110', width: '100%', height: h }, kids);
   }
 
@@ -110,6 +114,7 @@
       edges: true, coords: false, angles: false, bezierCoords: false, cornerRadius: false,
       grid: false, circles: false, margin: false, dotgrid: true,
       controller: 'master',
+      ctrlShape: 'null', ctrlSize: 18, ctrlColor: '#FFD24D', ctrlLabel: false,
       pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40,
       pinPlacement: 'auto', pinGrid: 3,
       pinSource: 'shape', pinLayerName: '', pinLayerScale: 100 };
@@ -140,6 +145,17 @@
     ]);
     if (st.pinShape === 'triangle' || st.pinShape === 'hexagon' || st.pinShape === 'star' || st.pinShape === 'diamond') return svg('path', { d: polyD(st.pinShape, cx, cy, r), fill: fill, stroke: ac, 'stroke-width': sw });
     return svg('circle', { cx: cx, cy: cy, r: r, fill: fill, stroke: ac, 'stroke-width': sw });
+  }
+
+  // A styled controller handle for the preview (mirrors host buildController).
+  function ctrlMarker(cx, cy, r, shape, color, sw) {
+    cx = r1(cx); cy = r1(cy); r = r1(r); sw = r1(sw);
+    if (shape === 'ring') return svg('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: color, 'stroke-width': sw });
+    if (shape === 'square') return svg('rect', { x: r1(cx - r), y: r1(cy - r), width: r1(2 * r), height: r1(2 * r), fill: 'none', stroke: color, 'stroke-width': sw });
+    if (shape === 'cross') return svg('path', { d: 'M' + r1(cx - r) + ' ' + cy + 'H' + r1(cx + r) + 'M' + cx + ' ' + r1(cy - r) + 'V' + r1(cy + r), stroke: color, 'stroke-width': sw, fill: 'none', 'stroke-linecap': 'round' });
+    if (shape === 'diamond') return svg('path', { d: 'M' + cx + ' ' + r1(cy - r) + 'L' + r1(cx + r) + ' ' + cy + 'L' + cx + ' ' + r1(cy + r) + 'L' + r1(cx - r) + ' ' + cy + 'Z', fill: 'none', stroke: color, 'stroke-width': sw });
+    if (shape === 'target') return svg('g', null, [svg('circle', { cx: cx, cy: cy, r: r, fill: 'none', stroke: color, 'stroke-width': sw }), svg('path', { d: 'M' + r1(cx - r * 0.5) + ' ' + cy + 'H' + r1(cx + r * 0.5) + 'M' + cx + ' ' + r1(cy - r * 0.5) + 'V' + r1(cy + r * 0.5), stroke: color, 'stroke-width': sw, fill: 'none' })]);
+    return svg('circle', { cx: cx, cy: cy, r: r, fill: color });
   }
 
   // Where pins sit, for the preview (mirrors the host's placePins).
@@ -237,7 +253,24 @@
     var edgesTog = tog('Edge lengths', 'edges'), coordsTog = tog('Vertex coords', 'coords'), anglesTog = tog('Vertex angles', 'angles');
     var bezCoordTog = tog('Bezier coords', 'bezierCoords'), radiusTog = tog('Corner radius', 'cornerRadius');
     var gridTog = tog('Grid', 'grid'), circTog = tog('Circles', 'circles'), marginTog = tog('Margin', 'margin'), dotTog = tog('Dot grid', 'dotgrid');
-    var ctrlSeg = ui.segmented([{ value: 'master', label: 'Master null' }, { value: 'individual', label: 'Per layer' }], { value: st.controller, onChange: function (v) { st.controller = v; } });
+    var ctrlSeg = ui.segmented([{ value: 'master', label: 'Master null' }, { value: 'individual', label: 'Per layer' }], { value: st.controller, onChange: function (v) { st.controller = v; syncCtrl(); renderPreview(); } });
+
+    // Null Style: give the controller a visible, styled handle.
+    var ctrlColorRow = colorRow('Handle color', 'ctrlColor'); // pickers[4]
+    var ctrlShapeSeg = ui.segmented([
+      { value: 'null', label: 'Default' }, { value: 'dot', label: 'Dot' }, { value: 'ring', label: 'Ring' },
+      { value: 'square', label: 'Square' }, { value: 'diamond', label: 'Diamond' }, { value: 'cross', label: 'Cross' }, { value: 'target', label: 'Target' }],
+      { value: st.ctrlShape, onChange: function (v) { st.ctrlShape = v; syncCtrl(); renderPreview(); } });
+    ctrlShapeSeg.el.classList.add('rb-seg-wrap');
+    var ctrlSizeS = ui.slider({ label: 'Handle size', min: 6, max: 60, step: 1, value: st.ctrlSize, format: function (v) { return Math.round(v) + 'px'; }, onInput: function (v) { st.ctrlSize = v; renderPreview(); } });
+    var ctrlLabelTog = ui.toggle({ label: 'Name label', value: st.ctrlLabel, onChange: function (v) { st.ctrlLabel = v; } });
+    var ctrlExtras = el('div.rb-col', null, [ctrlSizeS.el, ctrlColorRow, ctrlLabelTog.el]);
+    var ctrlStyleWrap = el('div.rb-col', null, [ui.row('Handle', ctrlShapeSeg.el), ctrlExtras]);
+    function syncCtrl() {
+      ctrlStyleWrap.style.display = st.controller === 'master' ? '' : 'none';
+      ctrlExtras.style.display = (st.controller === 'master' && st.ctrlShape !== 'null') ? '' : 'none';
+    }
+    syncCtrl();
 
     renderPreview();
 
@@ -263,7 +296,8 @@
       el('div.rb-row.rb-wrap', null, [gridTog.el, circTog.el, marginTog.el, dotTog.el]),
       el('div.rb-section-label', { text: 'Controllers' }),
       ui.row('Rig with', ctrlSeg.el),
-      el('div.rb-faint', { text: 'The rig is parented to your artwork, so it follows the layer as it moves, scales, and rotates. Master null adds one handle to grab the whole overlay; Per layer parents each piece straight to the source.' })
+      ctrlStyleWrap,
+      el('div.rb-faint', { text: 'The rig is parented to your artwork, so it follows the layer as it moves, scales, and rotates. Master null adds one handle to grab the whole overlay (style it above); Per layer parents each piece straight to the source.' })
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -316,7 +350,7 @@
     function applyState(s) {
       if (!s) return;
       for (var k in s) if (s.hasOwnProperty(k) && st.hasOwnProperty(k)) st[k] = s[k];
-      pickers[0].set(st.accent); pickers[1].set(st.label); pickers[2].set(st.fillColor); pickers[3].set(st.strokeColor);
+      pickers[0].set(st.accent); pickers[1].set(st.label); pickers[2].set(st.fillColor); pickers[3].set(st.strokeColor); pickers[4].set(st.ctrlColor);
       scaleS.set(st.scale); infoTog.set(st.infographic);
       pinShapeSeg.set(st.pinShape); pinStrokeS.set(st.pinStroke); roundS.set(st.pinRound); pinFillTog.set(st.pinFill);
       roundS.el.style.display = st.pinShape === 'square' ? '' : 'none'; fillRow.style.display = st.pinFill ? '' : 'none';
@@ -327,6 +361,7 @@
       bezCoordTog.set(st.bezierCoords); radiusTog.set(st.cornerRadius);
       gridTog.set(st.grid); circTog.set(st.circles); marginTog.set(st.margin); dotTog.set(st.dotgrid);
       ctrlSeg.set(st.controller);
+      ctrlShapeSeg.set(st.ctrlShape); ctrlSizeS.set(st.ctrlSize); ctrlLabelTog.set(st.ctrlLabel); syncCtrl();
       renderPreview();
     }
 

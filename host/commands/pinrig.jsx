@@ -24,7 +24,8 @@
   var SETTINGS_KEYS = ['accent', 'label', 'scale', 'infographic', 'pins', 'bbox', 'selbounds', 'bezier',
     'edges', 'coords', 'angles', 'bezierCoords', 'cornerRadius', 'grid', 'circles', 'margin', 'dotgrid',
     'controller', 'pinShape', 'pinStroke', 'pinFill', 'fillColor', 'strokeColor', 'pinRound',
-    'pinPlacement', 'pinGrid', 'pinSource', 'pinLayerName', 'pinLayerScale'];
+    'pinPlacement', 'pinGrid', 'pinSource', 'pinLayerName', 'pinLayerScale',
+    'ctrlShape', 'ctrlSize', 'ctrlColor', 'ctrlLabel'];
 
   function encodeSettings(args) {
     var o = {};
@@ -379,6 +380,28 @@
     return tl;
   }
 
+  // Null Style: a visible, styled handle for the controller (instead of AE's
+  // invisible default null). Drawn at the rig origin on a guide layer (so it
+  // shows in the comp but never renders to output). Parented to the rig by gen().
+  function buildController(comp, name, args, sc) {
+    var shape = args.ctrlShape;
+    if (!shape || shape === 'null') return null;
+    var size = (args.ctrlSize != null ? args.ctrlSize : 18) * sc;
+    var col = args.ctrlColorRgb || hexToRgb01(args.ctrlColor || '#FFD24D');
+    var lw = 2 * sc;
+    var lay = newShape(comp, name + ' Controller');
+    try { lay.guideLayer = true; } catch (eg) {}
+    var root = rootOf(lay);
+    if (shape === 'dot') addEllipse(root, 0, 0, size, col, null, 0, 100);
+    else if (shape === 'ring') addEllipse(root, 0, 0, size, null, col, lw, 100);
+    else if (shape === 'square') addRect(root, -size, -size, size * 2, size * 2, null, col, lw, null, 100);
+    else if (shape === 'cross') { addLine(root, [-size, 0], [size, 0], col, lw, 100); addLine(root, [0, -size], [0, size], col, lw, 100); }
+    else if (shape === 'diamond') addPoly(root, [[0, -size], [size, 0], [0, size], [-size, 0]], null, col, lw, 100);
+    else if (shape === 'target') { addEllipse(root, 0, 0, size, null, col, lw, 100); addLine(root, [-size * 0.5, 0], [size * 0.5, 0], col, lw, 100); addLine(root, [0, -size * 0.5], [0, size * 0.5], col, lw, 100); }
+    else addEllipse(root, 0, 0, size, col, null, 0, 100);
+    return lay;
+  }
+
   // Find a layer by exact name (the user-chosen custom pin marker).
   function findLayerByName(comp, name) {
     var nm = '' + name;
@@ -507,6 +530,15 @@
           try { dlay.moveToEnd(); } catch (ed) {}
           made++;
         } catch (edg) {}
+      }
+      // Styled controller handle (Null Style) + optional name label.
+      if (master && args.ctrlShape && args.ctrlShape !== 'null') {
+        gen(function () { return buildController(comp, src.name, args, sc); });
+        if (args.ctrlLabel) {
+          var csz = (args.ctrlSize != null ? args.ctrlSize : 18) * sc;
+          var ccol = args.ctrlColorRgb || hexToRgb01(args.ctrlColor || '#FFD24D');
+          gen((function (yy, color) { return function () { return addText(comp, src.name, [0, yy], color, 12 * sc); }; })(-csz - 6 * sc, ccol));
+        }
       }
       if (args.circles) gen(function () {
         var lay = newShape(comp, 'Circle Guides'); var root = rootOf(lay);
