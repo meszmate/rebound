@@ -204,6 +204,8 @@
     // source) so the panel mirrors what that object currently has.
     var lastRigKey = null;
     var rigStatus = el('div.rb-faint', { text: '', style: { color: 'var(--rb-accent)' } });
+    var rigVisible = true;
+    var hideBtn = el('button.rb-btn.is-ghost', { style: { flex: '0 0 auto' }, title: 'Show or hide the whole overlay without removing it', onclick: function () { doToggleVis(); } }, ['Hide rig']);
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(overlaySvg(st, 110)); }
@@ -298,31 +300,43 @@
 
     renderPreview();
 
-    ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Select any layer (shape, image, photo, precomp), choose what to draw, and Pin Rig builds an editable overlay that tracks it. Pins can be any built-in shape or a copy of your own layer, placed on the vertices, corners, or a grid.' }),
-      rigStatus,
-      previewHost,
-      el('div.rb-section-label', { text: 'Theme' }),
-      accentRow, labelRow, scaleS.el, infoTog.el,
-      el('div.rb-section-label', { text: 'Pins & bounds' }),
-      el('div.rb-row.rb-wrap', null, [pinsTog.el, bboxTog.el]),
+    // Everything beyond the essentials lives under an Advanced expander so the
+    // default panel stays simple and uncluttered.
+    var advOpen = false;
+    var advWrap = el('div.rb-col', { style: { display: 'none' } }, [
+      el('div.rb-section-label', { text: 'Theme details' }),
+      labelRow, infoTog.el,
+      el('div.rb-section-label', { text: 'More bounds' }),
       el('div.rb-row.rb-wrap', null, [bezTog.el, selTog.el]),
       el('div.rb-section-label', { text: 'Pin style' }),
-      ui.row('Place', placeSeg.el),
-      gridS.el,
-      ui.row('Marker', markerSeg.el),
       shapeCtrlWrap, layerCtrlWrap,
-      el('div.rb-faint', { text: 'Already built? Change the style above and click Restyle pins to update the rig in place. Size, stroke, fill and color are also live on the Pins layer’s Effect Controls.' }),
+      el('div.rb-faint', { text: 'Already built? Change the style and click Restyle pins to update in place. Size, stroke, fill and color are also live on the Pins layer’s Effect Controls.' }),
       el('div.rb-section-label', { text: 'Measurements' }),
       el('div.rb-row.rb-wrap', null, [edgesTog.el, coordsTog.el, anglesTog.el]),
       el('div.rb-row.rb-wrap', null, [bezCoordTog.el, radiusTog.el]),
       el('div.rb-section-label', { text: 'Guides' }),
       el('div.rb-row.rb-wrap', null, [gridTog.el, circTog.el, marginTog.el, dotTog.el]),
       typoTog.el, typoSub,
-      el('div.rb-section-label', { text: 'Controllers' }),
+      el('div.rb-section-label', { text: 'Controller style' }),
+      ctrlStyleWrap
+    ]);
+    var advBtn = el('button.rb-btn.is-ghost', { style: { width: '100%' }, onclick: function () { advOpen = !advOpen; advWrap.style.display = advOpen ? '' : 'none'; advBtn.textContent = (advOpen ? '▾ ' : '▸ ') + 'Advanced options'; } }, ['▸ Advanced options']);
+
+    ctx.body.appendChild(el('div.rb-col', null, [
+      el('div.rb-faint', { text: 'Select any layer (shape, image, photo, precomp), choose what to draw, and Pin Rig builds an editable overlay that tracks it.' }),
+      el('div.rb-row', { style: { justifyContent: 'space-between', alignItems: 'center' } }, [rigStatus, hideBtn]),
+      previewHost,
+      el('div.rb-section-label', { text: 'Theme' }),
+      accentRow, scaleS.el,
+      el('div.rb-section-label', { text: 'Pins & bounds' }),
+      el('div.rb-row.rb-wrap', null, [pinsTog.el, bboxTog.el]),
+      ui.row('Place', placeSeg.el),
+      gridS.el,
+      ui.row('Marker', markerSeg.el),
+      el('div.rb-section-label', { text: 'Controller' }),
       ui.row('Rig with', ctrlSeg.el),
-      ctrlStyleWrap,
-      el('div.rb-faint', { text: 'The rig is parented to your artwork, so it follows the layer as it moves, scales, and rotates. Master null adds one handle to grab the whole overlay (style it above); Per layer parents each piece straight to the source.' })
+      advBtn,
+      advWrap
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
@@ -364,6 +378,12 @@
       ctx.invoke('pinrig.restyle', st)
         .then(function (res) { if (res && res.restyled) ctx.toast('Restyled the pins', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not restyle the pins', { kind: 'error' }); });
+    }
+    function doToggleVis() {
+      rigVisible = !rigVisible;
+      ctx.invoke('pinrig.setVisible', { visible: rigVisible })
+        .then(function (res) { hideBtn.textContent = rigVisible ? 'Hide rig' : 'Show rig'; if (res && !res.toggled) ctx.toast('No rig to ' + (rigVisible ? 'show' : 'hide'), { kind: 'info' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not toggle the rig', { kind: 'error' }); });
     }
     function doRemove() {
       ctx.invoke('pinrig.remove', {})

@@ -757,6 +757,22 @@
     return { ok: true, hasRig: hasRig, sourceName: src ? src.name : null, settings: settings };
   }
 
+  // Show / hide the whole construction overlay without removing it (toggles the
+  // enabled 'eye' on every rig layer), so the comp stays readable.
+  function setVisible(args) {
+    var comp = util.activeComp();
+    var on = !!(args && args.visible);
+    var n = 0;
+    app.beginUndoGroup('Rebound: Toggle Pin Rig');
+    try {
+      for (var i = 1; i <= comp.numLayers; i++) {
+        var L = comp.layer(i);
+        if (L.comment && L.comment.indexOf(TAG) !== -1) { try { L.enabled = on; n++; } catch (e) {} }
+      }
+    } finally { app.endUndoGroup(); }
+    return { toggled: n, visible: on };
+  }
+
   function read() {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
@@ -771,4 +787,5 @@
   R.register('pinrig.remove', remove, 'Rebound: Remove Pin Rig');
   R.register('pinrig.read', read);
   R.register('pinrig.readRig', readRig);
+  R.register('pinrig.setVisible', setVisible, 'Rebound: Toggle Pin Rig');
 })();
