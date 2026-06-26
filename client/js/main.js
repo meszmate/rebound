@@ -436,6 +436,21 @@
   // ---- Detail ---------------------------------------------------------------
 
 
+  // A tool may opt into "show the selected object's current settings" by
+  // returning a `selectionRead` capability from mount():
+  //   { matches(sel)?, method?, apply(result, sel) }
+  // We only ever fire it for the tool that is currently visible, so selecting an
+  // object doesn't trigger 50 host round-trips per poll.
+  function runSelectionRead(toolId, api, sel) {
+    var sr = api && api.selectionRead;
+    if (!sr) return;
+    if (appStore.get().activeTool !== toolId) return;
+    if (sr.matches && !sr.matches(sel)) return;
+    if (!sr.method) { try { sr.apply(null, sel); } catch (e) { /* tool read failed; ignore */ } return; }
+    if (!ctx.invoke) return;
+    ctx.invoke(sr.method, {}).then(function (r) { if (r) { try { sr.apply(r, sel); } catch (e2) { /* ignore */ } } }).catch(function () {});
+  }
+
   function openTool(tool) {
     // Remember where to return: opening from the Home goes back to the Home,
     // opening from a category browse goes back to that category.
@@ -473,6 +488,11 @@
         host.insertBefore(buildDiffNote(meta.diff), host.firstChild);
       }
       mounted[tool.id] = { wrap: wrap, api: api };
+      // Auto-populate the tool from the selected object's current settings, but
+      // only while this tool is the visible one.
+      if (api && api.selectionRead) {
+        ctx.onSelection((function (tid, a) { return function (sel) { runSelectionRead(tid, a, sel); }; })(tool.id, api));
+      }
     }
     for (var id in mounted) {
       if (mounted.hasOwnProperty(id)) mounted[id].wrap.classList.toggle('rb-hidden', id !== tool.id);
@@ -494,6 +514,10 @@
     setView('detail');
     animateIn(detailEl);
     appStore.update({ activeTool: tool.id });
+    // Fire an initial read so opening a tool with an object already selected
+    // immediately reflects that object's current settings.
+    var mm = mounted[tool.id];
+    if (mm && mm.api && mm.api.selectionRead) runSelectionRead(tool.id, mm.api, ctx.getSelection());
   }
 
   function back() {

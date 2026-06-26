@@ -281,7 +281,23 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not set color', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    // Selecting a colored layer loads its current fill colour into the sliders.
+    function loadColor(res) {
+      if (!res || !res.found) return;
+      var hsl = rgbToHsl(res.rgb);
+      hue = hsl[0]; saturation = hsl[1]; lightness = hsl[2];
+      hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
+      if (res.target) { target = res.target; targetCtl.set(res.target); }
+      updatePreview();
+    }
+    return {
+      destroy: off,
+      selectionRead: {
+        matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
+        method: 'color.read',
+        apply: function (res) { loadColor(res); }
+      }
+    };
   }
 
   // Hex string ('#rrggbb') to 0..1 RGB triplet.

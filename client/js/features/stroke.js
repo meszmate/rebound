@@ -157,6 +157,12 @@
           { name: 'Heavy violet', state: { width: 12, hex: '#9b3fd6' } }
         ]
       },
+      // Selecting a stroked shape loads its current stroke into the fields.
+      selectionRead: {
+        matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
+        method: 'stroke.read',
+        apply: function (res) { if (res && res.found) applyState({ width: res.width, hex: rgb01ToHex(res.rgb) }); }
+      },
       destroy: off
     };
   }

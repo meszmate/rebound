@@ -103,6 +103,15 @@
           { name: 'Mono Fade', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#ffffff' }, { pos: 1, color: '#222222' }] } }
         ]
       },
+      // Selecting a gradient-filled shape loads its current gradient.
+      selectionRead: {
+        matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
+        method: 'gradient.read',
+        apply: function (res) {
+          if (!res || !res.found) return;
+          editor.setValue({ type: res.type, angle: res.angle, stops: res.stops.map(function (s) { return { pos: s.pos, color: rgb01ToHex(s.color) }; }) });
+        }
+      },
       destroy: off
     };
   }
