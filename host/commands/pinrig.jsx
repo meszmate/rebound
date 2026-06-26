@@ -779,7 +779,47 @@
     if (!layers.length) return { ok: false };
     var src = layers[0];
     var geo = readGeometry(src, comp.time);
-    return { ok: true, name: src.name, kind: geo.kind === 'shape' ? 'shape' : 'bounds', vertexCount: geo.verts.length };
+    return { ok: true, name: src.name, kind: geo.kind === 'shape' ? 'shape' : 'bounds', vertexCount: geo.verts.length, w: Math.round(geo.bbox.w), h: Math.round(geo.bbox.h) };
+  }
+
+  // Flatten: replace every Rebound-marked control expression on the rig with its
+  // current value, so the rig no longer depends on its Effect Controls. Parenting
+  // (the live tracking) is left intact. Only OUR marked expressions are touched,
+  // so a custom-layer marker's own expressions are protected.
+  function bakeMarked(group, t0, counter) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var p = group.property(i);
+      var t = null; try { t = p.propertyType; } catch (e) { t = null; }
+      if (t === PropertyType.PROPERTY) {
+        try {
+          if (p.canSetExpression && p.expressionEnabled && p.expression && p.expression.indexOf(rig.MARKER) !== -1) {
+            var v = p.valueAtTime(t0, false);
+            rig.clearExpression(p);
+            p.setValue(v);
+            counter.n++;
+          }
+        } catch (e2) {}
+      } else {
+        var nn = 0; try { nn = p.numProperties; } catch (e3) { nn = 0; }
+        if (nn > 0) bakeMarked(p, t0, counter);
+      }
+    }
+  }
+  function flatten() {
+    var comp = util.activeComp();
+    var t0 = comp.time;
+    var layersDone = 0, counter = { n: 0 };
+    app.beginUndoGroup('Rebound: Flatten Pin Rig');
+    try {
+      for (var i = 1; i <= comp.numLayers; i++) {
+        var L = comp.layer(i);
+        if (!(L.comment && L.comment.indexOf(TAG) !== -1)) continue;
+        var before = counter.n;
+        bakeMarked(L, t0, counter);
+        if (counter.n > before) layersDone++;
+      }
+    } finally { app.endUndoGroup(); }
+    return { flattened: layersDone, properties: counter.n };
   }
 
   R.register('pinrig.build', build, 'Rebound: Pin Rig');
@@ -788,4 +828,5 @@
   R.register('pinrig.read', read);
   R.register('pinrig.readRig', readRig);
   R.register('pinrig.setVisible', setVisible, 'Rebound: Toggle Pin Rig');
+  R.register('pinrig.flatten', flatten, 'Rebound: Flatten Pin Rig');
 })();

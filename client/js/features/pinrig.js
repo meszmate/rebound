@@ -129,7 +129,7 @@
       controller: 'master',
       ctrlShape: 'null', ctrlSize: 18, ctrlColor: '#FFD24D', ctrlLabel: false,
       pinShape: 'dot', pinStroke: 1, pinFill: true, fillColor: '#39C2FF', strokeColor: '#0E1116', pinRound: 40,
-      pinPlacement: 'auto', pinGrid: 3,
+      pinPlacement: 'smart', pinGrid: 3,
       pinSource: 'shape', pinLayerName: '', pinLayerScale: 100 };
   }
 
@@ -171,9 +171,33 @@
     return svg('circle', { cx: cx, cy: cy, r: r, fill: color });
   }
 
+  // Resolve the 'smart' placement sentinel into a concrete mode + grid size from
+  // the read geometry, so what gets built (and stamped) is always concrete.
+  function resolveSmart(read) {
+    if (!read) return { pinPlacement: 'auto', pinGrid: 3 };
+    var n = read.vertexCount || 0;
+    var maxDim = Math.max(read.w || 0, read.h || 0);
+    if (read.kind === 'shape') {
+      if (n >= 3 && n <= 24) return { pinPlacement: 'auto', pinGrid: 3 };
+      if (n > 24) return { pinPlacement: 'midpoints', pinGrid: 3 };
+      return { pinPlacement: 'corners', pinGrid: 3 };
+    }
+    if (maxDim >= 900) return { pinPlacement: 'grid', pinGrid: 4 };
+    if (maxDim >= 240) return { pinPlacement: 'grid', pinGrid: 3 };
+    return { pinPlacement: 'corners', pinGrid: 3 };
+  }
+  function placementNote(mode, grid) {
+    if (mode === 'corners') return 'placed 4 corner pins';
+    if (mode === 'midpoints') return 'placed 8 edge pins';
+    if (mode === 'center') return 'placed 1 center pin';
+    if (mode === 'grid') return 'placed ' + (grid * grid) + ' pins in a ' + grid + '×' + grid + ' grid';
+    return '';
+  }
+
   // Where pins sit, for the preview (mirrors the host's placePins).
   function placePinsPreview(verts, bb, st) {
     var mode = st.pinPlacement || 'auto';
+    if (mode === 'smart') mode = 'auto'; // sample mark is a 6-vertex shape -> vertices
     if (mode === 'corners') return [[bb.minx, bb.miny], [bb.maxx, bb.miny], [bb.maxx, bb.maxy], [bb.minx, bb.maxy]];
     if (mode === 'midpoints') return [[bb.minx, bb.miny], [bb.cx, bb.miny], [bb.maxx, bb.miny], [bb.maxx, bb.cy], [bb.maxx, bb.maxy], [bb.cx, bb.maxy], [bb.minx, bb.maxy], [bb.minx, bb.cy]];
     if (mode === 'center') return [[bb.cx, bb.cy]];
@@ -203,6 +227,10 @@
     // When a rigged object is selected we load its saved settings once (keyed by
     // source) so the panel mirrors what that object currently has.
     var lastRigKey = null;
+    var lastRead = null;             // cached {kind,vertexCount,w,h} for Smart placement
+    var userPickedPlacement = false; // user explicitly chose a Place mode this session
+    var styleClip = null;            // copied rig settings (Get/Set style), session-only
+    var styleClipFrom = '';
     var rigStatus = el('div.rb-faint', { text: '', style: { color: 'var(--rb-accent)' } });
     var rigVisible = true;
     var hideBtn = el('button.rb-btn.is-ghost', { style: { flex: '0 0 auto' }, title: 'Show or hide the whole overlay without removing it', onclick: function () { doToggleVis(); } }, ['Hide rig']);
@@ -234,9 +262,10 @@
     // Where pins are placed, so even a flat image gets a useful set of pins.
     var gridS = ui.slider({ label: 'Grid size', min: 2, max: 8, step: 1, value: st.pinGrid, format: function (v) { var n = Math.round(v); return n + '×' + n; }, onInput: function (v) { st.pinGrid = Math.round(v); renderPreview(); } });
     var placeSeg = ui.segmented([
+      { value: 'smart', label: 'Smart', title: 'Auto-pick placement + density from the artwork' },
       { value: 'auto', label: 'Auto', title: 'Shape vertices, or image corners' }, { value: 'corners', label: 'Corners' },
       { value: 'midpoints', label: '+ Mids' }, { value: 'grid', label: 'Grid' }, { value: 'center', label: 'Center' }],
-      { value: st.pinPlacement, onChange: function (v) { st.pinPlacement = v; gridS.el.style.display = v === 'grid' ? '' : 'none'; renderPreview(); } });
+      { value: st.pinPlacement, onChange: function (v) { userPickedPlacement = true; st.pinPlacement = v; gridS.el.style.display = v === 'grid' ? '' : 'none'; renderPreview(); } });
     placeSeg.el.classList.add('rb-seg-wrap');
     gridS.el.style.display = st.pinPlacement === 'grid' ? '' : 'none';
     var pinStrokeS = ui.slider({ label: 'Stroke width', min: 0, max: 6, step: 0.5, value: st.pinStroke, format: function (v) { return R.units.round(v, 1); }, onInput: function (v) { st.pinStroke = v; renderPreview(); } });
@@ -302,6 +331,9 @@
 
     // Everything beyond the essentials lives under an Advanced expander so the
     // default panel stays simple and uncluttered.
+    var copyBtn = el('button.rb-btn.is-ghost', { title: 'Copy the selected object’s Pin Rig style', onclick: doCopyStyle }, ['Copy style']);
+    var pasteBtn = el('button.rb-btn.is-ghost', { onclick: doPasteStyle }, ['Paste style']);
+    var flattenBtn = el('button.rb-btn.is-ghost', { title: 'Bake the rig’s control expressions to static values (keeps tracking)', onclick: doFlatten }, ['Flatten']);
     var advOpen = false;
     var advWrap = el('div.rb-col', { style: { display: 'none' } }, [
       el('div.rb-section-label', { text: 'Theme details' }),
@@ -318,7 +350,10 @@
       el('div.rb-row.rb-wrap', null, [gridTog.el, circTog.el, marginTog.el, dotTog.el]),
       typoTog.el, typoSub,
       el('div.rb-section-label', { text: 'Controller style' }),
-      ctrlStyleWrap
+      ctrlStyleWrap,
+      el('div.rb-section-label', { text: 'Style & bake' }),
+      el('div.rb-row.rb-wrap', null, [copyBtn, pasteBtn, flattenBtn]),
+      el('div.rb-faint', { text: 'Copy a built rig’s style, then select other artwork and Paste to build/restyle it the same way. Flatten bakes the live control expressions to fixed values (tracking still works).' })
     ]);
     var advBtn = el('button.rb-btn.is-ghost', { style: { width: '100%' }, onclick: function () { advOpen = !advOpen; advWrap.style.display = advOpen ? '' : 'none'; advBtn.textContent = (advOpen ? '▾ ' : '▸ ') + 'Advanced options'; } }, ['▸ Advanced options']);
 
@@ -350,6 +385,7 @@
       if (!ctx.invoke) return;
       ctx.invoke('pinrig.read', {}).then(function (r) {
         if (!r) return;
+        lastRead = (r && r.ok) ? { kind: r.kind, vertexCount: r.vertexCount, w: r.w, h: r.h } : null;
         if (!r.ok) scopeText.textContent = 'Select artwork to rig';
         else scopeText.textContent = 'Source: “' + r.name + '” · ' + r.kind + (r.vertexCount ? ' · ' + r.vertexCount + ' vertices' : '');
       }).catch(function () {});
@@ -366,12 +402,24 @@
         }
       }).catch(function () {});
     }
+    refreshPasteBtn();
     var off = ctx.onSelection(refreshScope);
     refreshScope(ctx.getSelection());
 
     function doBuild() {
-      ctx.invoke('pinrig.build', st)
-        .then(function (res) { ctx.toast('Built rig: ' + res.layers + ' layer' + (res.layers === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+      var args = getState();
+      var note = '';
+      if (st.pinPlacement === 'smart') {
+        var r = resolveSmart(lastRead);
+        // Custom-layer markers are heavy: don't auto-stamp a dense grid of copies.
+        if (args.pinSource === 'layer' && r.pinPlacement === 'grid' && r.pinGrid > 3) r.pinGrid = 3;
+        args.pinPlacement = r.pinPlacement; args.pinGrid = r.pinGrid;
+        st.pinPlacement = r.pinPlacement; st.pinGrid = r.pinGrid;
+        placeSeg.set(r.pinPlacement); gridS.set(r.pinGrid); gridS.el.style.display = r.pinPlacement === 'grid' ? '' : 'none';
+        note = placementNote(r.pinPlacement, r.pinGrid);
+      }
+      ctx.invoke('pinrig.build', args)
+        .then(function (res) { ctx.toast('Built rig: ' + res.layers + ' layer' + (res.layers === 1 ? '' : 's') + (note ? ' · ' + note : ''), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not build the rig', { kind: 'error' }); });
     }
     function doRestyle() {
@@ -389,6 +437,39 @@
       ctx.invoke('pinrig.remove', {})
         .then(function (res) { ctx.toast('Removed ' + res.removed + ' overlay layer' + (res.removed === 1 ? '' : 's'), { kind: 'info' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
+    }
+    // Get/Set style: copy a built rig's stamped settings, paste onto other art.
+    function doCopyStyle() {
+      if (!ctx.invoke) { ctx.toast('Open this in After Effects to copy a rig style', { kind: 'info' }); return; }
+      ctx.invoke('pinrig.readRig', {}).then(function (r) {
+        if (!r || !r.ok || !r.hasRig) { ctx.toast('Select an object that already has a Pin Rig to copy its style', { kind: 'warn' }); return; }
+        if (!r.settings) { ctx.toast('That rig was built before style memory — rebuild it first to copy its style', { kind: 'warn' }); return; }
+        var copy = {}; for (var k in r.settings) if (r.settings.hasOwnProperty(k)) copy[k] = r.settings[k];
+        styleClip = copy; styleClipFrom = r.sourceName || 'rig';
+        refreshPasteBtn();
+        ctx.toast('Copied style from “' + styleClipFrom + '”', { kind: 'success' });
+      }).catch(function (err) { ctx.toast(err.message || 'Could not copy the style', { kind: 'error' }); });
+    }
+    function doPasteStyle() {
+      if (!styleClip) { ctx.toast('Nothing copied yet — copy a rig style first', { kind: 'info' }); return; }
+      if (!ctx.invoke) { ctx.toast('Open this in After Effects to apply a style', { kind: 'info' }); return; }
+      var sel = ctx.getSelection();
+      if (!sel || !sel.hasComp) { ctx.toast('Open a composition', { kind: 'warn' }); return; }
+      if (!sel.selectedLayerCount) { ctx.toast('Select artwork to apply the style to', { kind: 'warn' }); return; }
+      applyState(styleClip);
+      ctx.invoke('pinrig.readRig', {}).then(function (rr) {
+        if (rr && rr.ok && rr.hasRig && styleClip.pinSource !== 'layer') doRestyle();
+        else doBuild();
+      }).catch(function () { doBuild(); });
+    }
+    function doFlatten() {
+      ctx.invoke('pinrig.flatten', {})
+        .then(function (res) { if (res && res.flattened) ctx.toast('Flattened ' + res.flattened + ' layer' + (res.flattened === 1 ? '' : 's') + ' (expressions baked to values)', { kind: 'success' }); else ctx.toast('No rig to flatten', { kind: 'info' }); ctx.refreshSelection(); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not flatten the rig', { kind: 'error' }); });
+    }
+    function refreshPasteBtn() {
+      pasteBtn.disabled = !styleClip;
+      pasteBtn.title = styleClip ? ('Apply the style copied from “' + styleClipFrom + '” to the selected artwork') : 'Copy a rig style first';
     }
 
     function getState() { var o = {}; for (var k in st) if (st.hasOwnProperty(k)) o[k] = st[k]; return o; }
@@ -416,11 +497,13 @@
         toolId: 'pinrig', get: getState, set: applyState,
         thumbFor: function (s, opts) { return overlaySvg(mergeDefaults(s), (opts && opts.height) || 40); },
         defaults: [
-          { name: 'Blueprint', state: over({ accent: '#39C2FF', pins: true, bbox: true, grid: true, circles: true, edges: true, dotgrid: false }) },
-          { name: 'Construction', state: over({ accent: '#7CE0A0', pins: true, bbox: false, margin: true, grid: true, edges: false, dotgrid: false, infographic: true }) },
-          { name: 'Minimal pins', state: over({ accent: '#FF9F1C', pins: true, bbox: true, edges: false, dotgrid: false }) },
-          { name: 'Type specimen', state: over({ accent: '#C792EA', pins: false, bbox: true, coords: true, edges: true, dotgrid: false }) },
-          { name: 'Infographic', state: over({ accent: '#FF5C8A', pins: true, bbox: false, edges: true, angles: true, dotgrid: true, infographic: true }) },
+          { name: 'Blueprint', state: over({ accent: '#39C2FF', pins: true, bbox: true, grid: true, circles: true, edges: true, dotgrid: false, pinShape: 'ring', pinFill: false }) },
+          { name: 'Construction', state: over({ accent: '#7CE0A0', pins: true, bbox: false, margin: true, grid: true, edges: false, dotgrid: false, infographic: true, pinShape: 'cross', pinFill: false, pinPlacement: 'corners' }) },
+          { name: 'Minimal', state: over({ accent: '#FF9F1C', pins: true, bbox: true, edges: false, dotgrid: false, pinShape: 'dot', pinPlacement: 'corners' }) },
+          { name: 'Infographic', state: over({ accent: '#FF5C8A', pins: true, bbox: false, edges: true, angles: true, dotgrid: true, infographic: true, pinShape: 'diamond', pinFill: true, fillColor: '#FF5C8A', strokeColor: '#0E1116' }) },
+          { name: 'Type build', state: over({ accent: '#C792EA', label: '#EBDDFF', pins: false, bbox: true, dotgrid: false, typography: true, typeAscender: true, typeDescender: true, edges: false }) },
+          { name: 'Null-style controller', state: over({ accent: '#39C2FF', pins: true, bbox: true, dotgrid: false, edges: false, ctrlShape: 'target', ctrlSize: 24, ctrlLabel: true, pinShape: 'dot', pinPlacement: 'corners' }) },
+          { name: 'Star pins', state: over({ accent: '#FFD24D', pins: true, bbox: false, edges: false, dotgrid: false, pinShape: 'star', pinFill: true, fillColor: '#FFD24D', strokeColor: '#0E1116', pinPlacement: 'midpoints' }) },
           { name: 'Dotted backdrop', state: over({ accent: '#39C2FF', pins: false, bbox: true, edges: false, dotgrid: true }) }
         ]
       },
