@@ -45,6 +45,14 @@
     return (prop.expressionEnabled && prop.expression !== '') || prop.numKeys > 0;
   }
 
+  // Whether a layer has 2D bounds we can mirror. `instanceof AVLayer` is
+  // unreliable for shape / text layers in ExtendScript even though they are
+  // AVLayer subclasses, so test the sourceRectAtTime capability instead.
+  function hasBounds(layer) {
+    if (layer instanceof CameraLayer || layer instanceof LightLayer) return false;
+    return typeof layer.sourceRectAtTime === 'function';
+  }
+
   function flip(args) {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
@@ -58,7 +66,7 @@
     var boxes = [];
     var i;
     for (i = 0; i < layers.length; i++) {
-      if (layers[i] instanceof AVLayer) boxes.push(bboxOf(layers[i], comp.time));
+      if (hasBounds(layers[i])) boxes.push(bboxOf(layers[i], comp.time));
     }
     if (!boxes.length) throw new Error('Select one or more layers.');
 
