@@ -89,7 +89,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (camera/light)'); continue; }
 
       var scaleProp = layer.property(M.transform).property(M.scale);
       var base = scaleProp.valueAtTime(comp.time, false);
@@ -134,7 +134,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var tg = layer.property(M.transform);
       var hit = false;
       if (rig.clearExpression(tg.property(M.scale))) hit = true;

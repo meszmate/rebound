@@ -57,7 +57,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name); continue; }
 
       var op = layer.property(M.transform).property(M.opacity);
       if (!op) { skipped.push(layer.name); continue; }

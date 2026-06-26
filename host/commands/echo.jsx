@@ -79,7 +79,7 @@
     var applied = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
 
       var fx = effectParade(layer);
       if (!fx) continue;

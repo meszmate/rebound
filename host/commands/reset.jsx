@@ -76,7 +76,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
 
       var touched = false;
       if (args.position && resetPosition(layer, comp)) touched = true;

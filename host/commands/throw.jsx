@@ -100,7 +100,7 @@
     var applied = 0, skipped = [];
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (camera/light)'); continue; }
 
       var tg = layer.property(M.transform);
       var pos = tg.property(M.position);

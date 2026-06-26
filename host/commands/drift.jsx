@@ -39,7 +39,7 @@
       if (p.propertyValueType === PropertyValueType.NO_VALUE) continue;
 
       var layer = util.layerOfProperty(p);
-      if (!(layer instanceof AVLayer)) { skipped.push(p.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(p.name + ' (camera/light)'); continue; }
 
       rig.ensureSlider(layer, 'Drift Amount', args.amount != null ? args.amount : 20);
       rig.ensureSlider(layer, 'Drift Frequency', args.frequency != null ? args.frequency : 2);

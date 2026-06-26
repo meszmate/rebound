@@ -141,7 +141,7 @@
 
     for (var ti = 0; ti < targets.length; ti++) {
       var lay = targets[ti];
-      if (!(lay instanceof AVLayer)) { skipped.push(lay.name + ' (unsupported layer)'); continue; }
+      if (lay instanceof CameraLayer || lay instanceof LightLayer) { skipped.push(lay.name + ' (camera/light)'); continue; }
       var tg = lay.property(M.transform);
       var delay = stagger > 0 ? ti * stagger / fps : 0;
       var rotProp = orient ? tg.property(M.rotation) : null;

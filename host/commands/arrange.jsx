@@ -53,7 +53,7 @@
     var layers = comp.selectedLayers;
     var out = [];
     for (var i = 0; i < layers.length; i++) {
-      if (layers[i] instanceof AVLayer) out.push(bboxOf(layers[i], comp.time));
+      if (!(layers[i] instanceof CameraLayer || layers[i] instanceof LightLayer)) out.push(bboxOf(layers[i], comp.time));
     }
     return out;
   }

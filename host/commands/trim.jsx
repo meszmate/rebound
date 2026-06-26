@@ -66,7 +66,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name); continue; }
 
       var props = [];
       var tr = layer.property(M.transform);

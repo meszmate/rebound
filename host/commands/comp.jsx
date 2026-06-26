@@ -27,7 +27,7 @@
   // rect transformed by Position, Anchor, and Scale (rotation is ignored, like
   // the viewer's align). Returns null for layers without bounds.
   function layerBox(layer, time) {
-    if (!(layer instanceof AVLayer)) return null;
+    if (layer instanceof CameraLayer || layer instanceof LightLayer) return null;
     var rect = layer.sourceRectAtTime(time, false);
     var tr = layer.property(XFORM);
     var pos = tr.property(POSITION).valueAtTime(time, false);

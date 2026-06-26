@@ -69,7 +69,7 @@
 
     for (var i = 1; i < layers.length; i++) {
       var child = layers[i];
-      if (!(child instanceof AVLayer)) { skipped.push(child.name + ' (unsupported layer)'); continue; }
+      if (child instanceof CameraLayer || child instanceof LightLayer) { skipped.push(child.name + ' (camera/light)'); continue; }
 
       rig.ensureSlider(child, 'Kinetic Sensitivity', sensitivity);
       rig.ensureSlider(child, 'Kinetic Max', max);
@@ -91,7 +91,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var group = layer.property(M.transform);
       var hit = false;
       for (var c = 0; c < candidates.length; c++) {

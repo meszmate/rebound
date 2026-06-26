@@ -41,7 +41,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (camera/light)'); continue; }
 
       rig.ensureSlider(layer, 'Lean Amount', amount);
       rig.ensureSlider(layer, 'Lean Smooth', smoothing);
@@ -62,7 +62,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var rot = layer.property(M.transform).property(M.rotation);
       if (rig.clearExpression(rot)) cleared++;
     }

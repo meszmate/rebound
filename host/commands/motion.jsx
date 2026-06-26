@@ -77,7 +77,7 @@
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (camera/light)'); continue; }
 
       var ok;
       if (mode === 'orbit') ok = applyOrbit(layer, args, comp);
@@ -99,7 +99,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var transform = layer.property(M.transform);
       if (rig.clearExpression(transform.property(M.rotation))) cleared++;
       if (rig.clearExpression(transform.property(M.position))) cleared++;

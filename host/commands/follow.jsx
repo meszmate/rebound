@@ -56,7 +56,7 @@
 
     for (var i = 1; i < layers.length; i++) {
       var child = layers[i];
-      if (!(child instanceof AVLayer)) { skipped.push(child.name + ' (unsupported layer)'); continue; }
+      if (child instanceof CameraLayer || child instanceof LightLayer) { skipped.push(child.name + ' (camera/light)'); continue; }
 
       var pos = child.property(M.transform).property(M.position);
       var step = cascade ? delayFrames * i : delayFrames;
@@ -78,7 +78,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var pos = layer.property(M.transform).property(M.position);
       if (rig.clearExpression(pos)) cleared++;
     }

@@ -119,7 +119,7 @@
 
     var originals = [];
     for (var i = 0; i < sources.length; i++) {
-      if (sources[i] instanceof AVLayer) originals.push(sources[i]);
+      if (!(sources[i] instanceof CameraLayer || sources[i] instanceof LightLayer)) originals.push(sources[i]);
     }
     if (!originals.length) throw new Error('Select one or more layers to scatter.');
 

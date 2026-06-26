@@ -43,7 +43,7 @@
     var cropped = 0, skipped = [];
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (no content)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (no content)'); continue; }
       var parade = layer.property(MASK_PARADE);
       if (!parade) { skipped.push(layer.name + ' (cannot mask)'); continue; }
 
@@ -72,7 +72,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var parade = layer.property(MASK_PARADE);
       if (!parade) continue;
       var before = parade.numProperties;

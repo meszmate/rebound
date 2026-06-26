@@ -48,7 +48,7 @@
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
 
       var layer = util.layerOfProperty(p);
-      if (!(layer instanceof AVLayer)) { skipped.push(p.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(p.name + ' (camera/light)'); continue; }
 
       rig.ensureSlider(layer, 'Bounce Elasticity', args.elasticity != null ? args.elasticity : 0.7);
       rig.ensureSlider(layer, 'Bounce Gravity', args.gravity != null ? args.gravity : 4);

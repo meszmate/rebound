@@ -103,7 +103,7 @@
     var bound = 0, nulls = 0, skipped = [];
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) { skipped.push(layer.name + ' (unsupported layer)'); continue; }
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (camera/light)'); continue; }
       var pup = findPuppet(layer);
       if (!pup) { skipped.push(layer.name + ' (no Puppet pins; place them with the Puppet Tool first)'); continue; }
       var pins = []; collectPins(pup, pins, 0);
@@ -128,7 +128,7 @@
     var cleared = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var pup = findPuppet(layer);
       if (!pup) continue;
       var pins = []; collectPins(pup, pins, 0);
@@ -146,7 +146,7 @@
     var added = 0;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!(layer instanceof AVLayer)) continue;
+      if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       rig.ensureSlider(layer, name, value);
       added++;
     }
