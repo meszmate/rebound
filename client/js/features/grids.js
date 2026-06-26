@@ -155,7 +155,7 @@
     ctx.footer.appendChild(el('button.rb-btn.is-ghost', { title: 'Create real AE ruler guides (snap with View > Snap to Guides)', onclick: doGuides }, ['To guides']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
 
-    ctx.body.appendChild(el('div.rb-faint', { text: 'Apply draws a non-rendering guide layer (tracks/keyframes, full color control). To guides makes real comp ruler guides instead — they snap (View > Snap to Guides) but are comp-level and uncolored.' }));
+    ctx.body.appendChild(el('div.rb-faint', { text: 'Apply draws a non-rendering guide layer (tracks/keyframes, full color control). To guides makes real comp ruler guides instead. They snap (View > Snap to Guides) but are comp-level and uncolored.' }));
     ctx.body.appendChild(el('div.rb-row', null, [el('button.rb-btn.is-ghost', { onclick: doClearGuides }, ['Clear ruler guides'])]));
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });

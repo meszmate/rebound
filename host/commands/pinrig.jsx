@@ -652,15 +652,14 @@
           total++;
         } catch (edg) {}
       }
-      // Each selected layer gets its own complete rig that tracks itself.
-      var primaryStash = null;
+      // Each selected layer gets its own complete rig that tracks itself, and
+      // each carries the settings stash so reselecting ANY of them (or Copy
+      // style) restores the panel.
       for (var i = 0; i < cap; i++) {
         var r = buildOne(comp, layers[i], args, env);
         total += r.made;
-        if (i === 0) primaryStash = r.stash;
+        stampSettings(r.stash, args);
       }
-      // Stash settings on the primary rig so reselecting it restores the panel.
-      stampSettings(primaryStash, args);
       rigged = cap;
     } finally {
       app.endUndoGroup();

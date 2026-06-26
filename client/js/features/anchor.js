@@ -217,7 +217,7 @@
           setTarget(res.gx, res.gy);
           if (res.animated || res.hasExpression) {
             readout.textContent = 'Anchor  ' + Math.round(res.gx * 100) + '%  ·  ' + Math.round(res.gy * 100) + '%   ' +
-              (res.animated ? 'animated' : 'expression') + ' (read-only)';
+              (res.animated ? 'animated value' : 'expression-driven');
           }
         }
       }

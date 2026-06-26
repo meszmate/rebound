@@ -228,7 +228,6 @@
     // source) so the panel mirrors what that object currently has.
     var lastRigKey = null;
     var lastRead = null;             // cached {kind,vertexCount,w,h} for Smart placement
-    var userPickedPlacement = false; // user explicitly chose a Place mode this session
     var styleClip = null;            // copied rig settings (Get/Set style), session-only
     var styleClipFrom = '';
     var rigStatus = el('div.rb-faint', { text: '', style: { color: 'var(--rb-accent)' } });
@@ -265,7 +264,7 @@
       { value: 'smart', label: 'Smart', title: 'Auto-pick placement + density from the artwork' },
       { value: 'auto', label: 'Auto', title: 'Shape vertices, or image corners' }, { value: 'corners', label: 'Corners' },
       { value: 'midpoints', label: '+ Mids' }, { value: 'grid', label: 'Grid' }, { value: 'center', label: 'Center' }],
-      { value: st.pinPlacement, onChange: function (v) { userPickedPlacement = true; st.pinPlacement = v; gridS.el.style.display = v === 'grid' ? '' : 'none'; renderPreview(); } });
+      { value: st.pinPlacement, onChange: function (v) { st.pinPlacement = v; gridS.el.style.display = v === 'grid' ? '' : 'none'; renderPreview(); } });
     placeSeg.el.classList.add('rb-seg-wrap');
     gridS.el.style.display = st.pinPlacement === 'grid' ? '' : 'none';
     var pinStrokeS = ui.slider({ label: 'Stroke width', min: 0, max: 6, step: 0.5, value: st.pinStroke, format: function (v) { return R.units.round(v, 1); }, onInput: function (v) { st.pinStroke = v; renderPreview(); } });
@@ -404,18 +403,22 @@
     var off = ctx.onSelection(refreshScope);
     refreshScope(ctx.getSelection());
 
+    // Resolve the 'smart' placement sentinel into a concrete mode + density on
+    // the outgoing args AND st, so no invoke/stamp ever ships 'smart' (build and
+    // restyle both go through this). Returns a human note, or '' when not smart.
+    function resolvePlacement(args) {
+      if (st.pinPlacement !== 'smart') return '';
+      var r = resolveSmart(lastRead);
+      // Custom-layer markers are heavy: don't auto-stamp a dense grid of copies.
+      if (args.pinSource === 'layer' && r.pinPlacement === 'grid' && r.pinGrid > 3) r.pinGrid = 3;
+      args.pinPlacement = r.pinPlacement; args.pinGrid = r.pinGrid;
+      st.pinPlacement = r.pinPlacement; st.pinGrid = r.pinGrid;
+      placeSeg.set(r.pinPlacement); gridS.set(r.pinGrid); gridS.el.style.display = r.pinPlacement === 'grid' ? '' : 'none';
+      return placementNote(r.pinPlacement, r.pinGrid);
+    }
     function doBuild() {
       var args = getState();
-      var note = '';
-      if (st.pinPlacement === 'smart') {
-        var r = resolveSmart(lastRead);
-        // Custom-layer markers are heavy: don't auto-stamp a dense grid of copies.
-        if (args.pinSource === 'layer' && r.pinPlacement === 'grid' && r.pinGrid > 3) r.pinGrid = 3;
-        args.pinPlacement = r.pinPlacement; args.pinGrid = r.pinGrid;
-        st.pinPlacement = r.pinPlacement; st.pinGrid = r.pinGrid;
-        placeSeg.set(r.pinPlacement); gridS.set(r.pinGrid); gridS.el.style.display = r.pinPlacement === 'grid' ? '' : 'none';
-        note = placementNote(r.pinPlacement, r.pinGrid);
-      }
+      var note = resolvePlacement(args);
       ctx.invoke('pinrig.build', args)
         .then(function (res) {
           var msg = (res && res.rigged > 1) ? ('Rigged ' + res.rigged + ' layers' + (res.capped ? ' (max 12)' : '')) : ('Built rig: ' + res.layers + ' layer' + (res.layers === 1 ? '' : 's'));
@@ -424,7 +427,9 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not build the rig', { kind: 'error' }); });
     }
     function doRestyle() {
-      ctx.invoke('pinrig.restyle', st)
+      var args = getState();
+      resolvePlacement(args);
+      ctx.invoke('pinrig.restyle', args)
         .then(function (res) { if (res && res.restyled) ctx.toast('Restyled the pins', { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not restyle the pins', { kind: 'error' }); });
     }
