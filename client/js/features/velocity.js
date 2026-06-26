@@ -178,8 +178,27 @@
           { name: 'In side only', state: { inInfluence: 80, outInfluence: 33.33, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: false, applyIn: true, applyOut: false } }
         ]
       },
+      // Selecting a keyframe segment shows its live in/out influence + speed,
+      // read from the cached selection summary (no host round-trip).
+      selectionRead: {
+        matches: function (sel) { return !!firstEased(sel); },
+        apply: function (_res, sel) {
+          var p = firstEased(sel);
+          if (!p || !p.currentEase) return;
+          var e = p.currentEase;
+          inInfluence.set(e.inInfluence); outInfluence.set(e.outInfluence);
+          inSpeed.set(e.inSpeed); outSpeed.set(e.outSpeed);
+          renderPreview();
+        }
+      },
       destroy: off
     };
+
+    function firstEased(sel) {
+      if (!sel || !sel.hasComp || !sel.properties) return null;
+      for (var i = 0; i < sel.properties.length; i++) { var p = sel.properties[i]; if (p && p.currentEase) return p; }
+      return null;
+    }
   }
 
   function describe(sel) {

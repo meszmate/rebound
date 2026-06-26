@@ -208,6 +208,14 @@
 
     updateReadout();
 
+    // Selecting a keyframe pair shows its live ease (from the cached summary, no
+    // host round-trip — the host already computes currentEase when >=2 keys).
+    function firstEased(sel) {
+      if (!sel || !sel.hasComp || !sel.properties) return null;
+      for (var i = 0; i < sel.properties.length; i++) { var p = sel.properties[i]; if (p && p.currentEase) return p; }
+      return null;
+    }
+
     return {
       presets: {
         toolId: 'ease',
@@ -215,6 +223,19 @@
         set: applyState,
         previewFor: function (s) { return s.curve; },
         defaults: easeDefaults()
+      },
+      selectionRead: {
+        matches: function (sel) { var p = firstEased(sel); return !!(p && p.currentEase && p.currentEase.curve); },
+        apply: function (_res, sel) {
+          var p = firstEased(sel);
+          if (!p || !p.currentEase || !p.currentEase.curve) return;
+          var c = p.currentEase.curve;
+          editor.setGhost(curve);
+          curve = { type: 'bezier', x1: c.x1, y1: c.y1, x2: c.x2, y2: c.y2 };
+          editor.setCurve(curve);
+          syncFields();
+          updateReadout();
+        }
       },
       destroy: function () {
         off();

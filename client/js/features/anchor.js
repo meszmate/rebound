@@ -206,7 +206,22 @@
       }
     }
 
-    return { destroy: off };
+    return {
+      destroy: off,
+      // Selecting a single layer moves the pin to that layer's current anchor.
+      selectionRead: {
+        matches: function (sel) { return !!(sel && sel.selectedLayerCount === 1); },
+        method: 'anchor.read',
+        apply: function (res) {
+          if (!res || !res.found) return;
+          setTarget(res.gx, res.gy);
+          if (res.animated || res.hasExpression) {
+            readout.textContent = 'Anchor  ' + Math.round(res.gx * 100) + '%  ·  ' + Math.round(res.gy * 100) + '%   ' +
+              (res.animated ? 'animated' : 'expression') + ' (read-only)';
+          }
+        }
+      }
+    };
   }
 
   function describe(sel) {

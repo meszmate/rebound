@@ -205,6 +205,34 @@
     return { moved: moved };
   }
 
+  // Read the first selected bounded layer's current anchor, normalized to a
+  // [gx,gy] within its source bounds, so the panel can show where the anchor is.
+  // Read-only (registered without an undo label).
+  function readAnchor() {
+    var comp = util.activeComp();
+    if (!comp) return { found: false };
+    var layers = comp.selectedLayers;
+    if (!layers.length) return { found: false };
+    var time = comp.time;
+    for (var i = 0; i < layers.length; i++) {
+      var layer = layers[i];
+      if (!hasBounds(layer)) continue;
+      var tr = transformOf(layer);
+      var anchorProp = tr.property(M.anchor);
+      var rect = null;
+      try { rect = layer.sourceRectAtTime(time, false); } catch (e) { rect = null; }
+      if (!rect || !rect.width || !rect.height) return { found: false };
+      var a = anchorProp.value;
+      var gx = (a[0] - rect.left) / rect.width;
+      var gy = (a[1] - rect.top) / rect.height;
+      var expr = false;
+      try { expr = anchorProp.canSetExpression && anchorProp.expressionEnabled && anchorProp.expression !== ''; } catch (e2) { expr = false; }
+      return { found: true, layerName: layer.name, gx: gx, gy: gy, animated: anchorProp.numKeys > 0, hasExpression: !!expr };
+    }
+    return { found: false };
+  }
+
   R.register('anchor.move', moveAnchor, 'Rebound: Move Anchor');
   R.register('anchor.centerInComp', centerInComp, 'Rebound: Center in Comp');
+  R.register('anchor.read', readAnchor);
 })();
