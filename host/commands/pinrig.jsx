@@ -25,7 +25,8 @@
     'edges', 'coords', 'angles', 'bezierCoords', 'cornerRadius', 'grid', 'circles', 'margin', 'dotgrid',
     'controller', 'pinShape', 'pinStroke', 'pinFill', 'fillColor', 'strokeColor', 'pinRound',
     'pinPlacement', 'pinGrid', 'pinSource', 'pinLayerName', 'pinLayerScale',
-    'ctrlShape', 'ctrlSize', 'ctrlColor', 'ctrlLabel'];
+    'ctrlShape', 'ctrlSize', 'ctrlColor', 'ctrlLabel',
+    'typography', 'typeBaseline', 'typeX', 'typeCap', 'typeAscender', 'typeDescender', 'typeLabels'];
 
   function encodeSettings(args) {
     var o = {};
@@ -538,6 +539,32 @@
           var csz = (args.ctrlSize != null ? args.ctrlSize : 18) * sc;
           var ccol = args.ctrlColorRgb || hexToRgb01(args.ctrlColor || '#FFD24D');
           gen((function (yy, color) { return function () { return addText(comp, src.name, [0, yy], color, 12 * sc); }; })(-csz - 6 * sc, ccol));
+        }
+      }
+      // Typography guides: baseline / x-height / cap / ascender / descender for a
+      // TEXT source. Metrics are derived from the font size (point text has its
+      // baseline at layer-space y=0); approximate but standard ratios.
+      if (args.typography) {
+        var tFontSize = 0;
+        try { tFontSize = src.property('ADBE Text Properties').property('ADBE Text Document').value.fontSize; } catch (etf) { tFontSize = 0; }
+        if (tFontSize > 0) {
+          var trect = null; try { trect = src.sourceRectAtTime(t0, false); } catch (etr) { trect = null; }
+          var tx0 = trect ? trect.left - 12 * sc : -tFontSize * 2;
+          var tx1 = trect ? trect.left + trect.width + 12 * sc : tFontSize * 2;
+          var tlines = [];
+          if (args.typeAscender) tlines.push([-0.75 * tFontSize, 'ascender']);
+          if (args.typeCap !== false) tlines.push([-0.70 * tFontSize, 'cap height']);
+          if (args.typeX !== false) tlines.push([-0.50 * tFontSize, 'x-height']);
+          if (args.typeBaseline !== false) tlines.push([0, 'baseline']);
+          if (args.typeDescender) tlines.push([0.21 * tFontSize, 'descender']);
+          gen((function (x0, x1, lines) { return function () {
+            var lay = newShape(comp, 'Type Guides'); var root = rootOf(lay);
+            for (var i = 0; i < lines.length; i++) addLine(root, [x0, lines[i][0]], [x1, lines[i][0]], accent, sw * 0.7, 60);
+            return lay;
+          }; })(tx0, tx1, tlines));
+          if (args.typeLabels !== false) for (var tl = 0; tl < tlines.length; tl++) {
+            gen((function (yy, nm, xx) { return function () { return addText(comp, nm, [xx, yy - 2 * sc], label, fs * 0.8); }; })(tlines[tl][0], tlines[tl][1], tx1 + 6 * sc));
+          }
         }
       }
       if (args.circles) gen(function () {

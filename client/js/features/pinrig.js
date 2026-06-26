@@ -92,6 +92,18 @@
       }
     }
 
+    if (st.typography) {
+      var tlx0 = bb.minx - 6, tlx1 = bb.maxx + 6, rows = [];
+      if (st.typeAscender) rows.push([bb.miny - 4, 'asc']);
+      if (st.typeCap) rows.push([bb.miny + 2, 'cap']);
+      if (st.typeX) rows.push([bb.cy, 'x']);
+      if (st.typeBaseline) rows.push([bb.maxy, 'base']);
+      if (st.typeDescender) rows.push([bb.maxy + 5, 'desc']);
+      for (var ti = 0; ti < rows.length; ti++) {
+        kids.push(svg('line', { x1: r1(tlx0), y1: r1(rows[ti][0]), x2: r1(tlx1), y2: r1(rows[ti][0]), stroke: ac, 'stroke-width': sw * 0.6, 'stroke-opacity': '0.55', 'stroke-dasharray': '2 2' }));
+        if (st.typeLabels) kids.push(txt(tlx1 + 3, rows[ti][0] + 1, rows[ti][1], lab, fs * 0.75, 'start'));
+      }
+    }
     if (st.controller === 'master' && st.ctrlShape && st.ctrlShape !== 'null') {
       kids.push(ctrlMarker(bb.cx, bb.cy, Math.max(5, (st.ctrlSize || 18) * 0.35), st.ctrlShape, st.ctrlColor, sw));
     }
@@ -112,6 +124,7 @@
     return { accent: '#39C2FF', label: '#E6F4FF', scale: 1, infographic: false,
       pins: true, bbox: true, selbounds: false, bezier: false,
       edges: true, coords: false, angles: false, bezierCoords: false, cornerRadius: false,
+      typography: false, typeBaseline: true, typeX: true, typeCap: true, typeAscender: false, typeDescender: false, typeLabels: true,
       grid: false, circles: false, margin: false, dotgrid: true,
       controller: 'master',
       ctrlShape: 'null', ctrlSize: 18, ctrlColor: '#FFD24D', ctrlLabel: false,
@@ -253,6 +266,17 @@
     var edgesTog = tog('Edge lengths', 'edges'), coordsTog = tog('Vertex coords', 'coords'), anglesTog = tog('Vertex angles', 'angles');
     var bezCoordTog = tog('Bezier coords', 'bezierCoords'), radiusTog = tog('Corner radius', 'cornerRadius');
     var gridTog = tog('Grid', 'grid'), circTog = tog('Circles', 'circles'), marginTog = tog('Margin', 'margin'), dotTog = tog('Dot grid', 'dotgrid');
+
+    // Typography guides (text layers): baseline / x-height / cap / ascender / descender.
+    var typoTog = ui.toggle({ label: 'Type guides', value: st.typography, onChange: function (v) { st.typography = v; syncTypo(); renderPreview(); } });
+    var typeBaseTog = tog('Baseline', 'typeBaseline'), typeXTog = tog('x-height', 'typeX'), typeCapTog = tog('Cap height', 'typeCap'), typeAscTog = tog('Ascender', 'typeAscender'), typeDescTog = tog('Descender', 'typeDescender'), typeLblTog = tog('Labels', 'typeLabels');
+    var typoSub = el('div.rb-col', null, [
+      el('div.rb-row.rb-wrap', null, [typeBaseTog.el, typeXTog.el, typeCapTog.el]),
+      el('div.rb-row.rb-wrap', null, [typeAscTog.el, typeDescTog.el, typeLblTog.el]),
+      el('div.rb-faint', { text: 'Text layers only. Lines use standard type-metric ratios from the font size.' })
+    ]);
+    function syncTypo() { typoSub.style.display = st.typography ? '' : 'none'; }
+    syncTypo();
     var ctrlSeg = ui.segmented([{ value: 'master', label: 'Master null' }, { value: 'individual', label: 'Per layer' }], { value: st.controller, onChange: function (v) { st.controller = v; syncCtrl(); renderPreview(); } });
 
     // Null Style: give the controller a visible, styled handle.
@@ -294,6 +318,7 @@
       el('div.rb-row.rb-wrap', null, [bezCoordTog.el, radiusTog.el]),
       el('div.rb-section-label', { text: 'Guides' }),
       el('div.rb-row.rb-wrap', null, [gridTog.el, circTog.el, marginTog.el, dotTog.el]),
+      typoTog.el, typoSub,
       el('div.rb-section-label', { text: 'Controllers' }),
       ui.row('Rig with', ctrlSeg.el),
       ctrlStyleWrap,
@@ -360,6 +385,7 @@
       edgesTog.set(st.edges); coordsTog.set(st.coords); anglesTog.set(st.angles);
       bezCoordTog.set(st.bezierCoords); radiusTog.set(st.cornerRadius);
       gridTog.set(st.grid); circTog.set(st.circles); marginTog.set(st.margin); dotTog.set(st.dotgrid);
+      typoTog.set(st.typography); typeBaseTog.set(st.typeBaseline); typeXTog.set(st.typeX); typeCapTog.set(st.typeCap); typeAscTog.set(st.typeAscender); typeDescTog.set(st.typeDescender); typeLblTog.set(st.typeLabels); syncTypo();
       ctrlSeg.set(st.controller);
       ctrlShapeSeg.set(st.ctrlShape); ctrlSizeS.set(st.ctrlSize); ctrlLabelTog.set(st.ctrlLabel); syncCtrl();
       renderPreview();
