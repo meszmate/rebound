@@ -356,28 +356,89 @@
     return node;
   }
 
+  // Enumerate per-character style runs from the live textKey descriptor, so a
+  // type layer with mixed fonts / sizes / colours / tracking comes across as real
+  // per-run After Effects text (24.3+). Type size is in points; convert to px by
+  // the document resolution. Fully guarded: any failure returns null and the
+  // caller falls back to the single dominant run.
+  function readTextStyleRuns(layer, contents) {
+    try {
+      var ref = new ActionReference();
+      ref.putProperty(cID('Prpr'), sID('textKey'));
+      ref.putIdentifier(cID('Lyr '), layer.id);
+      var d = executeActionGet(ref);
+      if (!d.hasKey(sID('textKey'))) return null;
+      var tk = d.getObjectValue(sID('textKey'));
+      if (!tk.hasKey(sID('textStyleRange'))) return null;
+      var list = tk.getList(sID('textStyleRange'));
+      if (!list || !list.count) return null;
+      var resFactor = 1;
+      try { resFactor = doc.resolution / 72; } catch (eR) {}
+      var runs = [];
+      for (var i = 0; i < list.count; i++) {
+        var rng = list.getObjectValue(i);
+        var from = 0, to = 0;
+        try { from = rng.getInteger(sID('from')); } catch (eF) {}
+        try { to = rng.getInteger(sID('to')); } catch (eT) {}
+        if (to <= from) continue;
+        var ts = rng.getObjectValue(sID('textStyle'));
+        var run = { start: from, end: to, characters: String(contents).substring(from, to) };
+        try { run.postScriptName = ts.getString(sID('fontPostScriptName')); } catch (e1) {}
+        if (!run.postScriptName) { try { run.fontFamily = ts.getString(sID('fontName')); } catch (e2) {} }
+        try { run.fontSize = ts.getUnitDoubleValue(sID('size')) * resFactor; } catch (e3) {}
+        try { run.tracking = ts.getInteger(sID('tracking')); } catch (e4) {}
+        try {
+          if (ts.getBoolean(sID('autoLeading'))) run.lineHeight = { unit: 'AUTO' };
+          else run.lineHeight = { unit: 'PIXELS', value: ts.getUnitDoubleValue(sID('leading')) * resFactor };
+        } catch (e5) {}
+        try { var bs = ts.getUnitDoubleValue(sID('baselineShift')); if (bs) run.baselineShift = bs * resFactor; } catch (e6) {}
+        try { if (ts.getBoolean(sID('syntheticBold'))) run.fauxBold = true; } catch (e7) {}
+        try { if (ts.getBoolean(sID('syntheticItalic'))) run.fauxItalic = true; } catch (e8) {}
+        try {
+          var fc = typeIDToStringID(ts.getEnumerationValue(sID('fontCaps')));
+          if (fc === 'allCaps') run.textCase = 'UPPER';
+          else if (fc === 'smallCaps') run.textCase = 'SMALL_CAPS';
+        } catch (e9) {}
+        try {
+          var col = readColorDesc(ts.getObjectValue(sID('color')));
+          if (col) run.fills = [{ type: 'SOLID', color: col, opacity: 1, visible: true }];
+        } catch (e10) {}
+        runs.push(run);
+      }
+      return runs.length ? runs : null;
+    } catch (e) { return null; }
+  }
+
   function textToIR(layer) {
     var node = baseNode(layer);
     node.type = 'TEXT';
     var ti = layer.textItem;
+    var contents = String(ti.contents);
     var runs = [{
       start: 0,
-      end: String(ti.contents).length,
+      end: contents.length,
       characters: ti.contents
     }];
     try { runs[0].postScriptName = ti.font; } catch (e) {}
     try { runs[0].fontSize = ti.size.as ? ti.size.as('px') : ti.size; } catch (e2) {}
     try { var c = ti.color.rgb; runs[0].fills = [{ type: 'SOLID', color: { r: clamp01(c.red / 255), g: clamp01(c.green / 255), b: clamp01(c.blue / 255), a: 1 }, opacity: 1, visible: true }]; } catch (e3) {}
     try { runs[0].tracking = ti.tracking; } catch (e4) {}
+
+    // Prefer real per-character runs; fall back to the single dominant run.
+    var rich = readTextStyleRuns(layer, contents);
+    if (rich && rich.length) runs = rich;
+
     var b = layer.bounds;
     var left = b[0].as ? b[0].as('px') : b[0];
     var top = b[1].as ? b[1].as('px') : b[1];
     node.transform = { x: round(left), y: round(top), width: round((b[2].as ? b[2].as('px') : b[2]) - left), height: round((b[3].as ? b[3].as('px') : b[3]) - top) };
-    node.text = { characters: ti.contents, runs: runs, textAlignHorizontal: justifyToIR(ti), autoResize: 'NONE', boxSize: [node.transform.width, node.transform.height] };
+    // Point type auto-sizes; paragraph type keeps its box.
+    var autoResize = 'NONE';
+    try { if (ti.kind === TextType.POINTTEXT) autoResize = 'WIDTH_AND_HEIGHT'; } catch (eK) {}
+    node.text = { characters: ti.contents, runs: runs, textAlignHorizontal: justifyToIR(ti), autoResize: autoResize, boxSize: [node.transform.width, node.transform.height] };
     node.fills = [];
     node.layerStyles = readLayerStyles(layer.name);
-    if (runs.length === 1 && String(ti.contents).indexOf('\r') === -1) { /* whole-layer style is fine */ }
-    else note(layer.name, 'rich text styling reduced to the dominant style');
+    if (!rich && contents.indexOf('\r') !== -1) note(layer.name, 'paragraph text imported with one style (per-run styling unavailable)');
     return node;
   }
 
@@ -442,6 +503,56 @@
     return null;
   }
 
+  // A shape layer's stroke (AGMStrokeStyleInfo): solid colour, weight, alignment,
+  // cap/join, and dashes. Gradient/pattern strokes are left for the rasteriser.
+  // Fully guarded: any failure returns null (no stroke), matching today.
+  function readShapeStroke(layer) {
+    try {
+      var ref = new ActionReference();
+      ref.putIdentifier(cID('Lyr '), layer.id);
+      var d = executeActionGet(ref);
+      if (!d.hasKey(sID('AGMStrokeStyleInfo'))) return null;
+      var ss = d.getObjectValue(sID('AGMStrokeStyleInfo'));
+      var enabled = true; try { enabled = ss.getBoolean(sID('strokeEnabled')); } catch (e0) {}
+      if (!enabled) return null;
+      var weight = 1; try { weight = ss.getUnitDoubleValue(sID('strokeStyleLineWidth')); } catch (e1) {}
+      var paint = null;
+      try {
+        var content = ss.getObjectValue(sID('strokeStyleContent'));
+        if (content.hasKey(sID('color'))) {
+          var col = readColorDesc(content.getObjectValue(sID('color')));
+          if (col) paint = { type: 'SOLID', color: col, opacity: 1, visible: true };
+        }
+      } catch (e2) {}
+      if (!paint) return null;
+      var align = 'CENTER';
+      try {
+        var a = typeIDToStringID(ss.getEnumerationValue(sID('strokeStyleLineAlignment')));
+        align = a === 'strokeStyleAlignInside' ? 'INSIDE' : a === 'strokeStyleAlignOutside' ? 'OUTSIDE' : 'CENTER';
+      } catch (e3) {}
+      var cap = 'NONE';
+      try {
+        var cp = typeIDToStringID(ss.getEnumerationValue(sID('strokeStyleLineCapType')));
+        cap = cp === 'strokeStyleRoundCap' ? 'ROUND' : cp === 'strokeStyleSquareCap' ? 'SQUARE' : 'NONE';
+      } catch (e4) {}
+      var join = 'MITER';
+      try {
+        var jn = typeIDToStringID(ss.getEnumerationValue(sID('strokeStyleLineJoinType')));
+        join = jn === 'strokeStyleRoundJoin' ? 'ROUND' : jn === 'strokeStyleBevelJoin' ? 'BEVEL' : 'MITER';
+      } catch (e5) {}
+      var stroke = { paints: [paint], weight: weight, align: align, cap: cap, join: join };
+      try {
+        var ds = ss.getList(sID('strokeStyleLineDashSet'));
+        if (ds && ds.count) {
+          var dash = [];
+          for (var i = 0; i < ds.count; i++) dash.push(ds.getUnitDoubleValue(i) * weight); // PS dashes are multiples of width
+          if (dash.length) stroke.dashPattern = dash;
+        }
+      } catch (e6) {}
+      return stroke;
+    } catch (e) { return null; }
+  }
+
   // Returns an editable VECTOR node, or null to let the layer rasterise.
   function shapeVectorToIR(layer) {
     var svg = getLayerSVG(layer);
@@ -456,6 +567,8 @@
     var b = layer.bounds;
     node.transform = { x: 0, y: 0, width: Math.max(1, Math.round(asPx(b[2]) - asPx(b[0]))), height: Math.max(1, Math.round(asPx(b[3]) - asPx(b[1]))) };
     node.fills = [fill];
+    var stroke = readShapeStroke(layer);
+    if (stroke) node.stroke = stroke;
     var styles = readLayerStyles(layer.name);
     if (styles.length) node.layerStyles = styles;
     return node;
