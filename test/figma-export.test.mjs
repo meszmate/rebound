@@ -91,6 +91,30 @@ function maskRect(id, isMask, maskType) {
   };
 }
 
+function gradientRect(gradientTransform, type) {
+  return {
+    id: '1:7', name: 'Grad', type: 'RECTANGLE', visible: true, opacity: 1, blendMode: 'NORMAL', isMask: false,
+    width: 100, height: 50, rotation: 0,
+    absoluteTransform: [[1, 0, 0], [0, 1, 0]],
+    absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 50 },
+    cornerRadius: 0, cornerSmoothing: 0,
+    fills: [{
+      type: type || 'GRADIENT_LINEAR', visible: true, opacity: 1,
+      gradientStops: [{ position: 0, color: { r: 1, g: 0, b: 0, a: 1 } }, { position: 1, color: { r: 0, g: 0, b: 1, a: 1 } }],
+      gradientTransform
+    }],
+    strokes: []
+  };
+}
+
+function perSideRect() {
+  const n = rectNode();
+  n.id = '1:11';
+  n.strokeTopWeight = 0; n.strokeRightWeight = 0; n.strokeBottomWeight = 2; n.strokeLeftWeight = 0;
+  n.exportAsync = async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0]);
+  return n;
+}
+
 function frameWithChrome() {
   return {
     id: 'F1', name: 'Card', type: 'FRAME', visible: true, opacity: 0.9, blendMode: 'PASS_THROUGH',
@@ -257,6 +281,30 @@ describe('figma exporter -> IR', () => {
     // FIT stays live (the importer reproduces contain exactly).
     const fit = await buildIR([imageRect(undefined, { scaleMode: 'FIT', width: 200, height: 100 })]);
     expect(fit.document.frames[0].children[0].imageHash).toBe('img1');
+  });
+
+  it('derives gradient handle geometry from gradientTransform (not the REST-only field)', async () => {
+    // Identity transform -> horizontal ramp across the box.
+    const horiz = await buildIR([gradientRect([[1, 0, 0], [0, 1, 0]])]);
+    const hh = horiz.document.frames[0].children[0].fills[0].gradientHandles;
+    expect(hh[0][0]).toBeCloseTo(0, 3); expect(hh[0][1]).toBeCloseTo(25, 3);
+    expect(hh[1][0]).toBeCloseTo(100, 3); expect(hh[1][1]).toBeCloseTo(25, 3);
+    // A 90-degree transform -> vertical ramp (top to bottom at mid-x).
+    const vert = await buildIR([gradientRect([[0, 1, 0], [1, 0, 0]])]);
+    const vh = vert.document.frames[0].children[0].fills[0].gradientHandles;
+    expect(vh[0][0]).toBeCloseTo(50, 3); expect(vh[0][1]).toBeCloseTo(0, 3);
+    expect(vh[1][0]).toBeCloseTo(50, 3); expect(vh[1][1]).toBeCloseTo(50, 3);
+    // Radial: the first handle is the centre (0.5,0.5) of the box.
+    const rad = await buildIR([gradientRect([[1, 0, 0], [0, 1, 0]], 'GRADIENT_RADIAL')]);
+    const rh = rad.document.frames[0].children[0].fills[0].gradientHandles;
+    expect(rh[0][0]).toBeCloseTo(50, 3); expect(rh[0][1]).toBeCloseTo(25, 3);
+  });
+
+  it('rasterizes a node with differing per-side stroke weights', async () => {
+    const ir = await buildIR([perSideRect()]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.type).toBe('IMAGE');
+    expect(node.imageHash).toMatch(/^figraster-/);
   });
 
   it('carries frame chrome (shadow / border / corners / opacity) onto the precomp frame', async () => {

@@ -28,6 +28,35 @@
     return [m[0][0], m[1][0], m[0][1], m[1][1], m[0][2] - origin.x, m[1][2] - origin.y];
   }
 
+  function invert2x3(m) {
+    var a = m[0][0], b = m[0][1], c = m[0][2], d = m[1][0], e = m[1][1], f = m[1][2];
+    var det = a * e - b * d;
+    if (!det) return null;
+    var ia = e / det, ib = -b / det, id = -d / det, ie = a / det;
+    return [[ia, ib, -(ia * c + ib * f)], [id, ie, -(id * c + ie * f)]];
+  }
+  function applyAffine(m, x, y) {
+    return [x * m[0][0] + y * m[0][1] + m[0][2], x * m[1][0] + y * m[1][1] + m[1][2]];
+  }
+
+  // The Plugin API gives a gradient's geometry as gradientTransform (a 2x3 affine
+  // from object space into the unit gradient square), NOT gradientHandlePositions
+  // (that is REST-API only and is undefined here, which is why every gradient used
+  // to fall back to a flat horizontal ramp). Invert the transform to recover the
+  // gradient axis in normalised object space, then scale to node-local px. Linear
+  // runs (0,0.5)->(1,0.5); radial hands the importer the centre (0.5,0.5) and an
+  // edge (1,0.5) so it positions the radial instead of defaulting to the corner.
+  function gradientHandles(p, w, h) {
+    var t = p.gradientTransform;
+    if (!t || !t.length || !t[0]) return [];
+    var inv = invert2x3(t);
+    if (!inv) return [];
+    var radial = (p.type === 'GRADIENT_RADIAL' || p.type === 'GRADIENT_DIAMOND');
+    var s = applyAffine(inv, radial ? 0.5 : 0, 0.5);
+    var e = applyAffine(inv, 1, 0.5);
+    return [[s[0] * w, s[1] * h], [e[0] * w, e[1] * h]];
+  }
+
   function mapPaint(p, w, h) {
     if (!p) return null;
     if (p.type === 'SOLID') {
@@ -45,10 +74,7 @@
         var c = gs[i].color;
         stops.push({ position: gs[i].position, color: { r: c.r, g: c.g, b: c.b, a: (c.a == null ? 1 : c.a) } });
       }
-      var handles = [];
-      var hp = p.gradientHandlePositions || [];
-      for (var k = 0; k < hp.length; k++) handles.push([hp[k].x * w, hp[k].y * h]);
-      return { type: p.type, stops: stops, gradientHandles: handles, opacity: (p.opacity == null ? 1 : p.opacity), visible: p.visible !== false };
+      return { type: p.type, stops: stops, gradientHandles: gradientHandles(p, w, h), opacity: (p.opacity == null ? 1 : p.opacity), visible: p.visible !== false };
     }
     return null; // IMAGE handled at the node level
   }
@@ -61,6 +87,16 @@
       if (m) out.push(m);
     }
     return out;
+  }
+
+  // Per-side stroke weights differ (Figma dividers, input underlines, table cells):
+  // strokeWeight then reads as figma.mixed. AE shape strokes have no per-side weight,
+  // so a node carrying these is rasterised (see nodeToIR) for a pixel-exact result;
+  // here we just detect the condition.
+  function hasPerSideStroke(node) {
+    if (typeof node.strokeTopWeight !== 'number') return false;
+    var t = node.strokeTopWeight, r = node.strokeRightWeight, b = node.strokeBottomWeight, l = node.strokeLeftWeight;
+    return !(t === r && r === b && b === l);
   }
 
   function mapStroke(node) {
@@ -223,6 +259,21 @@
     return false;
   }
 
+  // A fill or stroke paint with its own non-Normal blend mode has no faithful AE
+  // shape equivalent (shape blend modes do not map 1:1), so rasterise the node.
+  function hasBlendedPaint(node) {
+    var lists = [node.fills, node.strokes];
+    for (var l = 0; l < lists.length; l++) {
+      var arr = lists[l];
+      if (!arr || arr === figma.mixed) continue;
+      for (var i = 0; i < arr.length; i++) {
+        var p = arr[i];
+        if (p && p.visible !== false && p.blendMode && p.blendMode !== 'NORMAL') return true;
+      }
+    }
+    return false;
+  }
+
   // Effects After Effects cannot rebuild as a layer style or a Gaussian blur:
   // the newer Figma Draw / 2024-2025 effects (noise, texture, glass, progressive
   // blur, and anything added later). Anything unknown counts, so a future Figma
@@ -375,10 +426,11 @@
       return base;
     }
 
-    // Angular/diamond gradients and pattern fills have no AE shape equivalent, and
+    // Angular/diamond gradients and pattern fills have no AE shape equivalent;
     // noise / texture / glass / progressive-blur effects have no native rebuild;
-    // rasterise the node so it is pixel-exact rather than dropped or approximated.
-    if (node.type !== 'TEXT' && (hasUnreproducibleFill(node) || hasUnreproducibleEffect(node))) {
+    // per-side stroke weights and per-paint blend modes have no shape equivalent.
+    // Rasterise the node so it is pixel-exact rather than dropped or approximated.
+    if (node.type !== 'TEXT' && (hasUnreproducibleFill(node) || hasUnreproducibleEffect(node) || hasPerSideStroke(node) || hasBlendedPaint(node))) {
       var raster = await rasterizeNodeToImage(node, base, assets);
       if (raster) return raster;
     }
