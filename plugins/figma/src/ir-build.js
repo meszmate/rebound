@@ -223,6 +223,42 @@
     return false;
   }
 
+  // Effects After Effects cannot rebuild as a layer style or a Gaussian blur:
+  // the newer Figma Draw / 2024-2025 effects (noise, texture, glass, progressive
+  // blur, and anything added later). Anything unknown counts, so a future Figma
+  // effect rasterises (pixel-exact) instead of silently vanishing. Shadows and a
+  // plain layer/background blur are rebuilt natively, so they do not count.
+  function hasUnreproducibleEffect(node) {
+    var fx = node.effects;
+    if (!fx || fx === figma.mixed) return false;
+    for (var i = 0; i < fx.length; i++) {
+      var e = fx[i];
+      if (!e || e.visible === false) continue;
+      var t = e.type;
+      if (t === 'DROP_SHADOW' || t === 'INNER_SHADOW') continue;
+      if (t === 'LAYER_BLUR' || t === 'BACKGROUND_BLUR') {
+        if (e.blurType === 'PROGRESSIVE') return true; // no native AE progressive blur
+        continue;
+      }
+      return true; // NOISE / TEXTURE / GLASS / SHADER / future effects
+    }
+    return false;
+  }
+
+  // A Figma image paint with non-default photo adjustments (exposure, contrast,
+  // saturation, temperature, tint, highlights, shadows). exportAsync bakes these
+  // exactly, so an adjusted image is rasterised rather than placed raw.
+  function imageHasFilters(paint) {
+    var f = paint && paint.filters;
+    if (!f) return false;
+    var keys = ['exposure', 'contrast', 'saturation', 'temperature', 'tint', 'highlights', 'shadows'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = f[keys[i]];
+      if (typeof v === 'number' && (v > 0.001 || v < -0.001)) return true;
+    }
+    return false;
+  }
+
   // Rasterise a node to a 2x PNG and return it as an IMAGE node, so anything we
   // cannot rebuild vectorially still comes across pixel-exact.
   async function rasterizeNodeToImage(node, base, assets) {
@@ -293,9 +329,15 @@
     var w = node.width, h = node.height;
 
     // Image-filled LEAF shapes become IMAGE nodes (the common placed-image case);
-    // a container with an image fill must still recurse into its children.
+    // a container with an image fill must still recurse into its children. An
+    // adjusted image (photo filters) or one carrying an unreproducible effect is
+    // rasterised so the look is exact.
     var imgPaint = findImagePaint(node.fills);
     if (imgPaint && (!node.children || !node.children.length)) {
+      if (node.type !== 'TEXT' && (imageHasFilters(imgPaint) || hasUnreproducibleEffect(node))) {
+        var rfilt = await rasterizeNodeToImage(node, base, assets);
+        if (rfilt) return rfilt;
+      }
       await addImageAsset(imgPaint, assets);
       base.type = 'IMAGE';
       base.imageHash = imgPaint.imageHash;
@@ -304,9 +346,10 @@
       return base;
     }
 
-    // Angular/diamond gradients and pattern fills have no AE shape equivalent;
-    // rasterise the node so it is pixel-exact rather than approximated.
-    if (node.type !== 'TEXT' && hasUnreproducibleFill(node)) {
+    // Angular/diamond gradients and pattern fills have no AE shape equivalent, and
+    // noise / texture / glass / progressive-blur effects have no native rebuild;
+    // rasterise the node so it is pixel-exact rather than dropped or approximated.
+    if (node.type !== 'TEXT' && (hasUnreproducibleFill(node) || hasUnreproducibleEffect(node))) {
       var raster = await rasterizeNodeToImage(node, base, assets);
       if (raster) return raster;
     }

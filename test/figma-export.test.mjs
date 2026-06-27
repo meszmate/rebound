@@ -91,6 +91,29 @@ function maskRect(id, isMask, maskType) {
   };
 }
 
+const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0]);
+
+function noiseRect() {
+  const n = rectNode();
+  n.id = '1:9';
+  n.effects = [{ type: 'NOISE', visible: true }];
+  n.exportAsync = async () => PNG_BYTES;
+  return n;
+}
+
+function imageRect(filters) {
+  return {
+    id: '1:10', name: 'Photo', type: 'RECTANGLE', visible: true, opacity: 1, blendMode: 'NORMAL', isMask: false,
+    width: 100, height: 100, rotation: 0,
+    absoluteTransform: [[1, 0, 0], [0, 1, 0]],
+    absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 100 },
+    cornerRadius: 0, cornerSmoothing: 0,
+    fills: [{ type: 'IMAGE', imageHash: 'img1', scaleMode: 'FILL', visible: true, filters }],
+    strokes: [],
+    exportAsync: async () => PNG_BYTES
+  };
+}
+
 let buildIR;
 
 beforeAll(async () => {
@@ -177,6 +200,23 @@ describe('figma exporter -> IR', () => {
     expect(kids[0].maskTargetId).toBe('a');
     expect(kids[0].maskTargetIds).toBeUndefined();
     expect(kids[2].maskTargetId).toBe('b');
+  });
+
+  it('rasterizes a node carrying an unreproducible (noise) effect', async () => {
+    const ir = await buildIR([noiseRect()]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.type).toBe('IMAGE');
+    expect(node.imageHash).toMatch(/^figraster-/);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
+  it('rasterizes an image with photo filters but keeps a plain image as raw footage', async () => {
+    const adjusted = await buildIR([imageRect({ exposure: 0.5 })]);
+    expect(adjusted.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
+    const plain = await buildIR([imageRect()]);
+    const node = plain.document.frames[0].children[0];
+    expect(node.type).toBe('IMAGE');
+    expect(node.imageHash).toBe('img1');
   });
 
   it('places nodes in frame-relative coordinates', async () => {
