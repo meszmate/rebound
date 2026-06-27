@@ -139,23 +139,9 @@
     }
   }
 
-  function firstVisiblePaint(paints) {
-    if (!paints) return null;
-    for (var i = 0; i < paints.length; i++) {
-      if (paints[i] && paints[i].visible !== false) return paints[i];
-    }
-    return null;
-  }
-
-  function applyStroke(contents, node, report) {
-    var st = node.stroke;
-    if (!st || !st.weight) return null;
-    var paint = firstVisiblePaint(st.paints);
-    if (!paint) return null;
-    // Inside/outside solid strokes are reproduced exactly as a Stroke layer
-    // style (layerstyle.jsx); skip the centred shape stroke so there is no double.
-    if (st.align && st.align !== 'CENTER' && paint.type === 'SOLID') return null;
-
+  // Build one shape stroke operator for a single paint, sharing the node's
+  // weight / cap / join / miter / dashes.
+  function addStrokePaint(contents, node, st, paint, report) {
     var stroke;
     if (paint.type === 'SOLID') {
       stroke = contents.addProperty('ADBE Vector Graphic - Stroke');
@@ -170,7 +156,6 @@
     } else {
       return null;
     }
-
     stroke.property('ADBE Vector Stroke Width').setValue(st.weight);
     setSafe(stroke, 'ADBE Vector Stroke Line Cap', capOf(st.cap));
     setSafe(stroke, 'ADBE Vector Stroke Line Join', joinOf(st.join));
@@ -178,10 +163,34 @@
     if (st.dashPattern && st.dashPattern.length) {
       try { addDashes(stroke, st.dashPattern, st.dashOffset); } catch (e) { /* dashes vary by build */ }
     }
-    if (st.align && st.align !== 'CENTER') {
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'stroke aligned ' + st.align.toLowerCase() + ' rendered centred' });
-    }
     return stroke;
+  }
+
+  // A node can carry several stacked stroke paints (Figma maps every stroke into
+  // node.stroke.paints). Build one stroke operator per visible paint, in reverse
+  // so the first (topmost) source paint ends up on top. An inside/outside SOLID
+  // stroke is reproduced as a Stroke layer style (layerstyle.jsx), so it is
+  // skipped here to avoid a doubled centred stroke.
+  function applyStroke(contents, node, report) {
+    var st = node.stroke;
+    if (!st || !st.weight || !st.paints || !st.paints.length) return null;
+    var offCenter = st.align && st.align !== 'CENTER';
+    var made = null;
+    for (var i = st.paints.length - 1; i >= 0; i--) {
+      var paint = st.paints[i];
+      if (!paint || paint.visible === false) continue;
+      if (offCenter && paint.type === 'SOLID') continue;
+      var s = addStrokePaint(contents, node, st, paint, report);
+      if (s) made = s;
+    }
+    if (offCenter) {
+      var solidCount = 0;
+      for (var k = 0; k < st.paints.length; k++) { if (st.paints[k] && st.paints[k].visible !== false && st.paints[k].type === 'SOLID') solidCount++; }
+      if (solidCount > 1) {
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'only the first ' + st.align.toLowerCase() + ' solid stroke is reproduced as a layer style' });
+      }
+    }
+    return made;
   }
 
   R.importer.paint = {
