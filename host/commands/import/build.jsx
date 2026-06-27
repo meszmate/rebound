@@ -179,10 +179,38 @@
     return null;
   }
 
-  function buildFrameBackground(comp, frame) {
-    var bg = firstVisible(frame.background, 'SOLID');
-    if (!bg || !bg.color) return;
-    comp.layers.addSolid(colorToAE(bg.color), (frame.name || 'Frame') + ' BG', comp.width, comp.height, comp.pixelAspect, comp.duration);
+  // One comp-sized shape per background paint, reusing the proven fill path so a
+  // gradient frame background lands with the right direction (not just solids).
+  function addBackgroundShape(comp, frame, paint, report) {
+    var sl = comp.layers.addShape();
+    sl.name = (frame.name || 'Frame') + ' BG';
+    var tr = sl.property(util.MATCH.transform);
+    tr.property(util.MATCH.anchor).setValue([0, 0]);
+    tr.property(util.MATCH.position).setValue([0, 0]);
+    var contents = sl.property('ADBE Root Vectors Group').addProperty('ADBE Vector Group').property('ADBE Vectors Group');
+    var rect = contents.addProperty('ADBE Vector Shape - Rect');
+    rect.property('ADBE Vector Rect Size').setValue([comp.width, comp.height]);
+    rect.property('ADBE Vector Rect Position').setValue([comp.width / 2, comp.height / 2]);
+    var bgNode = { name: sl.name, transform: { width: comp.width, height: comp.height }, fills: [paint] };
+    R.importer.paint.applyFills(contents, bgNode, report);
+    return sl;
+  }
+
+  function buildFrameBackground(comp, frame, report) {
+    var bgs = frame.background || [];
+    for (var i = 0; i < bgs.length; i++) {
+      var p = bgs[i];
+      if (!p || p.visible === false) continue;
+      if (p.type === 'SOLID') {
+        if (p.color) comp.layers.addSolid(colorToAE(p.color), (frame.name || 'Frame') + ' BG', comp.width, comp.height, comp.pixelAspect, comp.duration);
+        continue;
+      }
+      if (p.type === 'IMAGE') {
+        note(report, 'approximated', { name: frame.name, detail: 'image frame background not reconstructed' });
+        continue;
+      }
+      try { addBackgroundShape(comp, frame, p, report); } catch (e) { /* shape build varies */ }
+    }
   }
 
   // ---- frame decorations (effects/border/corners on the precomp layer) -----
@@ -261,7 +289,7 @@
     var h = Math.max(1, Math.round(frame.height || 100));
 
     var comp = app.project.items.addComp(frame.name || 'Frame', w, h, par, dur, fps);
-    if (frame.background && frame.background.length) buildFrameBackground(comp, frame);
+    if (frame.background && frame.background.length) buildFrameBackground(comp, frame, report);
 
     buildChildren(comp, frame.children || [], report);
 
