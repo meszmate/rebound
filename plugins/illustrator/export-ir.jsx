@@ -24,6 +24,8 @@
   var IR_VERSION = '1.1.0';
   var skipped = [];
   var idCounter = 0;
+  var hashCounter = 0;
+  var assets = {};
   var FRAME = { left: 0, top: 0, right: 0, bottom: 0 };
 
   // ---- helpers -------------------------------------------------------------
@@ -133,6 +135,82 @@
 
   function note(item, detail) {
     if (skipped.length < 200) skipped.push((item && item.name ? item.name + ': ' : '') + detail);
+  }
+
+  // ---- rasterise an item to a PNG asset ------------------------------------
+
+  function readBinary(file) {
+    file.encoding = 'BINARY';
+    file.open('r');
+    var s = file.read();
+    file.close();
+    return s;
+  }
+  var B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  function base64FromBinary(data) {
+    var out = '', i = 0, len = data.length;
+    while (i < len) {
+      var c1 = data.charCodeAt(i++) & 0xff;
+      var has2 = i < len, c2 = has2 ? data.charCodeAt(i++) & 0xff : 0;
+      var has3 = i < len, c3 = has3 ? data.charCodeAt(i++) & 0xff : 0;
+      var e1 = c1 >> 2;
+      var e2 = ((c1 & 3) << 4) | (c2 >> 4);
+      var e3 = has2 ? (((c2 & 15) << 2) | (c3 >> 6)) : 64;
+      var e4 = has3 ? (c3 & 63) : 64;
+      out += B64.charAt(e1) + B64.charAt(e2) + (e3 === 64 ? '=' : B64.charAt(e3)) + (e4 === 64 ? '=' : B64.charAt(e4));
+    }
+    return out;
+  }
+
+  // Bake a single item to a 2x PNG so anything we cannot rebuild vectorially
+  // (placed/raster images, pattern fills, freeform gradients, art with live
+  // effects) still comes across pixel-exact. Non-destructive: the item is
+  // duplicated into a throwaway document and captured there, the source is never
+  // touched. Returns { hash, left, top, width, height } in artboard (Y-up) space,
+  // or null on any failure (caller falls back to today's behaviour: drop + note).
+  function rasterizeItemToAsset(item, name) {
+    var gb;
+    try { gb = item.visibleBounds; } catch (e0) { try { gb = item.geometricBounds; } catch (e1) { return null; } }
+    var left = gb[0], top = gb[1], right = gb[2], bottom = gb[3];
+    var wpt = right - left, hpt = top - bottom;
+    if (!(wpt > 0) || !(hpt > 0)) return null;
+    var hash = 'ai' + (++hashCounter);
+    var tmp = null;
+    try {
+      tmp = app.documents.add(DocumentColorSpace.RGB, wpt, hpt);
+      var dup = item.duplicate(tmp.layers[0], ElementPlacement.PLACEATEND);
+      var cap = new File(Folder.temp + '/' + hash + '.png');
+      var opts = new ImageCaptureOptions();
+      opts.resolution = 144;       // 2x for crispness; node box stays at 1x
+      opts.antiAliasing = true;
+      opts.transparency = true;
+      tmp.imageCapture(cap, dup.visibleBounds, opts);
+      tmp.close(SaveOptions.DONOTSAVECHANGES);
+      tmp = null;
+      app.activeDocument = doc;
+      var pxw = Math.max(1, Math.round(wpt * 2));
+      var pxh = Math.max(1, Math.round(hpt * 2));
+      assets[hash] = { hash: hash, mime: 'image/png', width: pxw, height: pxh, bytesBase64: base64FromBinary(readBinary(cap)) };
+      try { cap.remove(); } catch (e2) {}
+      return { hash: hash, left: left, top: top, width: wpt, height: hpt };
+    } catch (e) {
+      note(item, 'could not rasterise this item');
+      try { if (tmp) tmp.close(SaveOptions.DONOTSAVECHANGES); } catch (e3) {}
+      try { app.activeDocument = doc; } catch (e4) {}
+      return null;
+    }
+  }
+
+  function imageItemToIR(item) {
+    var img = rasterizeItemToAsset(item, item.name);
+    if (!img) return null;
+    var node = baseNode(item, img.left, img.top, img.left + img.width, img.top - img.height);
+    if (!node.name) node.name = 'Image';
+    node.type = 'IMAGE';
+    node.imageHash = img.hash;
+    node.scaleMode = 'FILL';
+    node.fills = [];
+    return node;
   }
 
   // ---- geometry ------------------------------------------------------------
@@ -410,16 +488,34 @@
     return out;
   }
 
+  // A pattern fill has no AE shape equivalent; bake the item to a PNG so it looks
+  // exact instead of the flat placeholder colour colorToPaint falls back to.
+  function hasUnreproducibleFill(item) {
+    try {
+      if (item.filled && item.fillColor && item.fillColor.typename === 'PatternColor') return true;
+    } catch (e) {}
+    return false;
+  }
+
   function itemToIR(item) {
     var tn;
     try { if (item.hidden) return null; tn = item.typename; } catch (e) { return null; }
-    if (tn === 'PathItem') return pathToIR(item);
+    if (tn === 'PathItem') {
+      if (hasUnreproducibleFill(item)) { var ri = imageItemToIR(item); if (ri) return ri; }
+      return pathToIR(item);
+    }
     if (tn === 'CompoundPathItem') return compoundToIR(item);
     if (tn === 'GroupItem') return groupToIR(item);
     if (tn === 'TextFrame') return textToIR(item);
-    if (tn === 'PlacedItem' || tn === 'RasterItem') { note(item, 'image not transferred (place it in After Effects)'); return null; }
+    // Placed / raster images and meshes: bake to a pixel-exact PNG.
+    if (tn === 'PlacedItem' || tn === 'RasterItem' || tn === 'MeshItem') {
+      var img = imageItemToIR(item);
+      if (img) return img;
+      note(item, tn + ' could not be transferred (place it in After Effects)');
+      return null;
+    }
     if (tn === 'SymbolItem') { note(item, 'symbol not expanded'); return null; }
-    if (tn === 'MeshItem' || tn === 'GraphItem') { note(item, tn + ' not supported'); return null; }
+    if (tn === 'GraphItem') { note(item, tn + ' not supported'); return null; }
     return null;
   }
 
@@ -454,7 +550,7 @@
   var ir = {
     irVersion: IR_VERSION,
     source: { app: 'illustrator', exporterVersion: '0.1.0', fileName: String(doc.name), selectionCount: items.length },
-    document: { name: String(doc.name), colorSpace: 'srgb', unit: 'px', yAxis: 'down', assets: {}, frames: [frame] }
+    document: { name: String(doc.name), colorSpace: 'srgb', unit: 'px', yAxis: 'down', assets: assets, frames: [frame] }
   };
 
   // One-click send: POST the IR to the Rebound receiver in After Effects over a
