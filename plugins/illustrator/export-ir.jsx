@@ -80,6 +80,12 @@
     if (tn === 'CMYKColor') { var rgb = cmykToRgb(c.cyan, c.magenta, c.yellow, c.black); return solid(rgb[0], rgb[1], rgb[2]); }
     if (tn === 'SpotColor') { try { return colorToPaint(c.spot.color, item); } catch (e) { return solid(0.5, 0.5, 0.5); } }
     if (tn === 'GradientColor') return gradientToPaint(c, item);
+    if (tn === 'LabColor') {
+      try {
+        var rgb = app.convertSampleColor(ImageColorSpace.LAB, [c.l, c.a, c.b], ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose);
+        return solid(rgb[0] / 255, rgb[1] / 255, rgb[2] / 255);
+      } catch (e) { return solid(0.5, 0.5, 0.5); }
+    }
     if (tn === 'PatternColor') { note(item, 'pattern fill not transferred'); return solid(0.5, 0.5, 0.5); }
     if (tn === 'NoColor') return null;
     return null;
@@ -101,8 +107,28 @@
     }
     var type = 'GRADIENT_LINEAR';
     try { if (g.type === GradientType.RADIAL) type = 'GRADIENT_RADIAL'; } catch (e) {}
-    note(item, 'gradient geometry approximated (colours exact)');
-    return { type: type, stops: stops, gradientMidpoints: mids, opacity: 1, visible: true };
+    var paint = { type: type, stops: stops, gradientMidpoints: mids, opacity: 1, visible: true };
+    // Gradient ramp geometry: origin + angle + length live in artboard (Y-up)
+    // space; convert the start/end to the item's local IR space (Y-down). This
+    // lands the gradient at the right angle/origin instead of a default ramp.
+    var placed = false;
+    try {
+      if (item) {
+        var gb = item.geometricBounds;
+        var left = gb[0], top = gb[1];
+        var ox = gc.origin[0], oy = gc.origin[1];
+        var ang = gc.angle * Math.PI / 180;
+        var len = gc.length;
+        if (isFinite(ox) && isFinite(oy) && isFinite(len) && len !== 0) {
+          var ex = ox + len * Math.cos(ang);
+          var ey = oy + len * Math.sin(ang);
+          paint.gradientHandles = [[round(ox - left), round(top - oy)], [round(ex - left), round(top - ey)]];
+          placed = true;
+        }
+      }
+    } catch (e1) {}
+    if (!placed) note(item, 'gradient geometry approximated (colours exact)');
+    return paint;
   }
 
   function note(item, detail) {
@@ -160,6 +186,7 @@
         var d = [];
         for (var i = 0; i < item.strokeDashes.length; i++) d.push(item.strokeDashes[i]);
         stroke.dashPattern = d;
+        try { if (item.strokeDashOffset) stroke.dashOffset = item.strokeDashOffset; } catch (e3) {}
       }
     } catch (e2) {}
     return stroke;
@@ -230,15 +257,45 @@
     return node;
   }
 
+  // A member of a clip group is the clipping path; it masks the other members.
+  function isClipping(it) {
+    try { if (it.clipping === true) return true; } catch (e) {}
+    try { if (it.typename === 'CompoundPathItem' && it.pathItems.length && it.pathItems[0].clipping) return true; } catch (e2) {}
+    return false;
+  }
+
   function groupToIR(item) {
     var gb = item.geometricBounds;
     var node = baseNode(item, gb[0], gb[1], gb[2], gb[3]);
     if (!node.name) node.name = 'Group';
     node.type = 'GROUP';
     node.children = [];
+    var clipped = false;
+    try { clipped = item.clipped === true; } catch (eC) {}
+    var clipNode = null;
     for (var i = 0; i < item.pageItems.length; i++) {
-      var c = itemToIR(item.pageItems[i]);
-      if (c) node.children.push(c);
+      var src = item.pageItems[i];
+      var c = itemToIR(src);
+      if (!c) continue;
+      if (clipped && !clipNode && isClipping(src)) {
+        c.isMask = true;
+        c.maskType = 'ALPHA';
+        // A clip path usually has no paint; give the matte a fill so its
+        // silhouette carries alpha (an empty alpha matte would hide everything).
+        if (!c.fills || !c.fills.length) c.fills = [solid(1, 1, 1)];
+        clipNode = c;
+      }
+      node.children.push(c);
+    }
+    if (clipNode) {
+      var targets = [];
+      for (var k = 0; k < node.children.length; k++) {
+        if (node.children[k] !== clipNode) targets.push(node.children[k].id);
+      }
+      if (targets.length) {
+        clipNode.maskTargetId = targets[0];
+        if (targets.length > 1) clipNode.maskTargetIds = targets;
+      }
     }
     return node;
   }
@@ -255,20 +312,29 @@
     return 'LEFT';
   }
 
+  function capsToIR(c) {
+    try {
+      if (c === FontCapsOption.ALLCAPS) return 'UPPER';
+      if (c === FontCapsOption.SMALLCAPS || c === FontCapsOption.ALLSMALLCAPS) return 'SMALL_CAPS';
+    } catch (e) {}
+    return undefined;
+  }
+
   function charStyle(ca) {
-    var style = { size: 12, ps: null, family: null, fstyle: null, tracking: 0, leading: 0, autoLeading: true, baseline: 0, color: null };
+    var style = { size: 12, ps: null, family: null, fstyle: null, tracking: 0, leading: 0, autoLeading: true, baseline: 0, color: null, caps: undefined };
     try { style.size = ca.size; } catch (e) {}
     try { style.ps = ca.textFont.name; style.family = ca.textFont.family; style.fstyle = ca.textFont.style; } catch (e2) {}
     try { style.tracking = ca.tracking; } catch (e3) {}
     try { style.autoLeading = ca.autoLeading; style.leading = ca.leading; } catch (e4) {}
     try { style.baseline = ca.baselineShift; } catch (e5) {}
     try { style.color = colorToPaint(ca.fillColor, null); } catch (e6) {}
+    try { style.caps = capsToIR(ca.capitalization); } catch (e7) {}
     return style;
   }
 
   function sameStyle(a, b) {
     return a.ps === b.ps && a.size === b.size && a.tracking === b.tracking &&
-      a.baseline === b.baseline && colorKey(a.color) === colorKey(b.color);
+      a.baseline === b.baseline && a.caps === b.caps && colorKey(a.color) === colorKey(b.color);
   }
   function colorKey(p) {
     if (!p || !p.color) return 'none';
@@ -281,6 +347,7 @@
     if (style.family) run.fontFamily = style.family;
     if (style.fstyle) run.fontStyle = style.fstyle;
     if (style.color) run.fills = [style.color];
+    if (style.caps) run.textCase = style.caps;
     run.lineHeight = style.autoLeading ? { unit: 'AUTO' } : { unit: 'PIXELS', value: style.leading };
     return run;
   }
@@ -311,12 +378,16 @@
     } catch (e) {
       runs.push({ start: 0, end: contents.length, characters: contents });
     }
+    // Point text auto-sizes (no box); area text keeps its frame so wrapping
+    // matches. autoResize WIDTH_AND_HEIGHT tells the importer to use point text.
+    var autoResize = 'NONE';
+    try { if (item.kind === TextType.POINTTEXT) autoResize = 'WIDTH_AND_HEIGHT'; } catch (eKind) {}
     node.text = {
       characters: contents,
       runs: runs,
       textAlignHorizontal: justToIR(item),
       textAlignVertical: 'TOP',
-      autoResize: 'NONE',
+      autoResize: autoResize,
       boxSize: [round(gb[2] - gb[0]), round(gb[1] - gb[3])]
     };
     // Text stroke (per-character in Illustrator; take the range's attributes).
