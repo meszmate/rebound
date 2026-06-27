@@ -91,6 +91,22 @@ function maskRect(id, isMask, maskType) {
   };
 }
 
+function frameWithChrome() {
+  return {
+    id: 'F1', name: 'Card', type: 'FRAME', visible: true, opacity: 0.9, blendMode: 'PASS_THROUGH',
+    width: 200, height: 120, rotation: 0,
+    absoluteTransform: [[1, 0, 0], [0, 1, 0]],
+    absoluteBoundingBox: { x: 0, y: 0, width: 200, height: 120 },
+    clipsContent: true,
+    cornerRadius: 12, cornerSmoothing: 0,
+    fills: [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 1, visible: true }],
+    strokes: [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 1, visible: true }],
+    strokeWeight: 2, strokeAlign: 'INSIDE', strokeCap: 'NONE', strokeJoin: 'MITER',
+    effects: [{ type: 'DROP_SHADOW', color: { r: 0, g: 0, b: 0, a: 0.25 }, offset: { x: 0, y: 8 }, radius: 16, spread: 0, visible: true }],
+    children: [rectNode()]
+  };
+}
+
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0]);
 
 function noiseRect() {
@@ -241,6 +257,17 @@ describe('figma exporter -> IR', () => {
     // FIT stays live (the importer reproduces contain exactly).
     const fit = await buildIR([imageRect(undefined, { scaleMode: 'FIT', width: 200, height: 100 })]);
     expect(fit.document.frames[0].children[0].imageHash).toBe('img1');
+  });
+
+  it('carries frame chrome (shadow / border / corners / opacity) onto the precomp frame', async () => {
+    const ir = await buildIR([frameWithChrome()]);
+    const frame = ir.document.frames[0];
+    expect(frame.opacity).toBe(0.9);
+    expect(frame.blendMode).toBeUndefined(); // PASS_THROUGH is the default, omitted
+    expect(frame.effects[0].type).toBe('DROP_SHADOW');
+    expect(frame.stroke.weight).toBe(2);
+    expect(frame.cornerRadii.topLeft).toBe(12);
+    expect(validateMod.validate(ir).valid).toBe(true);
   });
 
   it('places nodes in frame-relative coordinates', async () => {

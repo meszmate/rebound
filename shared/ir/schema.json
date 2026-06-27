@@ -424,6 +424,11 @@
         "height": { "type": "number" },
         "background": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
         "clipsContent": { "type": "boolean", "default": true },
+        "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+        "blendMode": { "$ref": "#/definitions/blendMode" },
+        "effects": { "type": "array", "items": { "$ref": "#/definitions/effect" }, "description": "frame-level effects (drop shadow / blur) applied to the precomp layer." },
+        "stroke": { "$ref": "#/definitions/stroke", "description": "frame border, applied to the precomp layer as a Stroke layer style." },
+        "cornerRadii": { "$ref": "#/definitions/cornerRadii", "description": "rounds the precomp layer via a mask so the frame's rounded corners survive." },
         "buildMode": {
           "type": "string",
           "enum": ["GROUP", "PRECOMP"],

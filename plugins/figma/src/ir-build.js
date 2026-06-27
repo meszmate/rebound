@@ -475,7 +475,7 @@
     var children = await childrenToIR(frame, origin, assets);
     var background = [];
     if (frame.fills && frame.fills !== figma.mixed) background = mapFills(frame.fills, frame.width, frame.height);
-    return {
+    var out = {
       id: frame.id,
       name: frame.name,
       width: frame.width,
@@ -485,6 +485,18 @@
       buildMode: 'PRECOMP',
       children: children
     };
+    // A frame's own shadow / blur, border, rounded corners, opacity and blend live
+    // on the precomp layer (card-style frames rely on all of these). Carry them so
+    // the importer can decorate the precomp instead of dropping them.
+    if (frame.opacity != null && frame.opacity < 1) out.opacity = frame.opacity;
+    if (frame.blendMode && frame.blendMode !== 'PASS_THROUGH' && frame.blendMode !== 'NORMAL') out.blendMode = frame.blendMode;
+    var fe = mapEffects(frame.effects);
+    if (fe.length) out.effects = fe;
+    var fs = mapStroke(frame);
+    if (fs && fs.paints && fs.paints.length) out.stroke = fs;
+    var fc = mapCorners(frame);
+    if (fc && (fc.topLeft || fc.topRight || fc.bottomRight || fc.bottomLeft)) out.cornerRadii = fc;
+    return out;
   }
 
   // Wrap loose (non-frame) selection in one synthetic frame sized to their bounds.

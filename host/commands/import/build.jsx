@@ -185,6 +185,74 @@
     comp.layers.addSolid(colorToAE(bg.color), (frame.name || 'Frame') + ' BG', comp.width, comp.height, comp.pixelAspect, comp.duration);
   }
 
+  // ---- frame decorations (effects/border/corners on the precomp layer) -----
+
+  // Build an AE Shape from an IR subpath (relative tangents), for a layer mask.
+  function shapeFromSubpath(sp) {
+    var verts = sp.vertices || [];
+    var shape = new Shape();
+    var vv = [], it = [], ot = [];
+    for (var j = 0; j < verts.length; j++) {
+      var v = verts[j];
+      vv.push([v.x, v.y]);
+      it.push(v.inTangent || [0, 0]);
+      ot.push(v.outTangent || [0, 0]);
+    }
+    shape.vertices = vv;
+    shape.inTangents = it;
+    shape.outTangents = ot;
+    shape.closed = !!sp.closed;
+    return shape;
+  }
+
+  // A precomp clips its content to a sharp rectangle; round it with a mask so a
+  // Figma frame's rounded corners (and rounded clip) survive.
+  function roundFrameCorners(pcLayer, frame) {
+    var cr = frame.cornerRadii;
+    if (!cr) return;
+    var tl = cr.topLeft || 0, tr = cr.topRight || 0, br = cr.bottomRight || 0, bl = cr.bottomLeft || 0;
+    if (!(tl || tr || br || bl)) return;
+    try {
+      var w = Math.max(1, Math.round(frame.width || 100));
+      var h = Math.max(1, Math.round(frame.height || 100));
+      var sp = R.importer.geometry.roundedRect(w, h, { tl: tl, tr: tr, br: br, bl: bl });
+      var masks = pcLayer.property('ADBE Mask Parade');
+      var mask = masks.addProperty('ADBE Mask Atom');
+      mask.property('ADBE Mask Shape').setValue(shapeFromSubpath(sp));
+    } catch (e) { /* masks vary by build */ }
+  }
+
+  // A node-like object so effect.jsx / layerstyle.jsx can decorate the precomp
+  // exactly like any other layer: frame shadow/blur as effects, frame border as a
+  // Stroke layer style (any alignment, since a precomp has no shape stroke).
+  function frameStyleNode(frame) {
+    var node = { name: frame.name || 'Frame', effects: frame.effects || [], stroke: null, layerStyles: [] };
+    var st = frame.stroke;
+    if (st && st.weight && st.paints && st.paints.length) {
+      var p = null;
+      for (var i = 0; i < st.paints.length; i++) { if (st.paints[i] && st.paints[i].visible !== false) { p = st.paints[i]; break; } }
+      if (p && p.type === 'SOLID') {
+        node.layerStyles.push({ type: 'STROKE', size: st.weight, color: p.color, position: st.align || 'CENTER', opacity: (p.opacity != null ? p.opacity : 1) });
+      }
+    }
+    return node;
+  }
+
+  function decorateFrameLayer(pcLayer, frame, report) {
+    if (!pcLayer || pcLayer.length !== undefined) return;
+    if (typeof frame.opacity === 'number' && frame.opacity < 1) {
+      try { pcLayer.property(util.MATCH.transform).property(util.MATCH.opacity).setValue(frame.opacity * 100); } catch (e) {}
+    }
+    if (frame.blendMode && frame.blendMode !== 'NORMAL' && frame.blendMode !== 'PASS_THROUGH') {
+      var be = R.importer.transform.blendEnum(frame.blendMode);
+      if (be != null) { try { pcLayer.blendingMode = be; } catch (e2) {} }
+    }
+    roundFrameCorners(pcLayer, frame);
+    var styleNode = frameStyleNode(frame);
+    if (R.importer.effect) R.importer.effect.apply(pcLayer, styleNode, report);
+    if (R.importer.layerStyle) R.importer.layerStyle.collect(pcLayer, styleNode, report);
+  }
+
   function buildFrame(target, frame, report) {
     var fps = target ? target.frameRate : 30;
     var dur = target ? target.duration : 10;
@@ -200,7 +268,8 @@
     report.framesBuilt++;
 
     if (target) {
-      target.layers.add(comp);
+      var pcLayer = target.layers.add(comp);
+      decorateFrameLayer(pcLayer, frame, report);
       report.placedInComp = true;
     }
     return comp;
