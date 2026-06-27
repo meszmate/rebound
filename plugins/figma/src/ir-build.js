@@ -242,7 +242,7 @@
 
   function baseFields(node, origin) {
     var m = relMatrix(node, origin);
-    return {
+    var base = {
       id: node.id,
       name: node.name,
       type: 'GROUP',
@@ -252,6 +252,29 @@
       isMask: node.isMask || false,
       transform: { x: m[4], y: m[5], width: node.width, height: node.height, rotation: node.rotation || 0, matrix: m }
     };
+    // Luminance masks become a luma track matte; alpha / geometry / outline masks
+    // all become an alpha track matte (the shape silhouette).
+    if (node.isMask) base.maskType = (node.maskType === 'LUMINANCE') ? 'LUMA' : 'ALPHA';
+    return base;
+  }
+
+  // A Figma mask masks every following sibling (children are ordered bottom -> top)
+  // until the next mask. Record the masked ids so the importer can wire one track
+  // matte per target. Run once per sibling list (each parent / frame / selection).
+  function assignMaskTargets(siblings) {
+    for (var i = 0; i < siblings.length; i++) {
+      var m = siblings[i];
+      if (!m || !m.isMask) continue;
+      var targets = [];
+      for (var j = i + 1; j < siblings.length; j++) {
+        if (siblings[j] && siblings[j].isMask) break; // the next mask starts a new group
+        if (siblings[j] && siblings[j].visible !== false) targets.push(siblings[j].id);
+      }
+      if (targets.length) {
+        m.maskTargetId = targets[0];
+        if (targets.length > 1) m.maskTargetIds = targets;
+      }
+    }
   }
 
   async function childrenToIR(node, origin, assets) {
@@ -261,6 +284,7 @@
       var ir = await nodeToIR(kids[i], origin, assets);
       if (ir) out.push(ir);
     }
+    assignMaskTargets(out);
     return out;
   }
 
@@ -409,6 +433,7 @@
       var ir = await nodeToIR(nodes[k], origin, assets);
       if (ir) children.push(ir);
     }
+    assignMaskTargets(children);
     return {
       id: 'selection',
       name: 'Selection',

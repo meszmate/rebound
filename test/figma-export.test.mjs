@@ -78,6 +78,19 @@ function pieEllipse() {
   };
 }
 
+function maskRect(id, isMask, maskType) {
+  return {
+    id, name: 'r' + id, type: 'RECTANGLE', visible: true, opacity: 1, blendMode: 'NORMAL',
+    isMask: !!isMask, maskType,
+    width: 50, height: 50, rotation: 0,
+    absoluteTransform: [[1, 0, 0], [0, 1, 0]],
+    absoluteBoundingBox: { x: 0, y: 0, width: 50, height: 50 },
+    cornerRadius: 0, cornerSmoothing: 0,
+    fills: [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 1, visible: true }],
+    strokes: []
+  };
+}
+
 let buildIR;
 
 beforeAll(async () => {
@@ -139,6 +152,31 @@ describe('figma exporter -> IR', () => {
     expect(node.paths.length).toBeGreaterThan(0);
     const res = validateMod.validate(ir);
     expect(res.valid).toBe(true);
+  });
+
+  it('wires a mask to its following siblings (multi-target + luma)', async () => {
+    const ir = await buildIR([maskRect('m1', true, 'LUMINANCE'), maskRect('a'), maskRect('b')]);
+    const mask = ir.document.frames[0].children[0];
+    expect(mask.maskType).toBe('LUMA');
+    expect(mask.maskTargetId).toBe('a');
+    expect(mask.maskTargetIds).toEqual(['a', 'b']);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
+  it('a single-target mask uses maskTargetId only and defaults to alpha', async () => {
+    const ir = await buildIR([maskRect('m1', true), maskRect('a')]);
+    const mask = ir.document.frames[0].children[0];
+    expect(mask.maskType).toBe('ALPHA');
+    expect(mask.maskTargetId).toBe('a');
+    expect(mask.maskTargetIds).toBeUndefined();
+  });
+
+  it('a second mask starts a new group (does not capture the first mask’s targets)', async () => {
+    const ir = await buildIR([maskRect('m1', true), maskRect('a'), maskRect('m2', true), maskRect('b')]);
+    const kids = ir.document.frames[0].children;
+    expect(kids[0].maskTargetId).toBe('a');
+    expect(kids[0].maskTargetIds).toBeUndefined();
+    expect(kids[2].maskTargetId).toBe('b');
   });
 
   it('places nodes in frame-relative coordinates', async () => {

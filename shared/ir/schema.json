@@ -337,6 +337,7 @@
         "isMask": { "type": "boolean", "default": false },
         "maskType": { "type": "string", "enum": ["ALPHA", "LUMA", "VECTOR"], "description": "how this node masks: vector path, or a raster alpha/luma matte." },
         "maskTargetId": { "type": "string", "description": "id of the layer this node clips (clipping mask); becomes a track matte." },
+        "maskTargetIds": { "type": "array", "items": { "type": "string" }, "description": "ids of every layer this node masks (a Figma mask masks all following siblings); each becomes a track matte, the matte duplicated per extra target." },
         "clipBelow": { "type": "boolean", "description": "Photoshop clipping mask: show only where the layers below have alpha (preserve underlying transparency)." },
         "clipsContent": { "type": "boolean", "description": "FRAME/GROUP: clip children to bounds." },
         "transform": { "$ref": "#/definitions/transform" },

@@ -166,7 +166,7 @@
       try {
         var layer = builder(comp, node, report);
         registerLayer(node, layer);
-        if (R.importer.mask) R.importer.mask.collect(node, layer);
+        if (R.importer.mask) R.importer.mask.collect(node, layer, report);
         return layer;
       } catch (e) {
         note(report, 'skipped', { name: node.name, type: node.type, reason: (e && e.message) || 'build failed' });
