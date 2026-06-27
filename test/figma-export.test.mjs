@@ -59,6 +59,25 @@ function textNode() {
   };
 }
 
+function shadowRect(blendMode) {
+  const n = rectNode();
+  n.effects = [{ type: 'DROP_SHADOW', color: { r: 0, g: 0, b: 0, a: 0.3 }, offset: { x: 0, y: 4 }, radius: 8, spread: 0, visible: true, blendMode }];
+  return n;
+}
+
+function pieEllipse() {
+  return {
+    id: '1:3', name: 'Pie', type: 'ELLIPSE', visible: true, opacity: 1, blendMode: 'NORMAL', isMask: false,
+    width: 80, height: 80, rotation: 0,
+    absoluteTransform: [[1, 0, 0], [0, 1, 0]],
+    absoluteBoundingBox: { x: 0, y: 0, width: 80, height: 80 },
+    arcData: { startingAngle: 0, endingAngle: Math.PI, innerRadius: 0.5 },
+    fillGeometry: [{ data: 'M0 0 L80 0 L80 40 L0 40 Z', windingRule: 'NONZERO' }],
+    fills: [{ type: 'SOLID', color: { r: 0, g: 0, b: 1 }, opacity: 1, visible: true }],
+    strokes: []
+  };
+}
+
 let buildIR;
 
 beforeAll(async () => {
@@ -102,6 +121,24 @@ describe('figma exporter -> IR', () => {
     expect(node.text.runs[0].fontFamily).toBe('Inter');
     expect(node.text.runs[0].fontStyle).toBe('Bold');
     expect(node.text.runs[0].fontSize).toBe(16);
+  });
+
+  it('carries a shadow blend mode through to the IR (and omits the default)', async () => {
+    const withBlend = await buildIR([shadowRect('MULTIPLY')]);
+    expect(withBlend.document.frames[0].children[0].effects[0].blendMode).toBe('MULTIPLY');
+    const plain = await buildIR([shadowRect('NORMAL')]);
+    expect(plain.document.frames[0].children[0].effects[0].blendMode).toBeUndefined();
+  });
+
+  it('rebuilds an ellipse arc/ring as paths plus arc metadata', async () => {
+    const ir = await buildIR([pieEllipse()]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.type).toBe('ELLIPSE');
+    expect(node.primitive.ellipse.arc.innerRadius).toBe(0.5);
+    expect(node.primitive.ellipse.arc.endAngle).toBeCloseTo(180, 3);
+    expect(node.paths.length).toBeGreaterThan(0);
+    const res = validateMod.validate(ir);
+    expect(res.valid).toBe(true);
   });
 
   it('places nodes in frame-relative coordinates', async () => {

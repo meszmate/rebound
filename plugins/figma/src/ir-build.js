@@ -88,14 +88,18 @@
       var e = effects[i];
       if (e.visible === false) continue;
       if (e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW') {
-        out.push({
+        var sh = {
           type: e.type,
           color: { r: e.color.r, g: e.color.g, b: e.color.b, a: (e.color.a == null ? 1 : e.color.a) },
           offset: [e.offset.x, e.offset.y],
           radius: e.radius,
           spread: e.spread || 0,
           visible: true
-        });
+        };
+        // The shadow's own blend mode (the importer maps it to the layer-style
+        // mode2 ordinal). Figma's default is the literal string 'NORMAL'.
+        if (e.blendMode && e.blendMode !== 'NORMAL') sh.blendMode = e.blendMode;
+        out.push(sh);
       } else if (e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') {
         out.push({ type: e.type, radius: e.radius, visible: true });
       }
@@ -301,6 +305,18 @@
         base.primitive = { ellipse: { size: [w, h] } };
         base.fills = mapFills(node.fills, w, h);
         base.stroke = mapStroke(node);
+        // Arc / pie / ring (Figma arcData). A non-default sweep or inner radius
+        // has no parametric AE ellipse; carry the exact rendered outline as paths
+        // so the importer rebuilds the pie/ring faithfully, plus the arc metadata.
+        var ad = node.arcData;
+        if (ad && (ad.startingAngle !== 0 || ad.endingAngle < 6.2825 || ad.innerRadius > 0)) {
+          base.primitive.ellipse.arc = {
+            startAngle: ad.startingAngle * 180 / Math.PI,
+            endAngle: ad.endingAngle * 180 / Math.PI,
+            innerRadius: ad.innerRadius
+          };
+          if (node.fillGeometry && node.fillGeometry.length) base.paths = mapPaths(node);
+        }
         break;
       case 'LINE':
         base.type = 'LINE';
