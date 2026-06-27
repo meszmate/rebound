@@ -80,7 +80,24 @@
     if (tn === 'RGBColor') return solid(c.red / 255, c.green / 255, c.blue / 255);
     if (tn === 'GrayColor') { var g = 1 - (c.gray / 100); return solid(g, g, g); }
     if (tn === 'CMYKColor') { var rgb = cmykToRgb(c.cyan, c.magenta, c.yellow, c.black); return solid(rgb[0], rgb[1], rgb[2]); }
-    if (tn === 'SpotColor') { try { return colorToPaint(c.spot.color, item); } catch (e) { return solid(0.5, 0.5, 0.5); } }
+    if (tn === 'SpotColor') {
+      try {
+        var sp = colorToPaint(c.spot.color, item);
+        // A spot colour applied at < 100% tint is mixed toward white; without this
+        // it imported at full strength (too dark).
+        if (sp && sp.color) {
+          var tint = 100;
+          try { if (typeof c.tint === 'number') tint = c.tint; } catch (eT) {}
+          if (tint < 100) {
+            var f = tint / 100;
+            sp.color.r = 1 - (1 - sp.color.r) * f;
+            sp.color.g = 1 - (1 - sp.color.g) * f;
+            sp.color.b = 1 - (1 - sp.color.b) * f;
+          }
+        }
+        return sp || solid(0.5, 0.5, 0.5);
+      } catch (e) { return solid(0.5, 0.5, 0.5); }
+    }
     if (tn === 'GradientColor') return gradientToPaint(c, item);
     if (tn === 'LabColor') {
       try {
@@ -507,15 +524,14 @@
     if (tn === 'CompoundPathItem') return compoundToIR(item);
     if (tn === 'GroupItem') return groupToIR(item);
     if (tn === 'TextFrame') return textToIR(item);
-    // Placed / raster images and meshes: bake to a pixel-exact PNG.
-    if (tn === 'PlacedItem' || tn === 'RasterItem' || tn === 'MeshItem') {
+    // Placed / raster images, meshes, symbol instances, and graphs all bake to a
+    // pixel-exact PNG instead of vanishing (each previously returned null).
+    if (tn === 'PlacedItem' || tn === 'RasterItem' || tn === 'MeshItem' || tn === 'SymbolItem' || tn === 'GraphItem') {
       var img = imageItemToIR(item);
       if (img) return img;
       note(item, tn + ' could not be transferred (place it in After Effects)');
       return null;
     }
-    if (tn === 'SymbolItem') { note(item, 'symbol not expanded'); return null; }
-    if (tn === 'GraphItem') { note(item, tn + ' not supported'); return null; }
     return null;
   }
 
