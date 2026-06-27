@@ -183,6 +183,87 @@
     return ls;
   }
 
+  function readEnumId(d, key) {
+    try { return typeIDToStringID(d.getEnumerationValue(sID(key))); } catch (e) { return undefined; }
+  }
+  function bevelStyleToIR(s) {
+    switch (s) {
+      case 'outerBevel': return 'OUTER';
+      case 'innerBevel': return 'INNER';
+      case 'emboss': return 'EMBOSS';
+      case 'pillowEmboss': return 'PILLOW';
+      case 'strokeEmboss': return 'STROKE';
+      default: return undefined;
+    }
+  }
+  function bevelTechToIR(t) {
+    switch (t) {
+      case 'softMatte': return 'SMOOTH';
+      case 'hardChisel': return 'CHISEL_HARD';
+      case 'softChisel': return 'CHISEL_SOFT';
+      default: return undefined;
+    }
+  }
+  function bevelDirToIR(x) {
+    if (x === 'stampOut') return 'UP';
+    if (x === 'stampIn') return 'DOWN';
+    return undefined;
+  }
+  function readModeKey(d, key) {
+    try { return psBlendIdToIR(typeIDToStringID(d.getEnumerationValue(sID(key)))); } catch (e) { return undefined; }
+  }
+
+  // Bevel & Emboss: the importer's setBevel consumes ls.size/angle/altitude plus
+  // a bevel{} sub-object (depth, soften, style, technique, direction, and the
+  // highlight/shadow colour+mode+opacity). Opacities are stored 0..1.
+  function readBevel(d, globalAngle) {
+    var ls = { type: 'BEVEL_EMBOSS' };
+    var size = readUnit(d, 'blur'); if (size != null) ls.size = size;
+    var useGlobal = false; try { useGlobal = d.getBoolean(sID('useGlobalAngle')); } catch (e) {}
+    var ang = (useGlobal && globalAngle != null) ? globalAngle : readUnit(d, 'localLightingAngle');
+    if (ang != null) ls.angle = ang;
+    var alt = readUnit(d, 'localLightingAltitude'); if (alt != null) ls.altitude = alt;
+    var b = {};
+    var depth = readUnit(d, 'strengthRatio'); if (depth != null) b.depth = depth;
+    var soft = readUnit(d, 'softness'); if (soft != null) b.soften = soft;
+    var style = bevelStyleToIR(readEnumId(d, 'bevelStyle')); if (style) b.style = style;
+    var tech = bevelTechToIR(readEnumId(d, 'bevelTechnique')); if (tech) b.technique = tech;
+    var dir = bevelDirToIR(readEnumId(d, 'bevelDirection')); if (dir) b.direction = dir;
+    var hm = readModeKey(d, 'highlightMode'); if (hm) b.highlightMode = hm;
+    try { var hc = readColorDesc(d.getObjectValue(sID('highlightColor'))); if (hc) b.highlightColor = hc; } catch (e1) {}
+    var ho = readUnit(d, 'highlightOpacity'); if (ho != null) b.highlightOpacity = clamp01(ho / 100);
+    var sm = readModeKey(d, 'shadowMode'); if (sm) b.shadowMode = sm;
+    try { var sc = readColorDesc(d.getObjectValue(sID('shadowColor'))); if (sc) b.shadowColor = sc; } catch (e2) {}
+    var so = readUnit(d, 'shadowOpacity'); if (so != null) b.shadowOpacity = clamp01(so / 100);
+    ls.bevel = b;
+    return ls;
+  }
+
+  // Satin (chromeFX): colour, blend mode, opacity, angle, distance, size, invert.
+  function readSatin(d) {
+    var ls = { type: 'SATIN' };
+    var c = null; try { c = readColorDesc(d.getObjectValue(sID('color'))); } catch (e) {}
+    if (c) ls.color = c;
+    var bm = readMode(d); if (bm) ls.blendMode = bm;
+    var op = readOpacity(d); if (op != null) ls.opacity = op;
+    var ang = readUnit(d, 'localLightingAngle'); if (ang != null) ls.angle = ang;
+    var dist = readUnit(d, 'distance'); if (dist != null) ls.distance = dist;
+    var size = readUnit(d, 'blur'); if (size != null) ls.size = size;
+    try { ls.invert = d.getBoolean(sID('invert')); } catch (e2) {}
+    return ls;
+  }
+
+  // Gradient Overlay (gradientFill): the importer can script blend mode, opacity,
+  // angle, and reverse (the gradient stops are not scriptable on AE layer styles).
+  function readGradientOverlay(d) {
+    var ls = { type: 'GRADIENT_OVERLAY', fillType: 'GRADIENT' };
+    var bm = readMode(d); if (bm) ls.blendMode = bm;
+    var op = readOpacity(d); if (op != null) ls.opacity = op;
+    var ang = readUnit(d, 'angle'); if (ang != null) ls.angle = ang;
+    try { ls.reverse = d.getBoolean(sID('reverse')); } catch (e) {}
+    return ls;
+  }
+
   function readLayerStyles(name) {
     var out = [];
     var desc;
@@ -207,11 +288,12 @@
     one('innerShadow', function (d) { return readShadow(d, 'INNER_SHADOW', globalAngle); });
     one('outerGlow', function (d) { return readGlow(d, 'OUTER_GLOW'); });
     one('innerGlow', function (d) { return readGlow(d, 'INNER_GLOW'); });
+    one('bevelEmboss', function (d) { return readBevel(d, globalAngle); });
+    one('chromeFX', readSatin);
     one('solidFill', readColorOverlay);
+    one('gradientFill', readGradientOverlay);
     one('frameFX', readStrokeFx);
-    if (fx.hasKey(sID('bevelEmboss'))) note(name, 'bevel & emboss not yet read');
-    if (fx.hasKey(sID('chromeFX'))) note(name, 'satin not yet read');
-    if (fx.hasKey(sID('gradientFill'))) note(name, 'gradient overlay not yet read');
+    if (fx.hasKey(sID('patternFill'))) note(name, 'pattern overlay not transferred (rasterise the layer to keep it)');
     return out;
   }
 

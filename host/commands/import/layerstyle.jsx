@@ -91,16 +91,25 @@
     set('frameFX/style', pos);
   }
 
+  var BEVEL_STYLE = { OUTER: 1, INNER: 2, EMBOSS: 3, PILLOW: 4, STROKE: 5 };
+  var BEVEL_TECH = { SMOOTH: 1, CHISEL_HARD: 2, CHISEL_SOFT: 3 };
+
   function setBevel(set, ls) {
     var b = ls.bevel || {};
     set('bevelEmboss/enabled', true);
+    if (b.style && BEVEL_STYLE[b.style]) set('bevelEmboss/bevelStyle', BEVEL_STYLE[b.style]);
+    if (b.technique && BEVEL_TECH[b.technique]) set('bevelEmboss/bevelTechnique', BEVEL_TECH[b.technique]);
+    if (b.direction) set('bevelEmboss/bevelDirection', b.direction === 'DOWN' ? 2 : 1);
     if (b.depth != null) set('bevelEmboss/strengthRatio', b.depth);
     if (ls.size != null) set('bevelEmboss/blur', ls.size);
     if (b.soften != null) set('bevelEmboss/softness', b.soften);
+    set('bevelEmboss/useGlobalAngle', false);
     if (ls.angle != null) set('bevelEmboss/localLightingAngle', ls.angle);
     if (ls.altitude != null) set('bevelEmboss/localLightingAltitude', ls.altitude);
+    if (b.highlightMode) set('bevelEmboss/highlightMode', ord(b.highlightMode));
     if (b.highlightColor) set('bevelEmboss/highlightColor', rgb(b.highlightColor));
     if (b.highlightOpacity != null) set('bevelEmboss/highlightOpacity', b.highlightOpacity * 100);
+    if (b.shadowMode) set('bevelEmboss/shadowMode', ord(b.shadowMode));
     if (b.shadowColor) set('bevelEmboss/shadowColor', rgb(b.shadowColor));
     if (b.shadowOpacity != null) set('bevelEmboss/shadowOpacity', b.shadowOpacity * 100);
   }
