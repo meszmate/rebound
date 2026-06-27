@@ -259,6 +259,35 @@
     return false;
   }
 
+  // Decide whether an image-filled node must be rasterised to look exact, rather
+  // than placed as live footage. The importer can only reproduce two placements
+  // faithfully: FIT (uniform contain) and an aspect-matched FILL (uniform stretch
+  // == the box). Everything else is wrong as live footage:
+  //   - CROP uses a custom crop matrix (imageTransform) AE cannot rebuild,
+  //   - TILE repeats the image (scalingFactor) with no native AE equivalent,
+  //   - a rotated image paint (rotation 90/180/270) would not be rotated,
+  //   - FILL with a mismatched aspect is COVER (uniform scale + centre-crop), but
+  //     the importer would stretch it and distort the picture.
+  // exportAsync bakes whatever Figma actually shows, so rasterising these is
+  // pixel-exact. Async because the cover check needs the image's natural size.
+  async function imageNeedsRaster(node, paint) {
+    var mode = paint.scaleMode || 'FILL';
+    if (mode === 'TILE' || mode === 'CROP') return true;
+    if (paint.rotation) return true;
+    if (mode === 'FILL') {
+      try {
+        var img = figma.getImageByHash(paint.imageHash);
+        var size = await img.getSizeAsync();
+        if (size && size.width && size.height && node.width && node.height) {
+          var imgA = size.width / size.height;
+          var boxA = node.width / node.height;
+          if (Math.abs(imgA - boxA) > 0.01) return true;
+        }
+      } catch (e) { /* size unknown: leave as live footage */ }
+    }
+    return false;
+  }
+
   // Rasterise a node to a 2x PNG and return it as an IMAGE node, so anything we
   // cannot rebuild vectorially still comes across pixel-exact.
   async function rasterizeNodeToImage(node, base, assets) {
@@ -334,7 +363,7 @@
     // rasterised so the look is exact.
     var imgPaint = findImagePaint(node.fills);
     if (imgPaint && (!node.children || !node.children.length)) {
-      if (node.type !== 'TEXT' && (imageHasFilters(imgPaint) || hasUnreproducibleEffect(node))) {
+      if (node.type !== 'TEXT' && (imageHasFilters(imgPaint) || hasUnreproducibleEffect(node) || await imageNeedsRaster(node, imgPaint))) {
         var rfilt = await rasterizeNodeToImage(node, base, assets);
         if (rfilt) return rfilt;
       }

@@ -101,14 +101,18 @@ function noiseRect() {
   return n;
 }
 
-function imageRect(filters) {
+function imageRect(filters, opts) {
+  opts = opts || {};
+  const w = opts.width || 100, h = opts.height || 100;
+  const paint = { type: 'IMAGE', imageHash: 'img1', scaleMode: opts.scaleMode || 'FILL', visible: true, filters };
+  if (opts.rotation) paint.rotation = opts.rotation;
   return {
     id: '1:10', name: 'Photo', type: 'RECTANGLE', visible: true, opacity: 1, blendMode: 'NORMAL', isMask: false,
-    width: 100, height: 100, rotation: 0,
+    width: w, height: h, rotation: 0,
     absoluteTransform: [[1, 0, 0], [0, 1, 0]],
-    absoluteBoundingBox: { x: 0, y: 0, width: 100, height: 100 },
+    absoluteBoundingBox: { x: 0, y: 0, width: w, height: h },
     cornerRadius: 0, cornerSmoothing: 0,
-    fills: [{ type: 'IMAGE', imageHash: 'img1', scaleMode: 'FILL', visible: true, filters }],
+    fills: [paint],
     strokes: [],
     exportAsync: async () => PNG_BYTES
   };
@@ -217,6 +221,26 @@ describe('figma exporter -> IR', () => {
     const node = plain.document.frames[0].children[0];
     expect(node.type).toBe('IMAGE');
     expect(node.imageHash).toBe('img1');
+  });
+
+  it('rasterizes CROP / TILE / rotated / aspect-mismatched images, keeps aspect-matched FILL live', async () => {
+    // The mock image is 4x4 (square). A 100x100 box matches -> live footage.
+    const match = await buildIR([imageRect(undefined, { scaleMode: 'FILL', width: 100, height: 100 })]);
+    expect(match.document.frames[0].children[0].imageHash).toBe('img1');
+    // A 200x100 box does not match the square image -> COVER crop is baked.
+    const stretched = await buildIR([imageRect(undefined, { scaleMode: 'FILL', width: 200, height: 100 })]);
+    expect(stretched.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
+    // CROP and TILE never reproduce natively -> always rasterised.
+    const crop = await buildIR([imageRect(undefined, { scaleMode: 'CROP' })]);
+    expect(crop.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
+    const tile = await buildIR([imageRect(undefined, { scaleMode: 'TILE' })]);
+    expect(tile.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
+    // A rotated image paint -> rasterised so the rotation survives.
+    const rot = await buildIR([imageRect(undefined, { scaleMode: 'FILL', rotation: 90 })]);
+    expect(rot.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
+    // FIT stays live (the importer reproduces contain exactly).
+    const fit = await buildIR([imageRect(undefined, { scaleMode: 'FIT', width: 200, height: 100 })]);
+    expect(fit.document.frames[0].children[0].imageHash).toBe('img1');
   });
 
   it('places nodes in frame-relative coordinates', async () => {
