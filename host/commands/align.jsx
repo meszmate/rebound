@@ -97,8 +97,10 @@
     var doY = axes === 'both' || axes === 'y';
     var group = args.mode === 'group';
 
+    // Align to the selection's combined bounds only when there are 2+ layers to
+    // line up; a lone layer (or explicit Composition) aligns to the comp frame.
     var ref;
-    if (args.relativeTo === 'selection') {
+    if (args.relativeTo === 'selection' && boxes.length > 1) {
       ref = union(boxes);
     } else {
       ref = { minX: 0, minY: 0, maxX: comp.width, maxY: comp.height };

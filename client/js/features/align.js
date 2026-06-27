@@ -61,7 +61,10 @@
   }
 
   function mountAlign(ctx) {
-    var relativeTo = 'comp';
+    // Default to lining the selected layers up with EACH OTHER (like AE/Figma).
+    // With a single layer the host falls back to the composition, so one layer
+    // still centers in the frame.
+    var relativeTo = 'selection';
     var group = false;
     var previewAlign = 'centerH';
 
@@ -125,6 +128,7 @@
         previewHost,
         el('div.rb-section-label', { text: 'Align to' }),
         relCtl.el,
+        el('div.rb-faint', { text: 'Selection lines the layers up with each other; Composition aligns them to the frame.' }),
         el('div.rb-row.rb-wrap', { style: { gap: '10px' } }, [hBar, vBar]),
         groupToggle.el,
         el('div.rb-section-label', { text: 'Distribute' }),
