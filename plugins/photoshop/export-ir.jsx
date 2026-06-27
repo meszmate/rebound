@@ -453,14 +453,15 @@
 
   function rasterToIR(layer) {
     var node = baseNode(layer);
-    var styles = readLayerStyles(layer.name);
     var img = rasterizeToAsset(layer, layer.name);
     if (!img) { note(layer.name, 'skipped (no pixels)'); return null; }
     node.type = 'IMAGE';
     node.imageHash = img.hash;
     node.scaleMode = 'FILL';
     node.transform = { x: round(img.left), y: round(img.top), width: img.width, height: img.height };
-    if (styles.length) node.layerStyles = styles;
+    // Layer effects (and any mask / pattern overlay) are already baked into the
+    // rasterised PNG, and the trim bounds above already include the shadow spread.
+    // Re-applying them as AE layer styles would double them, so do not attach any.
     return node;
   }
 
@@ -574,6 +575,69 @@
     return node;
   }
 
+  // Read a specific layer's descriptor by id (does not depend on the active layer).
+  function layerDescById(layer) {
+    var ref = new ActionReference();
+    ref.putIdentifier(cID('Lyr '), layer.id);
+    return executeActionGet(ref);
+  }
+
+  // A pixel (raster) layer mask that is present and enabled. Bakes a fade / clip
+  // that an editable text or shape layer would otherwise import fully opaque.
+  function layerHasPixelMask(layer) {
+    try {
+      var d = layerDescById(layer);
+      if (!(d.hasKey(sID('hasUserMask')) && d.getBoolean(sID('hasUserMask')))) return false;
+      if (d.hasKey(sID('userMaskEnabled')) && !d.getBoolean(sID('userMaskEnabled'))) return false;
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // A vector mask on a TEXT layer (text has none intrinsically; a shape's own path
+  // IS a vector mask, so never call this for shapes).
+  function textHasVectorMask(layer) {
+    try {
+      var d = layerDescById(layer);
+      return d.hasKey(sID('hasVectorMask')) && d.getBoolean(sID('hasVectorMask'));
+    } catch (e) { return false; }
+  }
+
+  // An enabled Pattern Overlay layer effect (AE has no scriptable pattern overlay,
+  // so the only exact path is to bake the layer).
+  function layerHasPatternOverlay(layer) {
+    try {
+      var d = layerDescById(layer);
+      if (!d.hasKey(sID('layerEffects'))) return false;
+      var fx = d.getObjectValue(sID('layerEffects'));
+      if (!fx.hasKey(sID('patternFill'))) return false;
+      return isEnabled(fx.getObjectValue(sID('patternFill')));
+    } catch (e) { return false; }
+  }
+
+  function layerHasEffects(layer) {
+    try { return layerDescById(layer).hasKey(sID('layerEffects')); } catch (e) { return false; }
+  }
+
+  // Fill Opacity (0..1), distinct from layer Opacity: it dims a layer's own pixels
+  // but not its effects.
+  function readFillOpacity(layer) {
+    try { if (typeof layer.fillOpacity === 'number') return clamp01(layer.fillOpacity / 100); } catch (e) {}
+    return 1;
+  }
+
+  // Adjustment layers (Curves / Levels / Hue-Sat / ...) have no pixels of their own;
+  // their effect on the layers below cannot be reconstructed natively. Build the kind
+  // list defensively because some members are undefined in older Photoshop.
+  function isAdjustmentLayer(layer) {
+    var names = ['LEVELS', 'CURVES', 'BRIGHTNESSCONTRAST', 'COLORBALANCE', 'HUESATURATION', 'SELECTIVECOLOR', 'CHANNELMIXER', 'GRADIENTMAP', 'PHOTOFILTER', 'INVERSION', 'THRESHOLD', 'POSTERIZE', 'BLACKANDWHITE', 'EXPOSURE', 'VIBRANCE'];
+    var k;
+    try { k = layer.kind; } catch (e) { return false; }
+    for (var i = 0; i < names.length; i++) {
+      try { var v = LayerKind[names[i]]; if (v !== undefined && k === v) return true; } catch (e2) {}
+    }
+    return false;
+  }
+
   function layerToIR(layer) {
     var tn;
     try { tn = layer.typename; } catch (e) { return null; }
@@ -590,9 +654,30 @@
     // ArtLayer
     var kind = null;
     try { kind = layer.kind; } catch (e2) {}
-    if (kind === LayerKind.TEXT) return textToIR(layer);
-    var vec = shapeVectorToIR(layer);
-    if (vec) return vec;
+
+    if (isAdjustmentLayer(layer)) {
+      note(layer.name, 'adjustment layer not reconstructed (its effect on the layers below is lost)');
+      return null;
+    }
+
+    var fillOp = readFillOpacity(layer);
+    // A pixel/vector mask or pattern overlay, or fill opacity combined with effects
+    // (the fill dims but the effects do not), can only be reproduced by baking.
+    var forceRaster = layerHasPixelMask(layer) || layerHasPatternOverlay(layer) || (fillOp < 0.999 && layerHasEffects(layer));
+
+    if (kind === LayerKind.TEXT) {
+      if (forceRaster || textHasVectorMask(layer)) return rasterToIR(layer);
+      var tnode = textToIR(layer);
+      if (tnode && fillOp < 0.999) tnode.opacity = clamp01((tnode.opacity == null ? 1 : tnode.opacity) * fillOp);
+      return tnode;
+    }
+    if (!forceRaster) {
+      var vec = shapeVectorToIR(layer);
+      if (vec) {
+        if (fillOp < 0.999) vec.opacity = clamp01((vec.opacity == null ? 1 : vec.opacity) * fillOp);
+        return vec;
+      }
+    }
     return rasterToIR(layer);
   }
 
