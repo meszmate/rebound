@@ -1,34 +1,281 @@
+/*
+ * Rebound Relay (Figma) UI styles.
+ *
+ * Flat and modern: one solid accent, hairline borders, no gradients or glows.
+ * Native to Figma — surfaces, text, and borders read Figma's --figma-color-*
+ * theme tokens DIRECTLY at each use site (with a light fallback for non-Figma
+ * renders). We deliberately do not alias them through :root: a custom property
+ * resolves its var() where it is declared, so a :root alias would freeze the
+ * light fallback and never see Figma's dark values. The window hugs its content
+ * (ui.js posts its height), so there is no dead space in any state.
+ */
+:root {
+  --rb-accent: #4f8cff;
+  --rb-accent-hover: #5e97ff;
+  --rb-accent-press: #3f78ec;
+  --rb-ok: #1fad66;
+  --rb-warn: #d99a2b;
+  --rb-err: #e0533d;
+  --rb-r: 8px;
+  --rb-r-sm: 6px;
+  --rb-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --rb-fast: 120ms;
+  --rb-med: 200ms;
+}
+
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; font-family: Inter, -apple-system, "Segoe UI", sans-serif; font-size: 12px; color: var(--figma-color-text, #2c2c2c); background: var(--figma-color-bg, #fff); }
-.wrap { display: flex; flex-direction: column; min-height: 100vh; }
-.head { padding: 14px 16px 10px; border-bottom: 1px solid var(--figma-color-border, #e6e6e6); }
-.brand { font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
-.brand span { font-weight: 500; opacity: 0.6; }
-.conn { display: flex; align-items: center; gap: 7px; margin-top: 8px; font-size: 11px; color: var(--figma-color-text-secondary, #777); }
-.conn .dot { width: 8px; height: 8px; border-radius: 50%; background: #c9a227; box-shadow: 0 0 0 3px rgba(201,162,39,0.18); }
-.conn[data-state="connected"] .dot { background: #2bbf63; box-shadow: 0 0 0 3px rgba(43,191,99,0.18); }
-.conn[data-state="disconnected"] .dot { background: #b6b6b6; box-shadow: none; }
-.conn[data-state="connecting"] .dot { background: #c9a227; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--figma-color-text, #1a1a1a);
+  background: var(--figma-color-bg, #fff);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
 
-.body { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.sel { font-size: 12px; color: var(--figma-color-text-secondary, #777); }
-.sel.has { color: var(--figma-color-text, #2c2c2c); font-weight: 600; }
+.app { display: flex; flex-direction: column; }
 
-.btn { width: 100%; border: 0; border-radius: 6px; padding: 10px 12px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
-.btn.primary { background: var(--figma-color-bg-brand, #0d99ff); color: var(--figma-color-text-onbrand, #fff); }
-.btn.primary:disabled { opacity: 0.4; cursor: default; }
-.btn.ghost { background: transparent; color: var(--figma-color-text, #2c2c2c); border: 1px solid var(--figma-color-border, #e6e6e6); }
-.btn.ghost:hover { background: var(--figma-color-bg-hover, #f5f5f5); }
+/* ── Header ──────────────────────────────────────────────────────── */
+.top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px 9px;
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.logo { flex: none; border-radius: 6px; }
+.logo .logo-bg { fill: var(--rb-accent); }
+.word { font-size: 13px; font-weight: 650; letter-spacing: 0.1px; color: var(--figma-color-text, #1a1a1a); }
+.word b { font-weight: 500; color: var(--figma-color-text-tertiary, #a0a0a0); margin-left: 4px; }
 
-.msg { font-size: 11px; padding: 8px 10px; border-radius: 6px; line-height: 1.45; }
-.msg.error { background: rgba(224,86,62,0.12); color: #c0392b; }
-.msg.info { background: var(--figma-color-bg-secondary, #f5f5f5); color: var(--figma-color-text-secondary, #777); }
-.msg.ok { background: rgba(43,191,99,0.12); color: #1e8c4b; }
+/* ── Connection card (the hero status) ───────────────────────────── */
+.conn {
+  margin: 0 10px;
+  padding: 9px 11px;
+  border: 1px solid var(--figma-color-border, #e6e6e6);
+  border-radius: var(--rb-r);
+  background: var(--figma-color-bg-secondary, #f5f5f5);
+  transition: border-color var(--rb-med) var(--rb-ease);
+}
+.conn[data-state="connected"] { border-color: color-mix(in srgb, var(--rb-ok) 38%, var(--figma-color-border, #e6e6e6)); }
+.conn-main { display: flex; align-items: center; gap: 9px; }
 
-.report { font-size: 11px; border: 1px solid var(--figma-color-border, #e6e6e6); border-radius: 6px; padding: 8px 10px; }
-.report h4 { margin: 0 0 6px; font-size: 11px; }
-.report ul { margin: 4px 0 0; padding-left: 16px; color: var(--figma-color-text-secondary, #777); }
-.report li { margin: 2px 0; }
+.conn-dot {
+  flex: none;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--rb-warn);
+  position: relative;
+}
+.conn-dot::after {
+  content: "";
+  position: absolute; inset: -4px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.25;
+  animation: rb-pulse 1.6s var(--rb-ease) infinite;
+}
+.conn[data-state="connected"] .conn-dot { background: var(--rb-ok); }
+.conn[data-state="connected"] .conn-dot::after { display: none; }
+.conn[data-state="offline"] .conn-dot { background: var(--figma-color-text-tertiary, #a0a0a0); }
+.conn[data-state="offline"] .conn-dot::after { display: none; }
 
-.foot { padding: 10px 16px 14px; border-top: 1px solid var(--figma-color-border, #e6e6e6); display: flex; align-items: center; justify-content: space-between; font-size: 10px; color: var(--figma-color-text-tertiary, #999); }
-.link { background: none; border: 0; color: var(--figma-color-text-brand, #0d99ff); cursor: pointer; font-size: 10px; font-family: inherit; padding: 0; }
+.conn-copy { flex: 1 1 auto; min-width: 0; }
+.conn-title {
+  font-size: 11px; font-weight: 600; color: var(--figma-color-text, #1a1a1a);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.conn-sub {
+  font-size: 10.5px; color: var(--figma-color-text-secondary, #707070); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.conn-action {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 23px; padding: 0 9px;
+  border: 1px solid var(--figma-color-border-strong, #d4d4d4);
+  border-radius: var(--rb-r-sm);
+  background: var(--figma-color-bg, #fff);
+  color: var(--figma-color-text, #1a1a1a);
+  font-family: inherit; font-size: 10.5px; font-weight: 600;
+  cursor: pointer;
+  transition: background var(--rb-fast), border-color var(--rb-fast);
+}
+.conn-action:hover { background: var(--figma-color-bg-hover, rgba(0, 0, 0, 0.05)); border-color: var(--figma-color-text-tertiary, #a0a0a0); }
+.conn-action:active { background: var(--figma-color-bg-tertiary, #ebebeb); }
+.conn-action.spin .ic-refresh { animation: rb-spin 0.7s linear infinite; }
+/* Connected: collapse to a quiet icon-only reconnect affordance. */
+.conn[data-state="connected"] .conn-action-label { display: none; }
+.conn[data-state="connected"] .conn-action { padding: 0; width: 23px; justify-content: center; color: var(--figma-color-text-secondary, #707070); }
+
+.conn-bar {
+  height: 2px; border-radius: 2px;
+  background: var(--figma-color-bg-tertiary, #ebebeb);
+  overflow: hidden;
+  opacity: 0; max-height: 0; margin-top: 0;
+  transition: opacity var(--rb-fast), max-height var(--rb-med), margin-top var(--rb-med);
+}
+.conn[data-state="connecting"] .conn-bar { opacity: 1; max-height: 2px; margin-top: 9px; }
+.conn-bar > span {
+  display: block; width: 36%; height: 100%; border-radius: 2px;
+  background: var(--rb-accent);
+  animation: rb-slide 1.15s var(--rb-ease) infinite;
+}
+
+.conn-steps {
+  margin: 8px 0 1px; padding: 0 0 0 17px;
+  font-size: 10.5px; color: var(--figma-color-text-secondary, #707070);
+}
+.conn-steps li { margin: 3px 0; }
+.conn-steps b { color: var(--figma-color-text, #1a1a1a); font-weight: 600; }
+
+/* ── Body ────────────────────────────────────────────────────────── */
+.body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.sel {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--figma-color-border, #e6e6e6);
+  border-radius: var(--rb-r);
+  background: var(--figma-color-bg, #fff);
+  transition: border-color var(--rb-fast);
+}
+.sel[data-has="false"] { border-style: dashed; }
+.sel-ic {
+  flex: none;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: var(--rb-r-sm);
+  background: var(--figma-color-bg-secondary, #f5f5f5);
+  color: var(--figma-color-text-tertiary, #a0a0a0);
+  transition: color var(--rb-fast);
+}
+.sel[data-has="true"] .sel-ic { color: var(--rb-accent); }
+.sel-copy { min-width: 0; }
+.sel-title {
+  font-size: 11px; font-weight: 600; color: var(--figma-color-text, #1a1a1a);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sel[data-has="false"] .sel-title { color: var(--figma-color-text-secondary, #707070); }
+.sel-sub {
+  font-size: 10.5px; color: var(--figma-color-text-tertiary, #a0a0a0); margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Primary action — flat solid accent, no glow. */
+.send {
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; height: 36px;
+  border: 0; border-radius: var(--rb-r);
+  background: var(--rb-accent);
+  color: #fff;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background var(--rb-fast);
+}
+.send:hover:not(:disabled) { background: var(--rb-accent-hover); }
+.send:active:not(:disabled) { background: var(--rb-accent-press); }
+.send:disabled { background: var(--figma-color-bg-tertiary, #ebebeb); color: var(--figma-color-text-tertiary, #a0a0a0); cursor: default; }
+.send .spinner {
+  display: none;
+  width: 13px; height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: rb-spin 0.65s linear infinite;
+}
+.send.loading { cursor: default; pointer-events: none; }
+.send.loading .send-ic { display: none; }
+.send.loading .spinner { display: block; }
+
+.save {
+  width: 100%; height: 28px;
+  border: 0; border-radius: var(--rb-r-sm);
+  background: transparent;
+  color: var(--figma-color-text-secondary, #707070);
+  font-family: inherit; font-size: 10.5px; font-weight: 500;
+  cursor: pointer;
+  transition: background var(--rb-fast), color var(--rb-fast);
+}
+.save b { font-weight: 600; color: var(--figma-color-text, #1a1a1a); }
+.save:hover { background: var(--figma-color-bg-hover, rgba(0, 0, 0, 0.05)); color: var(--figma-color-text, #1a1a1a); }
+
+/* Inline message */
+.msg {
+  display: flex; align-items: flex-start; gap: 7px;
+  font-size: 10.5px; line-height: 1.45;
+  padding: 8px 10px;
+  border: 1px solid var(--figma-color-border, #e6e6e6);
+  border-radius: var(--rb-r-sm);
+  background: var(--figma-color-bg-secondary, #f5f5f5);
+  color: var(--figma-color-text-secondary, #707070);
+  animation: rb-rise var(--rb-med) var(--rb-ease);
+}
+.msg::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; margin-top: 3px; background: var(--figma-color-text-tertiary, #a0a0a0); }
+.msg.ok { border-color: color-mix(in srgb, var(--rb-ok) 40%, var(--figma-color-border, #e6e6e6)); }
+.msg.ok::before { background: var(--rb-ok); }
+.msg.warn { border-color: color-mix(in srgb, var(--rb-warn) 45%, var(--figma-color-border, #e6e6e6)); }
+.msg.warn::before { background: var(--rb-warn); }
+.msg.error { border-color: color-mix(in srgb, var(--rb-err) 45%, var(--figma-color-border, #e6e6e6)); }
+.msg.error::before { background: var(--rb-err); }
+
+/* Fidelity report */
+.report {
+  border: 1px solid var(--figma-color-border, #e6e6e6);
+  border-radius: var(--rb-r);
+  overflow: hidden;
+  animation: rb-rise var(--rb-med) var(--rb-ease);
+}
+.report-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--figma-color-border, #e6e6e6);
+}
+.report-check {
+  flex: none; width: 15px; height: 15px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--rb-ok); color: #fff;
+}
+.report-title { font-size: 11px; font-weight: 600; color: var(--figma-color-text, #1a1a1a); }
+.report-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 11px; }
+.chip {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--rb-r-sm);
+  background: var(--figma-color-bg-secondary, #f5f5f5);
+  font-size: 10.5px; color: var(--figma-color-text-secondary, #707070);
+}
+.chip b { font-size: 11px; font-weight: 700; color: var(--figma-color-text, #1a1a1a); }
+.notes { margin: 0; padding: 0 11px 10px; list-style: none; }
+.notes li {
+  display: flex; align-items: flex-start; gap: 7px;
+  font-size: 10.5px; color: var(--figma-color-text-secondary, #707070);
+  padding: 2px 0;
+}
+.notes li::before { content: ""; flex: none; width: 5px; height: 5px; border-radius: 50%; margin-top: 4px; background: var(--rb-warn); }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+.foot {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--figma-color-border, #e6e6e6);
+  color: var(--figma-color-text-tertiary, #a0a0a0);
+  font-size: 10px;
+}
+
+/* ── Keyframes ───────────────────────────────────────────────────── */
+@keyframes rb-pulse { 0% { transform: scale(0.7); opacity: 0.4; } 70%, 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes rb-spin { to { transform: rotate(360deg); } }
+@keyframes rb-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(320%); } }
+@keyframes rb-rise { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  .conn-bar > span { width: 100%; }
+}
