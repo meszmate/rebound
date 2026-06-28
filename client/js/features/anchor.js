@@ -91,10 +91,19 @@
         style: { left: (pt[0] * 100) + '%', top: (pt[1] * 100) + '%' },
         title: labelFor(pt), 'aria-label': labelFor(pt)
       });
-      d.addEventListener('pointerdown', function (e) {
-        e.stopPropagation(); e.preventDefault();
-        setTarget(pt[0], pt[1]); move(ctx, pt[0], pt[1], extents);
-      });
+      // Activate on `click`. A <button> in After Effects' CEF runtime fires
+      // `click` reliably (and on Enter/Space), but `pointerdown` does NOT fire on
+      // buttons in some CEF builds -- which is exactly why these handles silently
+      // stopped working after they were switched from onclick to pointerdown.
+      // pointerdown is kept ONLY to snap the preview pin and to stop the box's
+      // free-drag from also starting; the real move happens on click so it lands.
+      (function (px, py) {
+        d.addEventListener('click', function (e) {
+          if (e) { e.stopPropagation(); e.preventDefault(); }
+          setTarget(px, py); move(ctx, px, py, extents);
+        });
+        d.addEventListener('pointerdown', function (e) { e.stopPropagation(); setTarget(px, py); });
+      })(pt[0], pt[1]);
       card.appendChild(d);
       return d;
     });
@@ -237,19 +246,20 @@
   }
 
   function move(ctx, gx, gy, extents) {
+    if (!ctx || typeof ctx.invoke !== 'function') return;
+    var pct = Math.round(gx * 100) + '% / ' + Math.round(gy * 100) + '%';
     ctx.invoke('anchor.move', { gx: gx, gy: gy, extents: !!extents })
       .then(function (res) {
-        var msg = 'Moved anchor on ' + res.moved + ' layer' + (res.moved === 1 ? '' : 's');
-        if (res.skipped && res.skipped.length) {
-          ctx.toast(msg + ' · skipped ' + res.skipped.length, { kind: 'info', action: 'why?', onAction: function () {
-            ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info', duration: 6000 });
-          } });
-        } else {
-          ctx.toast(msg, { kind: 'success' });
-        }
-        ctx.refreshSelection();
+        res = res || {};
+        var n = res.moved || 0;
+        // The layer intentionally stays put (Position is compensated); the visible
+        // change is the anchor crosshair. A brief confirmation, repeats collapse.
+        if (n > 0) ctx.toast('Anchor → ' + pct, { kind: 'success' });
+        else if (res.skipped && res.skipped.length) ctx.toast('Anchor not moved · ' + res.skipped.join(' · '), { kind: 'info' });
+        else ctx.toast('Select a layer first', { kind: 'info' });
+        if (ctx.refreshSelection) ctx.refreshSelection();
       })
-      .catch(function (err) { ctx.toast(err.message || 'Could not move anchor', { kind: 'error' }); });
+      .catch(function (err) { ctx.toast(err && err.message ? err.message : 'Anchor failed', { kind: 'error' }); });
   }
 
   function centerInComp(ctx, x, y) {
