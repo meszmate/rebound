@@ -156,10 +156,83 @@
     if (node.isMask) {
       note(report, 'skipped', { name: node.name, type: 'MASK', reason: 'group-level masking is not reconstructed' });
     }
+    if (node.clipsContent) {
+      note(report, 'approximated', { name: node.name, detail: 'group clipping needs a precomp; overflow is not clipped on a null group' });
+    }
+  }
+
+  // A nested frame is its own world: build it as a real precomp (a CompItem) so
+  // its clipping, background, rounded corners and chrome survive, then place that
+  // precomp as a layer in the parent comp. Frames whose buildMode is GROUP (no
+  // clip, no chrome to preserve) stay flat nulls via buildGroup, which is cheaper
+  // and keeps existing simple-group imports unchanged. A clipping frame defaults
+  // to PRECOMP; a non-clipping one with no chrome can fall back to a null group.
+  function frameWantsPrecomp(node) {
+    if (node.buildMode === 'GROUP') return false;
+    if (node.buildMode === 'PRECOMP') return true;
+    // No explicit mode: a clip, a background, corners or frame chrome needs a comp.
+    if (node.clipsContent) return true;
+    if (node.background && node.background.length) return true;
+    if (node.cornerRadii) return true;
+    if (node.stroke && node.stroke.weight) return true;
+    if (node.effects && node.effects.length) return true;
+    return false;
+  }
+
+  // Clip a precomp layer to its comp bounds (or rounded corners) so overflowing
+  // children are hidden, matching a Figma frame's clipsContent. roundFrameCorners
+  // already adds a rounded mask when cornerRadii are present; only add a plain
+  // comp-sized rectangular mask when the frame clips but has no corner rounding.
+  function clipPrecompLayer(pcLayer, frame) {
+    if (!frame.clipsContent) return;
+    var cr = frame.cornerRadii;
+    if (cr && (cr.topLeft || cr.topRight || cr.bottomRight || cr.bottomLeft)) return; // rounded mask clips already
+    try {
+      // Nested frames size only via transform; fall back so the clip matches.
+      var w = Math.max(1, Math.round(frame.width || (frame.transform && frame.transform.width) || 100));
+      var h = Math.max(1, Math.round(frame.height || (frame.transform && frame.transform.height) || 100));
+      var sp = R.importer.geometry.roundedRect(w, h, { tl: 0, tr: 0, br: 0, bl: 0 });
+      var masks = pcLayer.property('ADBE Mask Parade');
+      var mask = masks.addProperty('ADBE Mask Atom');
+      mask.property('ADBE Mask Shape').setValue(shapeFromSubpath(sp));
+    } catch (e) { /* masks vary by build */ }
+  }
+
+  // Build the nested frame's own CompItem, fill its background and recurse its
+  // children into it, then drop it into the parent comp as a precomp layer and
+  // decorate it (shadow/border/rounded/clip) just like a top-level frame.
+  function buildNestedFrame(comp, node, report) {
+    var fps = 30, dur = 10, par = 1;
+    try { fps = comp.frameRate; dur = comp.duration; par = comp.pixelAspect; } catch (e) {}
+    var w = Math.max(1, Math.round(node.width || (node.transform && node.transform.width) || 100));
+    var h = Math.max(1, Math.round(node.height || (node.transform && node.transform.height) || 100));
+
+    var inner = app.project.items.addComp(node.name || 'Frame', w, h, par, dur, fps);
+    if (node.background && node.background.length) buildFrameBackground(inner, node, report);
+    buildChildren(inner, node.children || [], report);
+    report.framesBuilt++;
+
+    var pcLayer = comp.layers.add(inner);
+    placeLocal(pcLayer, node);
+    decorateFrameLayer(pcLayer, node, report);
+    clipPrecompLayer(pcLayer, node);
+    return pcLayer;
   }
 
   function buildNode(comp, node, report) {
     if (!node || node.visible === false) return null;
+    if (node.type === 'FRAME' && frameWantsPrecomp(node)) {
+      try {
+        var fl = buildNestedFrame(comp, node, report);
+        registerLayer(node, fl);
+        if (R.importer.mask) R.importer.mask.collect(node, fl, report);
+        return fl;
+      } catch (e) {
+        // Never let a nested-frame failure lose the content: fall back to a group.
+        note(report, 'approximated', { name: node.name, detail: 'nested frame fell back to a group' });
+        return buildGroup(comp, node, report);
+      }
+    }
     if (node.type === 'GROUP' || node.type === 'FRAME') return buildGroup(comp, node, report);
     var builder = builders[node.type];
     if (builder) {
@@ -193,6 +266,7 @@
     rect.property('ADBE Vector Rect Position').setValue([comp.width / 2, comp.height / 2]);
     var bgNode = { name: sl.name, transform: { width: comp.width, height: comp.height }, fills: [paint] };
     R.importer.paint.applyFills(contents, bgNode, report);
+    R.importer.paint.gradientEffect(sl, bgNode, report);
     return sl;
   }
 
@@ -241,8 +315,10 @@
     var tl = cr.topLeft || 0, tr = cr.topRight || 0, br = cr.bottomRight || 0, bl = cr.bottomLeft || 0;
     if (!(tl || tr || br || bl)) return;
     try {
-      var w = Math.max(1, Math.round(frame.width || 100));
-      var h = Math.max(1, Math.round(frame.height || 100));
+      // Nested-frame nodes carry size only on transform; fall back to it so the
+      // mask is sized to the frame, not the 100x100 default (which overhangs).
+      var w = Math.max(1, Math.round(frame.width || (frame.transform && frame.transform.width) || 100));
+      var h = Math.max(1, Math.round(frame.height || (frame.transform && frame.transform.height) || 100));
       var sp = R.importer.geometry.roundedRect(w, h, { tl: tl, tr: tr, br: br, bl: bl });
       var masks = pcLayer.property('ADBE Mask Parade');
       var mask = masks.addProperty('ADBE Mask Atom');
