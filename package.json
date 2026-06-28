@@ -35,6 +35,7 @@
     "cert": "node tools/make-cert.mjs",
     "pack": "node tools/pack.mjs",
     "build:figma": "node plugins/figma/build.mjs",
+    "build:grad": "node tools/build-grad-templates.mjs",
     "install:dev": "node tools/install-dev.mjs",
     "uninstall:dev": "node tools/install-dev.mjs --remove",
     "deploy": "node tools/deploy-signed.mjs",
