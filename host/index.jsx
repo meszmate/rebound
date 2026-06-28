@@ -73,6 +73,9 @@
   // each command module registers itself.
   load('lib/json.jsx');
   load('lib/core.jsx');
+  // Publish resolved paths so modules can read bundled assets at runtime
+  // (e.g. the gradient .ffx preset templates under host/assets/).
+  try { $.__rebound.paths = { host: dir, root: extRoot }; } catch (ePaths) {}
   load('lib/util.jsx');
   load('lib/rig.jsx');
 
@@ -159,6 +162,7 @@
   loadCmd('commands/import/mask.jsx');
   loadCmd('commands/import/image.jsx');
   loadCmd('commands/import/text.jsx');
+  loadCmd('commands/import/adjust.jsx');
   loadCmd('commands/import/fonts.jsx');
 
   $.__rebound.loadErrors = loadErrors;

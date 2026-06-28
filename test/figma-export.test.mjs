@@ -131,6 +131,36 @@ function frameWithChrome() {
   };
 }
 
+function nestedFrameParent() {
+  // A top-level frame containing an inner frame at (40, 30) that itself clips and
+  // rounds its corners. The inner frame's child sits at absolute (60, 50), i.e.
+  // (20, 20) inside the inner frame.
+  const child = rectNode();
+  child.id = '1:20';
+  child.absoluteTransform = [[1, 0, 60], [0, 1, 50]];
+  child.absoluteBoundingBox = { x: 60, y: 50, width: 100, height: 50 };
+  const inner = {
+    id: 'F2', name: 'Inner', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH',
+    width: 100, height: 80, rotation: 0,
+    absoluteTransform: [[1, 0, 40], [0, 1, 30]],
+    absoluteBoundingBox: { x: 40, y: 30, width: 100, height: 80 },
+    clipsContent: true,
+    cornerRadius: 8, cornerSmoothing: 0,
+    fills: [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 }, opacity: 1, visible: true }],
+    strokes: [], effects: [],
+    children: [child]
+  };
+  return {
+    id: 'F1', name: 'Outer', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH',
+    width: 300, height: 200, rotation: 0,
+    absoluteTransform: [[1, 0, 0], [0, 1, 0]],
+    absoluteBoundingBox: { x: 0, y: 0, width: 300, height: 200 },
+    clipsContent: true,
+    fills: [], strokes: [], effects: [],
+    children: [inner]
+  };
+}
+
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0]);
 
 function noiseRect() {
@@ -263,24 +293,47 @@ describe('figma exporter -> IR', () => {
     expect(node.imageHash).toBe('img1');
   });
 
-  it('rasterizes CROP / TILE / rotated / aspect-mismatched images, keeps aspect-matched FILL live', async () => {
+  it('rasterizes CROP / rotated / aspect-mismatched images, keeps aspect-matched FILL live', async () => {
     // The mock image is 4x4 (square). A 100x100 box matches -> live footage.
     const match = await buildIR([imageRect(undefined, { scaleMode: 'FILL', width: 100, height: 100 })]);
     expect(match.document.frames[0].children[0].imageHash).toBe('img1');
     // A 200x100 box does not match the square image -> COVER crop is baked.
     const stretched = await buildIR([imageRect(undefined, { scaleMode: 'FILL', width: 200, height: 100 })]);
     expect(stretched.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
-    // CROP and TILE never reproduce natively -> always rasterised.
+    // CROP never reproduces natively -> always rasterised.
     const crop = await buildIR([imageRect(undefined, { scaleMode: 'CROP' })]);
     expect(crop.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
-    const tile = await buildIR([imageRect(undefined, { scaleMode: 'TILE' })]);
-    expect(tile.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
     // A rotated image paint -> rasterised so the rotation survives.
     const rot = await buildIR([imageRect(undefined, { scaleMode: 'FILL', rotation: 90 })]);
     expect(rot.document.frames[0].children[0].imageHash).toMatch(/^figraster-/);
     // FIT stays live (the importer reproduces contain exactly).
     const fit = await buildIR([imageRect(undefined, { scaleMode: 'FIT', width: 200, height: 100 })]);
     expect(fit.document.frames[0].children[0].imageHash).toBe('img1');
+  });
+
+  it('keeps a TILE pattern image live and carries the tile scale for native Motion Tile', async () => {
+    // A TILE (pattern) paint must NOT rasterise: it stays a live IMAGE node so the
+    // host repeats it with the native "ADBE Tile" effect. The scalingFactor and
+    // imageTransform diagonal are carried as tile scale hints.
+    const n = imageRect(undefined, { scaleMode: 'TILE' });
+    n.fills[0].scalingFactor = 0.5;
+    n.fills[0].imageTransform = [[2, 0, 0], [0, 3, 0]];
+    const node = (await buildIR([n])).document.frames[0].children[0];
+    expect(node.type).toBe('IMAGE');
+    expect(node.imageHash).toBe('img1');
+    expect(node.scaleMode).toBe('TILE');
+    expect(node.tileScale).toBeCloseTo(0.5, 3);
+    expect(node.tileWidthScale).toBeCloseTo(2, 3);
+    expect(node.tileHeightScale).toBeCloseTo(3, 3);
+    expect(validateMod.validate(await buildIR([n])).valid).toBe(true);
+  });
+
+  it('a TILE pattern with no scale hints defaults the tile scale to 1', async () => {
+    const node = (await buildIR([imageRect(undefined, { scaleMode: 'TILE' })])).document.frames[0].children[0];
+    expect(node.type).toBe('IMAGE');
+    expect(node.scaleMode).toBe('TILE');
+    expect(node.tileScale).toBe(1);
+    expect(node.tileWidthScale).toBeUndefined();
   });
 
   it('derives gradient handle geometry from gradientTransform (not the REST-only field)', async () => {
@@ -300,6 +353,64 @@ describe('figma exporter -> IR', () => {
     expect(rh[0][0]).toBeCloseTo(50, 3); expect(rh[0][1]).toBeCloseTo(25, 3);
   });
 
+  it('keeps a 3-stop linear gradient editable (native rebuild, not rasterised)', async () => {
+    // The host now rebuilds 2..8 stop linear/radial gradients as TRUE native
+    // gradients (via the .ffx preset trick), so the exporter must NOT rasterise
+    // them. A 3-stop gradient must arrive as a real shape with all its stops.
+    const n = gradientRect([[1, 0, 0], [0, 1, 0]]);
+    n.fills[0].gradientStops = [
+      { position: 0, color: { r: 0.26, g: 0.84, b: 1, a: 1 } },
+      { position: 0.48, color: { r: 0.06, g: 0.53, b: 0.81, a: 1 } },
+      { position: 1, color: { r: 0.41, g: 0.66, b: 1, a: 1 } }
+    ];
+    const node = (await buildIR([n])).document.frames[0].children[0];
+    expect(node.type).not.toBe('IMAGE');
+    expect(node.fills[0].type).toBe('GRADIENT_LINEAR');
+    expect(node.fills[0].stops.length).toBe(3);
+    expect(node.fills[0].stops[1].position).toBeCloseTo(0.48, 3);
+    expect(node.fills[0].stops[2].color.r).toBeCloseTo(0.41, 3);
+  });
+
+  it('keeps an angular (conic) gradient editable as GRADIENT_ANGULAR (host rebuilds it via Polar Coordinates)', async () => {
+    // The host rebuilds angular gradients natively (horizontal G-Fill gradient +
+    // an "ADBE Polar Coordinates" Rect-to-Polar effect), so the exporter must NOT
+    // rasterise them. A 3-stop angular must arrive as a real shape with all stops
+    // and its gradientHandles.
+    const n = gradientRect([[1, 0, 0], [0, 1, 0]], 'GRADIENT_ANGULAR');
+    n.fills[0].gradientStops = [
+      { position: 0, color: { r: 1, g: 0, b: 0, a: 1 } },
+      { position: 0.5, color: { r: 0, g: 1, b: 0, a: 1 } },
+      { position: 1, color: { r: 0, g: 0, b: 1, a: 1 } }
+    ];
+    n.exportAsync = async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0]);
+    const ir = await buildIR([n]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.type).not.toBe('IMAGE');
+    expect(node.type).toBe('RECTANGLE');
+    expect(node.fills[0].type).toBe('GRADIENT_ANGULAR');
+    expect(node.fills[0].stops.length).toBe(3);
+    expect(node.fills[0].stops[1].color.g).toBeCloseTo(1, 3);
+    expect(node.fills[0].gradientHandles.length).toBe(2);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
+  it('keeps a diamond gradient editable as GRADIENT_DIAMOND (native vector gradient, not rasterised)', async () => {
+    const n = gradientRect([[1, 0, 0], [0, 1, 0]], 'GRADIENT_DIAMOND');
+    n.fills[0].gradientStops = [
+      { position: 0, color: { r: 1, g: 0, b: 0, a: 1 } },
+      { position: 1, color: { r: 0, g: 0, b: 1, a: 1 } }
+    ];
+    n.exportAsync = async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0, 0, 0, 0]);
+    const ir = await buildIR([n]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.type).not.toBe('IMAGE');
+    expect(node.fills[0].type).toBe('GRADIENT_DIAMOND');
+    expect(node.fills[0].stops.length).toBe(2);
+    // Diamond uses the radial-style centre handle (0.5,0.5 -> box centre).
+    expect(node.fills[0].gradientHandles[0][0]).toBeCloseTo(50, 3);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
   it('rasterizes a node with differing per-side stroke weights', async () => {
     const ir = await buildIR([perSideRect()]);
     const node = ir.document.frames[0].children[0];
@@ -315,6 +426,27 @@ describe('figma exporter -> IR', () => {
     expect(frame.effects[0].type).toBe('DROP_SHADOW');
     expect(frame.stroke.weight).toBe(2);
     expect(frame.cornerRadii.topLeft).toBe(12);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
+  it('emits a nested frame as a real FRAME (precomp) with its chrome and re-based children', async () => {
+    const ir = await buildIR([nestedFrameParent()]);
+    const outer = ir.document.frames[0];
+    const inner = outer.children[0];
+    // The nested frame keeps its FRAME identity (not collapsed to a GROUP) so the
+    // host can rebuild it as a clipping precomp.
+    expect(inner.type).toBe('FRAME');
+    expect(inner.clipsContent).toBe(true);
+    expect(inner.buildMode).toBe('PRECOMP');
+    expect(inner.cornerRadii.topLeft).toBe(8);
+    expect(inner.background.length).toBe(1);
+    // The nested frame is positioned within the outer frame (top-level relative).
+    expect(inner.transform.x).toBe(40);
+    expect(inner.transform.y).toBe(30);
+    // Its child is re-based to the nested frame's own origin: absolute (60,50)
+    // minus the nested frame origin (40,30) -> (20,20) local to the precomp.
+    expect(inner.children[0].transform.x).toBe(20);
+    expect(inner.children[0].transform.y).toBe(20);
     expect(validateMod.validate(ir).valid).toBe(true);
   });
 

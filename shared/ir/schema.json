@@ -67,6 +67,7 @@
       "description": "[a,b,c,d,tx,ty] affine, Y-down. Maps (x,y) -> (a*x + c*y + tx, b*x + d*y + ty)."
     },
     "vec2": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+    "vec3": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } },
     "blendMode": {
       "type": "string",
       "enum": [
@@ -136,7 +137,10 @@
         "imageHash": { "type": "string", "description": "IMAGE: key into document.assets" },
         "scaleMode": { "type": "string", "enum": ["FILL", "FIT", "CROP", "TILE"], "description": "IMAGE" },
         "imageTransform": { "$ref": "#/definitions/matrix2x3" },
-        "scalingFactor": { "type": "number", "description": "IMAGE TILE" }
+        "scalingFactor": { "type": "number", "description": "IMAGE TILE (legacy)" },
+        "tileScale": { "type": "number", "description": "IMAGE TILE: uniform tile-size multiplier on the footage natural size; the host Motion-Tiles at this scale" },
+        "tileWidthScale": { "type": "number", "description": "IMAGE TILE: per-axis tile-width multiplier on the footage natural width" },
+        "tileHeightScale": { "type": "number", "description": "IMAGE TILE: per-axis tile-height multiplier on the footage natural height" }
       }
     },
     "stroke": {
@@ -320,6 +324,62 @@
         "maxLines": { "type": "integer" }
       }
     },
+    "adjust": {
+      "type": "object",
+      "required": ["kind"],
+      "description": "A Photoshop adjustment layer's parameters. The importer creates a native After Effects adjustment layer carrying the matching native effect, so it colour-grades the layers below. Numeric params are in the source app's units; the host maps them onto the AE effect.",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "BRIGHTNESS_CONTRAST", "HUE_SATURATION", "LEVELS", "EXPOSURE", "VIBRANCE",
+            "PHOTO_FILTER", "COLOR_BALANCE", "BLACK_AND_WHITE", "CURVES", "SELECTIVE_COLOR",
+            "CHANNEL_MIXER", "GRADIENT_MAP", "INVERT", "THRESHOLD", "POSTERIZE", "UNKNOWN"
+          ]
+        },
+        "unread": { "type": "boolean", "description": "true when the kind's numeric params could not be read; the host still creates the adjustment layer and notes it." },
+        "brightness": { "type": "number", "description": "BRIGHTNESS_CONTRAST (-150..150)" },
+        "contrast": { "type": "number", "description": "BRIGHTNESS_CONTRAST (-50..100)" },
+        "useLegacy": { "type": "boolean", "description": "BRIGHTNESS_CONTRAST legacy algorithm" },
+        "hue": { "type": "number", "description": "HUE_SATURATION master hue (-180..180)" },
+        "saturation": { "type": "number", "description": "HUE_SATURATION master saturation (-100..100)" },
+        "lightness": { "type": "number", "description": "HUE_SATURATION master lightness (-100..100)" },
+        "colorize": { "type": "boolean", "description": "HUE_SATURATION colorize" },
+        "exposure": { "type": "number", "description": "EXPOSURE (-20..20 stops)" },
+        "offset": { "type": "number", "description": "EXPOSURE (-0.5..0.5)" },
+        "gamma": { "type": "number", "description": "EXPOSURE gamma (0.01..9.99)" },
+        "vibrance": { "type": "number", "description": "VIBRANCE (-100..100)" },
+        "filterColor": { "$ref": "#/definitions/color", "description": "PHOTO_FILTER colour" },
+        "density": { "type": "number", "description": "PHOTO_FILTER density (0..100)" },
+        "preserveLuminosity": { "type": "boolean", "description": "PHOTO_FILTER / BLACK_AND_WHITE / CHANNEL_MIXER" },
+        "shadows": { "$ref": "#/definitions/vec3", "description": "COLOR_BALANCE shadow cyan-red/magenta-green/yellow-blue (-100..100 each)" },
+        "midtones": { "$ref": "#/definitions/vec3", "description": "COLOR_BALANCE midtone balance" },
+        "highlights": { "$ref": "#/definitions/vec3", "description": "COLOR_BALANCE highlight balance" },
+        "levels": {
+          "type": "object",
+          "description": "LEVELS per-channel input/gamma/output. Default channel is composite (RGB).",
+          "properties": {
+            "inputBlack": { "type": "number", "description": "0..255" },
+            "inputWhite": { "type": "number", "description": "0..255" },
+            "gamma": { "type": "number", "description": "0.1..9.99" },
+            "outputBlack": { "type": "number", "description": "0..255" },
+            "outputWhite": { "type": "number", "description": "0..255" }
+          }
+        },
+        "blackAndWhite": {
+          "type": "object",
+          "description": "BLACK_AND_WHITE per-colour channel mix (-200..300 each, Photoshop range).",
+          "properties": {
+            "reds": { "type": "number" },
+            "yellows": { "type": "number" },
+            "greens": { "type": "number" },
+            "cyans": { "type": "number" },
+            "blues": { "type": "number" },
+            "magentas": { "type": "number" }
+          }
+        }
+      }
+    },
     "node": {
       "type": "object",
       "required": ["id", "type", "name"],
@@ -327,8 +387,9 @@
         "id": { "type": "string" },
         "type": {
           "type": "string",
-          "enum": ["FRAME", "GROUP", "RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "LINE", "VECTOR", "TEXT", "BOOLEAN", "IMAGE"]
+          "enum": ["FRAME", "GROUP", "RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "LINE", "VECTOR", "TEXT", "BOOLEAN", "IMAGE", "ADJUSTMENT"]
         },
+        "adjust": { "$ref": "#/definitions/adjust", "description": "ADJUSTMENT nodes only." },
         "name": { "type": "string" },
         "visible": { "type": "boolean", "default": true },
         "locked": { "type": "boolean", "default": false },

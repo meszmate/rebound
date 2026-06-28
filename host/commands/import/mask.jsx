@@ -44,6 +44,19 @@
     } catch (e) { return false; }
   }
 
+  // Public helper so other builders (e.g. gradient text fill in text.jsx) can wire
+  // a track matte through the same AE-version-aware mechanism the clip-matte path
+  // uses: `matte` becomes the (hidden) stencil sitting directly above `fill`, and
+  // `fill` is the visible layer shown only through the matte. `type` defaults to
+  // ALPHA. Returns true when the matte was wired.
+  function wireMatte(matte, fill, type) {
+    if (!matte || !fill) return false;
+    if (matte.length !== undefined || fill.length !== undefined) return false;
+    var t = type;
+    if (t == null) { try { t = TrackMatteType.ALPHA; } catch (e) { return false; } }
+    return wire(fill, matte, t);
+  }
+
   function applyOne(item) {
     var byId = R.importer.layerById || {};
     var matte = item.matte;
@@ -81,5 +94,5 @@
     pending = [];
   }
 
-  R.importer.mask = { collect: collect, flushAll: flushAll, reset: reset };
+  R.importer.mask = { collect: collect, flushAll: flushAll, reset: reset, wireMatte: wireMatte };
 })();

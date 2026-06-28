@@ -5,27 +5,77 @@
   <style>/*__CSS__*/</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="head">
-      <div class="brand">Rebound <span>Relay</span></div>
-      <div id="conn" class="conn" data-state="connecting">
-        <span class="dot"></span><span id="conn-text">Looking for After Effects…</span>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <rect width="24" height="24" rx="6" class="logo-bg" />
+          <path d="M6 16.6 Q 10.5 6.5 17.6 8.4" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" opacity="0.95" />
+          <path d="M14.4 6.7 L18 8.2 L16.6 11.7" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <circle cx="6" cy="16.6" r="2" fill="#fff" />
+        </svg>
+        <span class="word">Rebound<b>Relay</b></span>
       </div>
+    </header>
+
+    <div id="conn" class="conn" data-state="connecting">
+      <div class="conn-main">
+        <span class="conn-dot"></span>
+        <div class="conn-copy">
+          <div id="conn-title" class="conn-title">Looking for After Effects…</div>
+          <div id="conn-sub" class="conn-sub">Make sure the Rebound panel is open.</div>
+        </div>
+        <button id="conn-action" class="conn-action" type="button" title="Reconnect" aria-label="Reconnect">
+          <svg class="ic-refresh" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <path d="M13 8a5 5 0 1 1-1.46-3.54" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            <path d="M13 2.5V5.5H10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="conn-action-label">Try again</span>
+        </button>
+      </div>
+      <div class="conn-bar"><span></span></div>
+      <ol id="conn-steps" class="conn-steps" hidden>
+        <li>Open After Effects</li>
+        <li>Open the <b>Rebound</b> panel (Window ▸ Extensions ▸ Rebound)</li>
+      </ol>
     </div>
 
-    <div class="body">
-      <div id="sel" class="sel">No selection</div>
-      <button id="send" class="btn primary" disabled>Send to After Effects</button>
-      <button id="reconnect" class="btn ghost">Reconnect</button>
+    <main class="body">
+      <div id="sel" class="sel" data-has="false">
+        <span class="sel-ic" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="15" height="15">
+            <rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.4" />
+            <path d="M2.6 6.2 H13.4 M6.2 2.6 V13.4" stroke="currentColor" stroke-width="1.1" opacity="0.5" />
+          </svg>
+        </span>
+        <div class="sel-copy">
+          <div id="sel-title" class="sel-title">Nothing selected</div>
+          <div id="sel-sub" class="sel-sub">Select a frame or layers in Figma</div>
+        </div>
+      </div>
+
+      <button id="send" class="send" type="button" disabled>
+        <span class="send-ic" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="15" height="15">
+            <path d="M2 8 L14 8 M9 3 L14 8 L9 13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </span>
+        <span id="send-label" class="send-label">Send to After Effects</span>
+        <span class="spinner" aria-hidden="true"></span>
+      </button>
+      <button id="save" class="save" type="button">Save as a <b>.rbir</b> file instead</button>
 
       <div id="msg" class="msg" hidden></div>
       <div id="report" class="report" hidden></div>
-    </div>
+    </main>
 
-    <div class="foot">
-      <span>Frames become precomps. Text stays editable.</span>
-      <button id="save" class="link">Save .rbir instead</button>
-    </div>
+    <footer class="foot">
+      <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
+        <rect x="3" y="7" width="10" height="7" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.3" />
+        <path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" stroke-width="1.3" />
+      </svg>
+      <span>Everything stays on your computer.</span>
+    </footer>
   </div>
   <script>/*__JS__*/</script>
 </body>

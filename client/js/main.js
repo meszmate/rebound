@@ -127,9 +127,12 @@
     // display toggle reads as the whole panel reloading on every click.
     window.addEventListener('resize', scheduleRepaint);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) scheduleRepaint(); });
+    // A short burst of gentle (invisible) recomposites catches any icons CEF
+    // rasterized blank in the first frames. One strong toggle runs at first show,
+    // where the panel is appearing anyway so it can't read as a reload.
     var kicks = 0;
-    var kickTimer = setInterval(function () { nudgeRepaint(); if (++kicks >= 12) clearInterval(kickTimer); }, 250);
-    nudgeRepaint();
+    var kickTimer = setInterval(function () { nudgeRepaint(); if (++kicks >= 4) clearInterval(kickTimer); }, 300);
+    nudgeRepaint(true);
 
     R.ui.toast('Rebound ready', { kind: 'info', duration: 1400 });
   }
@@ -139,17 +142,26 @@
     if (repaintTimer) clearTimeout(repaintTimer);
     repaintTimer = setTimeout(nudgeRepaint, 50);
   }
-  function nudgeRepaint() {
+  function nudgeRepaint(hard) {
     var a = document.getElementById('rb-app');
     if (!a) return;
-    // Force a full relayout + repaint so CEF re-rasterizes inline SVG icons its
-    // GPU compositor left blank on the first paint. A synchronous display toggle
-    // never paints the hidden state, so there is no visible flash.
-    var d = a.style.display;
-    a.style.display = 'none';
+    // Make CEF recomposite + re-rasterize inline SVG icons its GPU compositor left
+    // blank on the first paint. The default is a sub-perceptible opacity change:
+    // it refreshes the layer WITHOUT hiding the panel, so a focus/visibility return
+    // after a host op (applying a tile) never flashes the whole panel. The display
+    // toggle is stronger but flashes on some CEF builds, so it is reserved for the
+    // very first show (hard), where the panel is appearing anyway.
+    if (hard) {
+      var d = a.style.display;
+      a.style.display = 'none';
+      void a.offsetHeight;
+      a.style.display = d || '';
+      void a.offsetHeight;
+      return;
+    }
+    a.style.opacity = '0.9999';
     void a.offsetHeight;
-    a.style.display = d || '';
-    void a.offsetHeight;
+    a.style.opacity = '';
   }
 
   function icon(inner) {

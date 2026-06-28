@@ -126,7 +126,12 @@
       .concat(openActions());
   }
 
+  // Heal boards saved before the Recoil refactor: the Apple recoil tile used to be
+  // a per-tool gallery preset (toolpreset-recoil-apple); it is now the generic
+  // apply-recoil tile, so an old pin of that id resolves to it instead of vanishing.
+  var ID_ALIASES = { 'toolpreset-recoil-apple': 'apply-recoil' };
   function byId(id) {
+    if (ID_ALIASES[id]) id = ID_ALIASES[id];
     var a = all();
     for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i];
     return null;
@@ -161,7 +166,7 @@
     items: [
       'widget-ease',
       'widget-align', 'widget-color',
-      'easy-ease', 'ease-in', 'ease-out', 'toolpreset-recoil-apple',
+      'easy-ease', 'ease-in', 'ease-out', 'apply-recoil',
       'widget-anchor',
       'add-null', 'expr-wiggle', 'expr-loop'
     ],

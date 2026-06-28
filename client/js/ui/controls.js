@@ -10,6 +10,13 @@
   var on = R.dom.on;
 
   // ---- Toast --------------------------------------------------------------
+  // Active toasts, oldest first. We cap the stack and collapse immediate repeats
+  // so rapid actions (tapping anchor handles, recoloring layers) don't bury the
+  // panel in popups. Successes are brief; errors linger a little longer.
+  var activeToasts = [];
+  var MAX_TOASTS = 3;
+  var TOAST_MS = { error: 5000, warn: 3500, success: 2000, info: 1900 };
+
   function toast(message, opts) {
     opts = opts || {};
     var host = document.getElementById('rb-toasts');
@@ -18,21 +25,45 @@
       document.body.appendChild(host);
     }
     var kind = opts.kind || 'info';
+    var dur = opts.duration || TOAST_MS[kind] || 2400;
+
+    // Collapse an immediate repeat: if the newest toast says the same thing, just
+    // refresh its timer instead of stacking another identical popup.
+    var last = activeToasts[activeToasts.length - 1];
+    if (last && last.message === message && last.kind === kind && !opts.action) {
+      last.refresh(dur);
+      return { dismiss: last.dismiss };
+    }
+
+    var entry;
     var children = [el('span.rb-grow', { text: message })];
     if (opts.action && opts.onAction) {
       children.push(el('span.rb-toast-action', { text: opts.action, onclick: function () {
         opts.onAction();
-        remove();
+        entry.dismiss();
       } }));
     }
     var node = el('div.rb-toast.is-' + kind, null, children);
     host.appendChild(node);
-    var timer = setTimeout(remove, opts.duration || (kind === 'error' ? 6000 : 3200));
-    function remove() {
-      clearTimeout(timer);
-      if (node.parentNode) node.parentNode.removeChild(node);
-    }
-    return { dismiss: remove };
+
+    var timer = null;
+    entry = {
+      message: message, kind: kind,
+      dismiss: function () {
+        if (timer) { clearTimeout(timer); timer = null; }
+        if (node.parentNode) node.parentNode.removeChild(node);
+        var i = activeToasts.indexOf(entry);
+        if (i !== -1) activeToasts.splice(i, 1);
+      },
+      refresh: function (ms) { if (timer) clearTimeout(timer); timer = setTimeout(entry.dismiss, ms); }
+    };
+    entry.refresh(dur);
+    activeToasts.push(entry);
+
+    // Cap the stack: drop the oldest beyond the limit so popups never pile up.
+    while (activeToasts.length > MAX_TOASTS) activeToasts[0].dismiss();
+
+    return { dismiss: entry.dismiss };
   }
 
   // ---- Segmented control --------------------------------------------------

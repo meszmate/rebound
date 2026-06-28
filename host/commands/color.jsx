@@ -18,6 +18,7 @@
   var GROUP_CONTENTS = 'ADBE Vectors Group'; // its child container
   var FILL = 'ADBE Vector Graphic - Fill';
   var FILL_COLOR = 'ADBE Vector Fill Color';
+  var GFILL = 'ADBE Vector Graphic - G-Fill';   // gradient fill operator
   var STROKE = 'ADBE Vector Graphic - Stroke';
   var STROKE_COLOR = 'ADBE Vector Stroke Color';
   var EFFECT_PARADE = 'ADBE Effect Parade';
@@ -80,6 +81,40 @@
     return recolorOp(group, rgb, STROKE, STROKE_COLOR);
   }
 
+  // Does this shape tree already carry ANY fill paint (solid or gradient)? Used
+  // to decide how to colour a shape that has no recolorable SOLID fill: if it is
+  // truly unfilled we can add a clean native Fill operator; if a gradient fill is
+  // present we must tint on top (an added operator would render behind it).
+  function hasAnyFill(group) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var child = group.property(i);
+      if (child.matchName === FILL || child.matchName === GFILL) return true;
+      if (child.matchName === GROUP_CONTENTS) {
+        if (hasAnyFill(child)) return true;
+      } else if (child.matchName === VGROUP) {
+        var contents = child.property(GROUP_CONTENTS);
+        if (contents && hasAnyFill(contents)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Append a real, editable solid Fill operator to a shape's root vectors group
+  // and colour it. Used when a shape has no solid fill yet, so colouring it adds
+  // a native shape fill instead of silently skipping the layer. Returns true on
+  // success. (Appended operators render behind existing paint, so the caller only
+  // uses this for shapes with NO existing fill.)
+  function addShapeFill(root, rgb) {
+    try {
+      var fill = root.addProperty(FILL);
+      if (!fill) return false;
+      try { fill.name = 'Rebound Fill'; } catch (eName) { /* name is optional */ }
+      return setColorProp(fill.property(FILL_COLOR), rgb);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function isSolid(layer) {
     return layer.source && layer.source.mainSource &&
       layer.source.mainSource instanceof SolidSource;
@@ -122,7 +157,18 @@
       var hit = 0;
       if (wantFill) hit += recolorFills(root, rgb);
       if (wantStroke) hit += recolorStrokes(root, rgb);
-      return hit > 0;
+      if (hit > 0) return true;
+      // The shape has no SOLID operator we could recolour -- it is gradient-
+      // filled, stroke-only, has a keyframed/expression fill, or carries no paint
+      // yet (common on imported artwork). Don't skip it. For a truly unfilled
+      // shape, add a clean native Fill operator; otherwise tint the whole layer
+      // with a reversible "Rebound Fill" effect, which always renders on top of
+      // an existing gradient. Either way the chosen colour lands.
+      if (wantFill) {
+        if (!hasAnyFill(root) && addShapeFill(root, rgb)) return true;
+        return colorViaFillEffect(layer, rgb);
+      }
+      return false;
     }
     if (!wantFill) return false;
     if (isSolid(layer)) {

@@ -105,7 +105,7 @@ const nodeGlobals = {
 };
 
 export default [
-  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*', 'plugins/figma/dist/**'] },
+  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*', 'tools/wf/**', 'plugins/figma/dist/**'] },
   js.configs.recommended,
 
   // Browser / CEP panel code.
@@ -192,6 +192,12 @@ export default [
         Blob: 'readonly',
         URL: 'readonly',
         setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        AbortController: 'readonly',
         console: 'readonly',
         globalThis: 'readonly',
         ReboundNormalize: 'readonly',

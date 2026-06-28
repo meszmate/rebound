@@ -1,110 +1,298 @@
 /*
  * Rebound Relay (Figma), UI (iframe).
  *
- * The only context with network + DOM. It discovers the Rebound receiver in
- * After Effects by pinging the loopback ports, asks the sandbox to build the IR,
- * and ships it: POST to the receiver when connected, or a .rbir download when
- * not. The build's fidelity report is shown back to the user.
+ * The only context with network + DOM. It keeps a live connection to the Rebound
+ * receiver running in After Effects, builds the IR from the current selection (in
+ * the sandbox), and ships it: POST to the receiver when connected, or a .rbir
+ * download when not. Everything stays on loopback.
+ *
+ * Connection model (the "always knows" part):
+ *   - discover(): races every host x port in parallel with a hard timeout, so a
+ *     stale/hung port can't stall the search and the first live one wins.
+ *   - while offline: a quiet background sweep auto-connects the moment After
+ *     Effects (or the panel) comes up — no Reconnect click needed.
+ *   - while connected: a heartbeat re-pings the live endpoint; if it goes away
+ *     (panel closed, AE quit, port moved) we drop straight back into searching.
+ *   - regaining focus kicks an immediate sweep, so tabbing back reconnects fast.
  */
 (function () {
   'use strict';
 
+  // Figma's manifest allowedDomains only accepts hostnames, not IP literals
+  // (a "127.0.0.1 must be a valid url" error), so we connect over localhost.
+  // Chromium routes loopback localhost to the 127.0.0.1 the receiver binds.
+  var HOSTS = ['localhost'];
   var PORTS = [7890, 7891, 7892, 7893];
-  var aePort = null;
-  var lastIR = null;
+  var PING_TIMEOUT = 1100;   // per ping; loopback answers in <50ms when present
+  var RETRY_MS = 2500;       // background sweep cadence while offline
+  var HEARTBEAT_MS = 5000;   // liveness check cadence while connected
+  var IR_VERSION = '1.1.0';  // mirrors ir-build.js; overwritten by the sandbox's meta
+
+  var el = {
+    conn: document.getElementById('conn'),
+    connTitle: document.getElementById('conn-title'),
+    connSub: document.getElementById('conn-sub'),
+    connAction: document.getElementById('conn-action'),
+    connSteps: document.getElementById('conn-steps'),
+    sel: document.getElementById('sel'),
+    selTitle: document.getElementById('sel-title'),
+    selSub: document.getElementById('sel-sub'),
+    send: document.getElementById('send'),
+    sendLabel: document.getElementById('send-label'),
+    save: document.getElementById('save'),
+    msg: document.getElementById('msg'),
+    report: document.getElementById('report')
+  };
+
+  var endpoint = null;       // { host, port } when connected
+  var panel = null;          // { panelVersion, irVersion } from the live ping
+  var connState = 'connecting';
   var selectionCount = 0;
+  var lastIR = null;
   var pendingSave = false;
+  var gen = 0;               // cancels stale discovery results
+  var retryTimer = null;
+  var heartbeatTimer = null;
 
-  var connEl = document.getElementById('conn');
-  var connText = document.getElementById('conn-text');
-  var selEl = document.getElementById('sel');
-  var sendBtn = document.getElementById('send');
-  var reconnectBtn = document.getElementById('reconnect');
-  var saveBtn = document.getElementById('save');
-  var msgEl = document.getElementById('msg');
-  var reportEl = document.getElementById('report');
+  // ── Connection ────────────────────────────────────────────────────
 
-  function setConn(state, text) {
-    connEl.setAttribute('data-state', state);
-    connText.textContent = text;
+  function pingOnce(host, port) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, PING_TIMEOUT);
+    var opts = { method: 'GET' };
+    if (ctrl) opts.signal = ctrl.signal;
+    return fetch('http://' + host + ':' + port + '/rebound/ping', opts)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (j && j.app === 'rebound') return { host: host, port: port, panelVersion: j.panelVersion, irVersion: j.irVersion };
+        return null;
+      })
+      .catch(function () { return null; })
+      .then(function (res) { clearTimeout(timer); return res; });
   }
 
-  function showMsg(kind, text) {
-    msgEl.hidden = false;
-    msgEl.className = 'msg ' + kind;
-    msgEl.textContent = text;
+  // Race every endpoint; resolve on the first live one, or null when all fail.
+  // Remembered endpoint goes to the front so a steady connection re-confirms fast.
+  function sweep() {
+    var combos = [];
+    if (endpoint) combos.push(endpoint);
+    for (var h = 0; h < HOSTS.length; h++) {
+      for (var p = 0; p < PORTS.length; p++) {
+        if (endpoint && HOSTS[h] === endpoint.host && PORTS[p] === endpoint.port) continue;
+        combos.push({ host: HOSTS[h], port: PORTS[p] });
+      }
+    }
+    return new Promise(function (resolve) {
+      var pending = combos.length, done = false;
+      combos.forEach(function (c) {
+        pingOnce(c.host, c.port).then(function (res) {
+          if (done) return;
+          if (res) { done = true; resolve(res); return; }
+          pending -= 1;
+          if (pending === 0) { done = true; resolve(null); }
+        });
+      });
+    });
   }
-  function clearMsg() { msgEl.hidden = true; }
 
-  function updateSend() {
-    sendBtn.disabled = selectionCount === 0;
+  function clearTimers() {
+    if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  }
+
+  function onConnected(info) {
+    endpoint = { host: info.host, port: info.port };
+    panel = { panelVersion: info.panelVersion || null, irVersion: info.irVersion || null };
+    clearTimers();
+    setState('connected');
+    heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+  }
+
+  function onLost(searching) {
+    endpoint = null;
+    panel = null;
+    clearTimers();
+    setState(searching ? 'connecting' : 'offline');
+    if (!searching) retryTimer = setTimeout(silentSweep, RETRY_MS);
+  }
+
+  // Visible search (Reconnect / first load): flips to "connecting" while it looks.
+  function connect() {
+    var mine = ++gen;
+    clearTimers();
+    setState('connecting');
+    sweep().then(function (res) {
+      if (mine !== gen) return;
+      if (res) onConnected(res);
+      else onLost(false);
+    });
+  }
+
+  // Quiet background search while offline: no flicker, just connects when it can.
+  function silentSweep() {
+    if (endpoint) return;
+    var mine = gen;
+    sweep().then(function (res) {
+      if (mine !== gen || endpoint) return;
+      if (res) onConnected(res);
+      else retryTimer = setTimeout(silentSweep, RETRY_MS);
+    });
+  }
+
+  function heartbeat() {
+    if (!endpoint) return;
+    pingOnce(endpoint.host, endpoint.port).then(function (res) {
+      if (!endpoint) return;
+      if (res) { panel = { panelVersion: res.panelVersion, irVersion: res.irVersion }; }
+      else { onLost(true); connect(); } // endpoint vanished — search again at once
+    });
+  }
+
+  // ── Rendering ─────────────────────────────────────────────────────
+
+  function versionSkew() {
+    if (!panel || !panel.irVersion) return false;
+    return String(panel.irVersion).split('.')[0] !== String(IR_VERSION).split('.')[0];
+  }
+
+  function setState(state) {
+    connState = state;
+    el.conn.setAttribute('data-state', state);
+    el.connSteps.hidden = state !== 'offline';
+    var skew = versionSkew();
+    if (state === 'connected') {
+      el.connTitle.textContent = 'Connected to After Effects';
+      var bits = [];
+      if (panel && panel.panelVersion) bits.push('Rebound ' + panel.panelVersion);
+      if (endpoint) bits.push('port ' + endpoint.port);
+      el.connSub.textContent = skew
+        ? 'Panel speaks IR ' + panel.irVersion + ' — update Rebound to match'
+        : (bits.join(' · ') || 'Ready to receive');
+      el.connSub.style.color = skew ? 'var(--rb-warn)' : '';
+      el.connAction.querySelector('.conn-action-label').textContent = 'Reconnect';
+      el.connAction.title = 'Reconnect';
+    } else if (state === 'offline') {
+      el.connTitle.textContent = 'After Effects not detected';
+      el.connSub.textContent = 'Open the Rebound panel — it’ll connect on its own.';
+      el.connSub.style.color = '';
+      el.connAction.querySelector('.conn-action-label').textContent = 'Try again';
+      el.connAction.title = 'Try again';
+    } else {
+      el.connTitle.textContent = 'Looking for After Effects…';
+      el.connSub.textContent = 'Make sure the Rebound panel is open.';
+      el.connSub.style.color = '';
+    }
+    syncHeight();
   }
 
   function updateSelection(count) {
     selectionCount = count;
-    if (count === 0) { selEl.textContent = 'Select a frame or layers to send'; selEl.className = 'sel'; }
-    else { selEl.textContent = count + (count === 1 ? ' item selected' : ' items selected'); selEl.className = 'sel has'; }
-    updateSend();
-  }
-
-  function ping(port) {
-    return fetch('http://127.0.0.1:' + port + '/rebound/ping', { method: 'GET' })
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { return !!(j && j.app === 'rebound'); })
-      .catch(function () { return false; });
-  }
-
-  function discover() {
-    setConn('connecting', 'Looking for After Effects…');
-    var i = 0;
-    function tryNext() {
-      if (i >= PORTS.length) { aePort = null; setConn('disconnected', 'After Effects not detected. Open the Rebound panel.'); return; }
-      var port = PORTS[i++];
-      ping(port).then(function (ok) {
-        if (ok) { aePort = port; setConn('connected', 'Connected to After Effects on ' + port); }
-        else tryNext();
-      });
+    var has = count > 0;
+    el.sel.setAttribute('data-has', has ? 'true' : 'false');
+    if (has) {
+      el.selTitle.textContent = count + (count === 1 ? ' layer selected' : ' layers selected');
+      el.selSub.textContent = 'Ready to send to After Effects';
+    } else {
+      el.selTitle.textContent = 'Nothing selected';
+      el.selSub.textContent = 'Select a frame or layers in Figma';
     }
-    tryNext();
+    refreshSend();
   }
+
+  function refreshSend() {
+    el.send.disabled = selectionCount === 0 || el.send.classList.contains('loading');
+  }
+
+  function loading(on, label) {
+    el.send.classList.toggle('loading', !!on);
+    if (label) el.sendLabel.textContent = label;
+    if (!on) { el.sendLabel.textContent = 'Send to After Effects'; }
+    refreshSend();
+  }
+
+  function showMsg(kind, text) {
+    el.msg.hidden = false;
+    el.msg.className = 'msg ' + kind;
+    el.msg.textContent = text;
+    syncHeight();
+  }
+  function clearMsg() { el.msg.hidden = true; }
+
+  function pluralise(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
 
   function renderReport(report) {
-    if (!report) { reportEl.hidden = true; return; }
-    var lines = [];
-    lines.push('<h4>Imported ' + report.framesBuilt + ' frame' + (report.framesBuilt === 1 ? '' : 's') + ', ' + report.layersBuilt + ' layer' + (report.layersBuilt === 1 ? '' : 's') + '</h4>');
+    if (!report) { el.report.hidden = true; return; }
+    var frames = report.framesBuilt || 0;
+    var layers = report.layersBuilt || 0;
     var notes = [];
-    if (report.missingFonts && report.missingFonts.length) notes.push(report.missingFonts.length + ' font' + (report.missingFonts.length === 1 ? '' : 's') + ' not installed: ' + report.missingFonts.join(', '));
-    if (report.approximated && report.approximated.length) notes.push(report.approximated.length + ' item' + (report.approximated.length === 1 ? '' : 's') + ' approximated');
-    if (report.skipped && report.skipped.length) notes.push(report.skipped.length + ' not yet supported');
-    if (notes.length) {
-      lines.push('<ul>');
-      for (var i = 0; i < notes.length; i++) lines.push('<li>' + notes[i] + '</li>');
-      lines.push('</ul>');
+    if (report.missingFonts && report.missingFonts.length) {
+      notes.push(pluralise(report.missingFonts.length, 'font') + ' not installed: ' + report.missingFonts.join(', '));
     }
-    reportEl.innerHTML = lines.join('');
-    reportEl.hidden = false;
+    if (report.approximated && report.approximated.length) {
+      notes.push(pluralise(report.approximated.length, 'item') + ' approximated');
+    }
+    if (report.skipped && report.skipped.length) {
+      notes.push(report.skipped.length + ' not yet supported');
+    }
+    var html =
+      '<div class="report-head">' +
+        '<span class="report-check"><svg viewBox="0 0 16 16" width="10" height="10"><path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>' +
+        '<span class="report-title">Rebuilt in After Effects</span>' +
+      '</div>' +
+      '<div class="report-chips">' +
+        '<span class="chip"><b>' + frames + '</b> ' + (frames === 1 ? 'frame' : 'frames') + '</span>' +
+        '<span class="chip"><b>' + layers + '</b> ' + (layers === 1 ? 'layer' : 'layers') + '</span>' +
+      '</div>';
+    if (notes.length) {
+      html += '<ul class="notes">';
+      for (var i = 0; i < notes.length; i++) html += '<li>' + escapeHtml(notes[i]) + '</li>';
+      html += '</ul>';
+    }
+    el.report.innerHTML = html;
+    el.report.hidden = false;
+    syncHeight();
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  // Keep the Figma panel exactly as tall as the content.
+  function syncHeight() {
+    requestAnimationFrame(function () {
+      var h = Math.ceil(document.documentElement.scrollHeight);
+      parent.postMessage({ pluginMessage: { type: 'resize', height: h } }, '*');
+    });
+  }
+
+  // ── Sending ───────────────────────────────────────────────────────
+
   function postIR(ir) {
+    loading(true, 'Sending…');
     showMsg('info', 'Sending to After Effects…');
-    return fetch('http://127.0.0.1:' + aePort + '/rebound/ir', {
+    return fetch('http://' + endpoint.host + ':' + endpoint.port + '/rebound/ir', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(ir)
     })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
       .then(function (res) {
+        loading(false);
         if (res.ok && res.body && res.body.ok) {
-          showMsg('ok', 'Sent. Check After Effects.');
+          showMsg('ok', 'Sent. Your design is now in After Effects.');
           renderReport(res.body.report);
         } else {
           showMsg('error', (res.body && res.body.error) || 'After Effects could not import this.');
         }
       })
       .catch(function () {
-        showMsg('error', 'Lost the connection to After Effects. Saving a .rbir file instead.');
+        loading(false);
+        showMsg('warn', 'Lost the connection — saved a .rbir file you can import from the panel.');
         download(ir);
-        discover();
+        onLost(true);
+        connect();
       });
   }
 
@@ -121,38 +309,71 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
 
-  function requestExport() {
+  function deliver(ir) {
+    if (endpoint) { postIR(ir); return; }
+    // Offline: one quick sweep in case the panel just came up, else save.
+    loading(true, 'Connecting…');
+    sweep().then(function (res) {
+      if (res) { onConnected(res); postIR(ir); }
+      else {
+        loading(false);
+        download(ir);
+        showMsg('info', 'After Effects isn’t open — saved a .rbir file. Import it from the Rebound panel.');
+      }
+    });
+  }
+
+  function requestExport(save) {
     clearMsg();
-    reportEl.hidden = true;
-    sendBtn.disabled = true;
-    showMsg('info', 'Reading the selection…');
+    el.report.hidden = true;
+    pendingSave = !!save;
+    loading(true, save ? 'Building…' : 'Reading selection…');
     parent.postMessage({ pluginMessage: { type: 'export' } }, '*');
   }
 
-  sendBtn.addEventListener('click', requestExport);
-  reconnectBtn.addEventListener('click', discover);
-  saveBtn.addEventListener('click', function () {
-    if (lastIR) download(lastIR);
-    else { clearMsg(); reportEl.hidden = true; showMsg('info', 'Building the file…'); parent.postMessage({ pluginMessage: { type: 'export', save: true } }, '*'); pendingSave = true; }
+  // ── Wiring ────────────────────────────────────────────────────────
+
+  el.send.addEventListener('click', function () { if (!el.send.disabled) requestExport(false); });
+  el.save.addEventListener('click', function () {
+    if (lastIR) { download(lastIR); showMsg('ok', 'Saved a .rbir file. Import it from the Rebound panel.'); return; }
+    requestExport(true);
+  });
+  el.connAction.addEventListener('click', function () {
+    el.connAction.classList.add('spin');
+    setTimeout(function () { el.connAction.classList.remove('spin'); }, 700);
+    connect();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !endpoint && connState !== 'connecting') { clearTimers(); silentSweep(); }
+  });
+  window.addEventListener('focus', function () {
+    if (!endpoint && connState !== 'connecting') { clearTimers(); silentSweep(); }
   });
 
   window.onmessage = function (e) {
     var msg = e.data && e.data.pluginMessage;
     if (!msg) return;
-    if (msg.type === 'selection') {
+    if (msg.type === 'meta') {
+      if (msg.irVersion) IR_VERSION = msg.irVersion;
+    } else if (msg.type === 'selection') {
       updateSelection(msg.count);
     } else if (msg.type === 'ir') {
       lastIR = msg.ir;
-      updateSend();
-      if (pendingSave) { pendingSave = false; download(msg.ir); showMsg('ok', 'Saved a .rbir file. Import it from the Rebound panel.'); return; }
-      if (aePort) { postIR(msg.ir); }
-      else { download(msg.ir); showMsg('info', 'After Effects was not detected, so a .rbir file was saved. Import it from the Rebound panel.'); }
+      if (pendingSave) {
+        pendingSave = false;
+        loading(false);
+        download(msg.ir);
+        showMsg('ok', 'Saved a .rbir file. Import it from the Rebound panel.');
+        return;
+      }
+      deliver(msg.ir);
     } else if (msg.type === 'error') {
-      updateSend();
+      loading(false);
       showMsg('error', msg.error);
     }
   };
 
   updateSelection(0);
-  discover();
+  connect();
 })();

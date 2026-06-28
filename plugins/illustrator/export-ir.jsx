@@ -352,6 +352,46 @@
     return node;
   }
 
+  // ---- opacity (transparency) masks ----------------------------------------
+
+  // Illustrator opacity masks live inside the item's appearance and are NOT
+  // exposed as page items in the scripting DOM, so the mask art cannot be
+  // enumerated or rebuilt as editable geometry, and a SEPARATE luma matte node
+  // (the host's maskTargetId convention in host/commands/import/mask.jsx) cannot
+  // be reconstructed. What IS reproducible is the COMPOSITED result: imageCapture
+  // renders the item with its opacity mask already applied. So a detected masked
+  // item is baked to a single pixel-exact node (mask already applied in the
+  // pixels) with a precise fidelity note, instead of silently exporting the art
+  // at full opacity.
+
+  // Best-effort detection. Standard Illustrator builds expose NO boolean for an
+  // opacity mask -- item.opacityMask is undefined, so this stays dormant there
+  // (undetected masks fall through unchanged, no false positives). A few builds
+  // surface a non-null .opacityMask appearance reference, read defensively below;
+  // there is no other reliable DOM signal to key on.
+  function hasOpacityMask(item) {
+    try {
+      if (item.opacityMask != null) return true;
+    } catch (e) {}
+    return false;
+  }
+
+  // Bake a detected masked item to a single composited node (the mask is already
+  // applied in the captured pixels) plus a fidelity note. Returns the baked node,
+  // or null when even the composite could not be captured. No maskType/maskTargetId
+  // is set: this is a plain image, not a separable track matte (see above).
+  function opacityMaskToIR(item) {
+    var art = imageItemToIR(item);
+    if (!art) {
+      note(item, 'opacity mask present but the masked art could not be baked (place it in After Effects)');
+      return null;
+    }
+    art.meta = art.meta || {};
+    art.meta.opacityMaskBaked = true;
+    note(item, 'opacity mask baked into the art; an editable luma matte is not separable from Illustrator scripting');
+    return art;
+  }
+
   // A member of a clip group is the clipping path; it masks the other members.
   function isClipping(it) {
     try { if (it.clipping === true) return true; } catch (e) {}
@@ -517,6 +557,9 @@
   function itemToIR(item) {
     var tn;
     try { if (item.hidden) return null; tn = item.typename; } catch (e) { return null; }
+    // An opacity (transparency) mask cannot be enumerated in the AI DOM; bake
+    // the composited appearance so masked art no longer exports at full opacity.
+    if (hasOpacityMask(item)) { var om = opacityMaskToIR(item); if (om) return om; }
     if (tn === 'PathItem') {
       if (hasUnreproducibleFill(item)) { var ri = imageItemToIR(item); if (ri) return ri; }
       return pathToIR(item);

@@ -16,14 +16,30 @@
     return layer.property(M.transform);
   }
 
-  // Whether a layer has 2D source bounds we can anchor to. Camera and light
-  // layers have none. Everything else (footage, solid, precomp, AND shape / text
-  // layers) supports sourceRectAtTime. We test the capability directly rather
-  // than `instanceof AVLayer`, which is unreliable for shape and text layers in
-  // ExtendScript even though they are documented AVLayer subclasses.
-  function hasBounds(layer) {
-    if (layer instanceof CameraLayer || layer instanceof LightLayer) return false;
-    return typeof layer.sourceRectAtTime === 'function';
+  // The 2D source bounds of a layer at a time, or null if it has none.
+  //
+  // We do NOT pre-test capability with `instanceof AVLayer` or
+  // `typeof layer.sourceRectAtTime === 'function'` -- both are unreliable for
+  // shape and text layers in ExtendScript, which is why the anchor tool used to
+  // skip them as "(no bounds)". Instead we ATTEMPT the call and trust the result:
+  // if it yields a non-empty rect the layer has bounds; if it throws (camera /
+  // light / audio-only) it does not. Shape / text layers often return an EMPTY
+  // path-only rect for extents=false, so we retry once WITH extents (which grows
+  // the box to include strokes & effects) before giving up -- otherwise the anchor
+  // would be sent to a degenerate (0x0) point and appear to "do nothing".
+  function boundsOf(layer, time, extents) {
+    try { if (layer instanceof CameraLayer || layer instanceof LightLayer) return null; } catch (eInst) { /* enums vary by build */ }
+    var want = !!extents;
+    for (var pass = 0; pass < 2; pass++) {
+      try {
+        var r = layer.sourceRectAtTime(time, want);
+        if (r && (r.width > 0 || r.height > 0)) return r;
+      } catch (e) {
+        return null; // no source rect at all (camera / light / audio)
+      }
+      want = true; // second pass: include extents to catch stroke-only / empty paths
+    }
+    return null;
   }
 
   function rotate2d(v, deg) {
@@ -127,11 +143,6 @@
     try {
       for (var i = 0; i < layers.length; i++) {
         var layer = layers[i];
-        if (!hasBounds(layer)) {
-          skipped.push(layer.name + ' (no bounds)');
-          continue;
-        }
-
         var tr = transformOf(layer);
         var anchorProp = tr.property(M.anchor);
         var posProp = tr.property(M.position);
@@ -147,7 +158,11 @@
 
         // extents=true grows the box to include masks, strokes, and effects, for
         // a result closer to the visible content bounds than raw geometry.
-        var rect = layer.sourceRectAtTime(time, !!args.extents);
+        var rect = boundsOf(layer, time, !!args.extents);
+        if (!rect) {
+          skipped.push(layer.name + ' (no visible bounds)');
+          continue;
+        }
         var is3d = anchorProp.value.length > 2;
         var a0 = anchorProp.value;
         var a1 = [rect.left + gx * rect.width, rect.top + gy * rect.height];
@@ -225,15 +240,13 @@
     var time = comp.time;
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
-      if (!hasBounds(layer)) continue;
+      var rect = boundsOf(layer, time, false);
+      if (!rect) continue;
       var tr = transformOf(layer);
       var anchorProp = tr.property(M.anchor);
-      var rect = null;
-      try { rect = layer.sourceRectAtTime(time, false); } catch (e) { rect = null; }
-      if (!rect || !rect.width || !rect.height) return { found: false };
       var a = anchorProp.value;
-      var gx = (a[0] - rect.left) / rect.width;
-      var gy = (a[1] - rect.top) / rect.height;
+      var gx = rect.width ? (a[0] - rect.left) / rect.width : 0.5;
+      var gy = rect.height ? (a[1] - rect.top) / rect.height : 0.5;
       var expr = false;
       try { expr = anchorProp.canSetExpression && anchorProp.expressionEnabled && anchorProp.expression !== ''; } catch (e2) { expr = false; }
       return { found: true, layerName: layer.name, gx: gx, gy: gy, animated: anchorProp.numKeys > 0, hasExpression: !!expr };

@@ -277,7 +277,7 @@
     // Extra settings live in the full tool view (the "open" control on the widget).
     function filledOf() { return true; }
 
-    function setBoard(b) { board = b; grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + b); persist(); syncBoardBtns(); }
+    function setBoard(b) { board = b; grid.classList.remove('is-sm', 'is-md', 'is-lg'); grid.classList.add('is-' + b); persist(); syncBoardBtns(); scheduleFit(); }
     function syncBoardBtns() {
       if (boardBtns) ['sm', 'md', 'lg'].forEach(function (b) { boardBtns[b].classList.toggle('is-active', board === b); });
     }
@@ -303,6 +303,46 @@
       var gcs = window.getComputedStyle(grid);
       var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
       return rowTrackPx(gcs) + rgap;
+    }
+
+    // Fit the whole board into the panel height: shrink the cell (and the icon
+    // chip with it) so the rows the grid actually uses fill the available height
+    // exactly, instead of overflowing into a scrollbar. Tiles stay as large as
+    // they can while everything fits; a floor keeps them usable, below which the
+    // board scrolls as a last resort (a great many items in a very short panel).
+    // The CAP per size matches the .is-sm/.is-md/.is-lg cells in home.css.
+    var FIT_BASE = { sm: 54, md: 70, lg: 88 };
+    var FIT_MIN = 46;
+    var fitPending = 0;
+    function fitToHeight() {
+      if (!grid || !ids.length) return;
+      var gcs = window.getComputedStyle(grid);
+      var rows = (gcs.gridTemplateRows || '').split(' ')
+        .map(parseFloat).filter(function (n) { return !isNaN(n); }).length;
+      var avail = grid.clientHeight;
+      if (!rows || avail <= 0) return; // not laid out yet (e.g. pre-mount)
+      var rgap = parseFloat(gcs.rowGap || gcs.gap) || 6;
+      var cap = FIT_BASE[board] || 70;
+      // The height each row actually gets when the board fills the panel. With few
+      // items this exceeds the cap (rows stretch via 1fr); with many it is small.
+      var rowH = Math.floor((avail - (rows - 1) * rgap) / rows);
+      // Cell minimum: cap it so a sparse board does not balloon the min past its
+      // size, but shrink below the cap (down to a floor) when rows must get small.
+      grid.style.setProperty('--rb-home-cell', Math.max(FIT_MIN, Math.min(cap, rowH)) + 'px');
+      // Only scroll when the board GENUINELY overflows -- i.e. the rows had to be
+      // clamped up to the floor (rowH < FIT_MIN) so the content is taller than the
+      // panel. When everything fits, the rows fill the height exactly via 1fr, so
+      // keeping overflow `auto` would still show a 1px scrollbar from sub-pixel
+      // rounding between clientHeight and the real fractional layout. Hiding it in
+      // the fit case removes that phantom 1px scroll gap.
+      grid.style.overflowY = rowH < FIT_MIN ? 'auto' : 'hidden';
+      // Icon chip tracks the REAL row height (~40%), clamped so it neither dominates
+      // a tall tile nor vanishes in a short one.
+      grid.style.setProperty('--rb-home-ico', Math.max(15, Math.min(40, Math.round(rowH * 0.4))) + 'px');
+    }
+    function scheduleFit() {
+      if (fitPending) return;
+      fitPending = window.requestAnimationFrame(function () { fitPending = 0; fitToHeight(); });
     }
 
     // The tallest an item may be made, by type, so nothing can be dragged into a
@@ -480,6 +520,13 @@
     syncBoardBtns();
     syncColsBtns();
     applyBoardTheme();
+
+    // Re-fit the board whenever the panel is resized (height changes mean a
+    // different number of rows can fit). Changing the cell size does not change
+    // the grid's own (flex-constrained) box, so this never loops.
+    if (window.ResizeObserver) {
+      try { new ResizeObserver(scheduleFit).observe(grid); } catch (eRO) { /* older CEF */ }
+    }
 
     function syncEdit() {
       editBtn.classList.toggle('is-active', editing);
@@ -1004,7 +1051,8 @@
         else if (introAll) { playEntrance(node, introIdx, action.kind, introIdx); introIdx++; }
       });
       if (editing) grid.appendChild(addTile());
-      flip(prevRects);
+      fitToHeight();      // size cells to fill the panel height (no scroll) before
+      flip(prevRects);    // FLIP captures the fitted rects
       lastAddedId = null;
       introAll = false;
     }

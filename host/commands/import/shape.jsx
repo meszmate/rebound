@@ -65,6 +65,15 @@
 
   function addEllipse(contents, node, offset) {
     var sz = sizeOf(node);
+    // Arc / pie / ring: prefer the exporter's exact baked outline (node.paths,
+    // already in the right orientation) when present; otherwise build the
+    // partial-ellipse parametrically so the shape is still correct for sources
+    // that did not bake paths.
+    var arc = node.primitive && node.primitive.ellipse && node.primitive.ellipse.arc;
+    if (arc) {
+      if (node.paths && node.paths.length) return addPaths(contents, node, offset);
+      return addSubpath(contents, R.importer.geometry.ellipseArcPath(sz[0], sz[1], arc), offset);
+    }
     var ell = contents.addProperty('ADBE Vector Shape - Ellipse');
     ell.property('ADBE Vector Ellipse Size').setValue([sz[0], sz[1]]);
     ell.property('ADBE Vector Ellipse Position').setValue([offset[0] + sz[0] / 2, offset[1] + sz[1] / 2]);
@@ -136,10 +145,11 @@
       if (node.cornerRadii && node.cornerRadii.smoothing && node.paths && node.paths.length) return addPaths(contents, node, offset);
       return addRect(contents, node, offset);
     }
-    if (type === 'ELLIPSE' && !(node.primitive && node.primitive.ellipse && node.primitive.ellipse.arc)) return addEllipse(contents, node, offset);
+    // addEllipse handles both the plain ellipse and the arc/pie/ring case
+    // (built parametrically from primitive.ellipse.arc, no baked paths needed).
+    if (type === 'ELLIPSE') return addEllipse(contents, node, offset);
     if ((type === 'POLYGON' || type === 'STAR') && node.primitive && node.primitive.polystar) return addStar(contents, node, offset);
     if (node.paths && node.paths.length) return addPaths(contents, node, offset);
-    if (type === 'ELLIPSE') return addEllipse(contents, node, offset);
     return 0;
   }
   R.importer.addGeometry = addGeometry;
@@ -164,6 +174,8 @@
     // Stroke before fill so the stroke paints on top, like the source.
     paint.applyStroke(sl.contents, node, report);
     paint.applyFills(sl.contents, node, report);
+    // Real gradient colours go on as a Ramp effect (AE blocks scripting fill stops).
+    paint.gradientEffect(sl.layer, node, report);
     R.importer.transform.apply(sl.layer, node, report);
     R.importer.effect.apply(sl.layer, node, report);
     R.importer.layerStyle.collect(sl.layer, node, report);
@@ -202,6 +214,7 @@
     try { merge.property('ADBE Vector Merge Type').setValue(mergeType(boolOp)); } catch (e) {}
     paint.applyStroke(sl.contents, node, report);
     paint.applyFills(sl.contents, node, report);
+    paint.gradientEffect(sl.layer, node, report);
     R.importer.transform.apply(sl.layer, node, report);
     R.importer.effect.apply(sl.layer, node, report);
     R.importer.layerStyle.collect(sl.layer, node, report);

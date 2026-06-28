@@ -6,7 +6,10 @@
  * Effects (or saves a .rbir file). All scene-graph and image access happens here;
  * all network / file output happens in the UI iframe.
  */
-figma.showUI(__html__, { width: 340, height: 480, title: 'Rebound Relay', themeColors: true });
+figma.showUI(__html__, { width: 340, height: 300, title: 'Rebound Relay', themeColors: true });
+
+// Tell the UI which IR version we emit, so it can warn on receiver version skew.
+figma.ui.postMessage({ type: 'meta', irVersion: ReboundFigma.irVersion });
 
 function postSelection() {
   var sel = figma.currentPage.selection;
@@ -33,7 +36,9 @@ figma.ui.onmessage = async function (msg) {
   } else if (msg.type === 'notify') {
     figma.notify(msg.message || '', { error: !!msg.error });
   } else if (msg.type === 'resize') {
-    figma.ui.resize(340, Math.max(320, Math.min(720, msg.height || 480)));
+    // The UI hugs its content; clamp to sane bounds so a state change never
+    // leaves dead space or clips the report.
+    figma.ui.resize(340, Math.max(240, Math.min(640, msg.height || 300)));
   } else if (msg.type === 'close') {
     figma.closePlugin();
   }

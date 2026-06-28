@@ -219,6 +219,26 @@
     return null;
   }
 
+  // A TILE (pattern) image paint repeats the source bitmap. Figma sizes each tile
+  // via the paint's scalingFactor (a multiplier on the image's natural size) and,
+  // on newer files, an imageTransform whose diagonal carries the per-axis scale.
+  // Recover a tile scale (>0) so the host can drive the native "ADBE Tile"
+  // (Motion Tile) effect; absent any hint, fall back to 1 (image natural size).
+  function tileMeta(paint) {
+    var meta = { scaleMode: 'TILE', tileScale: 1 };
+    if (typeof paint.scalingFactor === 'number' && paint.scalingFactor > 0) {
+      meta.tileScale = paint.scalingFactor;
+    }
+    var t = paint.imageTransform;
+    if (t && t.length && t[0] && t[1]) {
+      var sx = Math.sqrt(t[0][0] * t[0][0] + t[1][0] * t[1][0]);
+      var sy = Math.sqrt(t[0][1] * t[0][1] + t[1][1] * t[1][1]);
+      if (sx > 0) meta.tileWidthScale = sx;
+      if (sy > 0) meta.tileHeightScale = sy;
+    }
+    return meta;
+  }
+
   function detectMime(bytes) {
     if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50) return 'image/png';
     if (bytes.length > 3 && bytes[0] === 0xFF && bytes[1] === 0xD8) return 'image/jpeg';
@@ -246,15 +266,22 @@
     return hash;
   }
 
-  // Fills After Effects shape gradients cannot reproduce: angular (conic) and
-  // diamond gradients, and pattern paints.
+  // Fills with no faithful editable AE rebuild. Linear & radial gradients (any
+  // stop count, up to AE's 8-stop ceiling) are rebuilt as TRUE native gradients by
+  // the host (via the .ffx preset trick), so they are NOT rasterised here. Angular
+  // (conic) and diamond gradients are ALSO rebuilt natively now: angular ramps
+  // through a horizontal native G-Fill gradient + an "ADBE Polar Coordinates"
+  // (Rect to Polar) effect; diamond builds a native vector gradient. They flow to
+  // the host as GRADIENT_ANGULAR / GRADIENT_DIAMOND paints, so they are no longer
+  // rasterised here. Only PATTERN fills (which are not IMAGE paints) have no
+  // editable rebuild and stay rasterised for a pixel-exact result.
   function hasUnreproducibleFill(node) {
     var fills = node.fills;
     if (!fills || fills === figma.mixed) return false;
     for (var i = 0; i < fills.length; i++) {
       var f = fills[i];
       if (!f || f.visible === false) continue;
-      if (f.type === 'GRADIENT_ANGULAR' || f.type === 'GRADIENT_DIAMOND' || f.type === 'PATTERN') return true;
+      if (f.type === 'PATTERN') return true;
     }
     return false;
   }
@@ -311,19 +338,20 @@
   }
 
   // Decide whether an image-filled node must be rasterised to look exact, rather
-  // than placed as live footage. The importer can only reproduce two placements
-  // faithfully: FIT (uniform contain) and an aspect-matched FILL (uniform stretch
-  // == the box). Everything else is wrong as live footage:
+  // than placed as live footage. The importer can reproduce FIT (uniform contain),
+  // an aspect-matched FILL (uniform stretch == the box), and TILE (a repeating
+  // pattern, rebuilt with the native "ADBE Tile" Motion-Tile effect). Everything
+  // else is wrong as live footage:
   //   - CROP uses a custom crop matrix (imageTransform) AE cannot rebuild,
-  //   - TILE repeats the image (scalingFactor) with no native AE equivalent,
   //   - a rotated image paint (rotation 90/180/270) would not be rotated,
   //   - FILL with a mismatched aspect is COVER (uniform scale + centre-crop), but
   //     the importer would stretch it and distort the picture.
   // exportAsync bakes whatever Figma actually shows, so rasterising these is
   // pixel-exact. Async because the cover check needs the image's natural size.
+  // NOTE: TILE is handled structurally (see tileMeta / nodeToIR), not rasterised.
   async function imageNeedsRaster(node, paint) {
     var mode = paint.scaleMode || 'FILL';
-    if (mode === 'TILE' || mode === 'CROP') return true;
+    if (mode === 'CROP') return true;
     if (paint.rotation) return true;
     if (mode === 'FILL') {
       try {
@@ -422,6 +450,15 @@
       base.type = 'IMAGE';
       base.imageHash = imgPaint.imageHash;
       base.scaleMode = imgPaint.scaleMode || 'FILL';
+      // A TILE (pattern) paint stays a live IMAGE carrying the tile size/scale, so
+      // the host repeats it with the native "ADBE Tile" effect instead of baking
+      // the whole shape to a PNG.
+      if (base.scaleMode === 'TILE') {
+        var tm = tileMeta(imgPaint);
+        base.tileScale = tm.tileScale;
+        if (tm.tileWidthScale != null) base.tileWidthScale = tm.tileWidthScale;
+        if (tm.tileHeightScale != null) base.tileHeightScale = tm.tileHeightScale;
+      }
       base.effects = mapEffects(node.effects);
       return base;
     }
@@ -494,10 +531,24 @@
         if (tf && tf.type && tf.type.indexOf('GRADIENT') === 0) base.text.gradientFill = tf;
         break;
       case 'FRAME':
-      case 'GROUP':
       case 'COMPONENT':
       case 'COMPONENT_SET':
       case 'INSTANCE':
+        // A nested frame keeps its own identity: the host rebuilds it as a real
+        // precomp so its clipping, background, rounded corners and chrome survive
+        // (a plain GROUP null cannot clip overflow or carry a frame background).
+        // GROUP / SECTION stay flat nulls (decorateFrameLayer is a no-op for them).
+        base.type = 'FRAME';
+        // The host rebuilds this as its own precomp, so its children must be
+        // re-based to the nested frame's OWN origin (top-left), not the top-level
+        // frame's. Re-base from the nested frame's absolute transform translation;
+        // fall back to the inherited origin if it has no absolute transform.
+        var nestedAt = node.absoluteTransform;
+        var nestedOrigin = nestedAt ? { x: nestedAt[0][2], y: nestedAt[1][2] } : origin;
+        base.children = await childrenToIR(node, nestedOrigin, assets);
+        applyFrameChrome(base, node, w, h);
+        break;
+      case 'GROUP':
         base.type = 'GROUP';
         base.children = await childrenToIR(node, origin, assets);
         if (node.fills && node.fills !== figma.mixed && node.fills.length) base.fills = mapFills(node.fills, w, h);
@@ -519,27 +570,16 @@
     return base;
   }
 
-  async function frameToIR(frame, assets) {
-    // Use the frame's transform translation, NOT absoluteBoundingBox: the bbox
-    // grows with rotation/strokes/effects and would offset every child.
-    var at = frame.absoluteTransform;
-    var origin = at ? { x: at[0][2], y: at[1][2] } : (frame.absoluteBoundingBox || { x: frame.x, y: frame.y });
-    var children = await childrenToIR(frame, origin, assets);
+  // A frame's own shadow / blur, border, rounded corners, background, clip, opacity
+  // and blend live on the precomp layer (card-style frames rely on all of these).
+  // Shared by the top-level frame and nested FRAME nodes so both reconstruct the
+  // same chrome; `out` already carries the common node/frame fields.
+  function applyFrameChrome(out, frame, w, h) {
     var background = [];
-    if (frame.fills && frame.fills !== figma.mixed) background = mapFills(frame.fills, frame.width, frame.height);
-    var out = {
-      id: frame.id,
-      name: frame.name,
-      width: frame.width,
-      height: frame.height,
-      background: background,
-      clipsContent: frame.clipsContent !== false,
-      buildMode: 'PRECOMP',
-      children: children
-    };
-    // A frame's own shadow / blur, border, rounded corners, opacity and blend live
-    // on the precomp layer (card-style frames rely on all of these). Carry them so
-    // the importer can decorate the precomp instead of dropping them.
+    if (frame.fills && frame.fills !== figma.mixed) background = mapFills(frame.fills, w, h);
+    out.background = background;
+    out.clipsContent = frame.clipsContent !== false;
+    out.buildMode = 'PRECOMP';
     if (frame.opacity != null && frame.opacity < 1) out.opacity = frame.opacity;
     if (frame.blendMode && frame.blendMode !== 'PASS_THROUGH' && frame.blendMode !== 'NORMAL') out.blendMode = frame.blendMode;
     var fe = mapEffects(frame.effects);
@@ -548,6 +588,25 @@
     if (fs && fs.paints && fs.paints.length) out.stroke = fs;
     var fc = mapCorners(frame);
     if (fc && (fc.topLeft || fc.topRight || fc.bottomRight || fc.bottomLeft)) out.cornerRadii = fc;
+    return out;
+  }
+
+  async function frameToIR(frame, assets) {
+    // Use the frame's transform translation, NOT absoluteBoundingBox: the bbox
+    // grows with rotation/strokes/effects and would offset every child.
+    var at = frame.absoluteTransform;
+    var origin = at ? { x: at[0][2], y: at[1][2] } : (frame.absoluteBoundingBox || { x: frame.x, y: frame.y });
+    var children = await childrenToIR(frame, origin, assets);
+    var out = {
+      id: frame.id,
+      name: frame.name,
+      width: frame.width,
+      height: frame.height,
+      children: children
+    };
+    // Carry the frame chrome so the importer can decorate the precomp instead of
+    // dropping it.
+    applyFrameChrome(out, frame, frame.width, frame.height);
     return out;
   }
 
@@ -600,5 +659,5 @@
     };
   }
 
-  root.ReboundFigma = { buildIR: buildIR };
+  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
