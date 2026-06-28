@@ -81,6 +81,31 @@
     R.importer.util.note(report, 'approximated', { name: node.name, detail: 'gradient overlay geometry set; stops are not scriptable' });
   }
 
+  // Convert a gradient PAINT (schema "paint": type/stops/gradientHandles/reverse)
+  // into a GRADIENT_OVERLAY layerStyle the deferred queue can apply. Used by the
+  // text path for gradient text fills, which AE cannot express as a native fill.
+  // Stops are not scriptable, so only geometry/blend/angle survive (see caveat
+  // emitted by setGradientOverlay).
+  function gradientPaintToOverlay(paint) {
+    if (!paint || !paint.type || paint.type.indexOf('GRADIENT') !== 0) return null;
+    var ls = { type: 'GRADIENT_OVERLAY', gradient: paint };
+    if (paint.reverse) ls.reverse = true;
+    if (paint.opacity != null) ls.opacity = paint.opacity;
+    // Derive the ramp angle from the handles (node-local px, Y-down). AE gradient
+    // overlay angle is degrees counter-clockwise from +X, so negate the screen
+    // angle. Absent handles fall through to the AE default (0).
+    var h = paint.gradientHandles;
+    if (h && h.length >= 2 && h[0] && h[1]) {
+      var dx = h[1][0] - h[0][0];
+      var dy = h[1][1] - h[0][1];
+      if (dx !== 0 || dy !== 0) {
+        var deg = Math.atan2(dy, dx) * 180 / Math.PI;
+        ls.angle = -deg;
+      }
+    }
+    return ls;
+  }
+
   function setStroke(set, ls) {
     set('frameFX/enabled', true);
     if (ls.blendMode) set('frameFX/mode2', ord(ls.blendMode));
@@ -234,6 +259,7 @@
     collect: collect,
     flushAll: flushAll,
     reset: reset,
-    gatherStyles: gatherStyles
+    gatherStyles: gatherStyles,
+    gradientPaintToOverlay: gradientPaintToOverlay
   };
 })();
