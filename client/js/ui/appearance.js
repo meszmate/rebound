@@ -121,8 +121,8 @@
       { value: 'soft', label: 'Soft' }, { value: 'raised', label: 'Raised' }, { value: 'flat', label: 'Flat' }, { value: 'outline', label: 'Outline' }
     ], { value: s.cardStyle || 'soft', onChange: function (v) { s.cardStyle = v; applyCards(s); apply(); } });
     var cornerCtl = R.ui.segmented([
-      { value: 6, label: 'Sharp' }, { value: 12, label: 'Rounded' }, { value: 18, label: 'Round' }, { value: 26, label: 'Extra' }
-    ], { value: s.cardRadius || 12, onChange: function (v) { s.cardRadius = v; applyCards(s); apply(); } });
+      { value: 3, label: 'Sharp' }, { value: 7, label: 'Rounded' }, { value: 12, label: 'Round' }, { value: 20, label: 'Extra' }
+    ], { value: s.cardRadius || 7, onChange: function (v) { s.cardRadius = v; applyCards(s); apply(); } });
 
     var body = el('div.rb-appe', null, [
       el('div.rb-section-label', { text: 'Theme' }),
@@ -151,7 +151,7 @@
     var root = document.documentElement;
     var st = s.cardStyle || 'soft';
     if (st === 'soft') root.removeAttribute('data-cards'); else root.setAttribute('data-cards', st);
-    root.style.setProperty('--rb-card-radius', (s.cardRadius || 12) + 'px');
+    root.style.setProperty('--rb-card-radius', (s.cardRadius || 7) + 'px');
   }
 
   R.appearance = { open: open, applyCards: applyCards };
