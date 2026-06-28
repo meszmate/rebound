@@ -46,8 +46,65 @@
     return { vertices: v, closed: true, windingRule: 'NONZERO' };
   }
 
+  // An elliptical arc (a0 -> a1, radians) on the ellipse centred at (cx, cy) with
+  // radii (rx, ry). Angles use Figma arcData's convention: 0 = +X axis (3 o'clock)
+  // increasing CLOCKWISE in Y-down space, so 0 is the RIGHT and +90deg is the
+  // bottom. Splits the sweep into <=90deg segments and appends each as a cubic
+  // bezier vertex (relative tangents). Reverse walks a1 -> a0 for the inner ring
+  // edge. Returns the vertex array; tangents are filled so AE reproduces the curve.
+  function arcVertices(cx, cy, rx, ry, a0, a1, reverse) {
+    var sweep = a1 - a0;
+    var segs = Math.ceil(Math.abs(sweep) / (Math.PI / 2));
+    if (segs < 1) segs = 1;
+    var step = sweep / segs;
+    // Tangent length factor for a circular arc of half-angle (step/2).
+    var k = (4 / 3) * Math.tan(step / 4);
+    var pts = [];
+    for (var i = 0; i <= segs; i++) {
+      var a = a0 + step * i;
+      // 3 o'clock / +X origin, clockwise (Y down): x = cos, y = sin.
+      var sx = Math.cos(a), sy = Math.sin(a);
+      var px = cx + rx * sx, py = cy + ry * sy;
+      // Tangent = d(position)/da = (-sin*rx, cos*ry), scaled per radius.
+      var tx = -Math.sin(a) * rx, ty = Math.cos(a) * ry;
+      pts.push({
+        x: px, y: py,
+        outTangent: [tx * k, ty * k],
+        inTangent: [-tx * k, -ty * k]
+      });
+    }
+    if (reverse) pts.reverse();
+    return pts;
+  }
+
+  // A partial ellipse: pie (sweep closed to centre) when innerRadius<=0, or a
+  // concentric ring/donut wedge when innerRadius>0. innerRadius is a 0..1 fraction
+  // of the radius (Figma arcData). Built in local space [0..w] x [0..h].
+  function ellipseArcPath(w, h, arc) {
+    var rx = w / 2, ry = h / 2;
+    var cx = rx, cy = ry;
+    var d2r = Math.PI / 180;
+    var a0 = (arc.startAngle || 0) * d2r;
+    var a1 = (arc.endAngle === undefined ? 360 : arc.endAngle) * d2r;
+    var inner = arc.innerRadius || 0;
+    if (inner < 0) inner = 0; if (inner > 1) inner = 1;
+    var verts;
+    if (inner > 0) {
+      // Ring wedge: outer edge forward, inner edge back, closed across the ends.
+      var outer = arcVertices(cx, cy, rx, ry, a0, a1, false);
+      var innr = arcVertices(cx, cy, rx * inner, ry * inner, a0, a1, true);
+      verts = outer.concat(innr);
+    } else {
+      // Pie: arc plus the centre point so AE closes the wedge to the middle.
+      verts = arcVertices(cx, cy, rx, ry, a0, a1, false);
+      verts.push({ x: cx, y: cy, inTangent: [0, 0], outTangent: [0, 0] });
+    }
+    return { vertices: verts, closed: true, windingRule: 'NONZERO' };
+  }
+
   R.importer.geometry = {
     roundedRect: roundedRect,
-    ellipsePath: ellipsePath
+    ellipsePath: ellipsePath,
+    ellipseArcPath: ellipseArcPath
   };
 })();
