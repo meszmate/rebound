@@ -338,6 +338,55 @@
     }
   }
 
+  // Apply (bake) the active layer's user mask into its pixels, so the composited
+  // alpha carries the mask. Used inside the matte-extraction temp doc.
+  function applyActiveLayerMask() {
+    var ref = new ActionReference();
+    ref.putEnumerated(cID('Chnl'), cID('Chnl'), cID('Msk '));
+    var desc = new ActionDescriptor();
+    desc.putReference(cID('null'), ref);
+    desc.putBoolean(cID('Aply'), true);
+    executeAction(cID('Dlt '), desc, DialogModes.NO);
+  }
+
+  // Extract a masked layer's pixel/raster mask as a standalone alpha matte PNG.
+  // The duplicate keeps the layer's user mask; baking it gives a composite whose
+  // alpha equals the mask (intersected with the layer's own alpha), which the
+  // host wires as an ALPHA track matte over the masked layer rebuilt WITHOUT its
+  // mask. Returns { hash,left,top,width,height } or null (then keep raster
+  // fallback). Top-left is the layer bounds top-left, so placement is exact.
+  function rasterizeMaskToAsset(layer, name) {
+    var hash = 'ps' + (++hashCounter);
+    var b = layer.bounds;
+    var left = asPx(b[0]), top = asPx(b[1]);
+    var tmp = null;
+    try {
+      tmp = app.documents.add(docWpx, docHpx, doc.resolution, 'rb_mask', NewDocumentMode.RGB, DocumentFill.TRANSPARENT);
+      app.activeDocument = doc;
+      selectLayer(layer);
+      layer.duplicate(tmp, ElementPlacement.PLACEATBEGINNING);
+      app.activeDocument = tmp;
+      tmp.activeLayer = tmp.artLayers[0];
+      applyActiveLayerMask();
+      tmp.trim(TrimType.TRANSPARENT);
+      var w = Math.max(1, Math.round(asPx(tmp.width)));
+      var h = Math.max(1, Math.round(asPx(tmp.height)));
+      var f = new File(Folder.temp + '/' + hash + '.png');
+      tmp.saveAs(f, new PNGSaveOptions(), true, Extension.LOWERCASE);
+      tmp.close(SaveOptions.DONOTSAVECHANGES);
+      tmp = null;
+      app.activeDocument = doc;
+      assets[hash] = { hash: hash, mime: 'image/png', width: w, height: h, bytesBase64: base64FromBinary(readBinary(f)) };
+      try { f.remove(); } catch (e) {}
+      return { hash: hash, left: left, top: top, width: w, height: h };
+    } catch (e) {
+      note(name, 'could not extract the layer mask');
+      try { if (tmp) tmp.close(SaveOptions.DONOTSAVECHANGES); } catch (e2) {}
+      try { app.activeDocument = doc; } catch (e3) {}
+      return null;
+    }
+  }
+
   // ---- nodes ---------------------------------------------------------------
 
   function baseNode(layer) {
@@ -485,6 +534,134 @@
     return ds.join(' ');
   }
 
+  // A gradient fill layer's type enum -> IR paint type. Photoshop exposes linear,
+  // radial, angle, reflected and diamond; the host rebuilds linear and radial
+  // natively (angular/diamond are approximated as radial), so map onto those.
+  function psGradTypeToIR(id) {
+    switch (id) {
+      case 'linear': return 'GRADIENT_LINEAR';
+      case 'radial': return 'GRADIENT_RADIAL';
+      case 'angle': return 'GRADIENT_ANGULAR';
+      case 'diamond': return 'GRADIENT_DIAMOND';
+      case 'reflected': return 'GRADIENT_LINEAR'; // no native reflected; closest is a linear ramp
+      default: return 'GRADIENT_LINEAR';
+    }
+  }
+
+  // Read the colour + transparency stops of a Photoshop gradient descriptor (the
+  // `gradient` object inside a gradient fill layer's adjustment). Colour stop
+  // locations and transparency stop locations are independent 0..4096 ramps, so
+  // merge the transparency ramp onto the colour stops by sampling alpha at each
+  // colour stop's position. midPoint is 0..100 per stop (the skew toward the NEXT
+  // stop). Returns { stops, midpoints } or null if no usable colour stops.
+  function readGradientStops(grad) {
+    var colors;
+    try { colors = grad.getList(sID('colors')); } catch (e0) { return null; }
+    if (!colors || !colors.count) return null;
+
+    // Build the transparency ramp (sorted by location) once, then sample it.
+    var transp = [];
+    try {
+      var tl = grad.getList(sID('transparency'));
+      for (var t = 0; t < tl.count; t++) {
+        var td = tl.getObjectValue(t);
+        var tloc = 0; try { tloc = td.getInteger(sID('location')) / 4096; } catch (eL) {}
+        var topac = 1; try { topac = clamp01(td.getUnitDoubleValue(sID('opacity')) / 100); } catch (eO) {}
+        transp.push({ loc: clamp01(tloc), a: topac });
+      }
+    } catch (eT) {}
+    transp.sort(function (a, b) { return a.loc - b.loc; });
+
+    function alphaAt(pos) {
+      if (!transp.length) return 1;
+      if (pos <= transp[0].loc) return transp[0].a;
+      if (pos >= transp[transp.length - 1].loc) return transp[transp.length - 1].a;
+      for (var k = 1; k < transp.length; k++) {
+        if (pos <= transp[k].loc) {
+          var p0 = transp[k - 1], p1 = transp[k];
+          var span = p1.loc - p0.loc;
+          var f = span > 0 ? (pos - p0.loc) / span : 0;
+          return clamp01(p0.a + (p1.a - p0.a) * f);
+        }
+      }
+      return transp[transp.length - 1].a;
+    }
+
+    var stops = [];
+    var mids = [];
+    for (var i = 0; i < colors.count; i++) {
+      var cd = colors.getObjectValue(i);
+      var col = null;
+      try { col = readColorDesc(cd.getObjectValue(sID('color'))); } catch (eC) {}
+      if (!col) continue;
+      var loc = 0; try { loc = clamp01(cd.getInteger(sID('location')) / 4096); } catch (eLoc) {}
+      col.a = alphaAt(loc);
+      stops.push({ position: loc, color: col });
+      var mp = 0.5; try { mp = clamp01(cd.getInteger(sID('midpoint')) / 100); } catch (eM) {}
+      mids.push(mp);
+    }
+    if (stops.length < 2) return null;
+    return { stops: stops, midpoints: mids };
+  }
+
+  // Gradient handle geometry in node-local px. Photoshop gives an angle (degrees,
+  // CCW from +X with Y-up) and a scale (% of half the layer's longest side), both
+  // through the layer's centre. The host derives everything from the start/end
+  // handles, so convert angle+scale into a start->end axis across the layer box in
+  // IR (Y-down) space. Returns [start, end] or null.
+  function gradientHandlesFor(layer, angleDeg, scalePct) {
+    try {
+      var b = layer.bounds;
+      var left = asPx(b[0]), top = asPx(b[1]);
+      var w = Math.max(1, asPx(b[2]) - left);
+      var h = Math.max(1, asPx(b[3]) - top);
+      var cx = w / 2, cy = h / 2;
+      var ang = (angleDeg == null ? 0 : angleDeg) * Math.PI / 180;
+      var scale = (scalePct == null ? 100 : scalePct) / 100;
+      // Half-length of the ramp: scale applied to half the box's longest side.
+      var half = (Math.max(w, h) / 2) * scale;
+      // Y-down: a positive PS angle (CCW, Y-up) points up, so negate sin.
+      var dx = Math.cos(ang) * half;
+      var dy = -Math.sin(ang) * half;
+      return [[round(cx - dx), round(cy - dy)], [round(cx + dx), round(cy + dy)]];
+    } catch (e) { return null; }
+  }
+
+  // Build a structural gradient paint from a gradient fill layer's adjustment
+  // descriptor, or null if its stops can't be read (caller then rasterises).
+  function readGradientFill(adjDesc, layer) {
+    var grad;
+    try { grad = adjDesc.getObjectValue(sID('gradient')); } catch (e0) { return null; }
+    var parsed = readGradientStops(grad);
+    if (!parsed) return null;
+    var type = 'GRADIENT_LINEAR';
+    try { type = psGradTypeToIR(typeIDToStringID(adjDesc.getEnumerationValue(sID('type')))); } catch (e1) {}
+    var reverse = false; try { reverse = adjDesc.getBoolean(sID('reverse')); } catch (e2) {}
+    if (reverse) {
+      var rev = [], n = parsed.stops.length;
+      for (var i = 0; i < n; i++) {
+        var s = parsed.stops[n - 1 - i];
+        rev.push({ position: clamp01(1 - s.position), color: s.color });
+      }
+      parsed.stops = rev;
+      // Midpoint[i] skews the ramp from stop i toward i+1; flipping the order both
+      // reverses the pairing and inverts each skew (toward i becomes 1 - skew).
+      var revMids = [];
+      for (var j = 0; j < n - 1; j++) {
+        var mp = parsed.midpoints[n - 2 - j];
+        revMids.push(clamp01(1 - (typeof mp === 'number' ? mp : 0.5)));
+      }
+      revMids.push(0.5); // last stop has no following pair
+      parsed.midpoints = revMids;
+    }
+    var angle = null; try { angle = readUnit(adjDesc, 'angle'); } catch (e3) {}
+    var scale = null; try { scale = readUnit(adjDesc, 'scale'); } catch (e4) {}
+    var paint = { type: type, stops: parsed.stops, gradientMidpoints: parsed.midpoints, opacity: 1, visible: true };
+    var handles = gradientHandlesFor(layer, angle, scale);
+    if (handles) paint.gradientHandles = handles;
+    return paint;
+  }
+
   function readShapeFill(layer) {
     try {
       var ref = new ActionReference();
@@ -494,9 +671,17 @@
         var adj = d.getList(sID('adjustment'));
         if (adj.count) {
           var a0 = adj.getObjectValue(0);
+          // Solid fill layer: a single colour.
           if (a0.hasKey(sID('color'))) {
             var c = readColorDesc(a0.getObjectValue(sID('color')));
             if (c) return { type: 'SOLID', color: c, opacity: 1, visible: true };
+          }
+          // Gradient fill layer: rebuild a structural gradient paint. Pattern
+          // fill layers (a `pattern` object, no colour/gradient) fall through to
+          // null so the layer rasterises.
+          if (a0.hasKey(sID('gradient'))) {
+            var g = readGradientFill(a0, layer);
+            if (g) return g;
           }
         }
       }
@@ -505,8 +690,9 @@
   }
 
   // A shape layer's stroke (AGMStrokeStyleInfo): solid colour, weight, alignment,
-  // cap/join, and dashes. Gradient/pattern strokes are left for the rasteriser.
-  // Fully guarded: any failure returns null (no stroke), matching today.
+  // cap/join, and dashes. A gradient/pattern stroke can't be rebuilt on a shape
+  // operator, so signal the caller to rasterise (returning { nonSolid: true })
+  // rather than silently dropping it. Fully guarded: any failure returns null.
   function readShapeStroke(layer) {
     try {
       var ref = new ActionReference();
@@ -518,14 +704,18 @@
       if (!enabled) return null;
       var weight = 1; try { weight = ss.getUnitDoubleValue(sID('strokeStyleLineWidth')); } catch (e1) {}
       var paint = null;
+      var hasContent = false;
       try {
         var content = ss.getObjectValue(sID('strokeStyleContent'));
+        hasContent = true;
         if (content.hasKey(sID('color'))) {
           var col = readColorDesc(content.getObjectValue(sID('color')));
           if (col) paint = { type: 'SOLID', color: col, opacity: 1, visible: true };
         }
       } catch (e2) {}
-      if (!paint) return null;
+      // An enabled stroke whose content isn't a solid colour (gradient/pattern):
+      // tell the caller to raster so the stroke is preserved pixel-exact.
+      if (!paint) return hasContent ? { nonSolid: true } : null;
       var align = 'CENTER';
       try {
         var a = typeIDToStringID(ss.getEnumerationValue(sID('strokeStyleLineAlignment')));
@@ -569,6 +759,12 @@
     node.transform = { x: 0, y: 0, width: Math.max(1, Math.round(asPx(b[2]) - asPx(b[0]))), height: Math.max(1, Math.round(asPx(b[3]) - asPx(b[1]))) };
     node.fills = [fill];
     var stroke = readShapeStroke(layer);
+    if (stroke && stroke.nonSolid) {
+      // Gradient/pattern stroke: a shape operator can't carry it, so rasterise
+      // the whole layer to keep the stroke pixel-exact rather than drop it.
+      note(layer.name, 'gradient/pattern stroke can’t be rebuilt on a shape; layer rasterised to keep it');
+      return null;
+    }
     if (stroke) node.stroke = stroke;
     var styles = readLayerStyles(layer.name);
     if (styles.length) node.layerStyles = styles;
@@ -625,60 +821,317 @@
     return 1;
   }
 
-  // Adjustment layers (Curves / Levels / Hue-Sat / ...) have no pixels of their own;
-  // their effect on the layers below cannot be reconstructed natively. Build the kind
-  // list defensively because some members are undefined in older Photoshop.
-  function isAdjustmentLayer(layer) {
-    var names = ['LEVELS', 'CURVES', 'BRIGHTNESSCONTRAST', 'COLORBALANCE', 'HUESATURATION', 'SELECTIVECOLOR', 'CHANNELMIXER', 'GRADIENTMAP', 'PHOTOFILTER', 'INVERSION', 'THRESHOLD', 'POSTERIZE', 'BLACKANDWHITE', 'EXPOSURE', 'VIBRANCE'];
+  // Adjustment layers (Curves / Levels / Hue-Sat / ...) have no pixels of their own.
+  // Map the Photoshop LayerKind to an IR adjust.kind so the host can rebuild it as a
+  // native After Effects adjustment layer carrying the matching native effect. Build
+  // the kind table defensively because some members are undefined in older Photoshop.
+  var ADJUST_KINDS = [
+    ['BRIGHTNESSCONTRAST', 'BRIGHTNESS_CONTRAST'],
+    ['HUESATURATION', 'HUE_SATURATION'],
+    ['LEVELS', 'LEVELS'],
+    ['EXPOSURE', 'EXPOSURE'],
+    ['VIBRANCE', 'VIBRANCE'],
+    ['PHOTOFILTER', 'PHOTO_FILTER'],
+    ['COLORBALANCE', 'COLOR_BALANCE'],
+    ['BLACKANDWHITE', 'BLACK_AND_WHITE'],
+    ['CURVES', 'CURVES'],
+    ['SELECTIVECOLOR', 'SELECTIVE_COLOR'],
+    ['CHANNELMIXER', 'CHANNEL_MIXER'],
+    ['GRADIENTMAP', 'GRADIENT_MAP'],
+    ['INVERSION', 'INVERT'],
+    ['THRESHOLD', 'THRESHOLD'],
+    ['POSTERIZE', 'POSTERIZE']
+  ];
+
+  // Returns the IR adjust.kind for an adjustment layer, or null if the layer is not
+  // an adjustment layer.
+  function adjustKindOf(layer) {
     var k;
-    try { k = layer.kind; } catch (e) { return false; }
-    for (var i = 0; i < names.length; i++) {
-      try { var v = LayerKind[names[i]]; if (v !== undefined && k === v) return true; } catch (e2) {}
+    try { k = layer.kind; } catch (e) { return null; }
+    for (var i = 0; i < ADJUST_KINDS.length; i++) {
+      try {
+        var v = LayerKind[ADJUST_KINDS[i][0]];
+        if (v !== undefined && k === v) return ADJUST_KINDS[i][1];
+      } catch (e2) {}
     }
+    return null;
+  }
+
+  // A signed integer/double param read either as a unit double or a plain double.
+  function readNum(d, key) {
+    try { return d.getUnitDoubleValue(sID(key)); } catch (e) {
+      try { return d.getDouble(sID(key)); } catch (e2) {
+        try { return d.getInteger(sID(key)); } catch (e3) { return undefined; }
+      }
+    }
+  }
+
+  // The adjustment descriptor sits in the layer's `adjustment` list (first entry).
+  function adjustmentDesc(layer) {
+    try {
+      var d = layerDescById(layer);
+      if (!d.hasKey(sID('adjustment'))) return null;
+      var adj = d.getList(sID('adjustment'));
+      if (!adj || !adj.count) return null;
+      return adj.getObjectValue(0);
+    } catch (e) { return null; }
+  }
+
+  // Brightness/Contrast: brightness + contrast, plus the legacy-algorithm flag.
+  function readBrightnessContrast(a, p) {
+    var br = readNum(a, 'brightness'); if (br != null) p.brightness = br;
+    var ct = readNum(a, 'contrast'); if (ct != null) p.contrast = ct;
+    try { p.useLegacy = a.getBoolean(sID('useLegacy')); } catch (e) {}
+    return (br != null || ct != null);
+  }
+
+  // Hue/Saturation: the master ("all" channel) hue/sat/lightness, plus colorize. PS
+  // stores the per-channel adjustments in an `adjustment` list inside the descriptor;
+  // the master is the entry without a channel restriction (or all zero ranges).
+  function readHueSaturation(a, p) {
+    var got = false;
+    try {
+      var list = a.getList(sID('adjustment'));
+      if (list && list.count) {
+        // The master channel is the one whose range covers the whole wheel; PS emits
+        // it first. Read the first entry's hue/sat/lightness as the master.
+        var m = list.getObjectValue(0);
+        var h = readNum(m, 'hue'); if (h != null) { p.hue = h; got = true; }
+        var s = readNum(m, 'saturation'); if (s != null) { p.saturation = s; got = true; }
+        var l = readNum(m, 'lightness'); if (l != null) { p.lightness = l; got = true; }
+      }
+    } catch (e) {}
+    // Some PS versions expose master hue/sat directly on the adjustment descriptor.
+    if (!got) {
+      var h2 = readNum(a, 'hue'); if (h2 != null) { p.hue = h2; got = true; }
+      var s2 = readNum(a, 'saturation'); if (s2 != null) { p.saturation = s2; got = true; }
+      var l2 = readNum(a, 'lightness'); if (l2 != null) { p.lightness = l2; got = true; }
+    }
+    try { p.colorize = a.getBoolean(sID('colorize')); } catch (e2) {}
+    return got;
+  }
+
+  // Levels: composite (RGB) channel input/gamma/output. PS keeps per-channel levels in
+  // an `adjustment` list; the composite is the entry with channel = composite (or the
+  // entry that carries gamma). Read input black/white, gamma, output black/white.
+  function readLevels(a, p) {
+    var lv = {};
+    var src = a;
+    try {
+      var list = a.getList(sID('adjustment'));
+      if (list && list.count) src = list.getObjectValue(0); // composite first
+    } catch (e) {}
+    try {
+      var inp = src.getList(sID('input'));
+      if (inp && inp.count >= 2) { lv.inputBlack = inp.getInteger(0); lv.inputWhite = inp.getInteger(1); }
+    } catch (e1) {}
+    var g = readNum(src, 'gamma'); if (g != null) lv.gamma = g;
+    try {
+      var out = src.getList(sID('output'));
+      if (out && out.count >= 2) { lv.outputBlack = out.getInteger(0); lv.outputWhite = out.getInteger(1); }
+    } catch (e2) {}
+    var any = false; for (var k in lv) { if (lv.hasOwnProperty(k)) { any = true; break; } }
+    if (any) { p.levels = lv; return true; }
     return false;
   }
 
-  function layerToIR(layer) {
+  // Exposure: exposure (stops), offset, gamma correction.
+  function readExposure(a, p) {
+    var ex = readNum(a, 'exposure'); if (ex != null) p.exposure = ex;
+    var off = readNum(a, 'offset'); if (off != null) p.offset = off;
+    var gm = readNum(a, 'gammaCorrection'); if (gm != null) p.gamma = gm;
+    return (ex != null || off != null || gm != null);
+  }
+
+  // Vibrance: vibrance + saturation.
+  function readVibrance(a, p) {
+    var vb = readNum(a, 'vibrance'); if (vb != null) p.vibrance = vb;
+    var sat = readNum(a, 'saturation'); if (sat != null) p.saturation = sat;
+    return (vb != null || sat != null);
+  }
+
+  // Photo Filter: filter colour, density, preserve-luminosity.
+  function readPhotoFilter(a, p) {
+    var got = false;
+    try { var c = readColorDesc(a.getObjectValue(sID('color'))); if (c) { p.filterColor = c; got = true; } } catch (e) {}
+    var den = readNum(a, 'density'); if (den != null) { p.density = den; got = true; }
+    try { p.preserveLuminosity = a.getBoolean(sID('preserveLuminosity')); } catch (e2) {}
+    return got;
+  }
+
+  // Color Balance: three triplets (shadows / midtones / highlights), each a
+  // cyan-red / magenta-green / yellow-blue balance (-100..100).
+  function readColorBalance(a, p) {
+    function triplet(key) {
+      try {
+        var l = a.getList(sID(key));
+        if (l && l.count >= 3) return [l.getInteger(0), l.getInteger(1), l.getInteger(2)];
+      } catch (e) {}
+      return null;
+    }
+    var sh = triplet('shadowLevels'); if (sh) p.shadows = sh;
+    var mi = triplet('midtoneLevels'); if (mi) p.midtones = mi;
+    var hi = triplet('highlightLevels'); if (hi) p.highlights = hi;
+    try { p.preserveLuminosity = a.getBoolean(sID('preserveLuminosity')); } catch (e2) {}
+    return !!(sh || mi || hi);
+  }
+
+  // Black & White: per-colour channel mix.
+  function readBlackAndWhite(a, p) {
+    var bw = {};
+    var keys = [['redColor', 'reds'], ['yellowColor', 'yellows'], ['greenColor', 'greens'],
+      ['cyanColor', 'cyans'], ['blueColor', 'blues'], ['magentaColor', 'magentas']];
+    var got = false;
+    for (var i = 0; i < keys.length; i++) {
+      var v = readNum(a, keys[i][0]);
+      if (v != null) { bw[keys[i][1]] = v; got = true; }
+    }
+    if (got) p.blackAndWhite = bw;
+    return got;
+  }
+
+  // Read the numeric params for a kind into `p`. Returns true if anything was read.
+  function readAdjustParams(kind, a, p) {
+    if (!a) return false;
+    switch (kind) {
+      case 'BRIGHTNESS_CONTRAST': return readBrightnessContrast(a, p);
+      case 'HUE_SATURATION': return readHueSaturation(a, p);
+      case 'LEVELS': return readLevels(a, p);
+      case 'EXPOSURE': return readExposure(a, p);
+      case 'VIBRANCE': return readVibrance(a, p);
+      case 'PHOTO_FILTER': return readPhotoFilter(a, p);
+      case 'COLOR_BALANCE': return readColorBalance(a, p);
+      case 'BLACK_AND_WHITE': return readBlackAndWhite(a, p);
+      default: return false; // CURVES / SELECTIVE_COLOR / ... : kind only, host approximates
+    }
+  }
+
+  // Build an ADJUSTMENT node for an adjustment layer: a base node carrying
+  // opacity/blend/visible plus an `adjust` object (kind + the params we could read).
+  // A kind whose params we cannot read still emits the node with adjust.unread = true
+  // so the host creates the adjustment layer and notes the approximation.
+  function adjustmentToIR(layer, kind) {
+    var node = baseNode(layer);
+    node.type = 'ADJUSTMENT';
+    if (node.clipBelow) delete node.clipBelow; // handled by the host as a track matte if needed
+    var b = layer.bounds;
+    var left = asPx(b[0]), top = asPx(b[1]);
+    node.transform = { x: round(left), y: round(top), width: round(asPx(b[2]) - left), height: round(asPx(b[3]) - top) };
+    var adjust = { kind: kind };
+    var a = adjustmentDesc(layer);
+    var read = false;
+    try { read = readAdjustParams(kind, a, adjust); } catch (e) { read = false; }
+    var mappable = (kind === 'BRIGHTNESS_CONTRAST' || kind === 'HUE_SATURATION' || kind === 'LEVELS' ||
+      kind === 'EXPOSURE' || kind === 'VIBRANCE' || kind === 'PHOTO_FILTER' ||
+      kind === 'COLOR_BALANCE' || kind === 'BLACK_AND_WHITE');
+    if (mappable && !read) {
+      adjust.unread = true;
+      note(layer.name, 'adjustment "' + kind + '" params could not be read; the host will note it');
+    } else if (!mappable) {
+      note(layer.name, 'adjustment "' + kind + '" has no native equivalent; the host approximates it (adjustment layer only)');
+    }
+    node.adjust = adjust;
+    return node;
+  }
+
+  // Build the masked LAYER itself (its body, without the mask baked in) so a pixel
+  // mask can ride alongside it as a separate track matte instead of forcing the
+  // whole layer to a flat PNG. fillOp is threaded the same way emitInto does.
+  function layerBodyToIR(layer, kind, fillOp) {
+    if (kind === LayerKind.TEXT) {
+      if (textHasVectorMask(layer)) {
+        note(layer.name, 'text with a vector mask rasterised (editable text lost)');
+        return rasterToIR(layer);
+      }
+      var tnode = textToIR(layer);
+      if (tnode && fillOp < 0.999) tnode.opacity = clamp01((tnode.opacity == null ? 1 : tnode.opacity) * fillOp);
+      return tnode;
+    }
+    var vec = shapeVectorToIR(layer);
+    if (vec) {
+      if (fillOp < 0.999) vec.opacity = clamp01((vec.opacity == null ? 1 : vec.opacity) * fillOp);
+      return vec;
+    }
+    return rasterToIR(layer);
+  }
+
+  // Emit a single layer into `out` (an array of sibling nodes). Normally one node;
+  // a layer with an extractable pixel/raster mask emits the masked layer PLUS a
+  // separate alpha-matte node (maskTargetId -> the masked layer), exactly like a
+  // Figma clip group, so the host's track-matte engine wires it. Raster fallback
+  // is kept whenever the mask channel can't be extracted.
+  function emitInto(layer, out) {
     var tn;
-    try { tn = layer.typename; } catch (e) { return null; }
+    try { tn = layer.typename; } catch (e) { return; }
     if (tn === 'LayerSet') {
       var node = baseNode(layer);
       node.type = 'GROUP';
       node.children = [];
-      for (var i = layer.layers.length - 1; i >= 0; i--) {
-        var c = layerToIR(layer.layers[i]);
-        if (c) node.children.push(c);
-      }
-      return node;
+      for (var i = layer.layers.length - 1; i >= 0; i--) emitInto(layer.layers[i], node.children);
+      out.push(node);
+      return;
     }
     // ArtLayer
     var kind = null;
     try { kind = layer.kind; } catch (e2) {}
 
-    if (isAdjustmentLayer(layer)) {
-      note(layer.name, 'adjustment layer not reconstructed (its effect on the layers below is lost)');
-      return null;
+    var adjKind = adjustKindOf(layer);
+    if (adjKind) {
+      var an = adjustmentToIR(layer, adjKind);
+      if (an) out.push(an);
+      return;
     }
 
     var fillOp = readFillOpacity(layer);
-    // A pixel/vector mask or pattern overlay, or fill opacity combined with effects
-    // (the fill dims but the effects do not), can only be reproduced by baking.
-    var forceRaster = layerHasPixelMask(layer) || layerHasPatternOverlay(layer) || (fillOp < 0.999 && layerHasEffects(layer));
+    var hasPixelMask = layerHasPixelMask(layer);
+    // A pixel mask is now carried as a track matte (see below); pattern overlay or
+    // fill opacity combined with effects (the fill dims but the effects do not)
+    // can still only be reproduced by baking the whole layer.
+    var forceRaster = layerHasPatternOverlay(layer) || (fillOp < 0.999 && layerHasEffects(layer));
 
-    if (kind === LayerKind.TEXT) {
-      if (forceRaster || textHasVectorMask(layer)) return rasterToIR(layer);
-      var tnode = textToIR(layer);
-      if (tnode && fillOp < 0.999) tnode.opacity = clamp01((tnode.opacity == null ? 1 : tnode.opacity) * fillOp);
-      return tnode;
-    }
-    if (!forceRaster) {
-      var vec = shapeVectorToIR(layer);
-      if (vec) {
-        if (fillOp < 0.999) vec.opacity = clamp01((vec.opacity == null ? 1 : vec.opacity) * fillOp);
-        return vec;
+    if (forceRaster) { var rn = rasterToIR(layer); if (rn) out.push(rn); return; }
+
+    if (hasPixelMask) {
+      // Only an editable body (text or a reconstructable vector shape) benefits
+      // from a separate matte: a raster body already has the mask baked into its
+      // PNG (rasterToIR duplicates the layer WITH its mask), and a matte on top
+      // would double it. Build the body first and inspect what it became.
+      var body = layerBodyToIR(layer, kind, fillOp);
+      if (!body) return;
+      var editableBody = (body.type === 'TEXT' || body.type === 'VECTOR');
+      var matteImg = editableBody ? rasterizeMaskToAsset(layer, layer.name) : null;
+      if (matteImg) {
+        var matte = baseNode(layer);
+        matte.name = (layer.name || 'Layer') + ' Mask';
+        matte.type = 'IMAGE';
+        matte.imageHash = matteImg.hash;
+        matte.scaleMode = 'FILL';
+        matte.opacity = 1;
+        matte.blendMode = 'NORMAL';
+        matte.visible = true;
+        if (matte.clipBelow) delete matte.clipBelow; // a matte never inherits clip-below
+        matte.isMask = true;
+        matte.maskType = 'ALPHA';
+        matte.maskTargetId = body.id;
+        matte.transform = { x: round(matteImg.left), y: round(matteImg.top), width: matteImg.width, height: matteImg.height };
+        out.push(matte);
+        out.push(body);
+        return;
       }
+      // Editable body but the mask channel didn't extract: bake the layer (mask
+      // included) so the mask isn't silently lost. A non-editable body already
+      // carries the baked mask, so emit it as-is.
+      if (editableBody) {
+        var rfb = rasterToIR(layer);
+        out.push(rfb ? rfb : body);
+      } else {
+        out.push(body);
+      }
+      return;
     }
-    return rasterToIR(layer);
+
+    var single = layerBodyToIR(layer, kind, fillOp);
+    if (single) out.push(single);
   }
 
   // ---- run -----------------------------------------------------------------
@@ -686,8 +1139,7 @@
   var children = [];
   // Photoshop layers[0] is the top; emit bottom-to-top for the IR.
   for (var i = doc.layers.length - 1; i >= 0; i--) {
-    var n = layerToIR(doc.layers[i]);
-    if (n) children.push(n);
+    emitInto(doc.layers[i], children);
   }
 
   var frame = {
