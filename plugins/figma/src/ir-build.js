@@ -46,6 +46,8 @@
   // gradient axis in normalised object space, then scale to node-local px. Linear
   // runs (0,0.5)->(1,0.5); radial hands the importer the centre (0.5,0.5) and an
   // edge (1,0.5) so it positions the radial instead of defaulting to the corner.
+  // Radial/diamond also return a THIRD handle (the other axis edge, 0.5,1) so the
+  // host can size the radial to the larger axis instead of assuming a circle.
   function gradientHandles(p, w, h) {
     var t = p.gradientTransform;
     if (!t || !t.length || !t[0]) return [];
@@ -54,6 +56,10 @@
     var radial = (p.type === 'GRADIENT_RADIAL' || p.type === 'GRADIENT_DIAMOND');
     var s = applyAffine(inv, radial ? 0.5 : 0, 0.5);
     var e = applyAffine(inv, 1, 0.5);
+    if (radial) {
+      var p2 = applyAffine(inv, 0.5, 1);
+      return [[s[0] * w, s[1] * h], [e[0] * w, e[1] * h], [p2[0] * w, p2[1] * h]];
+    }
     return [[s[0] * w, s[1] * h], [e[0] * w, e[1] * h]];
   }
 
@@ -114,6 +120,7 @@
     };
     if (typeof node.strokeMiterLimit === 'number') stroke.miterLimit = node.strokeMiterLimit;
     if (node.dashPattern && node.dashPattern.length) stroke.dashPattern = node.dashPattern.slice();
+    if (typeof node.strokeDashOffset === 'number') stroke.dashOffset = node.strokeDashOffset;
     return stroke;
   }
 
@@ -135,6 +142,8 @@
         // The shadow's own blend mode (the importer maps it to the layer-style
         // mode2 ordinal). Figma's default is the literal string 'NORMAL'.
         if (e.blendMode && e.blendMode !== 'NORMAL') sh.blendMode = e.blendMode;
+        // Drop-shadow knockout: hide the shadow behind a (semi-)transparent node.
+        if (e.type === 'DROP_SHADOW' && typeof e.showShadowBehindNode === 'boolean') sh.showShadowBehindNode = e.showShadowBehindNode;
         out.push(sh);
       } else if (e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') {
         out.push({ type: e.type, radius: e.radius, visible: true });
@@ -171,16 +180,40 @@
     return paths;
   }
 
+  // Map Figma's booleanOperation to the host's merge-paths enum (same names). An
+  // unknown/absent value defaults to UNION so the host always has a valid op.
+  function mapBoolOp(op) {
+    switch (op) {
+      case 'UNION': return 'UNION';
+      case 'SUBTRACT': return 'SUBTRACT';
+      case 'INTERSECT': return 'INTERSECT';
+      case 'EXCLUDE': return 'EXCLUDE';
+      default: return 'UNION';
+    }
+  }
+
   function mapLineHeight(lh) {
     if (!lh) return undefined;
     if (lh.unit === 'AUTO') return { unit: 'AUTO' };
     return { unit: lh.unit, value: lh.value };
   }
 
+  // Collapse a font family/style into a PostScript-name fragment (strip spaces),
+  // e.g. {family:'Inter', style:'Bold'} -> 'Inter-Bold'. The host prefers a real
+  // postScriptName when matching AE fonts; this synthetic guess is a strong hint
+  // when Figma exposes no canonical name.
+  function collapse(s) {
+    return (s == null ? '' : String(s)).replace(/\s+/g, '');
+  }
+  function psName(fontName) {
+    if (!fontName || fontName === figma.mixed) return undefined;
+    return collapse(fontName.family) + '-' + collapse(fontName.style);
+  }
+
   function mapText(node) {
     var runs = [];
     try {
-      var segs = node.getStyledTextSegments(['fontName', 'fontSize', 'fills', 'letterSpacing', 'lineHeight', 'textCase', 'textDecoration']);
+      var segs = node.getStyledTextSegments(['fontName', 'fontWeight', 'fontSize', 'fills', 'letterSpacing', 'lineHeight', 'textCase', 'textDecoration']);
       for (var i = 0; i < segs.length; i++) {
         var s = segs[i];
         runs.push({
@@ -189,6 +222,8 @@
           characters: s.characters,
           fontFamily: s.fontName ? s.fontName.family : undefined,
           fontStyle: s.fontName ? s.fontName.style : undefined,
+          fontWeight: s.fontWeight,
+          postScriptName: s.fontName ? psName(s.fontName) : undefined,
           fontSize: s.fontSize,
           fills: mapFills(s.fills, node.width, node.height),
           tracking: N.trackingFromLetterSpacing(s.letterSpacing, s.fontSize),
@@ -198,9 +233,22 @@
         });
       }
     } catch (e) {
-      runs.push({ start: 0, end: node.characters.length, characters: node.characters, fontSize: node.fontSize });
+      // Resilient fallback: keep the font even when getStyledTextSegments throws
+      // (e.g. mixed/unavailable). Read node-level fontName (guarding figma.mixed)
+      // so weight/family/PostScript name survive; size only when it is a number.
+      var fn = (node.fontName && node.fontName !== figma.mixed) ? node.fontName : null;
+      var run = {
+        start: 0,
+        end: node.characters.length,
+        characters: node.characters,
+        fontFamily: fn ? fn.family : undefined,
+        fontStyle: fn ? fn.style : undefined,
+        postScriptName: psName(node.fontName)
+      };
+      if (typeof node.fontSize === 'number') run.fontSize = node.fontSize;
+      runs.push(run);
     }
-    return {
+    var text = {
       characters: node.characters,
       runs: runs,
       textAlignHorizontal: node.textAlignHorizontal,
@@ -209,6 +257,9 @@
       paragraphSpacing: node.paragraphSpacing,
       boxSize: [node.width, node.height]
     };
+    // First-line indent: fires the host's paragraphIndent path.
+    if ('paragraphIndent' in node) text.paragraphIndent = node.paragraphIndent;
+    return text;
   }
 
   function findImagePaint(fills) {
@@ -301,6 +352,19 @@
     return false;
   }
 
+  // A sheared/skewed node has a non-trivial off-diagonal in its 2x2. AE 2D layers
+  // carry rotation + scale but cannot skew, so a sheared shape is rasterised for a
+  // pixel-exact result. Decompose via the shared QR helper (skew in radians) and
+  // require the skew angle to clear a small epsilon so a tiny numerical skew (from
+  // an otherwise pure rotation/scale) does NOT trip the gate.
+  function hasShear(node) {
+    var m = node.absoluteTransform;
+    if (!m || !m.length || !m[0]) return false;
+    // absoluteTransform is [[a,c,e],[b,d,f]]; flatten to [a,b,c,d,e,f] for decompose.
+    var dec = N.decomposeMatrix([m[0][0], m[1][0], m[0][1], m[1][1], m[0][2], m[1][2]]);
+    return Math.abs(dec.skew) > 0.0017; // ~0.1deg
+  }
+
   // Effects After Effects cannot rebuild as a layer style or a Gaussian blur:
   // the newer Figma Draw / 2024-2025 effects (noise, texture, glass, progressive
   // blur, and anything added later). Anything unknown counts, so a future Figma
@@ -364,6 +428,18 @@
         }
       } catch (e) { /* size unknown: leave as live footage */ }
     }
+    return false;
+  }
+
+  // An image-filled node whose silhouette is NOT a plain rectangle (a circular or
+  // shaped avatar, a vector/boolean clip) OR which has rounded corners would lose
+  // its outline if placed as a plain rectangular footage layer. Rasterising the
+  // whole node bakes the exact silhouette, at the cost of footage editability.
+  function imageNeedsSilhouetteRaster(node) {
+    var t = node.type;
+    if (t === 'ELLIPSE' || t === 'VECTOR' || t === 'POLYGON' || t === 'STAR' || t === 'BOOLEAN_OPERATION') return true;
+    var c = mapCorners(node);
+    if (c && (c.topLeft > 0 || c.topRight > 0 || c.bottomRight > 0 || c.bottomLeft > 0)) return true;
     return false;
   }
 
@@ -442,7 +518,11 @@
     // rasterised so the look is exact.
     var imgPaint = findImagePaint(node.fills);
     if (imgPaint && (!node.children || !node.children.length)) {
-      if (node.type !== 'TEXT' && (imageHasFilters(imgPaint) || hasUnreproducibleEffect(node) || await imageNeedsRaster(node, imgPaint))) {
+      // A non-rectangular / rounded silhouette (circular avatar, vector/boolean
+      // clip) must be rasterised so its outline is exact; the FILL/FIT/TILE live-
+      // footage path below only stays for plain rectangles with no rounding. This
+      // trades footage editability for a pixel-exact silhouette.
+      if (node.type !== 'TEXT' && (imageHasFilters(imgPaint) || hasUnreproducibleEffect(node) || imageNeedsSilhouetteRaster(node) || await imageNeedsRaster(node, imgPaint))) {
         var rfilt = await rasterizeNodeToImage(node, base, assets);
         if (rfilt) return rfilt;
       }
@@ -465,9 +545,10 @@
 
     // Angular/diamond gradients and pattern fills have no AE shape equivalent;
     // noise / texture / glass / progressive-blur effects have no native rebuild;
-    // per-side stroke weights and per-paint blend modes have no shape equivalent.
+    // per-side stroke weights and per-paint blend modes have no shape equivalent;
+    // a sheared/skewed node cannot be reproduced by an AE 2D transform.
     // Rasterise the node so it is pixel-exact rather than dropped or approximated.
-    if (node.type !== 'TEXT' && (hasUnreproducibleFill(node) || hasUnreproducibleEffect(node) || hasPerSideStroke(node) || hasBlendedPaint(node))) {
+    if (node.type !== 'TEXT' && (hasUnreproducibleFill(node) || hasUnreproducibleEffect(node) || hasPerSideStroke(node) || hasBlendedPaint(node) || hasShear(node))) {
       var raster = await rasterizeNodeToImage(node, base, assets);
       if (raster) return raster;
     }
@@ -510,6 +591,23 @@
         break;
       case 'POLYGON':
       case 'STAR':
+        base.type = node.type;
+        base.paths = mapPaths(node); // always keep the baked outline as the fallback
+        base.fills = mapFills(node.fills, w, h);
+        base.stroke = mapStroke(node);
+        // An editable native Polystar is inscribed in a CIRCLE and has no per-point
+        // corner radius, so it only matches when the box is ~square AND there is no
+        // corner rounding; otherwise keep ONLY the exact baked paths above.
+        if (Math.abs(w - h) < 0.5 && !(uniformCorner(node) > 0)) {
+          var rOuter = Math.min(w, h) / 2;
+          if (node.type === 'STAR') {
+            var inner = (node.innerRadius != null ? node.innerRadius : 0.5);
+            base.primitive = { polystar: { starType: 'STAR', points: node.pointCount, outerRadius: rOuter, innerRadius: inner * rOuter, rotation: 0 } };
+          } else {
+            base.primitive = { polystar: { starType: 'POLYGON', points: node.pointCount, outerRadius: rOuter, rotation: 0 } };
+          }
+        }
+        break;
       case 'VECTOR':
         base.type = node.type;
         base.paths = mapPaths(node);
@@ -517,7 +615,12 @@
         base.stroke = mapStroke(node);
         break;
       case 'BOOLEAN_OPERATION':
-        base.type = 'VECTOR'; // flatten to the exact rendered outline
+        // Editable Merge Paths: emit the operands as children (same frame-local
+        // origin) plus the op so the host rebuilds a native, re-editable boolean.
+        // Keep the baked outline as paths so the host can fall back to it.
+        base.type = 'BOOLEAN';
+        base.boolean = { op: mapBoolOp(node.booleanOperation) };
+        base.children = await childrenToIR(node, origin, assets);
         base.paths = mapPaths(node);
         base.fills = mapFills(node.fills, w, h);
         base.stroke = mapStroke(node);
@@ -602,6 +705,9 @@
       name: frame.name,
       width: frame.width,
       height: frame.height,
+      // Absolute canvas position of the frame's top-left, so the importer can
+      // lay multiple frames out in one comp (flat build) without overlap.
+      offset: { x: origin.x, y: origin.y },
       children: children
     };
     // Carry the frame chrome so the importer can decorate the precomp instead of
@@ -634,6 +740,7 @@
       name: 'Selection',
       width: Math.max(1, Math.round(maxX - minX)),
       height: Math.max(1, Math.round(maxY - minY)),
+      offset: { x: minX, y: minY },
       background: [],
       clipsContent: false,
       buildMode: 'PRECOMP',
