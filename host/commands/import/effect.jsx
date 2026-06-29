@@ -66,11 +66,38 @@
     return shape;
   }
 
-  // A plain (possibly rounded) rectangle subpath whose origin is offset to (ox, oy)
-  // in the adjustment layer's space. The adjustment layer is comp-sized at its
-  // default placement (anchor [0,0] -> comp top-left maps to layer-space [0,0]),
-  // so comp coordinates can be used directly as layer-space coordinates.
-  function rectSubpathAt(w, h, radii, ox, oy) {
+  // Place a node-local subpath into the comp-sized adjustment layer's space. The
+  // node's anchor is [0,0] (geometry origin) and its comp Position is therefore
+  // the comp-space location of that origin and its rotation pivot, so each vertex
+  // maps as comp = Position + Rot(theta) * (local - anchor) with anchor = [0,0]:
+  //   x' = x*cos - y*sin + ox,  y' = x*sin + y*cos + oy
+  // (AE Y-down, Rotate Z clockwise-positive -- the same convention transform.jsx
+  // feeds Rotate Z). Tangents are relative vectors, so they rotate WITHOUT the
+  // translation. The adjustment layer is comp-sized at its default placement
+  // (anchor [0,0] -> comp top-left maps to layer-space [0,0]), so comp coordinates
+  // are used directly as layer-space coordinates. Mutates sp in place.
+  function placeSubpathAt(sp, ox, oy, theta) {
+    var cos = Math.cos(theta), sin = Math.sin(theta);
+    var verts = (sp && sp.vertices) || [];
+    for (var i = 0; i < verts.length; i++) {
+      var vx = verts[i].x, vy = verts[i].y;
+      verts[i].x = vx * cos - vy * sin + ox;
+      verts[i].y = vx * sin + vy * cos + oy;
+      var it = verts[i].inTangent || [0, 0];
+      var ot = verts[i].outTangent || [0, 0];
+      verts[i].inTangent = [it[0] * cos - it[1] * sin, it[0] * sin + it[1] * cos];
+      verts[i].outTangent = [ot[0] * cos - ot[1] * sin, ot[0] * sin + ot[1] * cos];
+    }
+    return sp;
+  }
+
+  // A plain (possibly rounded) rectangle subpath built in node-local space, then
+  // rotated by theta (radians) about the anchor and offset to (ox, oy) so it tracks
+  // the target's footprint even on a rotated node. For theta ~ 0 placeSubpathAt is
+  // the identity rotation and this reduces to the prior axis-aligned, translated
+  // rect. The rounded-rect builder carries relative tangents that placeSubpathAt
+  // rotates too, so rounded corners survive rotation.
+  function rectSubpathAt(w, h, radii, ox, oy, theta) {
     var sp;
     try {
       if (R.importer.geometry && R.importer.geometry.roundedRect) {
@@ -86,12 +113,7 @@
         { x: 0, y: h, inTangent: [0, 0], outTangent: [0, 0] }
       ], closed: true };
     }
-    // Translate every vertex to the target's comp rect.
-    for (var i = 0; i < sp.vertices.length; i++) {
-      sp.vertices[i].x = sp.vertices[i].x + ox;
-      sp.vertices[i].y = sp.vertices[i].y + oy;
-    }
-    return sp;
+    return placeSubpathAt(sp, ox, oy, theta || 0);
   }
 
   // Reproduce a Figma backdrop blur as an editable adjustment layer: a comp-sized
@@ -114,12 +136,19 @@
       var w = Math.max(1, Math.round(t.width || node.width || 1));
       var h = Math.max(1, Math.round(t.height || node.height || 1));
 
-      // Target's top-left in comp space (anchor is [0,0], so Position is top-left).
-      var ox = 0, oy = 0;
+      // Target's anchor-origin in comp space (anchor is [0,0], so Position is the
+      // top-left and the rotation pivot) plus its Rotate Z, read the same way.
+      var ox = 0, oy = 0, rotDeg = 0;
       try {
-        var pos = layer.property(R.util.MATCH.transform).property(R.util.MATCH.position).value;
+        var tg = layer.property(R.util.MATCH.transform);
+        var pos = tg.property(R.util.MATCH.position).value;
         if (pos && pos.length >= 2) { ox = pos[0]; oy = pos[1]; }
-      } catch (eP) { ox = 0; oy = 0; }
+        var rz = tg.property(R.util.MATCH.rotation).value;
+        if (typeof rz === 'number' && isFinite(rz)) { rotDeg = rz; }
+      } catch (eP) { ox = 0; oy = 0; rotDeg = 0; }
+      // Skip the trig when effectively unrotated so the result stays bit-identical
+      // to the prior axis-aligned mask; degrees -> radians otherwise.
+      var theta = (Math.abs(rotDeg) > 1e-4) ? (rotDeg * Math.PI / 180) : 0;
 
       // Comp-sized solid promoted to an adjustment layer (affects layers below).
       adj = comp.layers.addSolid([0, 0, 0], (node.name || 'Layer') + ' Backdrop Blur', comp.width, comp.height, comp.pixelAspect);
@@ -129,12 +158,13 @@
       if (!parade) throw new Error('no effect parade');
       if (!addBackdropGaussian(parade, e.radius || 0)) throw new Error('no gaussian blur available');
 
-      // Clip to the footprint with a mask (rounded rect when corners are present).
+      // Clip to the footprint with a mask (rounded rect when corners are present),
+      // rotated to match the target so the matte tracks a rotated glass panel.
       var cr = node.cornerRadii;
       var radii = cr
         ? { tl: cr.topLeft || 0, tr: cr.topRight || 0, br: cr.bottomRight || 0, bl: cr.bottomLeft || 0 }
         : { tl: 0, tr: 0, br: 0, bl: 0 };
-      var sp = rectSubpathAt(w, h, radii, ox, oy);
+      var sp = rectSubpathAt(w, h, radii, ox, oy, theta);
       var masks = adj.property('ADBE Mask Parade');
       if (!masks) throw new Error('no mask parade');
       var mask = masks.addProperty('ADBE Mask Atom');
@@ -143,7 +173,7 @@
       // Sit directly below the sharp target so only the layers beneath are blurred.
       try { adj.moveAfter(layer); } catch (eM) { /* index already adjacent or move unsupported */ }
 
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'background blur reproduced as an adjustment layer (Gaussian blur, masked to the node footprint) placed below the layer; it blurs the layers behind it rather than a live backdrop filter' });
+      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'background blur reproduced as an adjustment layer (Gaussian blur, masked to the node footprint, rotated to match the layer) placed below the layer; it blurs the layers behind it rather than a live backdrop filter' });
     } catch (eErr) {
       // Tear down the partial adjustment layer and fall back to the prior flag.
       if (adj) { try { adj.remove(); } catch (eR) { /* already gone */ } }
