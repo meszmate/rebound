@@ -57,6 +57,30 @@
     return wire(fill, matte, t);
   }
 
+  // Wire a (matte, target) pair and then verify the matte ended up at exactly
+  // target.index-1. AE re-indexes the stack on every moveBefore / duplicate, and
+  // setTrackMatte itself can nudge layers, so re-read the target index right
+  // before wiring and re-check adjacency right after — repairing once if AE
+  // shifted things. `m` is the matte (or dup) already known to share `target`'s
+  // comp. Returns true when the pair is wired and adjacent.
+  function wireAndVerify(target, m, type) {
+    var tIndex;
+    try { tIndex = target.index; } catch (eIdx) { return false; }
+    // Place the matte directly above the target, then wire.
+    try { if (m.index !== tIndex - 1) m.moveBefore(target); } catch (eMove) {}
+    if (!wire(target, m, type)) return false;
+    // setTrackMatte (or the move) may have re-shuffled indices — re-read and,
+    // if the matte is no longer the layer immediately above the target, make a
+    // single repair attempt.
+    try {
+      tIndex = target.index;
+      if (m.index !== tIndex - 1) {
+        m.moveBefore(target);
+      }
+    } catch (eRepair) {}
+    return true;
+  }
+
   function applyOne(item) {
     var byId = R.importer.layerById || {};
     var matte = item.matte;
@@ -72,19 +96,54 @@
       return;
     }
 
-    var first = true;
+    // Resolve every target up front. Skip missing layers and any layer whose
+    // comp differs from the matte's (a track matte must live in the same comp);
+    // note the cross-comp case once so the report does not flood.
+    var targets = [];
+    var crossComp = false;
     for (var i = 0; i < item.ids.length; i++) {
       var target = byId[item.ids[i]];
       if (!target) continue;
       var tComp;
       try { tComp = target.containingComp; } catch (e2) { continue; }
-      if (tComp !== mComp) continue;
+      if (tComp !== mComp) { crossComp = true; continue; }
+      var tIdx;
+      try { tIdx = target.index; } catch (e3) { continue; }
+      targets.push({ layer: target, index: tIdx });
+    }
+    if (crossComp && item.report) {
+      R.importer.util.note(item.report, 'approximated', { name: item.node.name, detail: 'a masked layer lives in a different composition than the mask; that target was left un-matted' });
+    }
+    if (!targets.length) return;
+
+    // Process lowest-in-the-stack first (highest layer.index first). Each
+    // moveBefore only re-indexes layers between the matte's old and new slot, so
+    // working from the bottom up means every move disturbs only targets we have
+    // not wired yet, keeping already-wired pairs adjacent.
+    targets.sort(function (a, b) { return b.index - a.index; });
+
+    var first = true;
+    for (var j = 0; j < targets.length; j++) {
+      var tgt = targets[j].layer;
       if (first) {
-        if (wire(target, matte, type)) first = false;
+        // Move the ORIGINAL matte directly above this target and wire it.
+        if (wireAndVerify(tgt, matte, type)) first = false;
       } else {
+        // Each additional target needs its own matte: duplicate, then verify the
+        // dup landed in the matte's comp before moving it above this target. AE
+        // creates the dup directly above the original in the same comp, but guard
+        // anyway and drop a stray dup rather than wire it into the wrong place.
         var dup = null;
-        try { dup = matte.duplicate(); } catch (e3) { dup = null; }
-        if (dup) wire(target, dup, type);
+        try { dup = matte.duplicate(); } catch (e4) { dup = null; }
+        if (!dup) continue;
+        var dComp;
+        try { dComp = dup.containingComp; } catch (e5) { dComp = null; }
+        if (dComp !== mComp) {
+          try { dup.remove(); } catch (e6) {}
+          if (item.report) R.importer.util.note(item.report, 'approximated', { name: item.node.name, detail: 'a duplicated mask landed in the wrong composition and was removed; that target was left un-matted' });
+          continue;
+        }
+        wireAndVerify(tgt, dup, type);
       }
     }
   }
