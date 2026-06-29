@@ -74,7 +74,7 @@
     if (h && h.length >= 2) {
       var start = [h[0][0], h[0][1]];
       var end = [h[1][0], h[1][1]];
-      if (paint.type === 'GRADIENT_RADIAL' && h.length >= 3 && h[2]) {
+      if ((paint.type === 'GRADIENT_RADIAL' || paint.type === 'GRADIENT_DIAMOND') && h.length >= 3 && h[2]) {
         var dMain = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
         var dWide = Math.sqrt(Math.pow(h[2][0] - start[0], 2) + Math.pow(h[2][1] - start[1], 2));
         if (dWide > dMain) end = [h[2][0], h[2][1]];
@@ -378,11 +378,24 @@
       setSafe(stroke, 'ADBE Vector Stroke Opacity', op * 100);
     } else if (isGradient(paint.type)) {
       stroke = contents.addProperty('ADBE Vector Graphic - G-Stroke');
-      var pts = gradBuildPoints(paint, node);
-      R.grad.applyGradient(stroke, { type: gradTypeNum(paint.type), start: pts.start, end: pts.end });
+      // Angular warps to a conic via a layer-wide Polar effect -- only safe when
+      // the angular paint is alone on the layer; otherwise build it as a native
+      // radial (like diamond) so a co-resident fill / stroke is never bent. Mirror
+      // the fill path (addFillPaint) so a stroke never warps the whole layer.
+      var warpAngular = (paint.type === 'GRADIENT_ANGULAR') && angularCanWarp(node);
+      var gtype = (paint.type === 'GRADIENT_LINEAR' ||
+                   (paint.type === 'GRADIENT_ANGULAR' && warpAngular)) ? 1 : 2;
+      var pts = warpAngular ? angularPoints(node) : gradPoints(paint, node);
+      R.grad.applyGradient(stroke, { type: gtype, start: pts.start, end: pts.end });
+      // Mirror the solid stroke opacity (and the fill path): a semi-transparent
+      // gradient border must not import fully opaque.
+      if (paint.opacity != null) setSafe(stroke, 'ADBE Vector Stroke Opacity', paint.opacity * 100);
       if (R.grad.applyGradientColors(stroke, gradStops(paint))) node.__nativeGradFill = true;
       else noteGradFallback(node, report);
-      if (paint.type === 'GRADIENT_ANGULAR') node.__angularConic = true;
+      // The Polar Coordinates warp is added once, layer-wide, in the gradientEffect
+      // post-pass (it needs the layer, not the contents group).
+      if (warpAngular) node.__angularConic = true;
+      else if (paint.type === 'GRADIENT_ANGULAR') noteAngularRadial(node, report);
       if (paint.type === 'GRADIENT_DIAMOND') noteDiamondApprox(node, report);
     } else {
       return null;
