@@ -62,6 +62,14 @@
       if (isFinite(d.scaleX) && isFinite(d.scaleY) && (Math.abs(d.scaleX - 1) > 1e-4 || Math.abs(d.scaleY - 1) > 1e-4)) {
         try { tr.property(M.scale).setValue([d.scaleX * 100, d.scaleY * 100]); } catch (e2) {}
       }
+      // AE 2D layers have no skew channel, so a sheared source (the exporter
+      // rasterizes most of these; text and any stragglers still arrive here)
+      // loses its shear silently. Warn once rather than drop it without notice.
+      if (report && isFinite(d.skewDeg) && Math.abs(d.skewDeg) > 0.1) {
+        try {
+          R.importer.util.note(report, 'approximated', { name: node.name, detail: 'shear/skew is not reproducible as an After Effects 2D layer transform' });
+        } catch (eSk) {}
+      }
     } else {
       tr.property(M.position).setValue([t.x || 0, t.y || 0]);
       if (t.rotation) {

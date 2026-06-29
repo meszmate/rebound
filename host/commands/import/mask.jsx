@@ -64,8 +64,10 @@
     var mComp;
     try { mComp = matte.containingComp; } catch (e) { return; }
 
-    // A null (group used as a mask) has no pixels to matte; flag and skip.
-    if (matte.nullLayer) {
+    // A null OR a guide-shape container (group/frame used as a mask) has no real
+    // pixels to matte with — a transparent guide rect would erase the targets —
+    // so flag and skip, leaving the masked layers visible rather than vanished.
+    if (matte.nullLayer || matte.guideLayer) {
       if (item.report) R.importer.util.note(item.report, 'approximated', { name: item.node.name, detail: 'group used as a mask is not reconstructed as a track matte' });
       return;
     }
