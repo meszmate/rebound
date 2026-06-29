@@ -200,13 +200,39 @@
     return false;
   }
 
-  // Does a frame's content spill past its bounds? A heuristic over each direct
-  // child's axis-aligned transform box (frame-local). It is exact for the common
-  // case and intentionally conservative; it can miss a rotated child whose rotated
-  // bbox pokes out (unrotated box used) or a non-clipping nested frame whose own
-  // content overflows. Used only to decide whether a CLIPPING frame needs a precomp
-  // (so a clipping frame whose content fits stays a flat editable group); a missed
-  // case just leaves a little overflow visible rather than breaking anything.
+  // Each direct child's TRUE axis-aligned bbox (frame-local), exact for rotated
+  // children: transform the four local corners through the child's affine matrix
+  // t.matrix=[a,b,c,d,tx,ty] (maps (x,y)->(a*x+c*y+tx, b*x+d*y+ty), see
+  // schema matrix2x3 / N.decomposeMatrix) and take the min/max. When no matrix is
+  // present, fall back to the unrotated (t.x,t.y,t.width,t.height) box.
+  function childAABB(c) {
+    var t = c.transform || {};
+    var w = t.width || 0, h = t.height || 0;
+    var m = t.matrix;
+    if (!m || m.length !== 6) {
+      var x = t.x || 0, y = t.y || 0;
+      return { minX: x, minY: y, maxX: x + w, maxY: y + h };
+    }
+    var pts = [[0, 0], [w, 0], [w, h], [0, h]];
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < 4; i++) {
+      var px = m[0] * pts[i][0] + m[2] * pts[i][1] + m[4];
+      var py = m[1] * pts[i][0] + m[3] * pts[i][1] + m[5];
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+  }
+
+  // Does a frame's content spill past its bounds? Tests each direct child's TRUE
+  // axis-aligned bbox (via childAABB, which transforms the child's corners through
+  // its affine matrix) against the frame bounds, so it is exact for rotated children
+  // too. Still conservative for a non-clipping nested frame whose own content
+  // overflows. Used only to decide whether a CLIPPING frame needs a precomp (so a
+  // clipping frame whose content fits stays a flat editable group); a missed case
+  // just leaves a little overflow visible rather than breaking anything.
   function frameContentOverflows(node) {
     var kids = node.children || [];
     var fw = node.width || (node.transform && node.transform.width) || 0;
@@ -216,9 +242,8 @@
     for (var i = 0; i < kids.length; i++) {
       var c = kids[i];
       if (!c || c.visible === false) continue;
-      var t = c.transform || {};
-      var x = t.x || 0, y = t.y || 0, w = t.width || 0, h = t.height || 0;
-      if (x < -eps || y < -eps || (x + w) > fw + eps || (y + h) > fh + eps) return true;
+      var bb = childAABB(c);
+      if (bb.minX < -eps || bb.minY < -eps || bb.maxX > fw + eps || bb.maxY > fh + eps) return true;
     }
     return false;
   }
