@@ -186,7 +186,11 @@
       return function (e) {
         e.preventDefault();
         circle.classList.add('is-dragging');
-        circle.setPointerCapture(e.pointerId);
+        // setPointerCapture throws in some runtimes (After Effects' CEF / older
+        // Chromium, and on SVG elements). The drag does NOT need it — the document
+        // listeners below get the bubbled pointermove/up regardless — so guard it,
+        // or an exception here kills the whole drag (the handle never moves).
+        try { circle.setPointerCapture(e.pointerId); } catch (errCap) { /* drag still works without capture */ }
         // Freeze both the value range and the pixel geometry for the whole drag,
         // so the value maps to the pointer 1:1 and the drag is always reversible
         // (pull a handle back the exact way it came). For extreme overshoot the
@@ -210,12 +214,12 @@
           dragGeom = null;
           render();
           hideReadout();
-          window.removeEventListener('pointermove', move);
-          window.removeEventListener('pointerup', up);
+          document.removeEventListener('pointermove', move);
+          document.removeEventListener('pointerup', up);
           if (opts.onCommit) opts.onCommit(clone(curve));
         };
-        window.addEventListener('pointermove', move);
-        window.addEventListener('pointerup', up);
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
         move(e);
       };
     }
