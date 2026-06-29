@@ -322,6 +322,150 @@
     } catch (e) { /* leave at default placement */ }
   }
 
+  // ---- underline ------------------------------------------------------------
+  // AE has no underline TextDocument property, so an underlined run is reproduced
+  // as a sibling shape layer: one open, stroked horizontal segment under each
+  // visual baseline (read from td.baselineLocs, AE 13.6+), placed to match the
+  // text layer exactly so the layer-local baseline coords land over the glyphs.
+
+  function runUnderlined(run) {
+    return !!(run && (run.underline === true || run.textDecoration === 'UNDERLINE'));
+  }
+
+  // True when EVERY run is underlined (or there is a single run that is), so the
+  // whole text is underlined and every line can be drawn full-width.
+  function allRunsUnderlined(runs) {
+    if (!runs || !runs.length) return false;
+    for (var i = 0; i < runs.length; i++) { if (!runUnderlined(runs[i])) return false; }
+    return true;
+  }
+
+  function anyRunUnderlined(runs) {
+    if (!runs) return false;
+    for (var i = 0; i < runs.length; i++) { if (runUnderlined(runs[i])) return true; }
+    return false;
+  }
+
+  // baselineLocs is a flat float array, 4 floats per VISUAL line, in the text
+  // layer's OWN coords: [l0.sx,l0.sy,l0.ex,l0.ey, l1.sx,...]. Empty lines carry a
+  // max-float sentinel; skip any quad with |value| > 1e37.
+  function baselineLineQuads(td) {
+    var out = [];
+    var L = null;
+    try { L = td.baselineLocs; } catch (e) { return out; }
+    if (!L || typeof L.length !== 'number' || L.length < 4) return out;
+    for (var i = 0; i + 3 < L.length; i += 4) {
+      var sx = L[i], sy = L[i + 1], ex = L[i + 2], ey = L[i + 3];
+      if (Math.abs(sx) > 1e37 || Math.abs(sy) > 1e37 ||
+          Math.abs(ex) > 1e37 || Math.abs(ey) > 1e37) continue;
+      out.push({ sx: sx, sy: sy, ex: ex, ey: ey });
+    }
+    return out;
+  }
+
+  // Add one open, stroked, square-capped segment from (sx,y) to (ex,y) to the
+  // shape's vectors group, coloured with [r,g,b] and "width" thick.
+  function addUnderlineSegment(vectors, sx, ex, y, rgb, width) {
+    var grp = vectors.addProperty('ADBE Vector Group');
+    var contents = grp.property('ADBE Vectors Group');
+    var shape = new Shape();
+    shape.vertices = [[sx, y], [ex, y]];
+    shape.inTangents = [[0, 0], [0, 0]];
+    shape.outTangents = [[0, 0], [0, 0]];
+    shape.closed = false;
+    contents.addProperty('ADBE Vector Shape - Group').property('ADBE Vector Shape').setValue(shape);
+    var stroke = contents.addProperty('ADBE Vector Graphic - Stroke');
+    try { stroke.property('ADBE Vector Stroke Color').setValue(rgb); } catch (eC) {}
+    try { stroke.property('ADBE Vector Stroke Width').setValue(width); } catch (eW) {}
+    // Square (projecting) cap so the line covers the full glyph extent. The AE
+    // ordinal is 1=butt, 2=round, 3=projecting/square (see paint.jsx capOf).
+    try { stroke.property('ADBE Vector Stroke Line Cap').setValue(3); } catch (eL) {}
+  }
+
+  // Build the underline sibling. textProp.value is read AFTER all run styling +
+  // box sizing + setValue, because baselineLocs shifts with leading / box width /
+  // justification. Whole-text underline draws every line full-width; partial /
+  // per-run underline draws lines full-width too but flags the x-extent as
+  // approximate (the exact per-run sub-range is not measured here). Guarded so a
+  // failure degrades to a one-time approximated note.
+  function applyUnderline(layer, node, runs, report) {
+    if (!anyRunUnderlined(runs)) return false;
+
+    var noteApprox = function (detail) {
+      if (report && !report.__underlineNoted) {
+        report.__underlineNoted = true;
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: detail });
+      }
+    };
+
+    var comp;
+    try { comp = layer.containingComp; } catch (e0) { comp = null; }
+    if (!comp) { noteApprox('underline could not be drawn (no containing comp); left without the underline'); return false; }
+
+    var textProp, td;
+    try {
+      textProp = layer.property('ADBE Text Properties').property('ADBE Text Document');
+      td = textProp.value;
+    } catch (eTD) { td = null; }
+    if (!td) { noteApprox('underline needs the text document (unavailable); left without the underline'); return false; }
+
+    var quads = baselineLineQuads(td);
+    if (!quads.length) {
+      noteApprox('underline needs baselineLocs (After Effects 13.6+) and a non-empty layout; left without the underline');
+      return false;
+    }
+
+    // Colour from the first underlined run's fill (fall back to the dominant
+    // run / black). fontSize drives the stroke weight + below-baseline offset.
+    var colourRun = null, fontSize = 0;
+    for (var ri = 0; ri < runs.length; ri++) {
+      if (runUnderlined(runs[ri])) { colourRun = runs[ri]; if (runs[ri].fontSize) fontSize = runs[ri].fontSize; break; }
+    }
+    if (!fontSize) {
+      for (var rj = 0; rj < runs.length; rj++) { if (runs[rj].fontSize) { fontSize = runs[rj].fontSize; break; } }
+    }
+    if (!fontSize) { try { fontSize = td.fontSize || 16; } catch (eFS) { fontSize = 16; } }
+    var c = colourRun ? firstSolidColor(colourRun.fills, report, node) : null;
+    var rgb = c ? [c.r, c.g, c.b] : [0, 0, 0];
+    var width = Math.max(1, fontSize * 0.06);
+    // baselineLocs y is the baseline; descenders hang below it, so push the line
+    // down by ~0.12*fontSize so it sits clear of the glyphs rather than crossing
+    // them. AE comp Y grows downward, so "below" is +.
+    var off = fontSize * 0.12;
+
+    var sl;
+    try { sl = comp.layers.addShape(); } catch (eAdd) {
+      noteApprox('underline shape layer could not be created; left without the underline');
+      return false;
+    }
+    try {
+      sl.name = (node.name || 'Text') + ' Underline';
+      var vectors = sl.property('ADBE Root Vectors Group');
+      for (var q = 0; q < quads.length; q++) {
+        var ln = quads[q];
+        // Underline a horizontal segment along the line's start..end. The
+        // baseline endpoints can carry a tiny slope; use the start y for both so
+        // the rule is level (matchPlacement also reproduces any layer rotation).
+        addUnderlineSegment(vectors, ln.sx, ln.ex, ln.sy + off, rgb, width);
+      }
+      matchPlacement(sl, layer);
+      // Move with the text if it is re-timed / nudged later.
+      try { sl.parent = layer; } catch (eP) {}
+    } catch (eBuild) {
+      try { sl.remove(); } catch (eRm) {}
+      noteApprox('underline could not be drawn; left without the underline');
+      return false;
+    }
+
+    // Whole-text underline is faithful (full line widths). Partial / per-run
+    // underline is approximated: we underline the full line, not the exact run
+    // sub-range, so flag the x-extent as approximate. Never silently dropped.
+    if (!allRunsUnderlined(runs) && !(node.text && node.text.textDecoration === 'UNDERLINE')) {
+      noteApprox('partial underline rebuilt as a generated stroke per visual line; the underlined characters\' exact horizontal extent is approximated to the full line width');
+    }
+    return true;
+  }
+
   // Gradient text fill: AE has no native gradient TEXT fill. The high-fidelity
   // result is the standard AE technique -- a native, fully editable gradient SHAPE
   // matted by the text -- so the gradient shows only through the glyphs while the
@@ -489,15 +633,11 @@
     if (typeof run.horizontalScale === 'number') { try { target.horizontalScale = run.horizontalScale; } catch (e11) {} }
     if (typeof run.verticalScale === 'number') { try { target.verticalScale = run.verticalScale; } catch (e12) {} }
 
-    // Underline & strikethrough: NEITHER is exposed by AE scripting on any build
-    // (there is no applyUnderline / strikethrough TextDocument property), so each
-    // is flagged once as an approximation rather than written to a phantom prop.
-    var decoUnderline = run.underline === true || run.textDecoration === 'UNDERLINE';
+    // Underline is reproduced as a generated stroked shape sibling layer (AE has
+    // no underline TextDocument property); see applyUnderline, called from
+    // buildText after placeText so the layout / transform is final. Strikethrough
+    // has no AE scripting equivalent either, so it is still flagged once.
     var decoStrike = run.lineThrough === true || run.textDecoration === 'STRIKETHROUGH';
-    if (decoUnderline && report && !report.__underlineNoted) {
-      report.__underlineNoted = true;
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'underline has no After Effects scripting equivalent; left without the underline' });
-    }
     if (decoStrike && report && !report.__strikeNoted) {
       report.__strikeNoted = true;
       R.importer.util.note(report, 'approximated', { name: node.name, detail: 'strikethrough text has no After Effects scripting equivalent; left without the strike line' });
@@ -684,6 +824,10 @@
     }
     R.importer.effect.apply(layer, node, report);
     R.importer.layerStyle.collect(layer, node, report);
+    // Underline (no native AE underline): rebuild as a generated stroked shape
+    // sibling, one segment per visual baseline. Done after placeText so the
+    // transform (and thus baselineLocs, which we read back) is final.
+    try { applyUnderline(layer, node, runs, report); } catch (eUnd) { /* underline is best-effort */ }
     // Gradient text fill (no native AE gradient TEXT fill): rebuild as a native
     // editable gradient shape matted by the text layer. Done after effects/styles
     // so the layer's transform is final before its placement is mirrored, and the
