@@ -322,28 +322,49 @@
     } catch (e) { /* leave at default placement */ }
   }
 
-  // ---- underline ------------------------------------------------------------
-  // AE has no underline TextDocument property, so an underlined run is reproduced
-  // as a sibling shape layer: one open, stroked horizontal segment under each
-  // visual baseline (read from td.baselineLocs, AE 13.6+), placed to match the
+  // ---- text decorations (underline + strikethrough) ------------------------
+  // AE has no underline / strikethrough TextDocument property, so a decorated run
+  // is reproduced as a sibling shape layer: one open, stroked horizontal segment
+  // per visual baseline (read from td.baselineLocs, AE 13.6+), placed to match the
   // text layer exactly so the layer-local baseline coords land over the glyphs.
+  // UNDERLINE sits just below the baseline; STRIKETHROUGH sits up through the
+  // x-height. When only PART of a single line is decorated we measure the exact
+  // horizontal sub-range with the same prefix-width trick textbreak.jsx uses.
 
-  function runUnderlined(run) {
-    return !!(run && (run.underline === true || run.textDecoration === 'UNDERLINE'));
+  // Whether a run carries the given decoration kind.
+  function runDecorated(run, kind) {
+    if (!run) return false;
+    if (kind === 'STRIKETHROUGH') return run.lineThrough === true || run.textDecoration === 'STRIKETHROUGH';
+    return run.underline === true || run.textDecoration === 'UNDERLINE';
   }
 
-  // True when EVERY run is underlined (or there is a single run that is), so the
-  // whole text is underlined and every line can be drawn full-width.
-  function allRunsUnderlined(runs) {
+  // True when EVERY run carries the decoration (so the whole text is decorated and
+  // every visual line can be drawn full-width, the exact prior behavior).
+  function allRunsDecorated(runs, kind) {
     if (!runs || !runs.length) return false;
-    for (var i = 0; i < runs.length; i++) { if (!runUnderlined(runs[i])) return false; }
+    for (var i = 0; i < runs.length; i++) { if (!runDecorated(runs[i], kind)) return false; }
     return true;
   }
 
-  function anyRunUnderlined(runs) {
+  function anyRunDecorated(runs, kind) {
     if (!runs) return false;
-    for (var i = 0; i < runs.length; i++) { if (runUnderlined(runs[i])) return true; }
+    for (var i = 0; i < runs.length; i++) { if (runDecorated(runs[i], kind)) return true; }
     return false;
+  }
+
+  // The [start,end) character ranges (over data.characters) of the runs that carry
+  // the decoration. Runs without explicit indices fall back to a single 0..len
+  // range. Used to draw only under the decorated characters when partial.
+  function decoratedRanges(runs, kind, charLen) {
+    var out = [];
+    if (!runs) return out;
+    for (var i = 0; i < runs.length; i++) {
+      if (!runDecorated(runs[i], kind)) continue;
+      var s = (typeof runs[i].start === 'number') ? runs[i].start : 0;
+      var e = (typeof runs[i].end === 'number') ? runs[i].end : charLen;
+      if (e > s) out.push({ s: s, e: e });
+    }
+    return out;
   }
 
   // baselineLocs is a flat float array, 4 floats per VISUAL line, in the text
@@ -365,7 +386,7 @@
 
   // Add one open, stroked, square-capped segment from (sx,y) to (ex,y) to the
   // shape's vectors group, coloured with [r,g,b] and "width" thick.
-  function addUnderlineSegment(vectors, sx, ex, y, rgb, width) {
+  function addDecorationSegment(vectors, sx, ex, y, rgb, width) {
     var grp = vectors.addProperty('ADBE Vector Group');
     var contents = grp.property('ADBE Vectors Group');
     var shape = new Shape();
@@ -382,44 +403,89 @@
     try { stroke.property('ADBE Vector Stroke Line Cap').setValue(3); } catch (eL) {}
   }
 
-  // Build the underline sibling. textProp.value is read AFTER all run styling +
-  // box sizing + setValue, because baselineLocs shifts with leading / box width /
-  // justification. Whole-text underline draws every line full-width; partial /
-  // per-run underline draws lines full-width too but flags the x-extent as
-  // approximate (the exact per-run sub-range is not measured here). Guarded so a
-  // failure degrades to a one-time approximated note.
-  function applyUnderline(layer, node, runs, report) {
-    if (!anyRunUnderlined(runs)) return false;
+  // Prefix-advance width of characters[0..k) measured on a DUPLICATE of the text
+  // layer (so it inherits the exact font/size/tracking). The same sentinel trick
+  // textbreak.jsx uses keeps trailing spaces counted (sourceRectAtTime otherwise
+  // clamps to ink). meas is the duplicate; t is the comp time; SENTINEL is a
+  // stable descender-free char. Returns the advance in layer coords.
+  function prefixWidthOn(meas, chars, k, t) {
+    var SENTINEL = '.';
+    var prefix = chars.substring(0, k);
+    var doc = meas.property('ADBE Text Properties').property('ADBE Text Document');
+    var td1 = doc.value; td1.text = prefix + SENTINEL; doc.setValue(td1);
+    var w1 = meas.sourceRectAtTime(t, false).width;
+    var td0 = doc.value; td0.text = SENTINEL; doc.setValue(td0);
+    var w0 = meas.sourceRectAtTime(t, false).width;
+    return w1 - w0;
+  }
+
+  // For SINGLE-LINE partial decoration, measure each decorated range's exact
+  // [start_x,end_x) advance within line 0 by duplicating the layer and reading
+  // prefix widths. The duplicate is ALWAYS removed (even on throw). Returns an
+  // array of { sx, ex } segment offsets (relative to the line start), or null if
+  // measurement was not possible (caller falls back to full-line).
+  function measureSinglelineSpans(layer, comp, chars, ranges) {
+    var meas = null, spans = null;
+    try {
+      meas = layer.duplicate();
+      var t = comp ? comp.time : 0;
+      spans = [];
+      for (var i = 0; i < ranges.length; i++) {
+        var sx = prefixWidthOn(meas, chars, ranges[i].s, t);
+        var ex = prefixWidthOn(meas, chars, ranges[i].e, t);
+        if (ex > sx) spans.push({ sx: sx, ex: ex });
+      }
+    } catch (e) {
+      spans = null;
+    }
+    if (meas) { try { meas.remove(); } catch (eRm) {} }
+    return (spans && spans.length) ? spans : null;
+  }
+
+  // Build the decoration sibling shape layer for the given kind ('UNDERLINE' or
+  // 'STRIKETHROUGH'). textProp.value is read AFTER all run styling + box sizing +
+  // setValue, because baselineLocs shifts with leading / box width / justification.
+  // Whole-text (or node-level) decoration draws every line full-width (exact prior
+  // behavior). PARTIAL decoration draws only the decorated character sub-range:
+  // measured exactly for single-line text, approximated to the touched full lines
+  // (with a one-time note) for multi-line. Guarded so a failure degrades to a
+  // one-time approximated note and the text is left without the line.
+  function applyDecoration(layer, node, runs, report, kind) {
+    if (!anyRunDecorated(runs, kind)) return false;
+    var isStrike = (kind === 'STRIKETHROUGH');
+    var label = isStrike ? 'strikethrough' : 'underline';
+    var suffix = isStrike ? ' Strikethrough' : ' Underline';
+    var noteKey = isStrike ? '__strikeNoted' : '__underlineNoted';
 
     var noteApprox = function (detail) {
-      if (report && !report.__underlineNoted) {
-        report.__underlineNoted = true;
+      if (report && !report[noteKey]) {
+        report[noteKey] = true;
         R.importer.util.note(report, 'approximated', { name: node.name, detail: detail });
       }
     };
 
     var comp;
     try { comp = layer.containingComp; } catch (e0) { comp = null; }
-    if (!comp) { noteApprox('underline could not be drawn (no containing comp); left without the underline'); return false; }
+    if (!comp) { noteApprox(label + ' could not be drawn (no containing comp); left without the ' + label); return false; }
 
     var textProp, td;
     try {
       textProp = layer.property('ADBE Text Properties').property('ADBE Text Document');
       td = textProp.value;
     } catch (eTD) { td = null; }
-    if (!td) { noteApprox('underline needs the text document (unavailable); left without the underline'); return false; }
+    if (!td) { noteApprox(label + ' needs the text document (unavailable); left without the ' + label); return false; }
 
     var quads = baselineLineQuads(td);
     if (!quads.length) {
-      noteApprox('underline needs baselineLocs (After Effects 13.6+) and a non-empty layout; left without the underline');
+      noteApprox(label + ' needs baselineLocs (After Effects 13.6+) and a non-empty layout; left without the ' + label);
       return false;
     }
 
-    // Colour from the first underlined run's fill (fall back to the dominant
-    // run / black). fontSize drives the stroke weight + below-baseline offset.
+    // Colour from the first decorated run's fill (fall back to the dominant run /
+    // black). fontSize drives the stroke weight + baseline offset.
     var colourRun = null, fontSize = 0;
     for (var ri = 0; ri < runs.length; ri++) {
-      if (runUnderlined(runs[ri])) { colourRun = runs[ri]; if (runs[ri].fontSize) fontSize = runs[ri].fontSize; break; }
+      if (runDecorated(runs[ri], kind)) { colourRun = runs[ri]; if (runs[ri].fontSize) fontSize = runs[ri].fontSize; break; }
     }
     if (!fontSize) {
       for (var rj = 0; rj < runs.length; rj++) { if (runs[rj].fontSize) { fontSize = runs[rj].fontSize; break; } }
@@ -428,40 +494,72 @@
     var c = colourRun ? firstSolidColor(colourRun.fills, report, node) : null;
     var rgb = c ? [c.r, c.g, c.b] : [0, 0, 0];
     var width = Math.max(1, fontSize * 0.06);
-    // baselineLocs y is the baseline; descenders hang below it, so push the line
-    // down by ~0.12*fontSize so it sits clear of the glyphs rather than crossing
-    // them. AE comp Y grows downward, so "below" is +.
-    var off = fontSize * 0.12;
+    // baselineLocs y is the baseline. AE comp Y grows downward.
+    //   UNDERLINE: push DOWN ~0.12*fontSize so it sits clear of the glyphs.
+    //   STRIKETHROUGH: push UP ~0.30*fontSize (subtract) so the rule crosses the
+    //   x-height through the middle of the glyphs.
+    var off = isStrike ? -(fontSize * 0.30) : (fontSize * 0.12);
+
+    // Whole-text (every run) or an explicit node-level decoration of this kind ->
+    // full-width per-line rule (exact prior behavior). Otherwise it is partial.
+    // Measure against the layer's ACTUAL displayed string (reflects any baked-in
+    // case shift, so the prefix widths match the rendered glyphs); fall back to
+    // the source characters. Run indices are length-preserving, so they still
+    // index this string correctly.
+    var chars = '';
+    try { chars = td.text || ''; } catch (eTx) { chars = ''; }
+    if (!chars && node.text && typeof node.text.characters === 'string') chars = node.text.characters;
+    var nodeLevel = !!(node.text && node.text.textDecoration === kind);
+    var whole = nodeLevel || allRunsDecorated(runs, kind);
+
+    // For partial single-line text measure exact spans; otherwise null -> full.
+    var singleSpans = null;
+    if (!whole) {
+      var singleLine = (quads.length === 1) && (chars.indexOf('\n') < 0) && (chars.indexOf('\r') < 0);
+      if (singleLine) {
+        var ranges = decoratedRanges(runs, kind, chars.length);
+        if (ranges.length) singleSpans = measureSinglelineSpans(layer, comp, chars, ranges);
+      }
+    }
 
     var sl;
     try { sl = comp.layers.addShape(); } catch (eAdd) {
-      noteApprox('underline shape layer could not be created; left without the underline');
+      noteApprox(label + ' shape layer could not be created; left without the ' + label);
       return false;
     }
     try {
-      sl.name = (node.name || 'Text') + ' Underline';
+      sl.name = (node.name || 'Text') + suffix;
       var vectors = sl.property('ADBE Root Vectors Group');
-      for (var q = 0; q < quads.length; q++) {
-        var ln = quads[q];
-        // Underline a horizontal segment along the line's start..end. The
-        // baseline endpoints can carry a tiny slope; use the start y for both so
-        // the rule is level (matchPlacement also reproduces any layer rotation).
-        addUnderlineSegment(vectors, ln.sx, ln.ex, ln.sy + off, rgb, width);
+      if (singleSpans) {
+        // Exact partial single-line: each decorated span, offset from line 0 start.
+        var ln0 = quads[0];
+        for (var s = 0; s < singleSpans.length; s++) {
+          addDecorationSegment(vectors, ln0.sx + singleSpans[s].sx, ln0.sx + singleSpans[s].ex, ln0.sy + off, rgb, width);
+        }
+      } else {
+        for (var q = 0; q < quads.length; q++) {
+          var ln = quads[q];
+          // A full-width rule along the line's start..end. The baseline endpoints
+          // can carry a tiny slope; use the start y for both so the rule is level
+          // (matchPlacement also reproduces any layer rotation).
+          addDecorationSegment(vectors, ln.sx, ln.ex, ln.sy + off, rgb, width);
+        }
       }
       matchPlacement(sl, layer);
       // Move with the text if it is re-timed / nudged later.
       try { sl.parent = layer; } catch (eP) {}
     } catch (eBuild) {
       try { sl.remove(); } catch (eRm) {}
-      noteApprox('underline could not be drawn; left without the underline');
+      noteApprox(label + ' could not be drawn; left without the ' + label);
       return false;
     }
 
-    // Whole-text underline is faithful (full line widths). Partial / per-run
-    // underline is approximated: we underline the full line, not the exact run
-    // sub-range, so flag the x-extent as approximate. Never silently dropped.
-    if (!allRunsUnderlined(runs) && !(node.text && node.text.textDecoration === 'UNDERLINE')) {
-      noteApprox('partial underline rebuilt as a generated stroke per visual line; the underlined characters\' exact horizontal extent is approximated to the full line width');
+    // Whole-text decoration is faithful (full line widths). Exact single-line
+    // spans are faithful too. A partial decoration that could NOT be measured
+    // (multi-line, or measurement failed) is drawn full-line and flagged so the
+    // approximate x-extent is visible rather than silently wrong.
+    if (!whole && !singleSpans) {
+      noteApprox('partial ' + label + ' rebuilt as a generated stroke per visual line; the decorated characters\' exact horizontal extent is approximated to the full line width');
     }
     return true;
   }
@@ -633,21 +731,15 @@
     if (typeof run.horizontalScale === 'number') { try { target.horizontalScale = run.horizontalScale; } catch (e11) {} }
     if (typeof run.verticalScale === 'number') { try { target.verticalScale = run.verticalScale; } catch (e12) {} }
 
-    // Underline is reproduced as a generated stroked shape sibling layer (AE has
-    // no underline TextDocument property); see applyUnderline, called from
-    // buildText after placeText so the layout / transform is final. Strikethrough
-    // has no AE scripting equivalent either, so it is still flagged once.
-    var decoStrike = run.lineThrough === true || run.textDecoration === 'STRIKETHROUGH';
-    if (decoStrike && report && !report.__strikeNoted) {
-      report.__strikeNoted = true;
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'strikethrough text has no After Effects scripting equivalent; left without the strike line' });
-    }
-    // textCase LOWER/TITLE have no AE TextDocument equivalent; flag once so the
-    // approximation is visible rather than silently dropped.
-    if ((run.textCase === 'LOWER' || run.textCase === 'TITLE') && report && !report.__textCaseNoted) {
-      report.__textCaseNoted = true;
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'lowercase/title-case text case has no After Effects equivalent; left as authored' });
-    }
+    // Underline AND strikethrough are reproduced as generated stroked shape
+    // sibling layers (AE has no underline/strikethrough TextDocument property);
+    // see applyDecoration, called from buildText after placeText so the layout /
+    // transform is final. Nothing is flagged here for them anymore.
+    //
+    // textCase LOWER/TITLE are reproduced by case-shifting the DISPLAYED
+    // characters when the layer content is assembled in buildText (length-
+    // preserving, so run indices stay valid); UPPER renders via fontCapsOption
+    // above. None of these are flagged here.
   }
 
   // Paragraph-level styling (spacing + indents). These live on the whole-layer
@@ -692,6 +784,65 @@
       else if (align === 'JUSTIFIED') td.justification = ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT;
       else td.justification = ParagraphJustification.LEFT_JUSTIFY;
     } catch (e) {}
+  }
+
+  // ---- textCase LOWER / TITLE (baked into the displayed characters) ---------
+  // AE has no lower-case / title-case transform (allCaps is read-only, and
+  // fontCapsOption only does ALL/SMALL caps). LOWER/TITLE are reproduced by
+  // transforming the DISPLAYED characters when the layer content is assembled.
+  // This is LENGTH-PRESERVING, so every run's [start,end) index still lines up
+  // with applyRuns; UPPER is left to fontCapsOption (editably all-caps); anything
+  // else is unchanged.
+
+  // Title-case a slice: capitalise the first letter of each whitespace-delimited
+  // word, lower-case the rest. ES3-safe (no String.prototype additions).
+  function titleCaseStr(s) {
+    var out = '', atWordStart = true;
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v') {
+        out += ch; atWordStart = true;
+      } else {
+        out += atWordStart ? ch.toUpperCase() : ch.toLowerCase();
+        atWordStart = false;
+      }
+    }
+    return out;
+  }
+
+  // Whether assembling the content run-by-run could change any displayed
+  // character (i.e. some run is LOWER or TITLE). UPPER/others leave text intact.
+  function needsCaseTransform(runs) {
+    if (!runs) return false;
+    for (var i = 0; i < runs.length; i++) {
+      var tc = runs[i].textCase;
+      if (tc === 'LOWER' || tc === 'TITLE') return true;
+    }
+    return false;
+  }
+
+  // Build the layer's content string from data.characters, case-shifting each
+  // run's slice per its textCase (LOWER -> lower, TITLE -> title, else unchanged).
+  // Runs are assumed contiguous + index-aligned to characters; any gap before the
+  // first / between runs / after the last is copied verbatim so length is exactly
+  // preserved and run indices stay valid for applyRuns.
+  function caseTransformedContent(chars, runs) {
+    var out = '', cursor = 0;
+    for (var i = 0; i < runs.length; i++) {
+      var s = (typeof runs[i].start === 'number') ? runs[i].start : cursor;
+      var e = (typeof runs[i].end === 'number') ? runs[i].end : chars.length;
+      if (s < 0) s = 0; if (e > chars.length) e = chars.length; if (e < s) e = s;
+      if (s > cursor) out += chars.substring(cursor, s); // untouched gap
+      var slice = chars.substring(s, e);
+      var tc = runs[i].textCase;
+      if (tc === 'LOWER') slice = slice.toLowerCase();
+      else if (tc === 'TITLE') slice = titleCaseStr(slice);
+      out += slice;
+      cursor = e;
+    }
+    if (cursor < chars.length) out += chars.substring(cursor);
+    // Length must be preserved for run indices + decoration measurement to hold.
+    return (out.length === chars.length) ? out : chars;
   }
 
   function dominantRun(runs, chars) {
@@ -744,7 +895,24 @@
     }
     var chars = data.characters;
     layerMissing = [];
-    var content = chars.length ? chars : ' ';
+
+    // The style runs, derived BEFORE the layer is created so the displayed content
+    // can be assembled run-by-run for textCase LOWER/TITLE (see below).
+    var runs = (data.runs && data.runs.length) ? data.runs : [{ start: 0, end: chars.length, characters: chars }];
+
+    // textCase LOWER / TITLE have no AE transform, so bake them into the displayed
+    // characters here (length-preserving, so run indices and decoration spans stay
+    // valid). UPPER is left as authored and rendered via fontCapsOption in
+    // applyStyle. Guarded: any failure falls back to the original characters.
+    var display = chars;
+    if (needsCaseTransform(runs)) {
+      try { display = caseTransformedContent(chars, runs); } catch (eCase) { display = chars; }
+      if (display !== chars && report && !report.__textCaseNoted) {
+        report.__textCaseNoted = true;
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'lowercase/title-case text case has no After Effects equivalent; baked into the (now case-shifted) characters' });
+      }
+    }
+    var content = display.length ? display : ' ';
 
     // Decide box vs point BEFORE creating the layer: TextDocument.boxText is
     // READ-ONLY, so the box-ness must come from how the layer is created
@@ -776,7 +944,6 @@
     var textProp = layer.property('ADBE Text Properties').property('ADBE Text Document');
     var td = textProp.value;
 
-    var runs = (data.runs && data.runs.length) ? data.runs : [{ start: 0, end: chars.length, characters: chars }];
     var base = dominantRun(runs, chars);
     applyStyle(td, base, report, node);
     applyParagraph(td, data);
@@ -805,6 +972,33 @@
       }
     }
 
+    // TRUNCATE / maxLines: Figma clips overflowing text (with an ellipsis); After
+    // Effects just clips at the box edge with NO ellipsis. Keep the box text (do
+    // NOT touch WIDTH_AND_HEIGHT point text -- it is not box text, so isBox guards
+    // that) and, when maxLines is a number, shrink the box height to
+    // ~maxLines*leading so extra lines are clipped. Done on `td` here, BEFORE
+    // textProp.setValue + applyRuns, so per-character run styling is not clobbered.
+    // Everything guarded; a failure leaves the box untouched.
+    var truncates = (data.autoResize === 'TRUNCATE') || (typeof data.maxLines === 'number');
+    if (isBox && truncates) {
+      if (typeof data.maxLines === 'number' && data.maxLines > 0) {
+        try {
+          var lead = N.leadingFromLineHeight(base.lineHeight, base.fontSize || 16);
+          var lineH = (lead && !lead.auto && lead.leading > 0) ? lead.leading : (base.fontSize || 16) * 1.2;
+          var boxSz = null;
+          try { boxSz = td.boxTextSize; } catch (eBS) { boxSz = null; }
+          if (boxSz && boxSz.length === 2) {
+            var newH = Math.max(1, Math.ceil(data.maxLines * lineH));
+            if (newH < boxSz[1]) { td.boxTextSize = [boxSz[0], newH]; }
+          }
+        } catch (eML) { /* leave the box height as authored */ }
+      }
+      if (report && !report.__truncateNoted) {
+        report.__truncateNoted = true;
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'truncated text: After Effects clips overflow at the box edge without an ellipsis' });
+      }
+    }
+
     textProp.setValue(td);
 
     if (runs.length > 1) {
@@ -824,10 +1018,14 @@
     }
     R.importer.effect.apply(layer, node, report);
     R.importer.layerStyle.collect(layer, node, report);
-    // Underline (no native AE underline): rebuild as a generated stroked shape
-    // sibling, one segment per visual baseline. Done after placeText so the
-    // transform (and thus baselineLocs, which we read back) is final.
-    try { applyUnderline(layer, node, runs, report); } catch (eUnd) { /* underline is best-effort */ }
+    // Underline + strikethrough (no native AE equivalents): rebuild each as a
+    // generated stroked shape sibling, one segment per visual baseline (or the
+    // measured per-run span for single-line partial decoration). Done after
+    // placeText so the transform (and thus baselineLocs, which we read back) is
+    // final. Each in its own try/catch so one failing never blocks the other or
+    // the core text build.
+    try { applyDecoration(layer, node, runs, report, 'UNDERLINE'); } catch (eUnd) { /* best-effort */ }
+    try { applyDecoration(layer, node, runs, report, 'STRIKETHROUGH'); } catch (eStr) { /* best-effort */ }
     // Gradient text fill (no native AE gradient TEXT fill): rebuild as a native
     // editable gradient shape matted by the text layer. Done after effects/styles
     // so the layer's transform is final before its placement is mirrored, and the
