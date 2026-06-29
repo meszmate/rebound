@@ -39,7 +39,7 @@
     };
   }
 
-  function setShadow(set, prefix, ls) {
+  function setShadow(set, prefix, ls, node, report) {
     set(prefix + '/enabled', true);
     if (ls.blendMode) set(prefix + '/mode2', ord(ls.blendMode));
     if (ls.color) set(prefix + '/color', rgb(ls.color));
@@ -47,9 +47,26 @@
     set(prefix + '/useGlobalAngle', false);
     if (ls.angle != null) set(prefix + '/localLightingAngle', ls.angle);
     if (ls.distance != null) set(prefix + '/distance', ls.distance);
-    if (ls.choke != null) set(prefix + '/chokeMatte', ls.choke);
-    else if (ls.spread != null) set(prefix + '/chokeMatte', ls.spread);
+    // Figma spread is PIXELS; AE Spread/Choke is a PERCENTAGE of the blur. Convert
+    // px -> % of size and approximate (with a one-time note when non-zero). Fall
+    // back to the legacy choke/spread fields when no px figure is present so the
+    // solid-shadow path keeps working.
+    if (ls.spreadPx != null) {
+      var choke = ls.size ? Math.max(0, Math.min(100, (ls.spreadPx / ls.size) * 100)) : 0;
+      set(prefix + '/chokeMatte', choke);
+      if (ls.spreadPx !== 0) {
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'shadow spread approximated: After Effects spread/choke is a percentage of blur, Figma spread is pixels' });
+      }
+    } else if (ls.choke != null) {
+      set(prefix + '/chokeMatte', ls.choke);
+    } else if (ls.spread != null) {
+      set(prefix + '/chokeMatte', ls.spread);
+    }
     if (ls.size != null) set(prefix + '/blur', ls.size);
+    // Drop Shadow only: 'Layer Knocks Out Drop Shadow'. knockout = NOT show-behind.
+    if (prefix === 'dropShadow' && ls.showShadowBehindNode != null) {
+      try { set(prefix + '/layerConceals', !ls.showShadowBehindNode); } catch (eK) {}
+    }
   }
 
   function setGlow(set, prefix, ls, node, report) {
@@ -164,7 +181,7 @@
     if (!styles) return;
     var set = makeSetter(styles, prefix);
     switch (ls.type) {
-      case 'DROP_SHADOW': case 'INNER_SHADOW': setShadow(set, prefix, ls); break;
+      case 'DROP_SHADOW': case 'INNER_SHADOW': setShadow(set, prefix, ls, node, report); break;
       case 'OUTER_GLOW': case 'INNER_GLOW': setGlow(set, prefix, ls, node, report); break;
       case 'COLOR_OVERLAY': setColorOverlay(set, ls); break;
       case 'GRADIENT_OVERLAY': setGradientOverlay(set, ls, node, report); break;
@@ -186,19 +203,33 @@
     return { type: 'STROKE', size: st.weight, color: p.color, position: st.align, opacity: (p.opacity != null ? p.opacity : 1) };
   }
 
+  // Shadow/glow styles AE allows only one of each; extras get dropped (below).
+  var SHADOW_GLOW = { DROP_SHADOW: 1, INNER_SHADOW: 1, OUTER_GLOW: 1, INNER_GLOW: 1 };
+
   // Gather the styles for a node: explicit layerStyles, any shadow/glow/overlay
   // effects (blurs stay in effect.jsx), and an inside/outside stroke.
-  function gatherStyles(node) {
+  function gatherStyles(node, report) {
     var out = [];
     var seen = {};
-    // De-dup by type: enabling the same style twice toggles it back off.
+    var dropped = {}; // shadow/glow types with extras dropped, for a one-time note
+    // De-dup by type: enabling the same style twice toggles it back off. A second
+    // shadow/glow of a type AE allows only one of is recorded so we can flag it.
     function add(s) {
-      if (s && s.type && s.enabled !== false && !seen[s.type]) { seen[s.type] = true; out.push(s); }
+      if (!s || !s.type || s.enabled === false) return;
+      if (seen[s.type]) { if (SHADOW_GLOW[s.type]) dropped[s.type] = 1; return; }
+      seen[s.type] = true; out.push(s);
     }
     var i;
     if (node.layerStyles) { for (i = 0; i < node.layerStyles.length; i++) add(node.layerStyles[i]); }
     if (node.effects) { for (i = 0; i < node.effects.length; i++) add(FX.effectToLayerStyle(node.effects[i])); }
     add(strokeToLayerStyle(node));
+    if (report) {
+      for (var t in dropped) {
+        if (dropped.hasOwnProperty(t)) {
+          R.importer.util.note(report, 'approximated', { name: node.name, detail: 'multiple ' + t + ' effects; After Effects layer styles allow only one — extras dropped' });
+        }
+      }
+    }
     return out;
   }
 
@@ -207,7 +238,7 @@
   function reset() { pending = []; }
 
   function collect(layer, node, report) {
-    var styles = gatherStyles(node);
+    var styles = gatherStyles(node, report);
     if (styles.length) pending.push({ layer: layer, node: node, styles: styles, report: report });
   }
 
