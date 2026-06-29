@@ -66,6 +66,16 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Align/Distribute moved parented layers to the wrong place.** A layer's
+  Position is in its *parent's* coordinate space (comp space only when it has no
+  parent), but the align math measured each layer's box from raw Position as if it
+  were comp space — so aligning anything imported into a group/frame (everything
+  the Figma importer makes) put them somewhere unrelated (e.g. aligning *left*
+  could shove the upper layer *right*). Align is now parent-aware: each layer's
+  content rect is mapped into true composition space through the full parent chain
+  (rotation/scale included, X/Y-separated Position handled), aligned there, and the
+  resulting move is converted back into the layer's own Position space. Unparented
+  layers are unchanged.
 - **Easing curve handles couldn't be dragged in After Effects.** AE's CEF runtime
   drops **pointer events on SVG sub-elements** (the same quirk that gives a
   `<button>` a `click` but no `pointerdown`), so the bezier handles — SVG
