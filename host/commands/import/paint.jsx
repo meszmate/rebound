@@ -384,9 +384,62 @@
   // an isolated offset group could not be built (no scriptable geometry to copy,
   // e.g. a boolean) -- the caller then builds a plain centred stroke and flags the
   // approximation so it is never silently wrong.
+  // Shoelace SIGNED area of a closed subpath's anchor vertices (node-local px,
+  // verts have .x/.y). Textbook formula: 0.5 * sum(x_i*y_{i+1} - x_{i+1}*y_i).
+  //
+  // CALIBRATION (this is the whole point of the helper): AE's Offset Paths treats
+  // +amount as "outward" only relative to the subpath's winding, so we must learn
+  // which sign of the shoelace area corresponds to the winding our parametric
+  // primitives already use (where +amount is reliably outward). The host's
+  // roundedRect (geometry.jsx, commented "clockwise") walks its anchors:
+  //   (a,0) -> (w-b,0) -> (w,b) -> (w,h-c) -> (w-c,h) -> (d,h) -> (0,h-d) -> (0,a)
+  // i.e. right along the top, down the right edge, left along the bottom, up the
+  // left edge -- visually clockwise in AE's Y-DOWN space. Plugging the rectangle
+  // corners into the textbook shoelace gives +w*h, a POSITIVE area. So in this
+  // Y-down IR/AE space a POSITIVE signed area == the primitives' "+amount = outward"
+  // winding. (This is inverted vs the textbook Y-up convention, where CW is
+  // negative -- hence the calibration rather than assuming a sign.)
+  function signedArea(verts) {
+    if (!verts || verts.length < 3) return 0;
+    var sum = 0;
+    for (var i = 0; i < verts.length; i++) {
+      var a = verts[i];
+      var b = verts[(i + 1) % verts.length];
+      if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) return 0;
+      sum += (a.x * b.y) - (b.x * a.y);
+    }
+    return sum / 2;
+  }
+
+  // +1 when the node's first CLOSED subpath is wound like the primitives (so AE's
+  // +amount is already outward), -1 when it is wound the opposite way (so +amount
+  // points INWARD and we must flip the offset sign to keep "outward" consistent).
+  // Returns +1 (no change) when winding can't be determined -- no node.paths, no
+  // closed subpath (parametric rect/ellipse, which AE winds consistently), or a
+  // degenerate/zero-area path -- so the result is never worse than today.
+  function outwardWindingFactor(node) {
+    var paths = node && node.paths;
+    if (!paths || !paths.length) return 1;
+    for (var i = 0; i < paths.length; i++) {
+      var p = paths[i];
+      if (!p || !p.closed) continue;
+      var area = 0;
+      try { area = signedArea(p.vertices); } catch (e) { area = 0; }
+      if (area > 0) return 1;   // matches calibrated CW "+amount = outward"
+      if (area < 0) return -1;  // opposite winding: flip so +amount stays outward
+      return 1;                 // degenerate/zero area on the first closed subpath
+    }
+    return 1; // no closed subpath (e.g. open path or primitive); leave dir as-is
+  }
+
   function offsetStrokeGroup(contents, node, st) {
     var dir = (st.align === 'INSIDE') ? -1 : 1; // OUTSIDE outward (+), INSIDE inward (-)
-    var amount = dir * (st.weight / 2);
+    // Freeform/boolean closed paths can be wound either way; AE's Offset Paths
+    // "outward" follows the winding, so flip the sign on opposite-wound paths so
+    // INSIDE/OUTSIDE stays correct. Primitives (no closed node.paths) yield +1.
+    var windingFactor = 1;
+    try { windingFactor = outwardWindingFactor(node); } catch (eW) { windingFactor = 1; }
+    var amount = dir * (st.weight / 2) * windingFactor;
     var grp = contents.addProperty('ADBE Vector Group');
     var sub = grp.property('ADBE Vectors Group');
     // Copy the same geometry this layer draws (node-local, origin at top-left).
