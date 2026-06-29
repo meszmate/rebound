@@ -66,6 +66,14 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Easing curve handles couldn't be dragged in After Effects.** The curve
+  editor called `circle.setPointerCapture(e.pointerId)` unguarded; in AE's CEF
+  runtime (and on SVG elements) that throws, and because it ran before the
+  pointermove/up listeners were attached, the handle acknowledged the grab but
+  never moved. The call is now wrapped in try/catch (the drag works fine without
+  capture via the document listeners), and those listeners moved from `window` to
+  `document` to match the gradient/colour widgets. Browser preview was unaffected,
+  which is why it slipped through.
 - **Imported text lost its font and weight (Inter Bold came in as Helvetica).**
   The host font resolver had a single strategy (AE 24's exact
   family+style lookup) and silently set no font on a miss, so any AE without the
