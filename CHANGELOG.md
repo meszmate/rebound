@@ -114,6 +114,18 @@ All notable changes to Rebound are documented here. The format follows
   tool's verbose diagnostic toasts were trimmed to a single brief confirmation.
 
 ### Changed
+- **1:1 clipping, masks, image backgrounds and inside/outside strokes (Figma →
+  AE).** A frame now clips exactly when Figma's clip-content is on **and** its
+  content overflows — built as a precomp boundary (the only faithful clip in AE),
+  and never for a frame that does not clip, so non-clipping frames stay flat. A
+  **frame or group used as a mask** becomes a real pixel layer (precomp) so its
+  silhouette mattes correctly (a group's frame-local children are re-based into
+  group space first); multi-target masks (one Figma mask over several siblings)
+  wire each target reliably (top-down, adjacency-verified). **Image frame
+  backgrounds** rebuild as a footage layer at the bottom of the frame (clipped to
+  the frame's rounded corners when it clips). **Inside/outside gradient strokes**
+  are offset into place with an isolated Offset-Paths group so only the stroke
+  shifts, not the fill.
 - **Import fidelity sweep (Figma → AE).** Beyond the font/box-text/container fixes
   above: a new **"Import into the active composition"** toggle (default on,
   Overlord-style — off always makes a new comp); polygons, stars and boolean
