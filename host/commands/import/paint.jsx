@@ -366,6 +366,57 @@
     }
   }
 
+  // AE shape strokes are CENTRE-only, so an INSIDE/OUTSIDE *gradient* stroke
+  // (a centred G-Stroke) spills half its width to the wrong side. We compensate
+  // by shifting the PATH the gradient stroke paints, with an Offset Paths
+  // operator, so the centred stroke lands where Figma's inside/outside border
+  // would. The offset must touch ONLY this gradient stroke -- not the fills (built
+  // later, below the stroke in the contents list, so a flat Offset Paths would
+  // shift them too) and not any other stroke -- so the gradient stroke is built in
+  // its OWN nested vector group: a private copy of the geometry, then the Offset
+  // Paths, then the G-Stroke. The fills and the main geometry are untouched.
+  //
+  // Offset Paths amount uses AE's outward-positive convention: OUTSIDE pushes the
+  // path out by +weight/2, INSIDE pulls it in by -weight/2; a centred stroke on the
+  // shifted path then covers the same band the source's inside/outside stroke did.
+  //
+  // Returns the sub-contents group the G-Stroke should be added into, or null when
+  // an isolated offset group could not be built (no scriptable geometry to copy,
+  // e.g. a boolean) -- the caller then builds a plain centred stroke and flags the
+  // approximation so it is never silently wrong.
+  function offsetStrokeGroup(contents, node, st) {
+    var dir = (st.align === 'INSIDE') ? -1 : 1; // OUTSIDE outward (+), INSIDE inward (-)
+    var amount = dir * (st.weight / 2);
+    var grp = contents.addProperty('ADBE Vector Group');
+    var sub = grp.property('ADBE Vectors Group');
+    // Copy the same geometry this layer draws (node-local, origin at top-left).
+    var built = 0;
+    try { built = R.importer.addGeometry(sub, node, [0, 0]); } catch (eG) { built = 0; }
+    if (!built) { try { grp.remove(); } catch (eR) {} return null; }
+    // Offset Paths sits ABOVE the geometry copy (added after it) and BELOW the
+    // G-Stroke (added next), so only this group's stroke paints the shifted path.
+    var offset = null;
+    try { offset = sub.addProperty('ADBE Vector Filter - Offset'); } catch (eO) { offset = null; }
+    if (!offset) { try { grp.remove(); } catch (eR2) {} return null; }
+    setSafe(offset, 'ADBE Vector Offset Amount', amount);
+    // Verify the offset actually took; if the property name is unknown on this AE
+    // build the stroke would be silently centred -- drop the group so the caller
+    // falls back to a flagged centred stroke instead.
+    var got = null;
+    try { got = offset.property('ADBE Vector Offset Amount').value; } catch (eV) { got = null; }
+    if (got == null || Math.abs(got - amount) > 0.01) { try { grp.remove(); } catch (eR3) {} return null; }
+    return sub;
+  }
+
+  // Flagged once per import when an inside/outside gradient stroke fell back to a
+  // plain centred stroke (no scriptable geometry to offset, or Offset Paths
+  // unavailable) so the half-width shift is documented rather than silent.
+  function noteOffsetGradStroke(node, report) {
+    if (!report || report.__offsetGradStrokeNoted) return;
+    report.__offsetGradStrokeNoted = true;
+    R.importer.util.note(report, 'approximated', { name: node.name, detail: 'inside/outside gradient stroke approximated as a centered stroke' });
+  }
+
   // Build one shape stroke operator for a single paint, sharing the node's
   // weight / cap / join / miter / dashes.
   function addStrokePaint(contents, node, st, paint, report) {
@@ -377,7 +428,21 @@
       var op = (paint.opacity != null ? paint.opacity : 1) * (c.a != null ? c.a : 1);
       setSafe(stroke, 'ADBE Vector Stroke Opacity', op * 100);
     } else if (isGradient(paint.type)) {
-      stroke = contents.addProperty('ADBE Vector Graphic - G-Stroke');
+      // AE strokes are centre-only: an INSIDE/OUTSIDE gradient stroke is shifted
+      // onto its proper side by building it in a private offset group (geometry
+      // copy + Offset Paths + this G-Stroke). CENTRE alignment is untouched, and
+      // the offset never reaches the fills or any other stroke. Guarded: if the
+      // group can't be built (no copyable geometry, or Offset Paths missing) fall
+      // back to a plain centred G-Stroke on the shared contents and flag it.
+      var gContents = contents;
+      var offCenter = st.align && st.align !== 'CENTER';
+      if (offCenter) {
+        var sub = null;
+        try { sub = offsetStrokeGroup(contents, node, st); } catch (eOff) { sub = null; }
+        if (sub) gContents = sub;
+        else noteOffsetGradStroke(node, report);
+      }
+      stroke = gContents.addProperty('ADBE Vector Graphic - G-Stroke');
       // Angular warps to a conic via a layer-wide Polar effect -- only safe when
       // the angular paint is alone on the layer; otherwise build it as a native
       // radial (like diamond) so a co-resident fill / stroke is never bent. Mirror
