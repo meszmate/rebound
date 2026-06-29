@@ -66,6 +66,13 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Ease "Read" showed the wrong curve on a multi-property selection.** Read used
+  the *first* selected property, but a property whose value is constant across the
+  segment (a null's held Scale, a non-moving axis) carries no recoverable timing —
+  it can only read back as a linear diagonal. So reading an eased null that also
+  had a flat Scale/axis selected showed a straight line, not the curve you applied.
+  Read now skips non-moving properties and reports the first one that actually
+  moves (falling back to a flat one only if nothing in the selection moves).
 - **Align/Distribute moved parented layers to the wrong place.** A layer's
   Position is in its *parent's* coordinate space (comp space only when it has no
   parent), but the align math measured each layer's box from raw Position as if it

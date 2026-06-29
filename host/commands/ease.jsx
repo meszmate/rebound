@@ -133,11 +133,36 @@
     return { properties: propsTouched, segments: segments };
   }
 
-  // Read the existing ease of the first usable selected segment back into a
-  // normalized cubic-bezier (reverse sync into the editor).
+  // Reconstruct a normalized cubic-bezier from one selected segment's ease. The
+  // y (slope) factors divide by the segment's average speed `avg`, so a segment
+  // whose value does NOT change over time (avg == 0) carries no recoverable
+  // timing — it can only read back as the linear diagonal. `flat` flags that.
+  function reconstructSegment(p, a, b, avg) {
+    var outE = p.keyOutTemporalEase(a)[0];
+    var inE = p.keyInTemporalEase(b)[0];
+    var x1 = clamp01(outE.influence / 100);
+    var x2 = 1 - clamp01(inE.influence / 100);
+    var flat = Math.abs(avg) < 1e-6;
+    var y1 = flat ? x1 : (outE.speed / avg) * x1;
+    var y2 = flat ? x2 : 1 - (inE.speed / avg) * (1 - x2);
+    return {
+      found: true,
+      flat: flat,
+      propertyName: p.name,
+      layerName: util.layerOfProperty(p).name,
+      curve: { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 }
+    };
+  }
+
+  // Read the existing ease back into a normalized cubic-bezier (reverse sync into
+  // the editor). A property whose value is constant across the segment (a held
+  // Scale, a non-moving axis) cannot encode a timing curve — it always reads back
+  // linear — so prefer the first selected property that actually MOVES; only fall
+  // back to a flat one if nothing in the selection moves.
   function readEase() {
     var comp = util.activeComp();
     var props = comp.selectedProperties;
+    var flatFallback = null;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
       if (!(p instanceof Property)) continue;
@@ -153,22 +178,11 @@
       var dv = util.isSpatial(p) ? magnitude(aVals, bVals) : (bVals[0] || 0) - (aVals[0] || 0);
       var avg = dv / dt;
 
-      var outE = p.keyOutTemporalEase(a)[0];
-      var inE = p.keyInTemporalEase(b)[0];
-
-      var x1 = clamp01(outE.influence / 100);
-      var x2 = 1 - clamp01(inE.influence / 100);
-      var y1 = avg === 0 ? x1 : (outE.speed / avg) * x1;
-      var y2 = avg === 0 ? x2 : 1 - (inE.speed / avg) * (1 - x2);
-
-      return {
-        found: true,
-        propertyName: p.name,
-        layerName: util.layerOfProperty(p).name,
-        curve: { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 }
-      };
+      var res = reconstructSegment(p, a, b, avg);
+      if (res.flat) { if (!flatFallback) flatFallback = res; continue; }
+      return res;
     }
-    return { found: false };
+    return flatFallback || { found: false };
   }
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
