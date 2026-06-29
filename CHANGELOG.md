@@ -66,6 +66,37 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Imported text lost its font and weight (Inter Bold came in as Helvetica).**
+  The host font resolver had a single strategy (AE 24's exact
+  family+style lookup) and silently set no font on a miss, so any AE without the
+  Fonts API, or any style-name mismatch, left AE's default face. It is now a
+  multi-strategy resolver — explicit PostScript name, exact family+style, style
+  synonyms and a numeric-weight→style map, a constructed `Family-Style` PostScript
+  probe, and a scan of every installed face (matching native names too) — that
+  never accepts a substitute, verifies the set, prefers `fontObject` (24.0+) to
+  dodge silent substitution, falls back to faux bold/italic when only the upright
+  face exists, and only then flags a genuinely missing font. The exporter now ships
+  `postScriptName` + `fontWeight` per run and keeps the font even when segment
+  reading throws. (`app.fonts.allFonts` is also now read shape-agnostically, fixing
+  an empty font-replacement dropdown.)
+- **All imported text was secretly point text.** `TextDocument.boxText` is
+  read-only, so the old `boxText = true` write was swallowed and every text layer
+  fell back to point text (no wrapping to the source width). Box text is now
+  created up front via `addBoxText([w,h], …)`, with vertical alignment
+  (`boxVerticalAlignment`, 24.6+) honoured; point text only when the source
+  auto-resizes width-and-height.
+- **A wide frame imported as a tiny 100×100 null in the corner.** After Effects
+  nulls cannot be resized, so a frame/group handle never covered its content. Like
+  Overlord/AEUX, the flat build now uses a **guide shape layer sized to the node**
+  (transparent fill, faint non-rendering outline, anchor centred) so the container
+  box actually spans the art; children stay put. A group used *as a mask* still
+  bails safely instead of matting through the empty guide.
+- **Text styling that silently did nothing.** `allCaps`/`smallCaps` are read-only
+  (now set via `fontCapsOption`); `applyUnderline` does not exist in AE scripting
+  (now flagged as an approximation, like strikethrough); the phantom
+  `leftMargin`/`rightMargin` indent writes were removed (only `startIndent`/
+  `endIndent` are real); and Figma `paragraphSpacing` now lands as space-*after*
+  (it was being written as space-before).
 - **Anchor handles do nothing on click.** The nine anchor handles are `<button>`
   elements, and in After Effects' CEF runtime a button fires `click` but not
   `pointerdown`, so after the handles were switched to `pointerdown` they stopped
@@ -83,6 +114,34 @@ All notable changes to Rebound are documented here. The format follows
   tool's verbose diagnostic toasts were trimmed to a single brief confirmation.
 
 ### Changed
+- **Import fidelity sweep (Figma → AE).** Beyond the font/box-text/container fixes
+  above: a new **"Import into the active composition"** toggle (default on,
+  Overlord-style — off always makes a new comp); polygons, stars and boolean
+  operations rebuild as **editable Polystar / Merge-Paths** shapes instead of dead
+  baked outlines; rounded-corner and circular **image fills clip to their exact
+  silhouette**; image **flips/mirrors** survive; **gradient stroke opacity**, a
+  guard so a conic-gradient *stroke* no longer warps the whole layer, shadow
+  **spread converted px→percent**, drop-shadow **knockout** (`showShadowBehindNode`),
+  and a flag when multiple shadows collapse to AE's single-shadow limit; sheared
+  nodes rasterise pixel-exact (with a skew note as a backstop); elongated radial/
+  diamond gradients size to their longer axis; `dashOffset` round-trips; and
+  `BOOLEAN`/`ADJUSTMENT` validate cleanly. Genuinely-unscriptable cases (underline,
+  true backdrop blur, lists/bullets, per-paragraph mixed alignment) are flagged as
+  approximations rather than faked.
+- **Figma → AE import now flattens into one composition by default, matching
+  Overlord/AEUX.** Each frame becomes an editable group (a null parenting its
+  children, plus a background shape layer that rebuilds the frame's
+  fill/corners/border/shadow) instead of a precomp per frame, so importing a
+  real design no longer explodes the project into dozens of nested comps. A new
+  **Precomp frames** toggle (Import ▸ How it builds) restores the trimmed,
+  clipped precomp-per-frame build when you want it. Top-level frames now carry an
+  `offset` in the IR so multi-frame and loose selections keep their layout in the
+  single comp.
+- **The Rebound "bounce" mark is now the logo everywhere in the UI** — the AE
+  panel rail/home/settings marks, the panel menu icons, and the Figma plugin
+  header, replacing the old `◗` glyph, disc icons, and relay-arrow. The Figma
+  plugin UI was de-boxed (bare brand mark instead of a blue chip, borderless
+  status/selection rows) for a lighter, less generic look.
 - Home tiles and widgets are less rounded by default (corner radius 12 → 7px),
   for a tighter, less bubbly look; the Appearance ▸ Corners scale was lowered to
   match (Sharp 3 / Rounded 7 / Round 12 / Extra 20).
