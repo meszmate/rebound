@@ -72,7 +72,12 @@ All notable changes to Rebound are documented here. The format follows
   it can only read back as a linear diagonal. So reading an eased null that also
   had a flat Scale/axis selected showed a straight line, not the curve you applied.
   Read now skips non-moving properties and reports the first one that actually
-  moves (falling back to a flat one only if nothing in the selection moves).
+  moves (falling back to a flat one only if nothing in the selection moves). It
+  also scans *within* a property — past a held opening segment to a later moving
+  one — and, for non-spatial multi-dimension properties (e.g. a non-uniform Scale
+  eased only on its Y axis), reads the dimension that actually changes rather than
+  always dimension 0. The apply↔read round-trip is exact: applying a curve then
+  reading it back reconstructs the same x1/y1/x2/y2 (the `avg` speed factor cancels).
 - **Align/Distribute moved parented layers to the wrong place.** A layer's
   Position is in its *parent's* coordinate space (comp space only when it has no
   parent), but the align math measured each layer's box from raw Position as if it

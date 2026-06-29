@@ -137,9 +137,9 @@
   // y (slope) factors divide by the segment's average speed `avg`, so a segment
   // whose value does NOT change over time (avg == 0) carries no recoverable
   // timing — it can only read back as the linear diagonal. `flat` flags that.
-  function reconstructSegment(p, a, b, avg) {
-    var outE = p.keyOutTemporalEase(a)[0];
-    var inE = p.keyInTemporalEase(b)[0];
+  function reconstructSegment(p, a, b, avg, dim) {
+    var outE = p.keyOutTemporalEase(a)[dim];
+    var inE = p.keyInTemporalEase(b)[dim];
     var x1 = clamp01(outE.influence / 100);
     var x2 = 1 - clamp01(inE.influence / 100);
     var flat = Math.abs(avg) < 1e-6;
@@ -167,20 +167,37 @@
       var p = props[i];
       if (!(p instanceof Property)) continue;
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
-      var keys = p.selectedKeys.length >= 2 ? p.selectedKeys : [1, 2];
-      var a = keys[0];
-      var b = keys[1];
-      var dt = p.keyTime(b) - p.keyTime(a);
-      if (dt <= 0) continue;
+      // Inspect consecutive pairs among the SELECTED keys (or every key if fewer
+      // than two are selected) and return the FIRST segment that actually moves —
+      // scanning within the property, not just its first pair, so a held opening
+      // segment (avg == 0, reads linear) can't mask a later moving one.
+      var keys = p.selectedKeys.length >= 2 ? p.selectedKeys : null;
+      if (!keys) { keys = []; for (var k = 1; k <= p.numKeys; k++) keys.push(k); }
+      for (var s = 0; s < keys.length - 1; s++) {
+        var a = keys[s];
+        var b = keys[s + 1];
+        var dt = p.keyTime(b) - p.keyTime(a);
+        if (dt <= 0) continue;
 
-      var aVals = valuesAt(p, a);
-      var bVals = valuesAt(p, b);
-      var dv = util.isSpatial(p) ? magnitude(aVals, bVals) : (bVals[0] || 0) - (aVals[0] || 0);
-      var avg = dv / dt;
+        var aVals = valuesAt(p, a);
+        var bVals = valuesAt(p, b);
+        var dv, dim;
+        if (util.isSpatial(p)) {
+          dv = magnitude(aVals, bVals); dim = 0;          // single temporal ease along the path
+        } else {
+          // Pick the dimension that moves most; a flat axis carries no timing.
+          dv = 0; dim = 0;
+          for (var d = 0; d < aVals.length; d++) {
+            var chg = (bVals[d] || 0) - (aVals[d] || 0);
+            if (Math.abs(chg) > Math.abs(dv)) { dv = chg; dim = d; }
+          }
+        }
+        var avg = dv / dt;
 
-      var res = reconstructSegment(p, a, b, avg);
-      if (res.flat) { if (!flatFallback) flatFallback = res; continue; }
-      return res;
+        var res = reconstructSegment(p, a, b, avg, dim);
+        if (res.flat) { if (!flatFallback) flatFallback = res; continue; }
+        return res;
+      }
     }
     return flatFallback || { found: false };
   }
