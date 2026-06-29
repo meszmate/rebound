@@ -347,12 +347,14 @@
     } catch (e) { /* position rig varies */ }
   }
 
-  // A frame/group container as a sized GUIDE SHAPE LAYER (not a null): a null
-  // cannot be resized, so a wide frame collapses to a 100x100 corner square. A
-  // guide shape layer can be sized to the node bounds and faintly outlined, so
-  // the frame's extent is visible while never rendering to output. Built with
-  // the same shape-contents idiom as addBackgroundShape: a transparent fill (so
-  // the box reads as empty) plus a thin, low-opacity stroke (the visible bound).
+  // A frame/group container as an INVISIBLE sized shape layer (not a null): a null
+  // cannot be resized, so a wide frame would collapse to a 100x100 corner square.
+  // This shape is sized to the node bounds so its selection box covers the whole
+  // group and it parents the children (move them together) — but it draws NOTHING
+  // (a fully transparent fill, no stroke), matching a Figma group/frame that has
+  // no background or border. Its only role is bounds + a parent handle. A frame
+  // that DOES have a fill/border/shadow gets that real card via buildFrameChrome,
+  // separately. Marked as a guide layer so it never renders to output either.
   function addGuideContainer(comp, name, w, h) {
     var sl = comp.layers.addShape();
     try { sl.name = name || 'Frame'; } catch (eN) {}
@@ -361,21 +363,15 @@
       var rect = contents.addProperty('ADBE Vector Shape - Rect');
       try { rect.property('ADBE Vector Rect Size').setValue([w, h]); } catch (eS) {}
       try { rect.property('ADBE Vector Rect Position').setValue([w / 2, h / 2]); } catch (eP) {}
-      // Transparent fill: the container reads as an empty box, not a filled card.
+      // A fully transparent fill (no stroke): the layer has the frame's bounds for
+      // selection/parenting but renders nothing — no fake outline or background.
       try {
         var fill = contents.addProperty('ADBE Vector Graphic - Fill');
         try { fill.property('ADBE Vector Fill Opacity').setValue(0); } catch (eFo) {}
       } catch (eF) {}
-      // Thin, subtle, low-opacity stroke so the frame bounds are faintly visible.
-      try {
-        var stroke = contents.addProperty('ADBE Vector Graphic - Stroke');
-        try { stroke.property('ADBE Vector Stroke Color').setValue([0.5, 0.5, 0.5]); } catch (eSc) {}
-        try { stroke.property('ADBE Vector Stroke Opacity').setValue(25); } catch (eSo) {}
-        try { stroke.property('ADBE Vector Stroke Width').setValue(1); } catch (eSw) {}
-      } catch (eStr) {}
     } catch (eC) { /* shape contents vary by build */ }
-    // A guide layer never renders to output; keep it un-shy so it stays visible
-    // in the timeline as the frame's handle.
+    // A guide layer never renders to output; keep it un-shy so it stays visible in
+    // the timeline as the group's handle.
     try { sl.guideLayer = true; } catch (eG) {}
     try { sl.shy = false; } catch (eSh) {}
     return sl;
