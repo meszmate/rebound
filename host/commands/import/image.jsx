@@ -112,20 +112,19 @@
     return shape;
   }
 
-  // Crop a footage layer to the node box [w,h] for a COVER (FILL/CROP) placement.
-  // Cover scales the footage uniformly by `s` (>= the box on both axes) and shifts
-  // it by (offx,offy) <= 0 to centre the overflow, so the box's top-left in screen
-  // space is the layer's ORIGINAL position `pos` and its bottom-right is pos+[w,h].
-  //
+  // Crop a footage layer to the node box for a COVER (FILL/CROP) placement.
   // The mask lives in LAYER space (pre-transform: anchor [0,0] = footage top-left,
-  // no scale, no position applied). A layer-space point lx maps to screen
-  // pos+offx + lx*s, so the box edges pos and pos+w map back to layer x
-  // -offx/s and (-offx+w)/s. The rect is therefore [-offx/s, -offy/s] sized
-  // [w/s, h/s] in layer space (centred on the footage, since -offx/s = fw/2 - w/(2s)).
-  // `s` is the positive scale magnitude; the sgnX/sgnY flip on the Scale property
-  // does not move the pre-transform mask. Returns true if the mask was added.
-  function cropToBox(layer, s, offx, offy, w, h) {
-    if (!(s > 0) || !(w > 0) || !(h > 0)) return false;
+  // no scale, no position applied). The box edges are known in COMP space as
+  // [boxX, boxX+w] x [boxY, boxY+h], where boxX/boxY is the layer Position BEFORE
+  // the centering offset (cpos). Given the layer's final signed scale magnitudes
+  // (sclX = sgnX*sc, sclY = sgnY*sc) and final Position (posX,posY = cpos+off),
+  // a layer-space point lx maps to comp X = posX + lx*sclX, so the inverse is
+  // layerX = (compX - posX)/sclX. Convert both comp-space box corners back to
+  // layer space and take min/max so the rect is correct for either flip sign
+  // (a negative scale swaps which corner is min). Returns true if added.
+  function cropToBox(layer, sclX, sclY, posX, posY, boxX, boxY, w, h) {
+    if (!(w > 0) || !(h > 0)) return false;
+    if (!sclX || !sclY || !isFinite(sclX) || !isFinite(sclY)) return false;
     var parade;
     try { parade = layer.property('ADBE Mask Parade'); } catch (eP) { parade = null; }
     if (!parade) return false;
@@ -133,7 +132,14 @@
     try { atom = parade.addProperty('ADBE Mask Atom'); } catch (eA) { return false; }
     if (!atom) return false;
     try {
-      var shape = rectShape(-offx / s, -offy / s, w / s, h / s);
+      // Comp-space box corners -> layer space via the signed inverse transform.
+      var lx0 = (boxX - posX) / sclX, lx1 = (boxX + w - posX) / sclX;
+      var ly0 = (boxY - posY) / sclY, ly1 = (boxY + h - posY) / sclY;
+      var minX = lx0 < lx1 ? lx0 : lx1, maxX = lx0 < lx1 ? lx1 : lx0;
+      var minY = ly0 < ly1 ? ly0 : ly1, maxY = ly0 < ly1 ? ly1 : ly0;
+      var mw = maxX - minX, mh = maxY - minY;
+      if (!(mw > 0) || !(mh > 0)) return false;
+      var shape = rectShape(minX, minY, mw, mh);
       atom.property('ADBE Mask Shape').setValue(shape);
       return true;
     } catch (eS) { return false; }
@@ -214,31 +220,39 @@
         // FILL / CROP / default: COVER. Figma FILL scales the image uniformly so
         // it fully covers the box (not a per-axis stretch, which distorts an
         // image whose aspect != the box) and centre-crops the overflow. Uniform
-        // scale = max(w/fw, h/fh); centre via a position offset (anchor stays at
-        // the content origin so rotation pivots consistently). KEEP the sgnX/sgnY
-        // flip recovery on the Scale value.
+        // scale magnitude sc = max(w/fw, h/fh); centre via a position offset
+        // (anchor stays at the content origin so rotation pivots consistently),
+        // with the sgnX/sgnY flip folded into the Scale value.
+        //
+        // The offset that centres the content in the box differs by axis sign,
+        // because a flip reflects the content around the layer's Position:
+        //   Scale +sc: comp X = posX + x*sc, content spans [posX, posX+fw*sc],
+        //     centred when posX = boxX + (w - fw*sc)/2  => off = (w - fw*sc)/2
+        //   Scale -sc: comp X = posX - x*sc, content spans [posX - fw*sc, posX],
+        //     centred when posX = boxX + w/2 + fw*sc/2  => off = w/2 + fw*sc/2
+        // (boxX = the Position BEFORE the offset = cpos). Same derivation per axis.
         var sc = Math.max(w / fw, h / fh);
-        var coffx = (w - fw * sc) / 2, coffy = (h - fh * sc) / 2;
+        var coffx = (sgnX < 0) ? (w / 2 + fw * sc / 2) : (w - fw * sc) / 2;
+        var coffy = (sgnY < 0) ? (h / 2 + fh * sc / 2) : (h - fh * sc) / 2;
+        var cropped = false;
         try {
           var cpos = tr.property('ADBE Position').value;
-          tr.property('ADBE Position').setValue([cpos[0] + coffx, cpos[1] + coffy]);
+          var boxX = cpos[0], boxY = cpos[1];
+          var posX = boxX + coffx, posY = boxY + coffy;
+          tr.property('ADBE Position').setValue([posX, posY]);
           tr.property('ADBE Scale').setValue([sgnX * sc * 100, sgnY * sc * 100]);
-        } catch (e2) {}
-        // The cover centering + crop assume a positive scale; a mirrored image
-        // (negative axis from a flipped affine) reflects around the anchor, so the
-        // crop window can mis-align. Rare for fills -- flag once rather than fake it.
-        if ((sgnX < 0 || sgnY < 0) && report && !report.__imgFlipCoverNoted) {
-          report.__imgFlipCoverNoted = true;
-          R.importer.util.note(report, 'approximated', { name: node.name, detail: 'mirrored image fill: cover-crop alignment is approximate for a flipped image' });
-        }
-        // Crop the cover overflow to the box with a layer mask. A clipping-frame
-        // precomp around this node would also clip, so the mask is at worst
-        // redundant (it matches the same box); for a non-clipped placement it is
-        // what stops the overflow showing. If it cannot be added, flag once so
-        // the visible overflow is diagnosable.
-        var cropped = false;
-        try { cropped = cropToBox(layer, sc, coffx, coffy, w, h); } catch (eCrop) { cropped = false; }
-        if (!cropped && (coffx < -0.5 || coffy < -0.5)) {
+          // Crop the cover overflow to the box with a layer mask. The box edges
+          // are [boxX, boxX+w] x [boxY, boxY+h] in comp space; cropToBox inverts
+          // the (possibly negative) final transform to place the rect in layer
+          // space, so it is correct for both flip signs. A clipping-frame precomp
+          // around this node would also clip, so the mask is at worst redundant;
+          // for a non-clipped placement it is what stops the overflow showing.
+          cropped = cropToBox(layer, sgnX * sc, sgnY * sc, posX, posY, boxX, boxY, w, h);
+        } catch (e2) { cropped = false; }
+        // If the mask could not be added, flag once so the visible overflow is
+        // diagnosable. Use the box-vs-content overflow (fw*sc > w or fh*sc > h)
+        // rather than the offset sign, which is positive in the flip case.
+        if (!cropped && (fw * sc - w > 0.5 || fh * sc - h > 0.5)) {
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image fill could not be cropped to its box; the covered overflow may be visible' });
         }
       }
