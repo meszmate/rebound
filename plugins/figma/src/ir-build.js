@@ -210,10 +210,158 @@
     return collapse(fontName.family) + '-' + collapse(fontName.style);
   }
 
+  // The Figma TextSegment list info for a paragraph. A segment carries
+  // listOptions:{type:'ORDERED'|'UNORDERED'|'NONE'} and indentation:number.
+  // node.characters does NOT include the bullet/number glyph, so AE (which has no
+  // list object) must have a literal marker injected + a hanging indent.
+  function segListState(seg) {
+    var lo = seg && seg.listOptions;
+    var type = (lo && lo.type) || 'NONE';
+    var indent = (seg && typeof seg.indentation === 'number') ? seg.indentation : 0;
+    return { type: type, indentation: indent };
+  }
+
+  // Find the styled segment that covers character index `idx` (its start..end),
+  // so a paragraph can read its list type/indentation. end is exclusive in Figma's
+  // getStyledTextSegments; a zero-length paragraph (idx===end of the string) takes
+  // the last segment that starts at/before it.
+  function segmentAt(segs, idx) {
+    if (!segs || !segs.length) return null;
+    for (var i = 0; i < segs.length; i++) {
+      var s = segs[i];
+      if (idx >= s.start && idx < s.end) return s;
+    }
+    // idx is at/after the last char (empty trailing paragraph): use the segment
+    // whose range ends the string.
+    var last = null;
+    for (var j = 0; j < segs.length; j++) {
+      if (segs[j].start <= idx) last = segs[j];
+    }
+    return last;
+  }
+
+  // Inject literal list markers ('•\t' for unordered, 'N.\t' for ordered) at
+  // each list paragraph's start, shift every run by the cumulative inserted length,
+  // and emit a hanging indent so wrapped lines align under the text, not the marker.
+  // Returns null (caller keeps the original plain text) on any inconsistency. Pure
+  // string/array work: no Figma calls, so it cannot throw on the AE host either.
+  function injectListMarkers(text, segs, runs, dominantFontSize) {
+    var chars = text.characters;
+    if (typeof chars !== 'string' || !chars.length) return null;
+    if (!segs || !segs.length) return null;
+
+    // Does ANY segment declare a list? If not, leave plain text byte-identical.
+    var anyList = false;
+    for (var z = 0; z < segs.length; z++) {
+      var lz = segs[z].listOptions;
+      if (lz && (lz.type === 'ORDERED' || lz.type === 'UNORDERED')) { anyList = true; break; }
+    }
+    if (!anyList) return null;
+
+    // Walk paragraphs (split on '\n', keeping each paragraph's start index), build
+    // the per-paragraph marker, and record insertions as { at, len } pairs.
+    var inserts = [];
+    var newChars = '';
+    var prevEnd = 0;      // index in `chars` consumed so far
+    var paraStart = 0;
+    var orderCount = 0;   // running count of consecutive ORDERED paras at SAME level
+    var orderLevel = -1;  // indentation level the running count belongs to
+    var p;
+    for (p = 0; p <= chars.length; p++) {
+      var atEnd = (p === chars.length);
+      var ch = atEnd ? '' : chars.charAt(p);
+      // Figma joins items WITHIN a list with U+2028 (line separator); '\n' (and
+      // rarely U+2029) ends a list / starts a new paragraph. Treat all three as
+      // item boundaries so every item gets its own marker, and normalise the
+      // separator to '\n' so After Effects renders each item on its own line.
+      var isBreak = !atEnd && (ch === '\n' || ch === '\u2028' || ch === '\u2029');
+      if (!atEnd && !isBreak) continue;
+      // Item/paragraph is chars[paraStart..p) (the break is normalised below).
+      var st = segListState(segmentAt(segs, paraStart));
+      var marker = '';
+      if (st.type === 'UNORDERED') {
+        marker = '•\t'; // bullet + tab
+        orderCount = 0; orderLevel = -1; // break any ordered run
+      } else if (st.type === 'ORDERED') {
+        if (st.indentation !== orderLevel) { orderCount = 0; orderLevel = st.indentation; }
+        orderCount += 1;
+        marker = String(orderCount) + '.\t';
+      } else {
+        orderCount = 0; orderLevel = -1; // NONE/none breaks the ordered run
+      }
+      // Copy the text consumed since the previous boundary, inserting the marker at
+      // this item's start; the break char (\n / U+2028 / U+2029) becomes a '\n'.
+      newChars += chars.slice(prevEnd, paraStart);
+      if (marker) inserts.push({ at: paraStart, len: marker.length });
+      newChars += marker + chars.slice(paraStart, p); // item text, without the break char
+      if (!atEnd) newChars += '\n';                   // normalised hard line break (length-preserving: 1 char -> 1 char)
+      prevEnd = atEnd ? p : p + 1;
+      paraStart = prevEnd;
+    }
+    // Nothing inserted (every list paragraph resolved to NONE) -> keep plain text.
+    if (!inserts.length) return null;
+
+    // Shift each run by the total marker length inserted strictly before its start
+    // (a run that starts AT an insertion point moves with the marker, so the marker
+    // is NOT covered by the prior run). Recompute character slices from newChars.
+    function shiftFor(idx) {
+      var d = 0;
+      for (var k = 0; k < inserts.length; k++) {
+        if (inserts[k].at <= idx) d += inserts[k].len;
+      }
+      return d;
+    }
+    // Marker length inserted STRICTLY between lo and hi (exclusive both ends).
+    function sumInside(lo, hi) {
+      var d = 0;
+      for (var k = 0; k < inserts.length; k++) {
+        if (inserts[k].at > lo && inserts[k].at < hi) d += inserts[k].len;
+      }
+      return d;
+    }
+    var newRuns = [];
+    for (var r = 0; r < runs.length; r++) {
+      var run = runs[r];
+      var ns = run.start + shiftFor(run.start);
+      // End shifts by markers at/before start PLUS markers strictly inside the run,
+      // so a marker sitting exactly AT the run's end (a style boundary coinciding
+      // with an item boundary) is NOT swallowed into this run, while a zero-length
+      // run (start === end) stays collapsed (ne === ns).
+      var ne = run.end + shiftFor(run.start) + sumInside(run.start, run.end);
+      if (!(ne >= ns) || ns < 0 || ne > newChars.length) return null; // bail -> plain text
+      var nr = {};
+      for (var key in run) { if (Object.prototype.hasOwnProperty.call(run, key)) nr[key] = run[key]; }
+      nr.start = ns;
+      nr.end = ne;
+      if (typeof run.characters === 'string') nr.characters = newChars.slice(ns, ne);
+      newRuns.push(nr);
+    }
+
+    // Hanging indent: indentLeft = hang, firstLineIndent = -hang so the marker hangs
+    // to the left of the text block and wrapped lines align under the text.
+    var hang = (typeof dominantFontSize === 'number' && dominantFontSize > 0) ? dominantFontSize * 1.4 : 0;
+
+    return { characters: newChars, runs: newRuns, hang: hang };
+  }
+
+  // The fontSize that covers the most characters (drives the hanging-indent size).
+  function dominantRunFontSize(runs) {
+    var best = 0, bestLen = -1;
+    for (var i = 0; i < runs.length; i++) {
+      var fs = runs[i].fontSize;
+      if (typeof fs !== 'number') continue;
+      var len = (typeof runs[i].end === 'number' && typeof runs[i].start === 'number') ? (runs[i].end - runs[i].start) : 0;
+      if (len > bestLen) { bestLen = len; best = fs; }
+    }
+    return best;
+  }
+
   function mapText(node) {
     var runs = [];
+    var styledSegs = null;
     try {
-      var segs = node.getStyledTextSegments(['fontName', 'fontWeight', 'fontSize', 'fills', 'letterSpacing', 'lineHeight', 'textCase', 'textDecoration']);
+      var segs = node.getStyledTextSegments(['fontName', 'fontWeight', 'fontSize', 'fills', 'letterSpacing', 'lineHeight', 'textCase', 'textDecoration', 'listOptions', 'indentation']);
+      styledSegs = segs;
       for (var i = 0; i < segs.length; i++) {
         var s = segs[i];
         runs.push({
@@ -236,6 +384,8 @@
       // Resilient fallback: keep the font even when getStyledTextSegments throws
       // (e.g. mixed/unavailable). Read node-level fontName (guarding figma.mixed)
       // so weight/family/PostScript name survive; size only when it is a number.
+      // Lists are ignored here (no segment info -> plain text).
+      styledSegs = null;
       var fn = (node.fontName && node.fontName !== figma.mixed) ? node.fontName : null;
       var run = {
         start: 0,
@@ -259,6 +409,26 @@
     };
     // First-line indent: fires the host's paragraphIndent path.
     if ('paragraphIndent' in node) text.paragraphIndent = node.paragraphIndent;
+    // Truncation: honor a numeric maxLines so the host can cap the visible lines.
+    if ('maxLines' in node && typeof node.maxLines === 'number') text.maxLines = node.maxLines;
+
+    // LISTS / BULLETS: AE has no list object, so inject the literal marker glyph
+    // ('•\t' / 'N.\t') at each list paragraph and emit a hanging indent. Guard the
+    // WHOLE thing: on ANY error, leave characters/runs untouched (= plain text).
+    // Non-list text (no listOptions, or all NONE) is left byte-identical.
+    try {
+      var listed = injectListMarkers(text, styledSegs, runs, dominantRunFontSize(runs));
+      if (listed) {
+        text.characters = listed.characters;
+        text.runs = listed.runs;
+        if (listed.hang > 0) {
+          // Host applyParagraph maps indentLeft->startIndent, firstLineIndent->
+          // firstLineIndent (AE 24.0+); a negative first-line indent hangs the marker.
+          text.indentLeft = listed.hang;
+          text.firstLineIndent = -listed.hang;
+        }
+      }
+    } catch (eList) { /* leave original characters/runs (plain text) */ }
     return text;
   }
 
