@@ -650,6 +650,7 @@
         var nestedOrigin = nestedAt ? { x: nestedAt[0][2], y: nestedAt[1][2] } : origin;
         base.children = await childrenToIR(node, nestedOrigin, assets);
         applyFrameChrome(base, node, w, h);
+        await addFrameImageBackground(base, node, w, h, assets);
         break;
       case 'GROUP':
         base.type = 'GROUP';
@@ -694,6 +695,29 @@
     return out;
   }
 
+  // A frame can carry an IMAGE FILL as its background (a photo-backed card). The
+  // shape-based chrome can't hold an image, so emit it as a BOTTOM-MOST IMAGE child
+  // sized to the frame; the host then places it as ordinary footage (and clips it
+  // to the frame's rounded corners when the frame clips/precomps). Solid/gradient
+  // frame fills still ride out.background (applyFrameChrome). Mutates out.children.
+  async function addFrameImageBackground(out, frame, w, h, assets) {
+    var imgPaint = findImagePaint(frame.fills);
+    if (!imgPaint) return;
+    await addImageAsset(imgPaint, assets);
+    var bg = {
+      id: String(frame.id) + ':imgbg',
+      name: (frame.name || 'Frame') + ' Background',
+      type: 'IMAGE',
+      visible: true,
+      opacity: (imgPaint.opacity == null ? 1 : imgPaint.opacity),
+      blendMode: 'NORMAL',
+      imageHash: imgPaint.imageHash,
+      scaleMode: imgPaint.scaleMode || 'FILL',
+      transform: { x: 0, y: 0, width: w, height: h, rotation: 0, matrix: [1, 0, 0, 1, 0, 0] }
+    };
+    out.children = [bg].concat(out.children || []);
+  }
+
   async function frameToIR(frame, assets) {
     // Use the frame's transform translation, NOT absoluteBoundingBox: the bbox
     // grows with rotation/strokes/effects and would offset every child.
@@ -713,6 +737,7 @@
     // Carry the frame chrome so the importer can decorate the precomp instead of
     // dropping it.
     applyFrameChrome(out, frame, frame.width, frame.height);
+    await addFrameImageBackground(out, frame, frame.width, frame.height, assets);
     return out;
   }
 
