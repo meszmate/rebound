@@ -4,9 +4,10 @@
  * Rebuilds an IMAGE node as a real footage layer. The panel writes each asset's
  * bytes to USER_DATA/Rebound/assets and hands this builder a file path; the
  * footage is imported once per path (deduped) and scaled to the node box. FILL
- * and CROP scale to the box (exact placement, slight aspect change is flagged);
- * FIT is approximated and flagged. TILE repeats a single tile natively with the
- * "ADBE Tile" (Motion Tile) effect instead of stretching one image.
+ * and CROP are COVER: the image is scaled uniformly to fully cover the box and
+ * the overflow is centre-cropped with a layer mask (no aspect distortion). FIT
+ * is CONTAIN (uniform min scale, centred). TILE repeats a single tile natively
+ * with the "ADBE Tile" (Motion Tile) effect instead of stretching one image.
  */
 (function () {
   var R = $.__rebound;
@@ -70,6 +71,72 @@
 
   function setParam(group, name, value) {
     try { group.property(name).setValue(value); } catch (e) { /* version / build differences */ }
+  }
+
+  // Build a closed 4-vertex rectangle as an AE Shape() in LAYER space. Mirrors
+  // build.jsx's shapeFromSubpath, reusing R.importer.geometry.roundedRect (a
+  // straight-cornered rect = a 0-radius rounded rect) when available so the
+  // vertex/tangent convention matches the rest of the importer; falls back to a
+  // hand-built rect if the geometry helper is missing. x/y is the top-left of
+  // the rect, mw/mh its size.
+  function rectShape(x, y, mw, mh) {
+    var verts;
+    var geo = R.importer.geometry;
+    if (geo && typeof geo.roundedRect === 'function') {
+      try {
+        var sp = geo.roundedRect(mw, mh, { tl: 0, tr: 0, br: 0, bl: 0 });
+        verts = sp.vertices || [];
+      } catch (eGeo) { verts = null; }
+    }
+    if (!verts || !verts.length) {
+      // Plain clockwise rectangle in [0..mw] x [0..mh], no tangents.
+      verts = [
+        { x: 0, y: 0, inTangent: [0, 0], outTangent: [0, 0] },
+        { x: mw, y: 0, inTangent: [0, 0], outTangent: [0, 0] },
+        { x: mw, y: mh, inTangent: [0, 0], outTangent: [0, 0] },
+        { x: 0, y: mh, inTangent: [0, 0], outTangent: [0, 0] }
+      ];
+    }
+    var shape = new Shape();
+    var vv = [], it = [], ot = [];
+    for (var j = 0; j < verts.length; j++) {
+      var v = verts[j];
+      vv.push([v.x + x, v.y + y]);
+      it.push(v.inTangent || [0, 0]);
+      ot.push(v.outTangent || [0, 0]);
+    }
+    shape.vertices = vv;
+    shape.inTangents = it;
+    shape.outTangents = ot;
+    shape.closed = true;
+    return shape;
+  }
+
+  // Crop a footage layer to the node box [w,h] for a COVER (FILL/CROP) placement.
+  // Cover scales the footage uniformly by `s` (>= the box on both axes) and shifts
+  // it by (offx,offy) <= 0 to centre the overflow, so the box's top-left in screen
+  // space is the layer's ORIGINAL position `pos` and its bottom-right is pos+[w,h].
+  //
+  // The mask lives in LAYER space (pre-transform: anchor [0,0] = footage top-left,
+  // no scale, no position applied). A layer-space point lx maps to screen
+  // pos+offx + lx*s, so the box edges pos and pos+w map back to layer x
+  // -offx/s and (-offx+w)/s. The rect is therefore [-offx/s, -offy/s] sized
+  // [w/s, h/s] in layer space (centred on the footage, since -offx/s = fw/2 - w/(2s)).
+  // `s` is the positive scale magnitude; the sgnX/sgnY flip on the Scale property
+  // does not move the pre-transform mask. Returns true if the mask was added.
+  function cropToBox(layer, s, offx, offy, w, h) {
+    if (!(s > 0) || !(w > 0) || !(h > 0)) return false;
+    var parade;
+    try { parade = layer.property('ADBE Mask Parade'); } catch (eP) { parade = null; }
+    if (!parade) return false;
+    var atom;
+    try { atom = parade.addProperty('ADBE Mask Atom'); } catch (eA) { return false; }
+    if (!atom) return false;
+    try {
+      var shape = rectShape(-offx / s, -offy / s, w / s, h / s);
+      atom.property('ADBE Mask Shape').setValue(shape);
+      return true;
+    } catch (eS) { return false; }
   }
 
   function buildImage(comp, node, report) {
@@ -144,8 +211,36 @@
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image tile reproduced natively via the Motion Tile effect (single repeating tile, not a stretched image)' });
         }
       } else {
-        // FILL / CROP / default: fill the box exactly.
-        try { tr.property('ADBE Scale').setValue([sgnX * w / fw * 100, sgnY * h / fh * 100]); } catch (e2) {}
+        // FILL / CROP / default: COVER. Figma FILL scales the image uniformly so
+        // it fully covers the box (not a per-axis stretch, which distorts an
+        // image whose aspect != the box) and centre-crops the overflow. Uniform
+        // scale = max(w/fw, h/fh); centre via a position offset (anchor stays at
+        // the content origin so rotation pivots consistently). KEEP the sgnX/sgnY
+        // flip recovery on the Scale value.
+        var sc = Math.max(w / fw, h / fh);
+        var coffx = (w - fw * sc) / 2, coffy = (h - fh * sc) / 2;
+        try {
+          var cpos = tr.property('ADBE Position').value;
+          tr.property('ADBE Position').setValue([cpos[0] + coffx, cpos[1] + coffy]);
+          tr.property('ADBE Scale').setValue([sgnX * sc * 100, sgnY * sc * 100]);
+        } catch (e2) {}
+        // The cover centering + crop assume a positive scale; a mirrored image
+        // (negative axis from a flipped affine) reflects around the anchor, so the
+        // crop window can mis-align. Rare for fills -- flag once rather than fake it.
+        if ((sgnX < 0 || sgnY < 0) && report && !report.__imgFlipCoverNoted) {
+          report.__imgFlipCoverNoted = true;
+          R.importer.util.note(report, 'approximated', { name: node.name, detail: 'mirrored image fill: cover-crop alignment is approximate for a flipped image' });
+        }
+        // Crop the cover overflow to the box with a layer mask. A clipping-frame
+        // precomp around this node would also clip, so the mask is at worst
+        // redundant (it matches the same box); for a non-clipped placement it is
+        // what stops the overflow showing. If it cannot be added, flag once so
+        // the visible overflow is diagnosable.
+        var cropped = false;
+        try { cropped = cropToBox(layer, sc, coffx, coffy, w, h); } catch (eCrop) { cropped = false; }
+        if (!cropped && (coffx < -0.5 || coffy < -0.5)) {
+          R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image fill could not be cropped to its box; the covered overflow may be visible' });
+        }
       }
     }
 
