@@ -14,32 +14,115 @@
     return (app.fonts && app.fonts.allFonts) ? app.fonts : null;
   }
 
-  // Unique installed family names, sorted, for the resolver dropdowns.
+  // Normalize a name for loose comparison: strip spaces/dashes/underscores,
+  // lowercase. Mirrors text.jsx so import-time and remap-time agree.
+  function normName(s) {
+    if (!s) return '';
+    return String(s).toLowerCase().replace(/[\s\-_]+/g, '');
+  }
+
+  // Figma style spelling -> AE's alternate spellings for the same face. Mirrors
+  // text.jsx's STYLE_SYNONYMS so the remap resolver matches the importer.
+  var STYLE_SYNONYMS = {
+    'regular': ['Regular', 'Book', 'Roman', ''],
+    'bold': ['Bold', 'Heavy'],
+    'semibold': ['SemiBold', 'Semibold', 'Semi Bold', 'Demi Bold', 'Demi'],
+    'extrabold': ['ExtraBold', 'Extrabold', 'Extra Bold', 'Ultra'],
+    'medium': ['Medium'],
+    'light': ['Light'],
+    'thin': ['Thin', 'Hairline'],
+    'italic': ['Italic', 'Oblique'],
+    'bolditalic': ['Bold Italic', 'BoldItalic']
+  };
+
+  function isRealFont(fo) {
+    if (!fo) return false;
+    try { if (fo.isSubstitute === true) return false; } catch (e) {}
+    try { return !!fo.postScriptName; } catch (e2) { return false; }
+  }
+
+  function firstReal(fonts) {
+    if (!fonts || !fonts.length) return null;
+    for (var i = 0; i < fonts.length; i++) { if (isRealFont(fonts[i])) return fonts[i]; }
+    return null;
+  }
+
+  // Iterate every FontObject in allFonts regardless of shape: AE's Fonts API has
+  // been documented both as a FLAT array of FontObjects and as family-group sub-
+  // arrays. Handle both so the dropdown + scan never silently go empty. cb may
+  // return truthy to stop early (that value is returned).
+  function eachFont(allFonts, cb) {
+    if (!allFonts || !allFonts.length) return null;
+    for (var i = 0; i < allFonts.length; i++) {
+      var e = allFonts[i];
+      if (!e) continue;
+      if (e.familyName != null || e.postScriptName != null) {
+        var r = cb(e); if (r) return r;
+      } else if (typeof e.length === 'number') {
+        for (var j = 0; j < e.length; j++) {
+          if (!e[j]) continue;
+          var r2 = cb(e[j]); if (r2) return r2;
+        }
+      }
+    }
+    return null;
+  }
+
+  // Unique installed family names, sorted, for the resolver dropdowns. allFonts
+  // may be a flat array of faces OR family-group sub-arrays; eachFont handles both.
   function fontFamilies() {
     var api = fontsApi();
     if (!api) return { families: [] };
     var seen = {};
     var families = [];
-    var all = api.allFonts;
-    for (var i = 0; i < all.length; i++) {
+    eachFont(api.allFonts, function (fo) {
       var fam;
-      try { fam = all[i].familyName; } catch (e) { continue; }
+      try { fam = fo.familyName; } catch (e) { return null; }
       if (fam && !seen[fam]) { seen[fam] = true; families.push(fam); }
-    }
+      return null;
+    });
     families.sort();
     return { families: families };
   }
 
-  function resolvePostScript(family) {
+  // Resolve a chosen family to a PostScript name using the same robust strategy
+  // as text.jsx (style synonyms + a scan of the nested allFonts arrays), so the
+  // missing-font remap lands the same face the importer would have.
+  function resolvePostScript(family, style) {
     var api = fontsApi();
     if (!api || !api.getFontsByFamilyNameAndStyleName) return null;
-    var styles = ['Regular', 'Medium', 'Book', ''];
+    // Ordered style spellings: requested style + synonyms, then sensible defaults.
+    var styles = [];
+    function push(s) {
+      if (s == null) return;
+      for (var j = 0; j < styles.length; j++) { if (normName(styles[j]) === normName(s)) return; }
+      styles.push(s);
+    }
+    if (style) {
+      push(style);
+      var syn = STYLE_SYNONYMS[normName(style)];
+      if (syn) { for (var k = 0; k < syn.length; k++) push(syn[k]); }
+    }
+    push('Regular'); push('Medium'); push('Book'); push('');
+
     for (var i = 0; i < styles.length; i++) {
       try {
-        var fonts = api.getFontsByFamilyNameAndStyleName(family, styles[i]);
-        if (fonts && fonts.length) return fonts[0].postScriptName;
+        var fo = firstReal(api.getFontsByFamilyNameAndStyleName(family, styles[i]));
+        if (fo) return fo.postScriptName;
       } catch (e) { /* try next */ }
     }
+    // Scan every installed face (flat or grouped) for any face of this family.
+    try {
+      var famN = normName(family);
+      var hit = eachFont(api.allFonts, function (cand) {
+        var fam = '', nfam = '';
+        try { fam = cand.familyName || ''; } catch (eF) {}
+        try { nfam = cand.nativeFamilyName || ''; } catch (eNF) {}
+        if ((normName(fam) === famN || normName(nfam) === famN) && isRealFont(cand)) return cand;
+        return null;
+      });
+      if (hit) return hit.postScriptName;
+    } catch (eScan) {}
     return null;
   }
 
@@ -52,7 +135,9 @@
     var from = args && args.from;
     var to = args && args.to;
     if (!from || !to) throw new Error('Choose a font to use instead.');
-    var toPS = resolvePostScript(to);
+    // args.style is optional; when the UI carries the wanted style the resolver
+    // can land that exact face, otherwise it falls back to sensible defaults.
+    var toPS = resolvePostScript(to, args && args.style);
     if (!toPS) throw new Error('Could not find the font "' + to + '" on this machine.');
 
     var tag = 'rb-font:' + from;

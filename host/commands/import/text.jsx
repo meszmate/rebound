@@ -27,6 +27,13 @@
     return !isNaN(v) && v >= 24.3;
   }
 
+  // The Fonts API (app.fonts, FontObject, getFontsBy*) landed in AE 24.0 -- gate
+  // font resolution on that, NOT on supportsRanges (24.3), so single-style text
+  // resolves fonts correctly on 24.0-24.2 too.
+  function hasFontsApi() {
+    return !!(app.fonts && app.fonts.getFontsByFamilyNameAndStyleName);
+  }
+
   function addMissingFont(report, family) {
     for (var i = 0; i < report.missingFonts.length; i++) {
       if (report.missingFonts[i] === family) return;
@@ -34,22 +41,217 @@
     report.missingFonts.push(family);
   }
 
-  // Resolve family + style to a PostScript name AE can set. Prefer an explicit
-  // PostScript name from the exporter; otherwise ask the Fonts API (AE 24+).
-  function resolveFont(family, style, ps, report) {
-    if (ps) return ps;
-    if (!family) return null;
-    try {
-      if (app.fonts && app.fonts.getFontsByFamilyNameAndStyleName) {
-        var fonts = app.fonts.getFontsByFamilyNameAndStyleName(family, style || 'Regular');
-        if (fonts && fonts.length) return fonts[0].postScriptName;
-        fonts = app.fonts.getFontsByFamilyNameAndStyleName(family, 'Regular');
-        if (fonts && fonts.length) return fonts[0].postScriptName;
-      }
-    } catch (e) { /* older AE, or family unavailable */ }
-    addMissingFont(report, family);
-    noteLayerMissing(family);
+  // Normalize a font/style name for loose comparison: strip spaces/dashes/
+  // underscores, lowercase. So "Semi Bold" == "SemiBold" == "semibold".
+  function normName(s) {
+    if (!s) return '';
+    return String(s).toLowerCase().replace(/[\s\-_]+/g, '');
+  }
+
+  // Strip spaces only, preserving case, for constructing PostScript probes like
+  // "Inter-SemiBold" from family "Inter" + style "Semi Bold".
+  function collapse(s) {
+    return s ? String(s).replace(/[\s]+/g, '') : '';
+  }
+
+  // Figma style spelling -> the alternate spellings AE may use for the same face.
+  // Tried in order; '' lets getFontsByFamilyNameAndStyleName fall back to the
+  // family default (some single-style families report an empty style name).
+  var STYLE_SYNONYMS = {
+    'regular': ['Regular', 'Book', 'Roman', ''],
+    'bold': ['Bold', 'Heavy'],
+    'semibold': ['SemiBold', 'Semibold', 'Semi Bold', 'Demi Bold', 'Demi'],
+    'extrabold': ['ExtraBold', 'Extrabold', 'Extra Bold', 'Ultra'],
+    'medium': ['Medium'],
+    'light': ['Light'],
+    'thin': ['Thin', 'Hairline'],
+    'italic': ['Italic', 'Oblique'],
+    'bolditalic': ['Bold Italic', 'BoldItalic']
+  };
+
+  // A numeric CSS weight maps to a Figma-style label so a run that only carries
+  // fontWeight (no fontStyle) can still be resolved.
+  function weightToStyle(w) {
+    if (typeof w !== 'number') return null;
+    if (w >= 850) return 'Heavy';
+    if (w >= 750) return 'Extra Bold';
+    if (w >= 650) return 'Bold';
+    if (w >= 550) return 'Semi Bold';
+    if (w >= 450) return 'Medium';
+    if (w >= 350) return 'Regular';
+    if (w >= 250) return 'Light';
+    return 'Thin';
+  }
+
+  // Whether AE handed us a real installed face or a substitute. The substitution
+  // FontObject exposes .isSubstitute === true on 24.0+; older results lack it, so
+  // we treat "has a postScriptName" as the loose success signal.
+  function isRealFont(fo) {
+    if (!fo) return false;
+    try { if (fo.isSubstitute === true) return false; } catch (e) {}
+    try { return !!fo.postScriptName; } catch (e2) { return false; }
+  }
+
+  // Return the FontObject from a getFontsBy* result that is a real (non-
+  // substitute) font, or null.
+  function firstReal(fonts) {
+    if (!fonts || !fonts.length) return null;
+    for (var i = 0; i < fonts.length; i++) {
+      if (isRealFont(fonts[i])) return fonts[i];
+    }
     return null;
+  }
+
+  // A PostScript-name lookup can hand back a same-named substitute or a variable-
+  // font instance from a DIFFERENT family, which the read-back check won't catch
+  // (we set the name we asked for). Require the family to match (loosely) before
+  // trusting a getFontsByPostScriptName result. No family to check -> allow.
+  function foFamilyOk(fo, family) {
+    if (!family) return true;
+    var famN = normName(family);
+    var fam = '', nfam = '';
+    try { fam = fo.familyName || ''; } catch (e) {}
+    try { nfam = fo.nativeFamilyName || ''; } catch (e2) {}
+    return normName(fam) === famN || normName(nfam) === famN;
+  }
+
+  // Build the ordered list of style spellings to try for a requested style /
+  // weight: the literal style, its synonyms, the weight-derived label + ITS
+  // synonyms, then a bare 'Regular' as a final family-default attempt.
+  function styleCandidates(style, weight) {
+    var out = [];
+    function push(s) {
+      if (s == null) return;
+      for (var j = 0; j < out.length; j++) { if (normName(out[j]) === normName(s)) return; }
+      out.push(s);
+    }
+    if (style) push(style);
+    var syn = style ? STYLE_SYNONYMS[normName(style)] : null;
+    if (syn) { for (var i = 0; i < syn.length; i++) push(syn[i]); }
+    var wLabel = weightToStyle(weight);
+    if (wLabel) {
+      push(wLabel);
+      var wSyn = STYLE_SYNONYMS[normName(wLabel)];
+      if (wSyn) { for (var k = 0; k < wSyn.length; k++) push(wSyn[k]); }
+    }
+    push('Regular');
+    return out;
+  }
+
+  // Iterate every FontObject in app.fonts.allFonts regardless of its shape. The
+  // AE Fonts API has been documented both as a FLAT array of FontObjects and as
+  // an array of family-group sub-arrays; handle BOTH so the scan never silently
+  // goes dead. cb may return a truthy value to stop early (returned to the caller).
+  function eachFont(allFonts, cb) {
+    if (!allFonts || !allFonts.length) return null;
+    for (var i = 0; i < allFonts.length; i++) {
+      var e = allFonts[i];
+      if (!e) continue;
+      if (e.familyName != null || e.postScriptName != null) {
+        var r = cb(e); if (r) return r;
+      } else if (typeof e.length === 'number') {
+        for (var j = 0; j < e.length; j++) {
+          if (!e[j]) continue;
+          var r2 = cb(e[j]); if (r2) return r2;
+        }
+      }
+    }
+    return null;
+  }
+
+  // Scan app.fonts.allFonts (flat faces OR family-group sub-arrays; eachFont
+  // handles both) for a face whose family AND style match (loosely, via normName)
+  // the request. Returns a FontObject or null.
+  function scanAllFonts(family, style, weight) {
+    var groups;
+    try { groups = app.fonts.allFonts; } catch (e0) { return null; }
+    var famN = normName(family);
+    var wantStyles = styleCandidates(style, weight);
+    var sameFamily = null; // first matching-family face of ANY style (fallback)
+    var hit = eachFont(groups, function (fo) {
+      var fam = '', nfam = '', sty = '', nsty = '';
+      try { fam = fo.familyName || ''; } catch (eF) {}
+      try { nfam = fo.nativeFamilyName || ''; } catch (eNF) {}
+      try { sty = fo.styleName || ''; } catch (eS) {}
+      try { nsty = fo.nativeStyleName || ''; } catch (eNS) {}
+      if (normName(fam) !== famN && normName(nfam) !== famN) return null;
+      if (!sameFamily) sameFamily = fo;
+      for (var w = 0; w < wantStyles.length; w++) {
+        var wsN = normName(wantStyles[w]);
+        if (wsN && (normName(sty) === wsN || normName(nsty) === wsN)) return fo;
+      }
+      return null;
+    });
+    return hit || sameFamily;
+  }
+
+  // Resolve family + style to an installed FontObject AE can set. NEVER returns a
+  // substitute -- a true miss returns null so the caller can fall to faux styling
+  // or the missing-font report rather than silently landing AE's default face.
+  // Strategy (each step guarded; AE Fonts API is 24.0+):
+  //   (a) explicit PostScript name from the exporter
+  //   (b) exact family + style
+  //   (c) style synonyms + numeric-weight-derived style
+  //   (d) constructed "Family-Style" PostScript probe
+  //   (e) scan allFonts (nested family-group arrays) on family+style
+  //   (f) same family, any style (keeps the typeface; notes an approximation)
+  // Returns { font: FontObject|null, postScriptName: String|null, approx: String|null }.
+  function resolveFont(family, style, ps, weight, report) {
+    var miss = { font: null, postScriptName: null, approx: null };
+    if (!hasFontsApi()) {
+      // Pre-24.0 AE: no Fonts API. Fall back to the exporter's PostScript name as
+      // a best-effort string set; nothing to verify against.
+      if (ps) return { font: null, postScriptName: ps, approx: null };
+      if (family) { addMissingFont(report, family); noteLayerMissing(family); }
+      return miss;
+    }
+    if (!family && !ps) return miss;
+
+    var fo;
+    // (a) explicit PostScript name.
+    if (ps) {
+      try {
+        fo = firstReal(app.fonts.getFontsByPostScriptName(ps));
+        if (fo && foFamilyOk(fo, family)) return { font: fo, postScriptName: fo.postScriptName, approx: null };
+      } catch (eA) {}
+    }
+
+    if (family) {
+      var cands = styleCandidates(style, weight);
+      // (b)+(c) exact family+style, then every synonym / weight-derived spelling.
+      for (var i = 0; i < cands.length; i++) {
+        try {
+          fo = firstReal(app.fonts.getFontsByFamilyNameAndStyleName(family, cands[i]));
+          if (fo && foFamilyOk(fo, family)) return { font: fo, postScriptName: fo.postScriptName, approx: null };
+        } catch (eB) {}
+      }
+      // (d) constructed "Family-Style" PostScript probe.
+      try {
+        var probe = collapse(family) + '-' + collapse(style || 'Regular');
+        fo = firstReal(app.fonts.getFontsByPostScriptName(probe));
+        if (fo && foFamilyOk(fo, family)) return { font: fo, postScriptName: fo.postScriptName, approx: null };
+      } catch (eD) {}
+      // (e)+(f) scan every installed face; may return the same family in a
+      // different style as a typeface-preserving fallback.
+      try {
+        fo = scanAllFonts(family, style, weight);
+        if (fo) {
+          var foStyle = '';
+          try { foStyle = fo.styleName || ''; } catch (eFS) {}
+          var wantedN = normName(style || weightToStyle(weight) || 'Regular');
+          var approx = null;
+          if (wantedN && normName(foStyle) !== wantedN) {
+            approx = 'weight/style "' + (style || weightToStyle(weight) || 'Regular') +
+              '" of "' + family + '" not installed; used "' + (foStyle || 'default') + '"';
+          }
+          return { font: fo, postScriptName: fo.postScriptName, approx: approx };
+        }
+      } catch (eE) {}
+    }
+
+    // (g) total miss.
+    if (family) { addMissingFont(report, family); noteLayerMissing(family); }
+    return miss;
   }
 
   function firstSolidColor(fills, report, node) {
@@ -218,8 +420,41 @@
   // all, properties across AE versions.
   function applyStyle(target, run, report, node) {
     if (run.fontSize) { try { target.fontSize = run.fontSize; } catch (e) {} }
-    var ps = resolveFont(run.fontFamily, run.fontStyle, run.postScriptName, report);
-    if (ps) { try { target.font = ps; } catch (e2) {} }
+
+    // Resolve to an installed face. resolveFont never hands back a substitute,
+    // so a null postScriptName means the typeface is genuinely missing -> we keep
+    // AE's current font and rely on faux bold/italic + the missing-font report.
+    var res = resolveFont(run.fontFamily, run.fontStyle, run.postScriptName, run.fontWeight, report);
+    var wantBoldFace = (typeof run.fontWeight === 'number' && run.fontWeight >= 600) ||
+      (run.fontStyle && /bold/i.test(run.fontStyle));
+    var wantItalicFace = run.fontStyle && /(italic|oblique)/i.test(run.fontStyle);
+    if (res.postScriptName) {
+      // Prefer FontObject (AE 24.0+, substitution-safe) where available; else set
+      // the PostScript-name string. Then READ BACK target.font -- if AE did not
+      // honour what we asked, treat the family as missing so the report flags it.
+      try {
+        if (res.font && ('fontObject' in target)) { target.fontObject = res.font; }
+        else { target.font = res.postScriptName; }
+      } catch (e2) {
+        try { target.font = res.postScriptName; } catch (e2b) {}
+      }
+      var got = null;
+      try { got = target.font; } catch (eR) { got = null; }
+      if (got && got !== res.postScriptName) {
+        if (run.fontFamily) { addMissingFont(report, run.fontFamily); noteLayerMissing(run.fontFamily); }
+      } else if (res.approx && report && !report.__fontApproxNoted) {
+        report.__fontApproxNoted = true;
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: res.approx });
+      }
+    }
+    // Faux fallback: if the exact bold/italic face was NOT found (no real
+    // PostScript name) but a base family did resolve elsewhere, slant/embolden so
+    // the run still reads as bold/italic instead of plain. Also applied when the
+    // run carries explicit faux flags from the exporter.
+    var resolvedExact = !!res.postScriptName && !res.approx;
+    if (run.fauxBold || (wantBoldFace && !resolvedExact)) { try { target.fauxBold = true; } catch (e7) {} }
+    if (run.fauxItalic || (wantItalicFace && !resolvedExact)) { try { target.fauxItalic = true; } catch (e8) {} }
+
     var c = firstSolidColor(run.fills, report, node);
     if (c) { try { target.applyFill = true; target.fillColor = [c.r, c.g, c.b]; } catch (e3) {} }
     if (typeof run.tracking === 'number') { try { target.tracking = run.tracking; } catch (e4) {} }
@@ -231,23 +466,37 @@
       } catch (e5) {}
     }
     if (typeof run.baselineShift === 'number') { try { target.baselineShift = run.baselineShift; } catch (e6) {} }
-    if (run.fauxBold) { try { target.fauxBold = true; } catch (e7) {} }
-    if (run.fauxItalic) { try { target.fauxItalic = true; } catch (e8) {} }
-    if (run.textCase === 'UPPER') { try { target.allCaps = true; } catch (e9) {} }
-    if (run.textCase === 'SMALL_CAPS' || run.textCase === 'SMALL_CAPS_FORCED') { try { target.smallCaps = true; } catch (e10) {} }
+    // CAPS: allCaps/smallCaps are READ-ONLY in AE scripting and silently no-op.
+    // fontCapsOption (FontCapsOption enum, AE 24.0+) is the writable equivalent.
+    // Feature-detect the enum; on older AE flag the approximation once.
+    if (run.textCase === 'UPPER' || run.textCase === 'SMALL_CAPS' || run.textCase === 'SMALL_CAPS_FORCED') {
+      var capsSet = false;
+      try {
+        if (typeof FontCapsOption !== 'undefined') {
+          target.fontCapsOption = (run.textCase === 'UPPER')
+            ? FontCapsOption.FONT_ALL_CAPS : FontCapsOption.FONT_SMALL_CAPS;
+          capsSet = true;
+        }
+      } catch (e9) {}
+      if (!capsSet && report && !report.__capsNoted) {
+        report.__capsNoted = true;
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'all-caps/small-caps needs After Effects 24.0+ (FontCapsOption); left as authored' });
+      }
+    }
 
     // Horizontal/vertical scale (percent). Only present on newer TextDocument /
     // CharacterRange builds, so each is feature-detected.
     if (typeof run.horizontalScale === 'number') { try { target.horizontalScale = run.horizontalScale; } catch (e11) {} }
     if (typeof run.verticalScale === 'number') { try { target.verticalScale = run.verticalScale; } catch (e12) {} }
 
-    // Underline: AE 24.3+ exposes applyUnderline as a boolean attribute. STRIKE-
-    // THROUGH is not exposed by AE scripting on any build, so it is flagged once
-    // as an approximation rather than written to a property that does not exist.
+    // Underline & strikethrough: NEITHER is exposed by AE scripting on any build
+    // (there is no applyUnderline / strikethrough TextDocument property), so each
+    // is flagged once as an approximation rather than written to a phantom prop.
     var decoUnderline = run.underline === true || run.textDecoration === 'UNDERLINE';
     var decoStrike = run.lineThrough === true || run.textDecoration === 'STRIKETHROUGH';
-    if (decoUnderline) {
-      try { target.applyUnderline = true; } catch (e13) {}
+    if (decoUnderline && report && !report.__underlineNoted) {
+      report.__underlineNoted = true;
+      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'underline has no After Effects scripting equivalent; left without the underline' });
     }
     if (decoStrike && report && !report.__strikeNoted) {
       report.__strikeNoted = true;
@@ -266,25 +515,19 @@
   // feature-detected so older builds that lack the property never throw.
   function applyParagraph(target, data) {
     if (!data) return;
-    var before = (typeof data.spaceBefore === 'number') ? data.spaceBefore
+    // Figma paragraphSpacing is space AFTER each paragraph, so it routes to the
+    // 'after' slot; 'before' comes only from an explicit spaceBefore.
+    var before = (typeof data.spaceBefore === 'number') ? data.spaceBefore : null;
+    var after = (data.spaceAfter != null) ? data.spaceAfter
       : (typeof data.paragraphSpacing === 'number' ? data.paragraphSpacing : null);
-    var after = (typeof data.spaceAfter === 'number') ? data.spaceAfter : null;
     if (before != null) { try { target.spaceBefore = before; } catch (e1) {} }
     if (after != null) { try { target.spaceAfter = after; } catch (e2) {} }
     if (typeof data.firstLineIndent === 'number') { try { target.firstLineIndent = data.firstLineIndent; } catch (e3) {} }
     else if (typeof data.paragraphIndent === 'number') { try { target.firstLineIndent = data.paragraphIndent; } catch (e3b) {} }
-    // Left/right indent: AE 24.3+ TextDocument uses startIndent/endIndent;
-    // leftMargin/rightMargin is the alternate spelling on some builds. Try both
-    // (guarded) so whichever the running AE accepts takes effect, and there is no
-    // longer a leftIndent/rightIndent write, which is not a real AE property.
-    if (typeof data.indentLeft === 'number') {
-      try { target.startIndent = data.indentLeft; } catch (e4) {}
-      try { target.leftMargin = data.indentLeft; } catch (e4b) {}
-    }
-    if (typeof data.indentRight === 'number') {
-      try { target.endIndent = data.indentRight; } catch (e5) {}
-      try { target.rightMargin = data.indentRight; } catch (e5b) {}
-    }
+    // Left/right indent: AE TextDocument uses startIndent/endIndent. leftMargin/
+    // rightMargin are NOT real AE properties, so they are not written.
+    if (typeof data.indentLeft === 'number') { try { target.startIndent = data.indentLeft; } catch (e4) {} }
+    if (typeof data.indentRight === 'number') { try { target.endIndent = data.indentRight; } catch (e5) {} }
   }
 
   // Text stroke comes from the node-level stroke (Figma/Illustrator both carry
@@ -361,7 +604,33 @@
     }
     var chars = data.characters;
     layerMissing = [];
-    var layer = comp.layers.addText(chars.length ? chars : ' ');
+    var content = chars.length ? chars : ' ';
+
+    // Decide box vs point BEFORE creating the layer: TextDocument.boxText is
+    // READ-ONLY, so the box-ness must come from how the layer is created
+    // (addBoxText vs addText), not a property write. Prefer the source box size;
+    // fall back to the node transform. WIDTH_AND_HEIGHT auto-resize is point text.
+    var t = node.transform || {};
+    var w, h;
+    if (data.boxSize && data.boxSize.length === 2) {
+      w = Math.max(1, data.boxSize[0]); h = Math.max(1, data.boxSize[1]);
+    } else {
+      w = Math.max(1, t.width || 100); h = Math.max(1, t.height || 40);
+    }
+    var wantBox = data.autoResize !== 'WIDTH_AND_HEIGHT';
+
+    var layer = null;
+    if (wantBox) {
+      // addBoxText is AE 13.6+, but guard anyway and fall back to point text on
+      // older/odd builds so the import never fails.
+      try { layer = comp.layers.addBoxText([w, h], content); } catch (eBox) { layer = null; }
+    }
+    if (!layer) {
+      layer = comp.layers.addText(content);
+      if (wantBox && /\n/.test(chars)) {
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'paragraph box not available; text placed as point text' });
+      }
+    }
     layer.name = node.name || (chars.substr(0, 16)) || 'Text';
 
     var textProp = layer.property('ADBE Text Properties').property('ADBE Text Document');
@@ -374,19 +643,29 @@
     applyTextStroke(td, node, report);
     justify(td, data.textAlignHorizontal);
 
-    // Try to make it a box so wrapped paragraphs match the source width.
-    var t = node.transform || {};
-    var w = Math.max(1, t.width || 100), h = Math.max(1, t.height || 40);
-    var wantBox = data.autoResize !== 'WIDTH_AND_HEIGHT';
-    if (wantBox) {
-      try { td.boxText = true; } catch (e) {}
-      try { td.boxTextSize = [w, h]; } catch (e2) {}
+    // Read back box-ness from the actual TextDocument (read-only, but readable).
+    var isBox = false;
+    try { isBox = textProp.value.boxText === true; } catch (e3) {}
+
+    // Vertical alignment for box text: boxVerticalAlignment / BoxVerticalAlignment
+    // is AE 24.6+ and box-text only. Feature-detect; flag once if unavailable and
+    // a non-default (non-TOP) alignment was requested.
+    if (isBox && data.textAlignVertical && data.textAlignVertical !== 'TOP') {
+      var vaSet = false;
+      try {
+        if (typeof BoxVerticalAlignment !== 'undefined') {
+          td.boxVerticalAlignment = (data.textAlignVertical === 'BOTTOM')
+            ? BoxVerticalAlignment.BOTTOM : BoxVerticalAlignment.CENTER;
+          vaSet = true;
+        }
+      } catch (eVA) {}
+      if (!vaSet && report && !report.__vAlignNoted) {
+        report.__vAlignNoted = true;
+        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'vertical text alignment needs After Effects 24.6+ (BoxVerticalAlignment); left top-aligned' });
+      }
     }
 
     textProp.setValue(td);
-
-    var isBox = false;
-    try { isBox = textProp.value.boxText === true; } catch (e3) {}
 
     if (runs.length > 1) {
       if (supportsRanges()) {
@@ -394,9 +673,6 @@
       } else {
         R.importer.util.note(report, 'approximated', { name: node.name, detail: 'mixed text styling needs After Effects 24.3+; used the dominant style' });
       }
-    }
-    if (!isBox && wantBox && /\n/.test(chars)) {
-      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'paragraph box not available; text placed as point text' });
     }
 
     placeText(layer, node, isBox, base.fontSize);
