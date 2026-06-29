@@ -31,6 +31,7 @@
   justify-content: center;
   margin-bottom: var(--rb-gap-1);
 }
+.rb-rail-logo svg { display: block; width: auto; height: 18px; }
 .rb-rail-btn {
   position: relative;
   width: 40px;

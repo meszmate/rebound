@@ -232,7 +232,7 @@
   // ---- Left rail ------------------------------------------------------------
 
   function buildRail() {
-    var children = [el('div.rb-rail-logo', { text: '◗', title: 'Rebound' })];
+    var children = [el('div.rb-rail-logo', { html: R.brand.MARK, title: 'Rebound' })];
     homeRailBtn = el('button.rb-rail-btn', { title: 'Home', 'aria-label': 'Home', onclick: showHome });
     homeRailBtn.innerHTML = R.toolMeta.svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>');
     children.push(homeRailBtn);

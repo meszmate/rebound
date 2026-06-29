@@ -19,7 +19,8 @@
   align-items: center;
   gap: var(--rb-gap-2);
 }
-.rb-header .rb-logo .rb-logo-mark { color: var(--rb-accent); }
+.rb-header .rb-logo .rb-logo-mark { color: var(--rb-accent); display: inline-flex; align-items: center; }
+.rb-header .rb-logo .rb-logo-mark svg { display: block; width: auto; height: 15px; }
 
 .rb-search {
   display: flex;
