@@ -114,6 +114,17 @@ All notable changes to Rebound are documented here. The format follows
   tool's verbose diagnostic toasts were trimmed to a single brief confirmation.
 
 ### Changed
+- **Reproduced the things After Effects "can't do" (Figma → AE).** None of these
+  were dead ends — each now has a faithful, editable reconstruction:
+  **underline** is drawn as a generated stroked line under each baseline (from
+  `textDocument.baselineLocs`, following wraps), matched to the text and parented
+  to it; **backdrop/background blur** becomes an adjustment layer with a Gaussian
+  blur, masked to the node's footprint and placed below it so it blurs what's
+  behind (glassmorphism), instead of being dropped; **image fills** scale as true
+  **cover** (uniform + centre-crop) rather than stretching on an aspect mismatch;
+  the **clip-overflow** test now uses each child's true rotated bounding box; and
+  **inside/outside gradient strokes** flip their offset by the path winding so the
+  side is correct on freeform/boolean paths.
 - **1:1 clipping, masks, image backgrounds and inside/outside strokes (Figma →
   AE).** A frame now clips exactly when Figma's clip-content is on **and** its
   content overflows — built as a precomp boundary (the only faithful clip in AE),
