@@ -98,6 +98,26 @@
     var h = t.height || footage.height;
     var fw = footage.width, fh = footage.height;
     var tr = layer.property('ADBE Transform Group');
+
+    // transform.apply may have set a mirrored (negative-axis) scale from the
+    // node's affine matrix. The box-fit values below would otherwise overwrite
+    // that with a positive scale, dropping the flip. Recover the per-axis signs
+    // here and fold them into every scale we set so flips/mirrors survive.
+    var sgnX = 1, sgnY = 1;
+    if (t.matrix && t.matrix.length === 6) {
+      try {
+        var dM = R.ir.N.decomposeMatrix(t.matrix);
+        if (isFinite(dM.scaleX) && dM.scaleX < 0) sgnX = -1;
+        if (isFinite(dM.scaleY) && dM.scaleY < 0) sgnY = -1;
+      } catch (eM) { sgnX = 1; sgnY = 1; }
+    }
+
+    // Without the footage's natural size we cannot compute a fit scale; leaving
+    // the layer at 100% would render a 2x asset at 200%. Flag it and bail out of
+    // scaling rather than place it wrong.
+    if (!fw || !fh) {
+      R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image natural size unavailable; left at 100% (placement may be off scale)' });
+    }
     if (fw && fh) {
       if (node.scaleMode === 'FIT') {
         // Contain: uniform scale, centred in the box by a position offset so the
@@ -107,25 +127,25 @@
         try {
           var pos = tr.property('ADBE Position').value;
           tr.property('ADBE Position').setValue([pos[0] + offx, pos[1] + offy]);
-          tr.property('ADBE Scale').setValue([s * 100, s * 100]);
+          tr.property('ADBE Scale').setValue([sgnX * s * 100, sgnY * s * 100]);
         } catch (e) {}
       } else if (node.scaleMode === 'TILE') {
         // TILE: keep the layer at 1:1 (no box stretch) and repeat the footage
         // across it with the native Motion Tile effect, which sizes each tile in
         // layer pixels. If the effect is unavailable, fall back to the old fill
         // behaviour so nothing breaks.
-        try { tr.property('ADBE Scale').setValue([100, 100]); } catch (eTs) {}
+        try { tr.property('ADBE Scale').setValue([sgnX * 100, sgnY * 100]); } catch (eTs) {}
         var tiled = false;
         try { tiled = tileLayer(layer, node, fw, fh, w, h); } catch (eT) { tiled = false; }
         if (!tiled) {
-          try { tr.property('ADBE Scale').setValue([w / fw * 100, h / fh * 100]); } catch (eF) {}
+          try { tr.property('ADBE Scale').setValue([sgnX * w / fw * 100, sgnY * h / fh * 100]); } catch (eF) {}
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image tile rendered as fill (Motion Tile unavailable)' });
         } else {
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image tile reproduced natively via the Motion Tile effect (single repeating tile, not a stretched image)' });
         }
       } else {
         // FILL / CROP / default: fill the box exactly.
-        try { tr.property('ADBE Scale').setValue([w / fw * 100, h / fh * 100]); } catch (e2) {}
+        try { tr.property('ADBE Scale').setValue([sgnX * w / fw * 100, sgnY * h / fh * 100]); } catch (e2) {}
       }
     }
 
