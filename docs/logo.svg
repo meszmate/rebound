@@ -1,0 +1,10 @@
+<svg width="128" height="117" viewBox="0 0 170 155" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rebound">
+  <defs>
+    <linearGradient id="rb" x1="20" y1="28" x2="146" y2="122" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6AA6FF"/>
+      <stop offset="1" stop-color="#3E74E8"/>
+    </linearGradient>
+  </defs>
+  <path d="M27.05 44.82C31.68 92.21 39.67 115.91 51 115.91C66.45 58.73 83.45 58.73 98.91 115.91C108.18 85 115.91 85 123.64 115.91C129.82 103.55 134.45 103.55 139.09 115.91" stroke="url(#rb)" stroke-width="10.05" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="27.05" cy="34" r="11.59" fill="url(#rb)"/>
+</svg>
