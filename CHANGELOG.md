@@ -114,6 +114,17 @@ All notable changes to Rebound are documented here. The format follows
   tool's verbose diagnostic toasts were trimmed to a single brief confirmation.
 
 ### Changed
+- **Last text & fidelity gaps closed (Figma → AE), so import is 1:1.**
+  **Strikethrough** now draws like underline (a generated rule through the
+  x-height). **Underline/strikethrough on part of a line** is measured to the
+  exact run extent (single line) instead of spanning the whole line. **Lowercase
+  / title-case** text (which After Effects has no case option for) is reproduced
+  by baking the case into the displayed characters (length-preserving, so styling
+  stays aligned). **Lists/bullets** rebuild as real markers (`•` / `1.`) with a
+  hanging indent — handling the U+2028 line-separators Figma uses between items.
+  **Truncated** text keeps its box and is flagged (AE has no ellipsis). Plus the
+  **mirrored-image cover** alignment and the **rotated backdrop-blur mask** edge
+  cases are now correct.
 - **Reproduced the things After Effects "can't do" (Figma → AE).** None of these
   were dead ends — each now has a faithful, editable reconstruction:
   **underline** is drawn as a generated stroked line under each baseline (from
