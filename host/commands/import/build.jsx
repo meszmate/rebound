@@ -200,6 +200,36 @@
     return false;
   }
 
+  // Does a frame's content spill past its bounds? A heuristic over each direct
+  // child's axis-aligned transform box (frame-local). It is exact for the common
+  // case and intentionally conservative; it can miss a rotated child whose rotated
+  // bbox pokes out (unrotated box used) or a non-clipping nested frame whose own
+  // content overflows. Used only to decide whether a CLIPPING frame needs a precomp
+  // (so a clipping frame whose content fits stays a flat editable group); a missed
+  // case just leaves a little overflow visible rather than breaking anything.
+  function frameContentOverflows(node) {
+    var kids = node.children || [];
+    var fw = node.width || (node.transform && node.transform.width) || 0;
+    var fh = node.height || (node.transform && node.transform.height) || 0;
+    if (!fw || !fh || !kids.length) return false;
+    var eps = 0.5;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (!c || c.visible === false) continue;
+      var t = c.transform || {};
+      var x = t.x || 0, y = t.y || 0, w = t.width || 0, h = t.height || 0;
+      if (x < -eps || y < -eps || (x + w) > fw + eps || (y + h) > fh + eps) return true;
+    }
+    return false;
+  }
+
+  // Clip 1:1 with Figma: only a frame whose clipsContent is ON AND whose content
+  // overflows needs clipping (and clipping in AE needs a comp boundary). A frame
+  // that does not clip in Figma is never clipped here.
+  function frameShouldClip(node) {
+    return !!node.clipsContent && frameContentOverflows(node);
+  }
+
   // Clip a precomp layer to its comp bounds (or rounded corners) so overflowing
   // children are hidden, matching a Figma frame's clipsContent. roundFrameCorners
   // already adds a rounded mask when cornerRadii are present; only add a plain
@@ -222,7 +252,7 @@
   // Build the nested frame's own CompItem, fill its background and recurse its
   // children into it, then drop it into the parent comp as a precomp layer and
   // decorate it (shadow/border/rounded/clip) just like a top-level frame.
-  function buildNestedFrame(comp, node, report) {
+  function buildNestedFrame(comp, node, report, baseX, baseY, childOffset) {
     var fps = 30, dur = 10, par = 1;
     try { fps = comp.frameRate; dur = comp.duration; par = comp.pixelAspect; } catch (e) {}
     var w = Math.max(1, Math.round(node.width || (node.transform && node.transform.width) || 100));
@@ -231,10 +261,31 @@
     var inner = app.project.items.addComp(node.name || 'Frame', w, h, par, dur, fps);
     if (node.background && node.background.length) buildFrameBackground(inner, node, report);
     buildChildren(inner, node.children || [], report);
+    // A GROUP's children carry FRAME-local coords (not group-local), so when a
+    // group is precomped (used as a mask) the inner content sits offset by the
+    // group's own origin. Slide every root layer back into the group's own space
+    // (parented children follow their root). Frames don't need this — their
+    // children are already re-based to the frame's own origin by the exporter.
+    if (childOffset && (childOffset.x || childOffset.y)) {
+      for (var li = 1; li <= inner.numLayers; li++) {
+        var L = inner.layer(li);
+        try { if (L.parent == null) shiftLayer(L, -childOffset.x, -childOffset.y); } catch (eShift) {}
+      }
+    }
     report.framesBuilt++;
 
     var pcLayer = comp.layers.add(inner);
-    placeLocal(pcLayer, node);
+    // Place at an explicit comp position when given (a clipping top-level frame),
+    // otherwise at the node's own local origin (a nested frame).
+    if (typeof baseX === 'number' && typeof baseY === 'number') {
+      try {
+        var ptr = pcLayer.property(util.MATCH.transform);
+        ptr.property(util.MATCH.anchor).setValue([0, 0]);
+        ptr.property(util.MATCH.position).setValue([baseX, baseY]);
+      } catch (eP) {}
+    } else {
+      placeLocal(pcLayer, node);
+    }
     decorateFrameLayer(pcLayer, node, report);
     clipPrecompLayer(pcLayer, node);
     return pcLayer;
@@ -383,9 +434,9 @@
     if (node.blendMode && node.blendMode !== 'NORMAL' && node.blendMode !== 'PASS_THROUGH') {
       note(report, 'approximated', { name: node.name, detail: 'frame blend mode is applied per layer, not as a group' });
     }
-    if (node.clipsContent) {
-      note(report, 'approximated', { name: node.name, detail: 'frame is not clipped in group mode (enable Precomp frames to clip)' });
-    }
+    // No clip note here: a clipping frame whose content overflows is routed to a
+    // precomp (which clips) before it ever reaches buildFrameFlat, so a frame that
+    // lands here either does not clip or has nothing overflowing to clip.
     report.framesBuilt++;
     return container;
   }
@@ -394,7 +445,18 @@
   // top-left lands, then each frame keeps its position relative to the others.
   function buildTopFrameFlat(comp, frame, origin, px, py, report) {
     var off = frame.offset || { x: 0, y: 0 };
-    return buildFrameFlat(comp, frame, px + (off.x - origin.x), py + (off.y - origin.y), report);
+    var baseX = px + (off.x - origin.x), baseY = py + (off.y - origin.y);
+    // A clipping top-level frame whose content overflows is clipped 1:1 by building
+    // it as a precomp placed at its comp position; everything else stays flat.
+    if (frameShouldClip(frame)) {
+      var pc;
+      try { pc = buildNestedFrame(comp, frame, report, baseX, baseY); }
+      catch (e) { pc = buildFrameFlat(comp, frame, baseX, baseY, report); }
+      registerLayer(frame, pc);
+      if (R.importer.mask) R.importer.mask.collect(frame, pc, report);
+      return pc;
+    }
+    return buildFrameFlat(comp, frame, baseX, baseY, report);
   }
 
   // Union of all top-level frames in canvas space, for sizing the one new comp.
@@ -417,24 +479,45 @@
     if (!node || node.visible === false) return null;
     if (node.type === 'FRAME') {
       var result;
-      // Precomp only when the user opts in; otherwise frames flatten to groups.
-      if (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) {
+      var tx = (node.transform && node.transform.x) || 0;
+      var ty = (node.transform && node.transform.y) || 0;
+      // A precomp is the faithful tool when: the user opted into precomp frames;
+      // the frame is used as a mask (a track matte needs one pixel layer); or it
+      // clips AND its content overflows (so a non-clipping frame is never precomped).
+      var needPrecomp = (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) ||
+        node.isMask || frameShouldClip(node);
+      if (needPrecomp) {
         try {
           result = buildNestedFrame(comp, node, report);
         } catch (e) {
           note(report, 'approximated', { name: node.name, detail: 'nested frame fell back to a group' });
-          result = buildGroup(comp, node, report);
+          result = buildFrameFlat(comp, node, tx, ty, report);
         }
       } else {
-        var tx = (node.transform && node.transform.x) || 0;
-        var ty = (node.transform && node.transform.y) || 0;
         result = buildFrameFlat(comp, node, tx, ty, report);
       }
       registerLayer(node, result);
       if (R.importer.mask) R.importer.mask.collect(node, result, report);
       return result;
     }
-    if (node.type === 'GROUP') return buildGroup(comp, node, report);
+    if (node.type === 'GROUP') {
+      var gresult;
+      // A group used as a mask needs a single pixel layer to matte with -> precomp;
+      // otherwise it stays a flat editable group.
+      if (node.isMask) {
+        // Re-base the group's frame-local children into group-local space inside
+        // the precomp (see buildNestedFrame childOffset), so the matte silhouette
+        // lands where the group actually is.
+        var goff = { x: (node.transform && node.transform.x) || 0, y: (node.transform && node.transform.y) || 0 };
+        try { gresult = buildNestedFrame(comp, node, report, undefined, undefined, goff); }
+        catch (eg) { gresult = buildGroup(comp, node, report); }
+      } else {
+        gresult = buildGroup(comp, node, report);
+      }
+      registerLayer(node, gresult);
+      if (R.importer.mask) R.importer.mask.collect(node, gresult, report);
+      return gresult;
+    }
     var builder = builders[node.type];
     if (builder) {
       try {
