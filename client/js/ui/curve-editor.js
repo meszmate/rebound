@@ -177,20 +177,21 @@
         cx: hxPix, cy: hyPix, r: 7, class: 'rb-handle', 'data-handle': key,
         tabindex: 0, role: 'slider', 'aria-label': key === 'h1' ? 'Out handle' : 'In handle'
       });
-      circle.addEventListener('pointerdown', startDrag(key, circle));
+      // CEF (After Effects) can drop POINTER events on SVG sub-elements while still
+      // firing MOUSE events (same quirk that makes <button> get click but not
+      // pointerdown). Bind both families; the drag-state guard dedupes the pair.
+      var startHandle = startDrag(key, circle);
+      circle.addEventListener('mousedown', startHandle);
+      circle.addEventListener('pointerdown', startHandle);
       circle.addEventListener('keydown', handleKey(key));
       svgEl.appendChild(circle);
     }
 
     function startDrag(key, circle) {
       return function (e) {
+        if (dragging) return; // ignore the paired mousedown+pointerdown (one drag)
         e.preventDefault();
         circle.classList.add('is-dragging');
-        // setPointerCapture throws in some runtimes (After Effects' CEF / older
-        // Chromium, and on SVG elements). The drag does NOT need it — the document
-        // listeners below get the bubbled pointermove/up regardless — so guard it,
-        // or an exception here kills the whole drag (the handle never moves).
-        try { circle.setPointerCapture(e.pointerId); } catch (errCap) { /* drag still works without capture */ }
         // Freeze both the value range and the pixel geometry for the whole drag,
         // so the value maps to the pointer 1:1 and the drag is always reversible
         // (pull a handle back the exact way it came). For extreme overshoot the
@@ -203,21 +204,31 @@
         // how the layout reflows mid-drag (the live preview re-rendering, etc.).
         dragGeom = svgEl.getScreenCTM();
         render();
+        var ended = false;
         var move = function (ev) {
           var p = toPlot(ev);
           applyHandle(key, domX(p.x), domV(p.y), ev);
         };
-        var up = function (ev) {
+        var up = function () {
+          if (ended) return; // mouseup + pointerup both fire; run cleanup once
+          ended = true;
           circle.classList.remove('is-dragging');
           frozenView = null;
           dragging = false;
           dragGeom = null;
           render();
           hideReadout();
+          document.removeEventListener('mousemove', move);
+          document.removeEventListener('mouseup', up);
           document.removeEventListener('pointermove', move);
           document.removeEventListener('pointerup', up);
           if (opts.onCommit) opts.onCommit(clone(curve));
         };
+        // Listen on both families: whichever the runtime delivers drives the drag
+        // (CEF mouse events are reliable on SVG; pointer events may not be). The
+        // moves are idempotent and `ended` dedupes the up, so doubling is harmless.
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
         document.addEventListener('pointermove', move);
         document.addEventListener('pointerup', up);
         move(e);
