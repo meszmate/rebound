@@ -200,6 +200,7 @@
       el('div.rb-row', null, [copyBtn, pasteBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
+      el('div.rb-hint', { text: 'Tip: hold Alt while applying for Out only, Shift for In only — works on preset tiles too.' }),
       allToggle.el,
       el('div.rb-section-label', { text: 'Applies as (real values)' }),
       realValuesEl
@@ -211,7 +212,10 @@
       title: 'Read the selected keyframes’ ease into the editor',
       onclick: doRead
     }, ['Read']);
-    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    var applyBtn = el('button.rb-btn.is-primary', {
+      onclick: doApply,
+      title: 'Apply the curve to the selected keyframes. Hold Alt = Out only, Shift = In only, Alt+Shift = In & Out.'
+    }, ['Apply']);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(readBtn);
     ctx.footer.appendChild(applyBtn);
@@ -231,11 +235,26 @@
     });
     scopeText.textContent = describeSelection(lastSel);
 
-    function doApply() {
-      ctx.invoke('ease.apply', { curve: curve, scope: scope, applyToAll: applyToAll })
+    // Flow-style modifier override: hold a modifier while applying (Apply button
+    // or a preset tile) to force the eased side for that one apply, without
+    // touching the In/Out/Both control. Alt = Out only, Shift = In only, both =
+    // In & Out; no modifier = whatever the scope control says.
+    function scopeForEvent(e) {
+      if (!e) return scope;
+      var alt = !!e.altKey, shift = !!e.shiftKey;
+      if (alt && shift) return 'inout';
+      if (alt) return 'out';
+      if (shift) return 'in';
+      return scope;
+    }
+
+    function doApply(e) {
+      var useScope = scopeForEvent(e);
+      ctx.invoke('ease.apply', { curve: curve, scope: useScope, applyToAll: applyToAll })
         .then(function (res) {
+          var sideNote = useScope !== scope ? ' (' + useScope + ')' : '';
           ctx.toast('Eased ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's') +
-            ' across ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies'), { kind: 'success' });
+            ' across ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') + sideNote, { kind: 'success' });
           ctx.refreshSelection();
         })
         .catch(function (err) {
@@ -276,9 +295,9 @@
     function canApplyNow() {
       return applyToAll || (!!lastSel && lastSel.hasComp && (lastSel.totalSelectedKeys || 0) >= 2);
     }
-    function pickPreset(state) {
+    function pickPreset(state, e) {
       applyState(state);
-      if (canApplyNow()) doApply();
+      if (canApplyNow()) doApply(e);
       else ctx.toast('Loaded — select 2+ keyframes to apply', { kind: 'info' });
     }
 
