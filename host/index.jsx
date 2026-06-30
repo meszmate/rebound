@@ -93,6 +93,7 @@
   loadCmd('commands/ease.jsx');
   loadCmd('commands/ease-remap.jsx');
   loadCmd('commands/ease-mode.jsx');
+  loadCmd('commands/easescripts.jsx');
   loadCmd('commands/spring.jsx');
   loadCmd('commands/anchor.jsx');
   loadCmd('commands/align.jsx');

@@ -184,6 +184,11 @@
       }
     }, ['Paste']);
 
+    var exportBtn = el('button.rb-btn.is-ghost', {
+      title: 'Write every saved ease as a standalone .jsx — wire each to a KBar button, a Tool Launcher, or AE’s Scripts menu',
+      onclick: doExportScripts
+    }, ['Export → scripts']);
+
     // --- Graph space: Value (progress) vs Speed (velocity, like AE) ---
     var graphCtl = ui.segmented([
       { value: 'value', label: 'Value graph', title: 'Progress/value curve — the same shape as CSS cubic-bezier()' },
@@ -197,7 +202,7 @@
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
-      el('div.rb-row', null, [copyBtn, pasteBtn]),
+      el('div.rb-row.rb-wrap', null, [copyBtn, pasteBtn, exportBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
       el('div.rb-hint', { text: 'Tip: hold Alt while applying for Out only, Shift for In only — works on preset tiles too.' }),
@@ -260,6 +265,45 @@
         .catch(function (err) {
           ctx.toast(err.message || 'Could not apply ease', { kind: 'error' });
         });
+    }
+
+    // Export every saved ease (built-in + your own) as a standalone .jsx the host
+    // writes to a folder you pick. Monotonic penner curves are fitted to a single
+    // cubic-bezier; overshoot/spring curves can't be one bezier, so they're skipped.
+    function asBezierCurve(c) {
+      if (!c) return null;
+      if (c.type === 'bezier') return c;
+      var sampler = R.easing.sampler;
+      if (sampler.strategy(c) === 'temporal-ease') {
+        var h = sampler.fitBezierHandles(c);
+        return { type: 'bezier', x1: h.x1, y1: h.y1, x2: h.x2, y2: h.y2 };
+      }
+      return null;
+    }
+    function gatherEasePresets() {
+      var out = [];
+      ((R.presets && R.presets.defaults) || []).forEach(function (p) {
+        var c = asBezierCurve(p && p.curve);
+        if (c) out.push({ name: p.name, curve: c });
+      });
+      var user = [];
+      try { var d = R.disk.read('presets:ease', null); if (d && d.items) user = d.items; } catch (e) { /* none */ }
+      user.forEach(function (u) {
+        var c = asBezierCurve(u.state && u.state.curve);
+        if (c) out.push({ name: u.name, curve: c });
+      });
+      return out;
+    }
+    function doExportScripts() {
+      var presets = gatherEasePresets();
+      if (!presets.length) { ctx.toast('No exportable eases found', { kind: 'error' }); return; }
+      ctx.invoke('ease.exportScripts', { presets: presets })
+        .then(function (res) {
+          if (!res || res.cancelled) return;
+          ctx.toast('Exported ' + res.written + ' ease script' + (res.written === 1 ? '' : 's') +
+            ' to ' + res.folder, { kind: 'success' });
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not export ease scripts', { kind: 'error' }); });
     }
 
     function doRead() {
