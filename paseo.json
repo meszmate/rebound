@@ -1,0 +1,10 @@
+{
+  "metadataGeneration": {
+    "branchName": {
+      "instructions": "prefix branches with feature/, fix/"
+    },
+    "commitMessage": {
+      "instructions": "Use conventional commits with scope"
+    }
+  }
+}

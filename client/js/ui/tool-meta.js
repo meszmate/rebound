@@ -155,6 +155,8 @@
 
     // Convert & import
     import: t('convert', ICONS.importIn, 'Bring a Figma, Illustrator, or Photoshop design in as native, editable layers'),
+    lottie: t('convert', ICONS.importIn, 'Export transform animation to Lottie JSON for web/app',
+      'Bakes the selected layers’ transform animation (position, scale, rotation, opacity, anchor) and its eases to a Lottie .json — closing the Figma → AE → code handoff. Solids/shapes carry a colored fill; text/other export transform-only.'),
 
     // Color
     color: t('color', ICONS.droplet, 'Set fill, solid, or effect color'),

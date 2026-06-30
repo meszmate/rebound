@@ -7,6 +7,15 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Lottie export (new tool) — close the Figma → AE → code loop.** Select layers
+  and export their transform animation (position, scale, rotation, opacity,
+  anchor) *with eases* to a Lottie `.json` for web (lottie-web) or app (Lottie
+  iOS/Android). Lottie's per-keyframe `o`/`i` tangents are the same normalized
+  cubic-bezier Rebound already uses, so eases round-trip exactly — no
+  approximation. Solids/shapes carry a colored fill; text/other export
+  transform-only (flagged). Backed by a pure, unit-tested serializer
+  (`client/js/export/lottie.js`, 11 tests). No competitor in the audit set
+  offers Lottie/MOGRT export.
 - **Easing delivery layer — the last mile to full Flow parity (three parts).**
   - **Modifier-key side at apply:** hold **Alt** while applying (the Apply button
     *or* a one-click preset tile) to ease the **Out** side only, **Shift** for
