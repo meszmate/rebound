@@ -77,7 +77,11 @@
       var node = el('div.rb-tile', {
         'data-name': p.name, title: 'Apply ' + p.name,
         onclick: function () {
-          if (config.set) { try { config.set(p.state); } catch (e) { R.log.error('Preset apply failed', e); } }
+          // onPick (opt-in) applies the preset to the live selection immediately
+          // — the Flow-style one-click. Tools that don't provide it fall back to
+          // loading the preset into their editor (config.set).
+          if (config.onPick) { try { config.onPick(p.state); } catch (e0) { R.log.error('Preset apply failed', e0); } }
+          else if (config.set) { try { config.set(p.state); } catch (e) { R.log.error('Preset apply failed', e); } }
           mark(p.name);
         }
       }, children);

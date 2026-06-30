@@ -270,6 +270,18 @@
       renderRealValues();
     }
 
+    // Flow-style one-click: clicking a preset tile loads it into the editor AND
+    // eases the live selection immediately. If nothing is selected yet, it just
+    // loads (no error) so you can select keyframes and click again.
+    function canApplyNow() {
+      return applyToAll || (!!lastSel && lastSel.hasComp && (lastSel.totalSelectedKeys || 0) >= 2);
+    }
+    function pickPreset(state) {
+      applyState(state);
+      if (canApplyNow()) doApply();
+      else ctx.toast('Loaded — select 2+ keyframes to apply', { kind: 'info' });
+    }
+
     updateReadout();
     renderRealValues();
 
@@ -286,6 +298,7 @@
         toolId: 'ease',
         get: getState,
         set: applyState,
+        onPick: pickPreset,
         previewFor: function (s) { return s.curve; },
         defaults: easeDefaults()
       },

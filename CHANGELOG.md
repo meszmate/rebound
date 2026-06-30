@@ -7,6 +7,13 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Ease presets now apply on click (Flow-style one-click easing).** Clicking a
+  preset tile in the Ease tool's gallery now **eases the selected keyframes
+  immediately** and loads the curve into the editor for tweaking/re-Apply — no
+  separate Apply step. If nothing's selected yet it just loads (no error). Other
+  tools are unaffected: the gallery gained an opt-in `onPick` hook and only the
+  Ease tool uses it. (The Home board's one-click Easy Ease / Ease In / Ease Out
+  tiles already applied natively; this brings the in-tool gallery in line.)
 - **Ease tool: edit the Speed graph directly, 1:1 with After Effects.** A new
   **Value graph / Speed graph** toggle flips the curve editor between the
   progress/value curve (CSS `cubic-bezier`, an S-shape for an ease-in-out) and
