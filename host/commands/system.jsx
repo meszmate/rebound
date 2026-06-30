@@ -138,6 +138,41 @@
   // cubic-bezier plus in/out influence/speed. Same formula as ease.read, but
   // read-only and rounded so identical eases never churn the poll diff. Returns
   // null when the segment is degenerate.
+  // The real-units speed unit for a property's keyframe velocity (px/s, %/s,
+  // °/s, …). Used so the Ease tool can show the ACTUAL AE values a curve will set.
+  function speedUnit(p) {
+    var mn = String(p.matchName || '');
+    var nm = String(p.name || '');
+    if (mn.indexOf('Scale') !== -1) return '%';
+    if (mn.indexOf('Opacity') !== -1) return '%';
+    if (mn.indexOf('Rotat') !== -1 || nm.indexOf('Rotation') !== -1) return '°';
+    if (mn.indexOf('Position') !== -1 || mn.indexOf('Anchor') !== -1 ||
+        nm === 'Position' || nm === 'Anchor Point') return 'px';
+    return '';
+  }
+
+  // Signed average speed (dv/dt) of the selected segment, plus its unit, so the
+  // panel can project a normalized curve into the influence/speed AE will store.
+  function segmentMotion(p, a, b) {
+    var dt = p.keyTime(b) - p.keyTime(a);
+    if (dt <= 0) return null;
+    var aVals = keyVals(p, a);
+    var bVals = keyVals(p, b);
+    // For non-spatial multi-dim props the eased dimension is the one that moves
+    // most; match what ease.read reconstructs so the readout agrees with Read.
+    var dv;
+    if (util.isSpatial(p)) {
+      dv = mag(aVals, bVals);
+    } else {
+      dv = 0;
+      for (var d = 0; d < aVals.length; d++) {
+        var chg = (bVals[d] || 0) - (aVals[d] || 0);
+        if (Math.abs(chg) > Math.abs(dv)) dv = chg;
+      }
+    }
+    return { dv: r2(dv), dt: r4(dt), avg: r2(dv / dt), unit: speedUnit(p) };
+  }
+
   function segmentEase(p, a, b) {
     var dt = p.keyTime(b) - p.keyTime(a);
     if (dt <= 0) return null;
@@ -247,17 +282,20 @@
         dimensionsSeparated: p.dimensionsSeparated === true,
         interpInType: null,
         interpOutType: null,
-        currentEase: null
+        currentEase: null,
+        segment: null
       };
 
       // When a usable segment is selected, capture its current ease so the panel
-      // can draw the live curve with no extra round trip.
+      // can draw the live curve with no extra round trip, plus its motion (avg
+      // speed + unit) so the Ease tool can show the REAL values a curve will set.
       if (selKeys.length >= 2) {
         var ka = selKeys[0];
         var kb = selKeys[1];
         try { entry.interpOutType = interpName(p.keyOutInterpolationType(ka)); } catch (eo) {}
         try { entry.interpInType = interpName(p.keyInInterpolationType(kb)); } catch (ei) {}
         try { entry.currentEase = segmentEase(p, ka, kb); } catch (es) {}
+        try { entry.segment = segmentMotion(p, ka, kb); } catch (em) {}
       }
 
       out.properties.push(entry);

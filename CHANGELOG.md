@@ -7,6 +7,18 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Ease tool now shows the real AE values before you Apply.** A live "Applies as
+  (real values)" readout lists every selected keyframe segment and the actual
+  **influence % and speed** the current curve will set on it — in real units per
+  property (Position `px/s`, Scale `%/s`, Rotation `°/s`, Opacity `%/s`). Because
+  one normalized curve maps to *different* speeds per property (speed = slope ×
+  the segment's own dv/dt), selecting a null's **Position and Scale** together now
+  shows both rows with their distinct numbers, so there's no surprise after Apply.
+  It also makes the (speed, influence) model visible: the handle's **X is the
+  influence** — drag a handle only *up* (changing speed/Y) while its X stays small
+  and the readout shows a low influence %, explaining why the motion barely eases.
+  Updates live as you shape the curve, switch In/Out/In&Out, Read, or paste.
+
 - **No-image fidelity round: every fill type now rebuilds as native vector/effect
   content** (multi-agent implement + adversarial review). Nothing in this list is
   a flat raster any more — the only remaining pixels are an image that was already

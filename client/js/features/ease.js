@@ -40,6 +40,7 @@
         curve = c;
         syncFields();
         updateReadout();
+        renderRealValues();
       }
     });
 
@@ -56,6 +57,54 @@
       }).join(', ') + ')');
     }
 
+    // --- Real-values readout: what Apply will actually set on the selection ----
+    // One normalized curve maps to DIFFERENT AE influence/speed per property,
+    // because speed = slope * (the segment's own dv/dt). Showing it removes the
+    // "I dragged the handle but nothing happened" mystery: a small influence (the
+    // handle's X) barely eases no matter how high you pull it (the Y / speed).
+    var lastSel = ctx.getSelection();
+    var realValuesEl = el('div.rb-ease-real');
+
+    function projForCurve(avg) {
+      var den = 1 - curve.x2;
+      return {
+        outInfl: clampInfluence(curve.x1 * 100),
+        outSpeed: curve.x1 === 0 ? 0 : (curve.y1 / curve.x1) * avg,
+        inInfl: clampInfluence(den * 100),
+        inSpeed: den === 0 ? 0 : ((1 - curve.y2) / den) * avg
+      };
+    }
+    function fmtSpeed(v, unit) {
+      return R.units.round(v, 1) + (unit || '') + '/s';
+    }
+    function renderRealValues() {
+      R.dom.clear(realValuesEl);
+      var segs = [];
+      if (lastSel && lastSel.properties) {
+        for (var i = 0; i < lastSel.properties.length; i++) {
+          if (lastSel.properties[i].segment) segs.push(lastSel.properties[i]);
+        }
+      }
+      if (!segs.length) {
+        realValuesEl.appendChild(el('div.rb-ease-real-empty', {
+          text: 'Select 2+ keyframes to see the values Apply will set.'
+        }));
+        return;
+      }
+      for (var j = 0; j < segs.length; j++) {
+        var p = segs[j];
+        var pr = projForCurve(p.segment.avg);
+        var unit = p.segment.unit;
+        var parts = [];
+        if (scope !== 'in') parts.push('out ' + fmtSpeed(pr.outSpeed, unit) + ' @ ' + Math.round(pr.outInfl) + '%');
+        if (scope !== 'out') parts.push('in ' + fmtSpeed(pr.inSpeed, unit) + ' @ ' + Math.round(pr.inInfl) + '%');
+        realValuesEl.appendChild(el('div.rb-ease-real-row', null, [
+          el('span.rb-ease-real-name', { text: (p.layerName ? p.layerName + ' · ' : '') + p.name }),
+          el('span.rb-ease-real-vals', { text: parts.join('   ·   ') })
+        ]));
+      }
+    }
+
     // --- Numeric bezier fields ---
     var fields = {};
     function field(key, label) {
@@ -69,6 +118,7 @@
           curve[key] = key.charAt(0) === 'x' ? clamp01(v) : v;
           editor.setCurve(curve);
           updateReadout();
+          renderRealValues();
         }
       });
       fields[key] = f;
@@ -99,7 +149,7 @@
       { value: 'out', label: 'Out', title: 'Ease the outgoing side only' },
       { value: 'inout', label: 'In & Out', title: 'Ease both sides (adapts at the ends of the selection)' },
       { value: 'in', label: 'In', title: 'Ease the incoming side only' }
-    ], { value: scope, onChange: function (v) { scope = v; } });
+    ], { value: scope, onChange: function (v) { scope = v; renderRealValues(); } });
 
     var allToggle = ui.toggle({
       label: 'Apply to every keyframe (not just selected)',
@@ -128,6 +178,7 @@
           editor.setCurve(curve);
           syncFields();
           updateReadout();
+          renderRealValues();
           ctx.toast('Pasted curve', { kind: 'success' });
         });
       }
@@ -142,7 +193,9 @@
       el('div.rb-row', null, [copyBtn, pasteBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
-      allToggle.el
+      allToggle.el,
+      el('div.rb-section-label', { text: 'Applies as (real values)' }),
+      realValuesEl
     ]));
 
     // --- Footer actions ---
@@ -165,9 +218,11 @@
     }
 
     var off = ctx.onSelection(function (sel) {
+      lastSel = sel;
       scopeText.textContent = describeSelection(sel);
+      renderRealValues();
     });
-    scopeText.textContent = describeSelection(ctx.getSelection());
+    scopeText.textContent = describeSelection(lastSel);
 
     function doApply() {
       ctx.invoke('ease.apply', { curve: curve, scope: scope, applyToAll: applyToAll })
@@ -190,6 +245,7 @@
           editor.setCurve(curve);
           syncFields();
           updateReadout();
+          renderRealValues();
           ctx.toast('Read ease from ' + res.propertyName, { kind: 'info' });
         })
         .catch(function (err) {
@@ -204,9 +260,11 @@
       editor.setCurve(curve);
       syncFields();
       updateReadout();
+      renderRealValues();
     }
 
     updateReadout();
+    renderRealValues();
 
     // Selecting a keyframe pair shows its live ease (from the cached summary, no
     // host round-trip — the host already computes currentEase when >=2 keys).
@@ -259,6 +317,8 @@
   // --- helpers --------------------------------------------------------------
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  // Mirror host/commands/ease.jsx clampInfluence so the readout matches Apply.
+  function clampInfluence(v) { return v < 0.1 ? 0.1 : v > 100 ? 100 : v; }
 
   function parseCubicBezier(text) {
     if (!text) return null;
