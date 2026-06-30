@@ -7,6 +7,15 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Audio & rhythm (new tool) — beat/transient markers, a category no all-in-one
+  rival owns.** Drop comp or layer markers from a **BPM beat grid** (with
+  **tap-tempo** and subdivision) or **detected from the audio itself**: select a
+  WAV layer and Rebound decodes it (the panel's Node runtime) and energy-flux
+  onset-detects the transients, mapping them into composition time. Markers feed
+  straight into the already-polished Stagger/Sequence. Backed by a pure,
+  unit-tested module (`client/js/audio/onset.js` — WAV decode + onset detection +
+  beat grid + snap, 9 tests). MP3/AAC fall back to the BPM grid (no bundled
+  decoder yet); snapping existing keyframes to the grid is a planned follow-up.
 - **Lottie export (new tool) — close the Figma → AE → code loop.** Select layers
   and export their transform animation (position, scale, rotation, opacity,
   anchor) *with eases* to a Lottie `.json` for web (lottie-web) or app (Lottie

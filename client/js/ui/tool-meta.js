@@ -113,6 +113,8 @@
     fade: t('timing', ICONS.clock, 'Add opacity fade in / out'),
     keys: t('timing', ICONS.clock, 'Set keyframe interpolation',
       'Beyond F9 Easy Ease: set Linear, Hold, Bezier, or Easy Ease across every selected key, with the correct single ease for spatial properties, and it never aborts on an edge key.'),
+    audio: t('timing', ICONS.wave, 'Place beat / transient markers from tempo or audio',
+      'Drops comp or layer markers on a BPM grid (with tap-tempo) or on transients detected in a WAV audio layer, so Stagger/Sequence can sync to the beat. No After Effects equivalent.'),
 
     // Transform & rig
     anchor: t('transform', ICONS.target, 'Move the anchor without moving the layer',

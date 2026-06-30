@@ -61,6 +61,7 @@ const extendscriptGlobals = {
   File: 'readonly',
   KeyframeInterpolationType: 'readonly',
   KeyframeEase: 'readonly',
+  MarkerValue: 'readonly',
   PropertyValueType: 'readonly',
   PropertyType: 'readonly',
   LayerQuality: 'readonly',

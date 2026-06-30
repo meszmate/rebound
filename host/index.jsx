@@ -111,6 +111,7 @@
   loadCmd('commands/follow.jsx');
   loadCmd('commands/comp.jsx');
   loadCmd('commands/lottie.jsx');
+  loadCmd('commands/audio.jsx');
   loadCmd('commands/fade.jsx');
   loadCmd('commands/trimpaths.jsx');
   loadCmd('commands/shapes.jsx');
