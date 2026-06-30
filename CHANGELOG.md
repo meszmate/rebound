@@ -7,6 +7,21 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Easing delivery layer — the last mile to full Flow parity (three parts).**
+  - **Modifier-key side at apply:** hold **Alt** while applying (the Apply button
+    *or* a one-click preset tile) to ease the **Out** side only, **Shift** for
+    **In** only, **Alt+Shift** for both — without touching the In/Out/Both control.
+  - **Export eases as standalone scripts:** a new host command writes one
+    self-contained `.jsx` per saved ease (built-in + your own) to a folder you
+    pick. Each bakes the curve and applies it with **no Rebound dependency**, so
+    it drops straight onto a **KBar** "Run Script File" button, a Tool Launcher,
+    or AE's Scripts menu. Monotonic curves are fitted to a single bezier;
+    overshoot/spring curves (not expressible as one cubic) are skipped.
+  - **User-assignable keyboard shortcuts:** bind any Home action to a key in
+    Settings → *Keyboard shortcuts* (click **Set**, press your combo). Chords are
+    unique, reserved combos (Cmd+K, Cmd+Enter, Esc, Enter, "/") are protected, and
+    bindings persist. These are panel-focused shortcuts (a CEP panel can't
+    register global AE hotkeys — KBar is the route for those, hence the exporter).
 - **Ease presets now apply on click (Flow-style one-click easing).** Clicking a
   preset tile in the Ease tool's gallery now **eases the selected keyframes
   immediately** and loads the curve into the editor for tweaking/re-Apply — no

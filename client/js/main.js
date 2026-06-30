@@ -620,6 +620,29 @@
       }
       if (e.key === '/' && !inInput) { e.preventDefault(); if (searchInput) searchInput.focus(); return; }
 
+      // User-assignable shortcuts: a bound chord runs its Home action from
+      // anywhere in the panel (when not typing). Reserved chords above already
+      // returned, so this never shadows Cmd+K / Cmd+Enter / Esc / Enter / "/".
+      if (!inInput && R.keybinds) {
+        var chord = R.keybinds.chordFromEvent(e);
+        if (chord && !R.keybinds.isReserved(chord)) {
+          var actionId = R.keybinds.actionIdForChord(chord);
+          if (actionId && R.homeActions) {
+            var action = R.homeActions.byId(actionId);
+            if (action) {
+              e.preventDefault();
+              R.homeActions.run(action, {
+                invoke: function (m, a) { return R.bridge.invoke(m, a); },
+                openTool: openToolById,
+                toast: R.ui.toast,
+                refreshSelection: pollSelection
+              }).catch(function () { /* toasted by run() */ });
+              return;
+            }
+          }
+        }
+      }
+
       if (view === 'detail') {
         if (e.key === 'Escape' && !inInput) { e.preventDefault(); back(); return; }
         // A plain Enter applies too, as long as focus is not in a text field.

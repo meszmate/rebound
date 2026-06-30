@@ -706,3 +706,48 @@
 .rb-rename-old { color: var(--rb-text-faint); flex: 0 0 auto; }
 .rb-rename-arrow { color: var(--rb-text-faint); opacity: 0.6; flex: 0 0 auto; }
 .rb-rename-new { color: var(--rb-accent); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- Keyboard-shortcut editor (Settings) -------------------------------- */
+.rb-kbd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 260px;
+  margin-top: var(--rb-gap-2);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-2);
+  padding: var(--rb-gap-1);
+}
+.rb-kbd-row {
+  display: flex;
+  align-items: center;
+  gap: var(--rb-gap-2);
+  padding: var(--rb-gap-1) var(--rb-gap-2);
+  border-radius: var(--rb-radius-1);
+}
+.rb-kbd-row:hover { background: var(--rb-bg-hover, rgba(127, 127, 127, 0.08)); }
+.rb-kbd-label {
+  font-size: calc(var(--rb-font-size) - 1px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-kbd {
+  font-variant-numeric: tabular-nums;
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text);
+  background: var(--rb-bg-sunken);
+  border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-1);
+  padding: 1px 6px;
+  min-width: 28px;
+  text-align: center;
+  flex: none;
+}
+.rb-kbd.is-empty { color: var(--rb-text-faint); background: none; border-color: transparent; }
+.rb-btn-sm {
+  padding: 2px 8px;
+  font-size: calc(var(--rb-font-size) - 1px);
+  flex: none;
+}
+.rb-btn-sm.is-active { color: var(--rb-accent); border-color: var(--rb-accent); }

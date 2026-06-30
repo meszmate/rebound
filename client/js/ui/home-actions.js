@@ -178,5 +178,35 @@
     }
   };
 
-  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, scriptActions: scriptActions, expressionActions: expressionActions, presetActions: presetActions, all: all, byId: byId, DEFAULT: DEFAULT, DEFAULT_BOARD: DEFAULT_BOARD };
+  // An action's default invoke args (clone, no per-tile config overrides).
+  function defaultArgs(action) {
+    var base = (action.invoke && action.invoke.args) || action.args || {}, out = {}, k;
+    for (k in base) if (base.hasOwnProperty(k)) out[k] = base[k];
+    return out;
+  }
+
+  // Run an action with its default configuration through a minimal ctx
+  // ({ invoke, openTool, toast?, refreshSelection? }). Used by the keyboard-
+  // shortcut dispatcher (the Home board has its own runner that also layers in
+  // per-tile config). 'open'/'widget' open the tool; 'apply' invokes the command.
+  function run(action, ctx) {
+    if (!action) return Promise.reject(new Error('Unknown action'));
+    if (action.kind === 'open' || action.kind === 'widget') {
+      if (ctx && ctx.openTool) ctx.openTool(action.toolId);
+      return Promise.resolve({ opened: action.toolId });
+    }
+    var args = defaultArgs(action);
+    var inv = action.build ? action.build(args) : { method: action.invoke.method, args: args };
+    var p = ctx.invoke(inv.method, inv.args);
+    return p.then(function (res) {
+      if (ctx.toast) ctx.toast(action.label + ' applied', { kind: 'success' });
+      if (ctx.refreshSelection) ctx.refreshSelection();
+      return res;
+    }).catch(function (err) {
+      if (ctx.toast) ctx.toast((err && err.message) || ('Could not apply ' + action.label), { kind: 'error' });
+      throw err;
+    });
+  }
+
+  R.homeActions = { applyActions: applyActions, openActions: openActions, widgetActions: widgetActions, scriptActions: scriptActions, expressionActions: expressionActions, presetActions: presetActions, all: all, byId: byId, run: run, defaultArgs: defaultArgs, DEFAULT: DEFAULT, DEFAULT_BOARD: DEFAULT_BOARD };
 })(window.Rebound = window.Rebound || {});
