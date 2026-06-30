@@ -6,7 +6,8 @@
 import '../../client/js/easing/bezier.js';
 import '../../client/js/easing/penner.js';
 import '../../client/js/easing/spring.js';
+import '../../client/js/easing/speedgraph.js';
 import '../../client/js/easing/sampler.js';
 
 export const E = globalThis.Rebound.easing;
-export const { bezier, penner, spring, sampler } = E;
+export const { bezier, penner, spring, speedgraph, sampler } = E;

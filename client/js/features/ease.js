@@ -184,9 +184,16 @@
       }
     }, ['Paste']);
 
+    // --- Graph space: Value (progress) vs Speed (velocity, like AE) ---
+    var graphCtl = ui.segmented([
+      { value: 'value', label: 'Value graph', title: 'Progress/value curve — the same shape as CSS cubic-bezier()' },
+      { value: 'speed', label: 'Speed graph', title: 'Velocity over time — matches After Effects’ Graph Editor (no mental translation)' }
+    ], { value: editor.getSpace(), onChange: function (v) { editor.setSpace(v); } });
+
     // --- Assemble body ---
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
+      graphCtl.el,
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,

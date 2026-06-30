@@ -7,6 +7,16 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Ease tool: edit the Speed graph directly, 1:1 with After Effects.** A new
+  **Value graph / Speed graph** toggle flips the curve editor between the
+  progress/value curve (CSS `cubic-bezier`, an S-shape for an ease-in-out) and
+  the **velocity-over-time graph** AE's Graph Editor shows by default (a hump for
+  the same ease). In Speed mode a handle's **height is the keyframe's speed** and
+  its **X is the influence**, so dragging a handle *up* makes that end genuinely
+  faster — no more S-curve↔hump mental translation, and what you draw matches
+  what AE displays. Both modes edit the same `{x1,y1,x2,y2}`, so Apply/Read are
+  unchanged. Backed by a new tested `easing/speedgraph` module (the speed profile
+  is the exact derivative of the value curve — verified to integrate to 1).
 - **Ease tool now shows the real AE values before you Apply.** A live "Applies as
   (real values)" readout lists every selected keyframe segment and the actual
   **influence % and speed** the current curve will set on it — in real units per
