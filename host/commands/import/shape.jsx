@@ -222,6 +222,41 @@
     return sl.layer;
   }
 
+  // Build a MERGED icon (a wrapper of leaf vectors, flagged node.merged in the IR)
+  // as ONE editable shape layer: each child vector becomes its own sub-group with
+  // its own geometry + paint, offset by (child - node) — the same coordinate path
+  // buildBoolean uses. Keeps the icon 1:1 and editable in a single layer instead
+  // of one layer per vector. Falls back to the caller's group build on any failure.
+  function buildMergedShape(comp, node, report) {
+    var layer = comp.layers.addShape();
+    layer.name = node.name || 'Icon';
+    var root = layer.property(ROOT);
+    var t = node.transform || {};
+    var bx = t.x || 0, by = t.y || 0;
+    var kids = node.children || [];
+    var built = 0;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (!c || c.visible === false) continue;
+      var ct = c.transform || {};
+      var grp = root.addProperty(GROUP);
+      var contents = grp.property(CONTENTS);
+      var n = addGeometry(contents, c, [(ct.x || 0) - bx, (ct.y || 0) - by]);
+      if (!n) { try { grp.remove(); } catch (e) {} continue; }
+      paint.applyStroke(contents, c, report);
+      paint.applyFills(contents, c, report);
+      try { grp.name = c.name || 'Path'; } catch (eN) {}
+      built++;
+    }
+    if (!built) { try { layer.remove(); } catch (e2) {} return null; }
+    R.importer.transform.apply(layer, node, report);
+    R.importer.effect.apply(layer, node, report);
+    R.importer.layerStyle.collect(layer, node, report);
+    report.layersBuilt++;
+    return layer;
+  }
+  R.importer.buildMergedShape = buildMergedShape;
+
   var builders = R.importer.builders;
   builders.RECTANGLE = buildShapeNode;
   builders.ELLIPSE = buildShapeNode;

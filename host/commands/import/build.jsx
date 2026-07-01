@@ -587,6 +587,15 @@
     }
     if (node.type === 'GROUP') {
       var gresult;
+      // A merged icon (wrapper of leaf vectors) builds as ONE editable shape layer.
+      // Fall back to a normal group if the merge can't be built.
+      if (node.merged && R.importer.buildMergedShape) {
+        try { gresult = R.importer.buildMergedShape(comp, node, report); } catch (em) { gresult = null; }
+        if (!gresult) gresult = buildGroup(comp, node, report);
+        registerLayer(node, gresult);
+        if (R.importer.mask) R.importer.mask.collect(node, gresult, report);
+        return gresult;
+      }
       // A group used as a mask needs a single pixel layer to matte with -> precomp;
       // otherwise it stays a flat editable group.
       if (node.isMask) {

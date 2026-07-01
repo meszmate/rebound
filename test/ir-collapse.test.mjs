@@ -63,6 +63,44 @@ describe('ir-build.isCollapsibleLayout', () => {
   });
 });
 
+describe('ir-build.isIconGroup', () => {
+  const { isIconGroup } = globalThis.ReboundFigma;
+  const vec = (p) => Object.assign({ type: 'VECTOR', visible: true }, p);
+  // A pure wrapper whose children are all leaf vectors.
+  const icon = (kids, props) => Object.assign({ type: 'FRAME', visible: true, children: kids || [vec(), vec()] }, props);
+
+  it('merges a wrapper of 2+ leaf vectors', () => {
+    expect(isIconGroup(icon())).toBe(true);
+    expect(isIconGroup({ type: 'GROUP', visible: true, children: [vec(), vec(), vec()] })).toBe(true);
+  });
+
+  it('needs at least two leaf children', () => {
+    expect(isIconGroup(icon([vec()]))).toBe(false);
+    expect(isIconGroup(icon([]))).toBe(false);
+  });
+
+  it('rejects a wrapper with a non-vector child (text/image/nested group)', () => {
+    expect(isIconGroup(icon([vec(), { type: 'TEXT', visible: true }]))).toBe(false);
+    expect(isIconGroup(icon([vec(), { type: 'VECTOR', visible: true, children: [vec()] }]))).toBe(false);
+  });
+
+  it('rejects a real card (wrapper has a fill / stroke / corner / clip)', () => {
+    expect(isIconGroup(icon(null, { fills: [{ type: 'SOLID', visible: true }] }))).toBe(false);
+    expect(isIconGroup(icon(null, { clipsContent: true }))).toBe(false);
+    expect(isIconGroup(icon(null, { cornerRadius: 6 }))).toBe(false);
+  });
+
+  it('rejects a gradient-filled or rotated child (needs its own layer)', () => {
+    expect(isIconGroup(icon([vec({ fills: [{ type: 'GRADIENT_LINEAR', visible: true }] }), vec()]))).toBe(false);
+    expect(isIconGroup(icon([vec({ rotation: 30 }), vec()]))).toBe(false);
+  });
+
+  it('rejects a rotated or mask wrapper', () => {
+    expect(isIconGroup(icon(null, { rotation: 10 }))).toBe(false);
+    expect(isIconGroup(icon(null, { isMask: true }))).toBe(false);
+  });
+});
+
 describe('ir-build.frameDrawsNothing', () => {
   const { frameDrawsNothing } = globalThis.ReboundFigma;
 
