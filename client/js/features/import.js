@@ -76,9 +76,12 @@
   // Build options the panel controls (the exporter never sets these). Default is
   // the flat Overlord/AEUX build (one comp, frames become editable groups); the
   // user can opt into trimmed precomp-per-frame instead.
-  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false, autoPrecomp: true };
+  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false, autoPrecomp: true, labelByFrame: false };
   try {
     if (typeof localStorage !== 'undefined') buildOpts.precompFrames = localStorage.getItem('rb-import-precomp') === '1';
+  } catch (e) { /* no storage in this host */ }
+  try {
+    if (typeof localStorage !== 'undefined') buildOpts.labelByFrame = localStorage.getItem('rb-import-labelbyframe') === '1';
   } catch (e) { /* no storage in this host */ }
   // Default on: auto-precomp large sub-frames so a big board doesn't flood the
   // timeline. Only false when the user explicitly turned it off ('0').
@@ -108,6 +111,10 @@
     buildOpts.autoPrecomp = !!on;
     try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-autoprecomp', on ? '1' : '0'); } catch (e2) { /* no storage */ }
   }
+  function setLabelByFrame(on) {
+    buildOpts.labelByFrame = !!on;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-labelbyframe', on ? '1' : '0'); } catch (e2) { /* no storage */ }
+  }
 
   // ---- the import path -----------------------------------------------------
 
@@ -133,6 +140,7 @@
     if (ir.options.importToActiveComp == null) ir.options.importToActiveComp = buildOpts.importToActiveComp;
     if (ir.options.updateExisting == null) ir.options.updateExisting = buildOpts.updateExisting;
     if (ir.options.autoPrecompThreshold == null) ir.options.autoPrecompThreshold = buildOpts.autoPrecomp ? 120 : 0;
+    if (ir.options.labelByFrame == null) ir.options.labelByFrame = buildOpts.labelByFrame;
     return R.bridge.invoke('import.build', ir).then(function (report) {
       showReport(report);
       emitStatus();
@@ -511,6 +519,13 @@
       onChange: setAutoPrecomp
     }) : null;
 
+    // Colour-code the timeline by group so a big import reads as distinct blocks.
+    var labelByFrameToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
+      value: buildOpts.labelByFrame,
+      label: 'Colour-code layers by group',
+      onChange: setLabelByFrame
+    }) : null;
+
     // Re-import in place: replace the previous version of matched layers.
     var updateToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
       value: buildOpts.updateExisting,
@@ -533,7 +548,9 @@
       precompToggle ? precompToggle.el : null,
       el('div.rb-faint', { text: 'Off: one comp, frames become editable groups (like Overlord & AEUX). On: each frame is its own trimmed precomp.' }),
       autoPrecompToggle ? autoPrecompToggle.el : null,
-      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each large frame (e.g. a whole screen) becomes its own comp — so importing a full board doesn’t flood the timeline. Small frames stay flat. Importing a single frame is unaffected.' }),
+      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each large frame OR group (e.g. a whole screen) becomes its own comp — so importing a full board doesn’t flood the timeline. Small frames stay flat. Importing a single frame is unaffected.' }),
+      labelByFrameToggle ? labelByFrameToggle.el : null,
+      el('div.rb-faint', { text: 'Off (default): give each top-level frame (or, for a single frame, each of its groups) a distinct timeline label colour so a big import reads as blocks. Purely cosmetic.' }),
       updateToggle ? updateToggle.el : null,
       el('div.rb-faint', { text: 'On: re-importing the same design replaces the prior version of each layer instead of stacking a duplicate, and KEEPS any animation you added — Position/Anchor keyframes follow the new placement; Scale/Rotation/Opacity are preserved. Layers you added by hand are never touched.' }),
 

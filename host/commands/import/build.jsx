@@ -931,6 +931,35 @@
     }
   }
 
+  // Colour-code the timeline by group: set the AE label colour on a node's built
+  // layer and, recursively, its descendants' layers (via the registerLayer map),
+  // so a whole frame/group reads as one colour. Cosmetic; fully guarded. A merged
+  // icon is one layer, so it stops there.
+  function labelLayersForNode(node, label) {
+    if (!node) return;
+    var lyr = R.importer.layerById[node.id];
+    if (lyr) { try { lyr.label = label; } catch (e) {} }
+    var kids = node.children;
+    if (kids && kids.length && !node.merged) {
+      for (var i = 0; i < kids.length; i++) labelLayersForNode(kids[i], label);
+    }
+  }
+
+  // Give each top-level frame — or, for a single frame, each of its direct child
+  // subtrees — a distinct AE label colour (1..16), so a big flat import reads as
+  // grouped blocks in the timeline instead of an undifferentiated wall of layers.
+  function labelByGroups(frames) {
+    var units = [];
+    if (frames.length > 1) {
+      for (var i = 0; i < frames.length; i++) units.push(frames[i]);
+    } else if (frames.length === 1 && frames[0].children) {
+      var kids = frames[0].children;
+      for (var j = 0; j < kids.length; j++) units.push(kids[j]);
+    }
+    if (units.length < 2) return; // nothing to distinguish
+    for (var u = 0; u < units.length; u++) labelLayersForNode(units[u], (u % 16) + 1);
+  }
+
   function build(ir) {
     var check = R.ir.validate(ir);
     var report = newReport();
@@ -960,7 +989,9 @@
       // flooded timeline. 0 disables. Default targets screen-sized frames while
       // leaving buttons/cards flat; importing a single screen (a top-level frame)
       // is unaffected because top-level frames build flat.
-      autoPrecompThreshold: (typeof opts.autoPrecompThreshold === 'number') ? opts.autoPrecompThreshold : 120
+      autoPrecompThreshold: (typeof opts.autoPrecompThreshold === 'number') ? opts.autoPrecompThreshold : 120,
+      // Colour-code the timeline by top-level frame / group. Opt-in (off by default).
+      labelByFrame: !!opts.labelByFrame
     };
     if (R.importer.layerStyle) R.importer.layerStyle.reset();
     if (R.importer.mask) R.importer.mask.reset();
@@ -1007,6 +1038,10 @@
       report.placedInComp = !!target;
       target = comp;
     }
+
+    // Colour-code by group (opt-in): after every layer exists, so the registerLayer
+    // map is fully populated. Purely cosmetic (label colours only) and guarded.
+    if (R.importer.opts.labelByFrame) { try { labelByGroups(frames); } catch (eLbl) {} }
 
     // Re-apply any animation captured from the replaced layers onto the fresh ones.
     if (animMap) { try { report.animRestored = restoreReimportAnim(animMap); } catch (eAnim) {} }

@@ -33,6 +33,9 @@ All notable changes to Rebound are documented here. The format follows
     groups").
   - **Generated precomps are filed in a project-panel folder** ("‹design› —
     Import") instead of scattering as loose comps in the project root.
+  - **Optional "Colour-code layers by group"** (opt-in): gives each top-level frame
+    (or, for a single frame, each of its groups) a distinct timeline label colour,
+    so a big flat import reads as blocks. Purely cosmetic.
 - **Import 1:1 self-check.** After a build, the importer reconciles every source
   element against what it actually built and reports the result in the panel: a
   clean import shows "all N elements accounted for"; a net deficit is flagged
