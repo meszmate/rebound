@@ -31,7 +31,8 @@
       "description": "Import preferences set by the receiving panel (not the exporter).",
       "properties": {
         "precompFrames": { "type": "boolean", "default": false, "description": "When true, each frame becomes a trimmed precomp; otherwise frames flatten to groups in one comp." },
-        "importToActiveComp": { "type": "boolean", "default": true, "description": "When true (default), import into the active composition if one is open; when false, always create a new composition (Overlord-style toggle)." }
+        "importToActiveComp": { "type": "boolean", "default": true, "description": "When true (default), import into the active composition if one is open; when false, always create a new composition (Overlord-style toggle)." },
+        "updateExisting": { "type": "boolean", "default": false, "description": "When true, re-importing removes the prior version of each matched layer (stamped with its Figma node id) instead of stacking a duplicate." }
       }
     },
     "document": {

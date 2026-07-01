@@ -31,7 +31,8 @@
       missingFonts: [], // family names
       warnings: [],
       errors: [],
-      placedInComp: false
+      placedInComp: false,
+      replaced: 0
     };
   }
 
@@ -88,11 +89,43 @@
 
   // ---- node + frame walk ---------------------------------------------------
 
-  // Map a node id to its created layer, so clipping masks can resolve targets.
+  // Layer.comment prefix that stamps a layer with its Figma node id, so a later
+  // re-import can find and replace exactly this layer (update-in-place).
+  var ID_TAG = 'rb#';
+
+  // Map a node id to its created layer, so clipping masks can resolve targets;
+  // also stamp the id onto the layer for cross-import matching.
   function registerLayer(node, layer) {
     if (!layer || layer.length !== undefined || !node || !node.id) return;
     if (!R.importer.layerById) R.importer.layerById = {};
     R.importer.layerById[node.id] = layer;
+    try { layer.comment = ID_TAG + node.id; } catch (e) {}
+  }
+
+  // Collect every node id in the incoming document (frames + descendants).
+  function walkIds(node, into) {
+    if (!node) return;
+    if (node.id) into[node.id] = true;
+    var ch = node.children;
+    if (ch) for (var i = 0; i < ch.length; i++) walkIds(ch[i], into);
+  }
+  function collectIds(frames, into) {
+    for (var i = 0; i < frames.length; i++) walkIds(frames[i], into);
+  }
+
+  // Update-in-place: delete any previously-imported layer (tagged with ID_TAG)
+  // whose node id is in the incoming set, so the fresh build replaces it instead
+  // of stacking a duplicate. Untagged (hand-made) layers are never touched.
+  function removeReimported(comp, incoming) {
+    var toRemove = [];
+    for (var i = 1; i <= comp.numLayers; i++) {
+      var L = comp.layer(i), c = '';
+      try { c = L.comment || ''; } catch (e) { c = ''; }
+      if (c.substr(0, ID_TAG.length) === ID_TAG && incoming[c.substr(ID_TAG.length)]) toRemove.push(L);
+    }
+    var removed = 0;
+    for (var j = 0; j < toRemove.length; j++) { try { toRemove[j].remove(); removed++; } catch (e2) {} }
+    return removed;
   }
 
   // Accumulate created layers (a builder may return one layer or an array).
@@ -703,7 +736,8 @@
     var opts = ir.options || {};
     R.importer.opts = {
       precompFrames: !!opts.precompFrames,
-      importToActiveComp: opts.importToActiveComp !== false // default true
+      importToActiveComp: opts.importToActiveComp !== false, // default true
+      updateExisting: !!opts.updateExisting
     };
     if (R.importer.layerStyle) R.importer.layerStyle.reset();
     if (R.importer.mask) R.importer.mask.reset();
@@ -715,6 +749,14 @@
     var useActive = R.importer.opts.importToActiveComp;
     var target = (useActive && active && util.isComp(active)) ? active : null;
     var frames = ir.document.frames;
+
+    // Update-in-place: drop the prior version of every re-imported node first, so
+    // the fresh build lands as an update rather than a stacked duplicate.
+    if (R.importer.opts.updateExisting && target) {
+      var incoming = {};
+      collectIds(frames, incoming);
+      report.replaced = removeReimported(target, incoming);
+    }
 
     if (R.importer.opts.precompFrames) {
       // Opt-in: each top-level frame is its own trimmed comp, nested into the

@@ -7,6 +7,15 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Figma re-import updates in place instead of stacking duplicates.** Every
+  imported layer is now stamped with its Figma node id (in the layer comment).
+  With the new **"Update in place on re-import"** toggle on, re-importing the
+  same design **removes the prior version of each matched layer** before building
+  the fresh one — so iterating on a design after you've started animating no
+  longer buries the comp in duplicate layer sets. Layers you added by hand
+  (untagged) are never touched; the report shows how many were replaced.
+  (Animation on replaced layers is rebuilt for now; a keyframe-preserving merge
+  is the next step.)
 - **Audio & rhythm (new tool) — beat/transient markers, a category no all-in-one
   rival owns.** Drop comp or layer markers from a **BPM beat grid** (with
   **tap-tempo** and subdivision) or **detected from the audio itself**: select a
