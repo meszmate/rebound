@@ -39,6 +39,29 @@ $.__rebound = (function (existing) {
     };
   }
 
+  // --- Reference-counted undo groups -----------------------------------------
+  // After Effects does NOT support nested undo groups: a second beginUndoGroup
+  // while one is open triggers "Undo group mismatch, will attempt to fix". The
+  // dispatch opens a group for any labelled command, and several commands ALSO
+  // open their own — so they nest. Route every begin/end through this counter so
+  // only the OUTERMOST pair touches AE; inner ones are no-ops. resetUndo() is the
+  // leak safety-net the dispatch runs in `finally`, force-closing anything a
+  // command left open so the mismatch can never persist across calls.
+  var undoDepth = 0;
+  function beginUndo(label) {
+    if (undoDepth === 0) { try { app.beginUndoGroup(label || 'Rebound'); } catch (e) {} }
+    undoDepth++;
+  }
+  function endUndo() {
+    if (undoDepth <= 0) return;
+    undoDepth--;
+    if (undoDepth === 0) { try { app.endUndoGroup(); } catch (e) {} }
+  }
+  function resetUndo() {
+    while (undoDepth > 0) { try { app.endUndoGroup(); } catch (e) {} undoDepth--; }
+    undoDepth = 0;
+  }
+
   function dispatch(name, argsJson) {
     var cmd = commands[name];
     if (!cmd) {
@@ -53,20 +76,24 @@ $.__rebound = (function (existing) {
     }
 
     if (cmd.undo) {
-      app.beginUndoGroup(cmd.undo);
+      beginUndo(cmd.undo);
       try {
         return envelope(true, cmd.fn(args));
       } catch (runErr) {
         return envelope(false, errorInfo(runErr));
       } finally {
-        app.endUndoGroup();
+        resetUndo(); // close our group + any a command left open (never nest/leak)
       }
     }
 
+    // Unlabelled commands may still open their own group (e.g. scripts.run); the
+    // reset is a safety-net so a thrown snippet can't leave the stack unbalanced.
     try {
       return envelope(true, cmd.fn(args));
     } catch (runErr2) {
       return envelope(false, errorInfo(runErr2));
+    } finally {
+      resetUndo();
     }
   }
 
@@ -75,5 +102,8 @@ $.__rebound = (function (existing) {
   api.register = register;
   api.dispatch = dispatch;
   api.envelope = envelope;
+  api.beginUndo = beginUndo;
+  api.endUndo = endUndo;
+  api.resetUndo = resetUndo;
   return api;
 })($.__rebound);

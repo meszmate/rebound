@@ -145,6 +145,17 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **"Undo group mismatch, will attempt to fix" (recurring AE warning) — root-caused
+  and eliminated.** The RPC dispatch already wraps every labelled command in one
+  `beginUndoGroup`/`endUndoGroup` (with `finally`), but seven commands
+  (Anchor, Recoil, Pin Rig, Backdrop, ease-remap, plus the new Audio and Behaviors)
+  *also* opened their own group — and After Effects does **not** support nested
+  undo groups, so each call produced the mismatch warning, which then persisted
+  across subsequent actions. Undo grouping is now **reference-counted** in the host
+  core: only the outermost begin/end touches AE, inner ones are no-ops, and the
+  dispatch force-closes any group a command leaves open (`resetUndo` in `finally`)
+  so the stack can never stay unbalanced. All self-managing commands route through
+  the counter.
 - **Cross-tool consistency & correctness pass (adversarial multi-agent review of
   16 tools; 15 verified fixes applied).** Every fix was confirmed real against the
   code and safe to apply:

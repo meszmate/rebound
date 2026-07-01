@@ -101,7 +101,7 @@
     var durSec = (spec.durFrames || 20) / fps;
 
     var applied = 0;
-    app.beginUndoGroup('Rebound: Behavior');
+    R.beginUndo('Rebound: Behavior');
     try {
       for (var i = 0; i < sel.length; i++) {
         var layer = sel[i];
@@ -109,7 +109,7 @@
         if (applyToLayer(layer, spec, t0, durSec) > 0) applied++;
       }
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
     if (!applied) throw new Error('Select one or more layers.');
     return { applied: applied };

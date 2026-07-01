@@ -53,7 +53,7 @@
     if (!marks.length) throw new Error('No markers to place.');
     var target = args && args.target === 'layer' ? 'layer' : 'comp';
 
-    app.beginUndoGroup('Rebound: Place Markers');
+    R.beginUndo('Rebound: Place Markers');
     try {
       var mp;
       if (target === 'layer') {
@@ -74,7 +74,7 @@
       }
       return { added: added, target: target };
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
   }
 

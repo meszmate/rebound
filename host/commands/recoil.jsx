@@ -88,7 +88,7 @@
     var cleaned = 0;
     var eps = 1e-5;
 
-    app.beginUndoGroup('Rebound: Remove Recoil');
+    R.beginUndo('Rebound: Remove Recoil');
     try {
       for (var i = 0; i < props.length; i++) {
         var p = props[i];
@@ -121,7 +121,7 @@
         cleaned++;
       }
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
 
     if (!cleaned) throw new Error('Nothing to remove. Select the recoiled keyframes.');

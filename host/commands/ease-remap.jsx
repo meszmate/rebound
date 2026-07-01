@@ -57,7 +57,7 @@
     var applied = 0;
     var skipped = [];
 
-    app.beginUndoGroup('Rebound: Ease');
+    R.beginUndo('Rebound: Ease');
     try {
       for (var i = 0; i < props.length; i++) {
         var p = props[i];
@@ -68,7 +68,7 @@
         else skipped.push(p.name);
       }
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
 
     if (!applied) {
@@ -82,14 +82,14 @@
     var comp = util.activeComp();
     var props = comp.selectedProperties;
     var cleared = 0;
-    app.beginUndoGroup('Rebound: Remove ease');
+    R.beginUndo('Rebound: Remove ease');
     try {
       for (var i = 0; i < props.length; i++) {
         var p = props[i];
         if (p instanceof Property && rig.clearExpression(p)) cleared++;
       }
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
     return { cleared: cleared };
   }
@@ -101,7 +101,7 @@
     var comp = util.activeComp();
     var props = comp.selectedProperties;
     var changed = 0;
-    app.beginUndoGroup('Rebound: Remove ease');
+    R.beginUndo('Rebound: Remove ease');
     try {
       for (var i = 0; i < props.length; i++) {
         var p = props[i];
@@ -117,7 +117,7 @@
         }
       }
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
     return { changed: changed };
   }
