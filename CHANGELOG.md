@@ -7,6 +7,15 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Import 1:1 self-check.** After a build, the importer reconciles every source
+  element against what it actually built and reports the result in the panel: a
+  clean import shows "all N elements accounted for"; a net deficit is flagged
+  loudly ("M elements unaccounted for") so a silent loss of layers can never pass
+  for a faithful import. The reconciliation runs in After Effects (the only place
+  it can), is read-only and fully guarded (it can never affect an import), and its
+  counting/reconcile logic is unit-tested. Complements the CI validation of the
+  exporter IR, the host shape geometry, and the host positioning glue — all three
+  now run the real code (loaded in Node) against known and real-file values.
 - **Import scale: big designs no longer flood the After Effects timeline.** A
   deeply-nested design (e.g. a 9-screen board ≈ 2,700 objects) used to land as
   thousands of flat layers. Four levers, all opt-out:

@@ -218,6 +218,21 @@
       card.appendChild(el('div.rb-faint', { text: upd + '.' }));
     }
 
+    // In-AE 1:1 self-check: the importer reconciled every source element against
+    // what it built. A clean check is quietly reassuring; a deficit is flagged
+    // loudly so a silent loss never passes for a faithful import.
+    var fid = report.fidelity;
+    if (fid && typeof fid.expected === 'number') {
+      if (fid.ok) {
+        card.appendChild(el('div.rb-faint', { text: '1:1 self-check: all ' + fid.expected + ' elements accounted for.' }));
+      } else {
+        card.appendChild(el('div.rb-report-sec.is-warn', null, [
+          el('div.rb-report-sec-h', { text: '1:1 self-check: ' + fid.missing + ' element' + (fid.missing === 1 ? '' : 's') + ' unaccounted for' }),
+          el('div.rb-faint', { text: 'Expected ' + fid.expected + ', built ' + fid.built + ', skipped ' + fid.skipped + '. Please report this file so the gap can be fixed.' })
+        ]));
+      }
+    }
+
     if (report.missingFonts && report.missingFonts.length) card.appendChild(fontResolver(report.missingFonts));
 
     var approx = (report.approximated || []).map(function (a) { return a.name ? (a.name + ': ' + a.detail) : a.detail; });

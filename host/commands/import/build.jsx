@@ -974,6 +974,12 @@
     // Clipping mattes and layer styles run last (after every layer exists).
     if (R.importer.mask) R.importer.mask.flushAll();
     if (R.importer.layerStyle) R.importer.layerStyle.flushAll();
+
+    // In-AE 1:1 self-check: reconcile the IR's intended layer count against what
+    // was actually built + explicitly skipped, so a silent loss surfaces instead
+    // of passing as a clean import. Fully guarded and read-only.
+    if (R.importer.audit) { try { report.fidelity = R.importer.audit.run(ir, report); } catch (eAudit) {} }
+
     if (target) { try { target.openInViewer(); } catch (e) {} }
     return report;
   }
