@@ -151,37 +151,49 @@
     return '';
   }
 
-  // Signed average speed (dv/dt) of the selected segment, plus its unit, so the
-  // panel can project a normalized curve into the influence/speed AE will store.
-  function segmentMotion(p, a, b) {
-    var dt = p.keyTime(b) - p.keyTime(a);
-    if (dt <= 0) return null;
-    var aVals = keyVals(p, a);
-    var bVals = keyVals(p, b);
-    // For non-spatial multi-dim props the eased dimension is the one that moves
-    // most; match what ease.read reconstructs so the readout agrees with Read.
-    var dv;
-    if (util.isSpatial(p)) {
-      dv = mag(aVals, bVals);
-    } else {
-      dv = 0;
-      for (var d = 0; d < aVals.length; d++) {
-        var chg = (bVals[d] || 0) - (aVals[d] || 0);
-        if (Math.abs(chg) > Math.abs(dv)) dv = chg;
+  // The representative segment for the live readout: scan the selected pairs and
+  // return the FIRST that actually moves, and within it the dimension that moves
+  // most (spatial props use the path magnitude). This mirrors ease.read exactly,
+  // so the passive curve shown on selection always matches what the Read button
+  // loads (previously segmentEase read dimension [0] of the first pair only, so a
+  // held opening segment or a flat dim-0 made the two disagree).
+  function pickSegment(p, selKeys) {
+    if (!selKeys || selKeys.length < 2) return null;
+    var fallback = null;
+    for (var s = 0; s < selKeys.length - 1; s++) {
+      var a = selKeys[s], b = selKeys[s + 1];
+      var dt = p.keyTime(b) - p.keyTime(a);
+      if (dt <= 0) continue;
+      var aVals = keyVals(p, a), bVals = keyVals(p, b);
+      var dv, dim;
+      if (util.isSpatial(p)) {
+        dv = mag(aVals, bVals); dim = 0;
+      } else {
+        dv = 0; dim = 0;
+        for (var d = 0; d < aVals.length; d++) {
+          var chg = (bVals[d] || 0) - (aVals[d] || 0);
+          if (Math.abs(chg) > Math.abs(dv)) { dv = chg; dim = d; }
+        }
       }
+      var seg = { a: a, b: b, dim: dim, dv: dv, dt: dt };
+      if (Math.abs(dv / dt) < 1e-6) { if (!fallback) fallback = seg; continue; }
+      return seg;
     }
-    return { dv: r2(dv), dt: r4(dt), avg: r2(dv / dt), unit: speedUnit(p) };
+    return fallback;
   }
 
-  function segmentEase(p, a, b) {
-    var dt = p.keyTime(b) - p.keyTime(a);
-    if (dt <= 0) return null;
-    var aVals = keyVals(p, a);
-    var bVals = keyVals(p, b);
-    var dv = util.isSpatial(p) ? mag(aVals, bVals) : ((bVals[0] || 0) - (aVals[0] || 0));
-    var avg = dv / dt;
-    var outE = p.keyOutTemporalEase(a)[0];
-    var inE = p.keyInTemporalEase(b)[0];
+  // Signed average speed (dv/dt) of the picked segment, plus its unit, so the
+  // panel can project a normalized curve into the influence/speed AE will store.
+  function segmentMotion(p, seg) {
+    if (!seg) return null;
+    return { dv: r2(seg.dv), dt: r4(seg.dt), avg: r2(seg.dv / seg.dt), unit: speedUnit(p) };
+  }
+
+  function segmentEase(p, seg) {
+    if (!seg) return null;
+    var avg = seg.dv / seg.dt;
+    var outE = p.keyOutTemporalEase(seg.a)[seg.dim];
+    var inE = p.keyInTemporalEase(seg.b)[seg.dim];
     var x1 = clamp01(outE.influence / 100);
     var x2 = 1 - clamp01(inE.influence / 100);
     var y1 = avg === 0 ? x1 : (outE.speed / avg) * x1;
@@ -290,12 +302,14 @@
       // can draw the live curve with no extra round trip, plus its motion (avg
       // speed + unit) so the Ease tool can show the REAL values a curve will set.
       if (selKeys.length >= 2) {
-        var ka = selKeys[0];
-        var kb = selKeys[1];
-        try { entry.interpOutType = interpName(p.keyOutInterpolationType(ka)); } catch (eo) {}
-        try { entry.interpInType = interpName(p.keyInInterpolationType(kb)); } catch (ei) {}
-        try { entry.currentEase = segmentEase(p, ka, kb); } catch (es) {}
-        try { entry.segment = segmentMotion(p, ka, kb); } catch (em) {}
+        var seg = null;
+        try { seg = pickSegment(p, selKeys); } catch (ep) {}
+        if (seg) {
+          try { entry.interpOutType = interpName(p.keyOutInterpolationType(seg.a)); } catch (eo) {}
+          try { entry.interpInType = interpName(p.keyInInterpolationType(seg.b)); } catch (ei) {}
+          try { entry.currentEase = segmentEase(p, seg); } catch (es) {}
+          try { entry.segment = segmentMotion(p, seg); } catch (em) {}
+        }
       }
 
       out.properties.push(entry);
