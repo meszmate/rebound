@@ -23,7 +23,19 @@ All notable changes to Rebound are documented here. The format follows
     that warns before sending a huge selection.
   (Collapse / merge / spacer-drop are unit-tested IR shaping; auto-precomp reuses
   the proven nested-precomp build. Benefits all three sources for the importer-side
-  parts.)
+  parts.) The Figma plugin now **reports how much the flood was tamed** on send
+  (e.g. "130 layers · collapsed 1400 layout wrappers, merged 30 icons").
+- **Cross-source import fidelity (Figma / Illustrator / Photoshop).** The importer
+  is source-agnostic, so these land for every source that feeds it:
+  - **Point text lands pixel-exact.** The importer measures the laid-out ink bounds
+    and offsets so the text's top-left coincides with the source box — exact for
+    every justification, superseding the ascent/width estimate.
+  - **Guide-shape container overlay hidden** — imported frame/group containers no
+    longer draw a red boundary in the comp (video switch off; still a parent handle).
+  - **Illustrator live effects** (drop shadow / glow / blur) bake to pixel-exact
+    art instead of exporting the plain vector without the effect.
+  - **Photoshop rotated text** bakes to pixel-exact art (PS text rotation isn't
+    carried as editable AE text); unrotated text stays editable.
 - **Behaviors (new tool) — a drag-and-apply motion library.** Browse ready-made
   **entrances, exits, and emphasis** moves (Fade / Scale / Pop / Slide / Rise /
   Sink / Pulse / Pop / Spin) and drop them on the selected layers. Unlike
