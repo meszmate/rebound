@@ -989,7 +989,7 @@
       // flooded timeline. 0 disables. Default targets screen-sized frames while
       // leaving buttons/cards flat; importing a single screen (a top-level frame)
       // is unaffected because top-level frames build flat.
-      autoPrecompThreshold: (typeof opts.autoPrecompThreshold === 'number') ? opts.autoPrecompThreshold : 120,
+      autoPrecompThreshold: (typeof opts.autoPrecompThreshold === 'number') ? opts.autoPrecompThreshold : 40,
       // Colour-code the timeline by top-level frame / group. Opt-in (off by default).
       labelByFrame: !!opts.labelByFrame
     };

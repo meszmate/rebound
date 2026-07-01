@@ -76,9 +76,17 @@
   // Build options the panel controls (the exporter never sets these). Default is
   // the flat Overlord/AEUX build (one comp, frames become editable groups); the
   // user can opt into trimmed precomp-per-frame instead.
-  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false, autoPrecomp: true, labelByFrame: false };
+  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false, autoPrecomp: true, autoPrecompThreshold: 40, labelByFrame: false };
   try {
     if (typeof localStorage !== 'undefined') buildOpts.precompFrames = localStorage.getItem('rb-import-precomp') === '1';
+  } catch (e) { /* no storage in this host */ }
+  // Precomp threshold: precomp any frame/group with this many+ descendants. Lower =
+  // more (finer) precomps; higher = only screen-sized things. Customizable; default 40.
+  try {
+    if (typeof localStorage !== 'undefined') {
+      var savedThr = parseInt(localStorage.getItem('rb-import-autoprecomp-threshold'), 10);
+      if (!isNaN(savedThr) && savedThr >= 2) buildOpts.autoPrecompThreshold = savedThr;
+    }
   } catch (e) { /* no storage in this host */ }
   try {
     if (typeof localStorage !== 'undefined') buildOpts.labelByFrame = localStorage.getItem('rb-import-labelbyframe') === '1';
@@ -111,6 +119,12 @@
     buildOpts.autoPrecomp = !!on;
     try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-autoprecomp', on ? '1' : '0'); } catch (e2) { /* no storage */ }
   }
+  function setAutoPrecompThreshold(n) {
+    n = Math.round(n);
+    if (isNaN(n) || n < 2) n = 2;
+    buildOpts.autoPrecompThreshold = n;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-autoprecomp-threshold', String(n)); } catch (e2) { /* no storage */ }
+  }
   function setLabelByFrame(on) {
     buildOpts.labelByFrame = !!on;
     try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-labelbyframe', on ? '1' : '0'); } catch (e2) { /* no storage */ }
@@ -139,7 +153,7 @@
     if (ir.options.precompFrames == null) ir.options.precompFrames = buildOpts.precompFrames;
     if (ir.options.importToActiveComp == null) ir.options.importToActiveComp = buildOpts.importToActiveComp;
     if (ir.options.updateExisting == null) ir.options.updateExisting = buildOpts.updateExisting;
-    if (ir.options.autoPrecompThreshold == null) ir.options.autoPrecompThreshold = buildOpts.autoPrecomp ? 120 : 0;
+    if (ir.options.autoPrecompThreshold == null) ir.options.autoPrecompThreshold = buildOpts.autoPrecomp ? buildOpts.autoPrecompThreshold : 0;
     if (ir.options.labelByFrame == null) ir.options.labelByFrame = buildOpts.labelByFrame;
     return R.bridge.invoke('import.build', ir).then(function (report) {
       showReport(report);
@@ -519,6 +533,16 @@
       onChange: setAutoPrecomp
     }) : null;
 
+    // Customizable precomp threshold: precomp any frame/group with this many+
+    // descendants. Lower = finer / more precomps; higher = only big screens.
+    var thresholdField = (R.ui && R.ui.numberField) ? R.ui.numberField({
+      value: buildOpts.autoPrecompThreshold,
+      min: 2, max: 100000, step: 5, decimals: 0,
+      label: 'Precomp threshold',
+      suffix: 'layers',
+      onChange: setAutoPrecompThreshold
+    }) : null;
+
     // Colour-code the timeline by group so a big import reads as distinct blocks.
     var labelByFrameToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
       value: buildOpts.labelByFrame,
@@ -548,7 +572,9 @@
       precompToggle ? precompToggle.el : null,
       el('div.rb-faint', { text: 'Off: one comp, frames become editable groups (like Overlord & AEUX). On: each frame is its own trimmed precomp.' }),
       autoPrecompToggle ? autoPrecompToggle.el : null,
-      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each large frame OR group (e.g. a whole screen) becomes its own comp — so importing a full board doesn’t flood the timeline. Small frames stay flat. Importing a single frame is unaffected.' }),
+      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each frame OR group with at least the threshold below becomes its own comp — so importing a full board doesn’t flood the timeline. Smaller groups stay flat. Importing a single frame is unaffected.' }),
+      thresholdField ? thresholdField.el : null,
+      el('div.rb-faint', { text: 'Precomp any frame/group with this many descendants or more. Lower = finer, more precomps (e.g. 20 groups each card); higher = only whole screens. Default 40.' }),
       labelByFrameToggle ? labelByFrameToggle.el : null,
       el('div.rb-faint', { text: 'Off (default): give each top-level frame (or, for a single frame, each of its groups) a distinct timeline label colour so a big import reads as blocks. Purely cosmetic.' }),
       updateToggle ? updateToggle.el : null,

@@ -26,11 +26,12 @@ All notable changes to Rebound are documented here. The format follows
 ### Added
 - **Organizing very large imports (1000+ objects).** Two improvements so a huge
   frame no longer lands as one unmanageable timeline:
-  - **Auto-precomp now covers large GROUPS, not just frames.** A single huge frame
-    is often flat frames plus deep groups; precomping only frames left those groups
-    flooding one comp. Any subtree (frame or group) with ≥120 descendants now folds
-    into its own editable precomp (same opt-out toggle, now "Precomp large frames &
-    groups").
+  - **Auto-precomp now covers large GROUPS, not just frames, with a customizable
+    threshold.** A single huge frame is often flat frames plus deep groups;
+    precomping only frames left those groups flooding one comp. Any subtree (frame
+    or group) with ≥ the threshold descendants now folds into its own editable
+    precomp. The threshold is a field in Import (default lowered 120 → **40**; set
+    it to 20 or less for finer per-card precomps, higher for whole-screens only).
   - **Generated precomps are filed in a project-panel folder** ("‹design› —
     Import") instead of scattering as loose comps in the project root.
   - **Optional "Colour-code layers by group"** (opt-in): gives each top-level frame
