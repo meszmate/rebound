@@ -6,6 +6,23 @@ All notable changes to Rebound are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **No more "red borders" around imported groups.** Freshly-scripted layers are all
+  left selected, and After Effects draws each selected/guide layer's bounding box in
+  the comp viewport (red by default) — which read as a red outline on every group.
+  The importer now clears the selection when it finishes.
+- **Installed fonts (e.g. Inter) no longer report as "not installed".** The font
+  read-back check flagged a family missing whenever AE's `TextDocument.font` string
+  differed from the PostScript name we requested — even when we had set a verified,
+  family-matched `FontObject` that AE cannot substitute (modern Inter reads back a
+  canonical/variable name). Resolved fonts set via `FontObject` are now trusted, and
+  an optical-size family fallback matches "Inter 18pt" to a design's "Inter".
+- **Centre/right-aligned point text now lands centred/right in its box.** Point-text
+  placement forced the ink's left edge to the box left for every justification; a
+  centre- or right-aligned label sat left-hugging. It now lands the ink's
+  justification-relevant edge (centre/right/left) on the box, so alignment matches
+  the source. Auto-width labels are unaffected (box == ink).
+
 ### Added
 - **Import 1:1 self-check.** After a build, the importer reconciles every source
   element against what it actually built and reports the result in the panel: a

@@ -894,6 +894,19 @@
     return n;
   }
 
+  // Clear the selection AE leaves on every freshly-created layer. New scripted
+  // layers are all added selected, and AE draws each SELECTED (and guide) layer's
+  // bounding box in the comp viewport — in the layer's label colour, RED by
+  // default — which reads as a "red border" around every imported group. Clearing
+  // the selection removes those overlays so the import looks clean. Purely
+  // cosmetic and fully guarded (touches no geometry).
+  function deselectAllLayers(comp) {
+    if (!comp || typeof comp.numLayers !== 'number') return;
+    for (var i = 1; i <= comp.numLayers; i++) {
+      try { comp.layer(i).selected = false; } catch (e) {}
+    }
+  }
+
   function build(ir) {
     var check = R.ir.validate(ir);
     var report = newReport();
@@ -979,6 +992,10 @@
     // was actually built + explicitly skipped, so a silent loss surfaces instead
     // of passing as a clean import. Fully guarded and read-only.
     if (R.importer.audit) { try { report.fidelity = R.importer.audit.run(ir, report); } catch (eAudit) {} }
+
+    // Deselect the new layers so AE stops drawing a red selection/guide box around
+    // every imported group in the viewport (the "red borders").
+    if (target) { try { deselectAllLayers(target); } catch (eDsel) {} }
 
     if (target) { try { target.openInViewer(); } catch (e) {} }
     return report;

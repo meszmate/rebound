@@ -48,6 +48,16 @@
     return String(s).toLowerCase().replace(/[\s\-_]+/g, '');
   }
 
+  // Strip a trailing optical-size token ("18pt", " 24 pt") from a family name so
+  // the SAME typeface at a different optical size still matches: modern Inter (and
+  // Source Serif, etc.) install as families "Inter 18pt" / "Inter 28pt", while the
+  // design references plain "Inter". This only removes an optical-size suffix, so
+  // genuinely different families ("Inter Display", "Inter Tight") are NOT collapsed.
+  function stripOptical(s) {
+    if (!s) return '';
+    return String(s).replace(/\s*\d+\s*pt\s*$/i, '');
+  }
+
   // Strip spaces only, preserving case, for constructing PostScript probes like
   // "Inter-SemiBold" from family "Inter" + style "Semi Bold".
   function collapse(s) {
@@ -166,6 +176,7 @@
     var groups;
     try { groups = app.fonts.allFonts; } catch (e0) { return null; }
     var famN = normName(family);
+    var famRootN = normName(stripOptical(family)); // "Inter 18pt" -> "inter"
     var wantStyles = styleCandidates(style, weight);
     var sameFamily = null; // first matching-family face of ANY style (fallback)
     var hit = eachFont(groups, function (fo) {
@@ -174,7 +185,11 @@
       try { nfam = fo.nativeFamilyName || ''; } catch (eNF) {}
       try { sty = fo.styleName || ''; } catch (eS) {}
       try { nsty = fo.nativeStyleName || ''; } catch (eNS) {}
-      if (normName(fam) !== famN && normName(nfam) !== famN) return null;
+      // Match on family, native family, or the same family at a different optical
+      // size (Inter 18pt == Inter), so an installed optical-size variant resolves.
+      var famMatch = normName(fam) === famN || normName(nfam) === famN ||
+        normName(stripOptical(fam)) === famRootN || normName(stripOptical(nfam)) === famRootN;
+      if (!famMatch) return null;
       if (!sameFamily) sameFamily = fo;
       for (var w = 0; w < wantStyles.length; w++) {
         var wsN = normName(wantStyles[w]);
@@ -680,9 +695,16 @@
       } catch (e2) {
         try { target.font = res.postScriptName; } catch (e2b) {}
       }
+      // Read-back guard: only when we set the font by NAME STRING (no verified
+      // FontObject) does a mismatch mean AE substituted. When res.font is a real,
+      // family-matched FontObject we set via `fontObject`, AE CANNOT substitute it,
+      // and target.font may legitimately read back a different (canonical / variable
+      // / optical-size) PostScript string — so trust the resolve and do NOT flag it
+      // missing. (This was making installed families like Inter, whose face reads
+      // back a canonical name, show up as "not installed".)
       var got = null;
       try { got = target.font; } catch (eR) { got = null; }
-      if (got && got !== res.postScriptName) {
+      if (got && got !== res.postScriptName && !res.font) {
         if (run.fontFamily) { addMissingFont(report, run.fontFamily); noteLayerMissing(run.fontFamily); }
       } else if (res.approx && report && !report.__fontApproxNoted) {
         report.__fontApproxNoted = true;
@@ -884,21 +906,28 @@
     // justification width. Fall back to that estimate only if the rect is
     // unavailable (older After Effects / empty text).
     if (!isBox) {
+      var boxW = t.width || 0;
       var placed = false;
       try {
         var comp0 = layer.containingComp;
         var rect = layer.sourceRectAtTime(comp0 ? comp0.time : 0, false);
         if (rect && isFinite(rect.left) && isFinite(rect.top) && (rect.width > 0 || rect.height > 0)) {
-          x = x - rect.left; // ink left  -> node box left
-          y = y - rect.top;  // ink top   -> node box top
+          // Vertical: laid-out ink top -> node box top (all justifications).
+          y = y - rect.top;
+          // Horizontal: land the ink's JUSTIFICATION-relevant edge on the box's, so
+          // a centre/right-aligned label sits centred / right within its Figma box
+          // instead of hugging the left. For an auto-width node (box == ink) all
+          // three reduce to ink-left -> box-left, so this never moves plain labels.
+          if (align === 'CENTER') x = x + boxW / 2 - rect.left - rect.width / 2;
+          else if (align === 'RIGHT') x = x + boxW - rect.left - rect.width;
+          else x = x - rect.left; // LEFT: ink left -> box left
           placed = true;
         }
       } catch (eRect) {}
       if (!placed) {
         y = y + (fontSize || 16) * 0.8;
-        var w = t.width || 0;
-        if (align === 'CENTER') x = x + w / 2;
-        else if (align === 'RIGHT') x = x + w;
+        if (align === 'CENTER') x = x + boxW / 2;
+        else if (align === 'RIGHT') x = x + boxW;
       }
     }
     tr.property('ADBE Position').setValue([x, y]);
