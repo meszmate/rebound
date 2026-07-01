@@ -133,14 +133,20 @@
 
         var aVals = valuesAt(prop, a);
         var bVals = valuesAt(prop, b);
-        // A spatial segment with no motion (identical position/anchor values) has
-        // a zero-length path; applying a temporal ease throws "zero denominator
-        // converting ratio" in AE. Leave that segment untouched.
-        if (spatial && magnitude(aVals, bVals) < 1e-6) { skippedFlat++; continue; }
+        // Spatial props ease a single scalar along the motion PATH. Use the real
+        // arc length when the path is curved or returns near its start, and the
+        // straight-line chord otherwise (unchanged for the common straight case).
+        // A truly stationary segment (no path travel at all) is skipped — easing
+        // a zero-length path throws "zero denominator converting ratio" in AE.
+        var spatialDv = 0;
+        if (spatial) {
+          spatialDv = util.spatialDelta(prop, prop.keyTime(a), prop.keyTime(b), aVals, bVals);
+          if (spatialDv < 1e-6) { skippedFlat++; continue; }
+        }
         var outArr = [];
         var inArr = [];
         for (var d = 0; d < dims; d++) {
-          var dv = spatial ? magnitude(aVals, bVals) : (bVals[d] || 0) - (aVals[d] || 0);
+          var dv = spatial ? spatialDv : (bVals[d] || 0) - (aVals[d] || 0);
           var avg = dv / dt;
           outArr.push(outEase(curve, avg));
           inArr.push(inEase(curve, avg));
@@ -225,7 +231,7 @@
         var bVals = valuesAt(p, b);
         var dv, dim;
         if (util.isSpatial(p)) {
-          dv = magnitude(aVals, bVals); dim = 0;          // single temporal ease along the path
+          dv = util.spatialDelta(p, p.keyTime(a), p.keyTime(b), aVals, bVals); dim = 0; // along the path
         } else {
           // Pick the dimension that moves most; a flat axis carries no timing.
           dv = 0; dim = 0;

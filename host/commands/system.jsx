@@ -167,7 +167,7 @@
       var aVals = keyVals(p, a), bVals = keyVals(p, b);
       var dv, dim;
       if (util.isSpatial(p)) {
-        dv = mag(aVals, bVals); dim = 0;
+        dv = util.spatialDelta(p, p.keyTime(a), p.keyTime(b), aVals, bVals); dim = 0;
       } else {
         dv = 0; dim = 0;
         for (var d = 0; d < aVals.length; d++) {
