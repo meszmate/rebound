@@ -63,8 +63,8 @@
 .rb-segmented.rb-seg-wrap { display: flex; flex-wrap: wrap; }
 .rb-segmented button {
   flex: 1 1 auto;
+  min-width: 0;
   height: calc(var(--rb-control-h) - 6px);
-  min-width: 28px;
   padding: 0 var(--rb-gap-3);
   border: 0;
   border-radius: var(--rb-radius-1);
@@ -73,6 +73,12 @@
   font-family: inherit;
   font-size: var(--rb-font-size);
   cursor: pointer;
+  /* Keep every label on ONE line inside the fixed-height pill; truncate with an
+     ellipsis if a panel is too narrow rather than wrapping to a second row and
+     overflowing the button box. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: background var(--rb-transition), color var(--rb-transition);
 }
 .rb-segmented button:hover { color: var(--rb-text); }

@@ -107,8 +107,8 @@
     });
 
     var modeCtl = ui.segmented([
-      { value: 'simple', label: 'Bounce + Settle' },
-      { value: 'physical', label: 'Mass / Stiffness / Damping' }
+      { value: 'simple', label: 'Simple', title: 'Bounce + Settle (perceptual)' },
+      { value: 'physical', label: 'Physical', title: 'Mass / Stiffness / Damping' }
     ], { value: mode, onChange: function (v) {
       mode = v;
       simpleBox.classList.toggle('rb-hidden', v !== 'simple');
