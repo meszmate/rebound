@@ -124,6 +124,9 @@
 
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, { value: curve(), allowOvershoot: true });
+    var editorResizer = ctx.widget ? null : ui.resizeHandle(editorHost, {
+      persistKey: 'recoil-graph', min: 150, max: 560, initial: 220, onResize: function () { editor.refresh(); }
+    });
     var previewHost = el('div');
     var preview = ui.PreviewStage(previewHost, { getCurve: curve, property: 'position', sample: 'shape', duration: 1300 });
 
@@ -141,6 +144,7 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
+      editorResizer && editorResizer.el,
       el('div.rb-faint', { text: 'Select two (or more) keyframes. The move shoots past the destination and settles back on it, between the keys. Apply bakes editable keys; "As expression" is the live, keyframe-free remap.' }),
       overshootSlider.el,
       bounceSlider.el,
@@ -255,7 +259,7 @@
         // Buttery feels: a single gentle overshoot up to a bigger, springier one.
         defaults: RECOIL_DEFAULTS
       },
-      destroy: function () { off(); preview.destroy(); editor.destroy(); }
+      destroy: function () { off(); preview.destroy(); editor.destroy(); if (editorResizer) editorResizer.destroy(); }
     };
   }
 })(window.Rebound = window.Rebound || {});

@@ -61,6 +61,9 @@
     // The bounce curve as a read-only graph, the same way Spring shows its shape.
     var editorHost = el('div');
     var editor = ui.CurveEditor(editorHost, { value: previewCurve(), allowOvershoot: true });
+    var editorResizer = ctx.widget ? null : ui.resizeHandle(editorHost, {
+      persistKey: 'bounce-graph', min: 150, max: 560, initial: 220, onResize: function () { editor.refresh(); }
+    });
     // Live preview as a horizontal position move, consistent with the other
     // tools: the value slides to the target and rebounds off it, settling.
     var previewHost = el('div');
@@ -78,6 +81,7 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
+      editorResizer && editorResizer.el,
       el('div.rb-faint', { text: 'Select 2+ keyframes and apply a real ball-bounce. By default it bakes a few editable keyframes you can see in the graph; set Apply as → Expression in Settings for a clean, keyframe-free version.' }),
       elasticitySlider.el,
       bouncesField.el
@@ -130,7 +134,7 @@
           { name: 'Single Bounce', state: { elasticity: 0.6, maxBounces: 2 } }
         ]
       },
-      destroy: function () { off(); preview.destroy(); editor.destroy(); }
+      destroy: function () { off(); preview.destroy(); editor.destroy(); if (editorResizer) editorResizer.destroy(); }
     };
   }
 })(window.Rebound = window.Rebound || {});

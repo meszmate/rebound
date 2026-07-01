@@ -246,6 +246,78 @@
     return el('div.rb-control-row', null, [el('label', { text: label }), control]);
   }
 
+  // ---- Drag-to-resize handle ---------------------------------------------
+  // A slim grabber placed directly under a target element. Dragging it sets the
+  // target's height (clamped to [min,max]); the size is remembered per key and
+  // restored next open. Keyboard accessible (↑/↓ nudge) and double-click resets.
+  // This is what makes the curve editor (and any tall view) sizable — the fix for
+  // "the editing view is too big and won't resize": before, the graph was a fixed
+  // block with no way to shrink or grow it.
+  function resizeHandle(target, opts) {
+    opts = opts || {};
+    var min = opts.min || 120;
+    var max = opts.max || 640;
+    var key = opts.persistKey ? 'ui:height:' + opts.persistKey : null;
+    var step = opts.step || 16;
+
+    function clampH(h) { return h < min ? min : h > max ? max : h; }
+    function setH(h, persist) {
+      h = clampH(Math.round(h));
+      target.style.height = h + 'px';
+      if (opts.onResize) { try { opts.onResize(h); } catch (e) { /* view will re-render on its own observer */ } }
+      if (persist && key) { try { R.disk.write(key, h); } catch (e2) { /* private mode */ } }
+    }
+
+    // Restore the remembered size (inline height; the target's own ResizeObserver
+    // re-renders it once it is on screen, so no onResize needed here).
+    var saved = key ? R.disk.read(key, null) : null;
+    if (typeof saved === 'number' && saved > 0) target.style.height = clampH(Math.round(saved)) + 'px';
+
+    var handle = el('div.rb-resize-h', {
+      role: 'separator', 'aria-orientation': 'horizontal', tabindex: 0,
+      'aria-label': 'Resize', title: 'Drag to resize · ↑/↓ to nudge · double-click to reset'
+    }, [el('span.rb-resize-grip')]);
+
+    var start = null;
+    function move(ev) {
+      if (!start) return;
+      var y = ev.clientY != null ? ev.clientY : start.y;
+      setH(start.h + (y - start.y), false);
+    }
+    function end() {
+      if (!start) return;
+      start = null;
+      handle.classList.remove('is-dragging');
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', end);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', end);
+      if (key) { try { R.disk.write(key, target.clientHeight || min); } catch (e) { /* private mode */ } }
+    }
+    function down(ev) {
+      ev.preventDefault();
+      start = { y: ev.clientY, h: target.clientHeight || min };
+      handle.classList.add('is-dragging');
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', end);
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', end);
+    }
+    // CEF (After Effects) can drop pointer events on some elements while still
+    // firing mouse events — bind both families; `start` dedupes the pair.
+    handle.addEventListener('mousedown', down);
+    handle.addEventListener('pointerdown', down);
+    handle.addEventListener('keydown', function (ev) {
+      var d = (ev.key === 'ArrowUp') ? -step : (ev.key === 'ArrowDown') ? step : 0;
+      if (!d) return;
+      ev.preventDefault();
+      setH((target.clientHeight || min) + d, true);
+    });
+    handle.addEventListener('dblclick', function () { setH(opts.initial || min, true); });
+
+    return { el: handle, setHeight: function (h) { setH(h, true); }, destroy: end };
+  }
+
   R.ui = R.ui || {};
   R.ui.toast = toast;
   R.ui.segmented = segmented;
@@ -253,4 +325,5 @@
   R.ui.slider = slider;
   R.ui.toggle = toggle;
   R.ui.row = row;
+  R.ui.resizeHandle = resizeHandle;
 })(window.Rebound = window.Rebound || {});

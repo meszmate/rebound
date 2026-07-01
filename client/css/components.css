@@ -777,3 +777,30 @@
 }
 .rb-behavior-name { font-weight: 600; }
 .rb-behavior-desc { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); }
+
+/* ---- Drag-to-resize handle (curve editor & other tall views) ------------ */
+.rb-resize-h {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 14px;
+  margin: 2px 0 0;
+  border-radius: var(--rb-radius-1);
+  cursor: ns-resize;
+  color: var(--rb-text-faint);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rb-resize-h:hover,
+.rb-resize-h.is-dragging { background: var(--rb-bg-sunken); color: var(--rb-text-muted); }
+.rb-resize-h:focus-visible { outline: 2px solid var(--rb-accent); outline-offset: 1px; }
+.rb-resize-grip {
+  width: 28px;
+  height: 4px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.55;
+}
+.rb-resize-h:hover .rb-resize-grip,
+.rb-resize-h.is-dragging .rb-resize-grip { opacity: 0.95; }

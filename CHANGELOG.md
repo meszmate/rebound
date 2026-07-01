@@ -7,6 +7,13 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **The easing graph editor is resizable now — and calmer by default.** The curve
+  editor was a fixed, oversized 300px block with no way to resize it; trying to
+  drag it did nothing. It now opens at a more compact height and has a slim drag
+  handle beneath it — drag to resize, ↑/↓ to nudge, double-click to reset — with
+  the height remembered per tool. Applied consistently to Ease, Spring, Recoil and
+  Bounce (shared `R.ui.resizeHandle`). Fixes "the editing view is too big and
+  resizing just doesn't work."
 - **The "red borders" are gone (real root cause).** Figma's default stroke align is
   INSIDE, and inside/outside SOLID strokes were reproduced as an After Effects
   *Stroke layer style*. When that layer style's scripted colour set silently failed

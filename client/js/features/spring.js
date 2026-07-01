@@ -39,6 +39,10 @@
       swatch: true,
       allowOvershoot: true
     });
+    // Resizable, remembered graph height (consistent with the Ease editor).
+    var editorResizer = ctx.widget ? null : ui.resizeHandle(editorHost, {
+      persistKey: 'spring-graph', min: 150, max: 560, initial: 220, onResize: function () { editor.refresh(); }
+    });
 
     // Live preview, springs read best on Scale (the overshoot pops).
     var previewHost = el('div');
@@ -119,6 +123,7 @@
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
       editorHost,
+      editorResizer && editorResizer.el,
       el('div.rb-row', null, [overshootChip, settleChip, regimeChip]),
       el('div.rb-section-label', { text: 'Spring' }),
       modeCtl.el,
@@ -196,7 +201,7 @@
           { name: 'Heavy', state: { mode: 'physical', mass: 2.4, stiffness: 180, damping: 26, velocity: 0 } }
         ]
       },
-      destroy: function () { off(); preview.destroy(); editor.destroy(); }
+      destroy: function () { off(); preview.destroy(); editor.destroy(); if (editorResizer) editorResizer.destroy(); }
     };
   }
 })(window.Rebound = window.Rebound || {});

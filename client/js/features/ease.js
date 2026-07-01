@@ -32,7 +32,9 @@
       value: curve,
       swatch: false,
       allowOvershoot: true,
-      height: 300,
+      // A calmer default in the full tool (was a fixed 300px block that dominated
+      // the panel); the Home widget still fills its own space.
+      height: fill ? 300 : 220,
       pad: fill ? 1 : 16,
       marginFactor: fill ? 0.04 : 0.1,
       marginMin: fill ? 0.04 : 0.14,
@@ -42,6 +44,13 @@
         updateReadout();
         renderRealValues();
       }
+    });
+    // Let the graph be resized to taste and remember it (full tool only). This is
+    // the fix for "the editing view is too big and resizing doesn't work" — the
+    // graph was a fixed height with no grabber before.
+    var editorResizer = fill ? null : ui.resizeHandle(editorHost, {
+      persistKey: 'ease-graph', min: 150, max: 560, initial: 220,
+      onResize: function () { editor.refresh(); }
     });
 
     // --- Live preview stage (driven by the same sampler that Apply uses) ---
@@ -222,6 +231,7 @@
       previewHost,
       graphCtl.el,
       editorHost,
+      editorResizer && editorResizer.el,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
       el('div.rb-row.rb-wrap', null, [copyBtn, pasteBtn, resetBtn, exportBtn]),
@@ -419,6 +429,7 @@
         off();
         preview.destroy();
         editor.destroy();
+        if (editorResizer) editorResizer.destroy();
       }
     };
   }
