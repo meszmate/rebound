@@ -874,18 +874,32 @@
     var x = t.x || 0, y = t.y || 0;
     // Box text starts at the box top-left and is justified/centred WITHIN the box,
     // so its top-left position is correct as-is. POINT text has no box: After
-    // Effects anchors it on the first baseline AT THE JUSTIFICATION POINT — the
-    // left edge for left-align, but the horizontal CENTRE for centre-align and the
-    // RIGHT edge for right-align. Figma's x is always the text box's left edge, so
-    // for a centre/right-aligned point label (e.g. an auto-width button label that
-    // hugs its text) we must move the insertion point to the centre/right of the
-    // node's width, or the text lands half a width (centre) or a full width (right)
-    // off to the left.
+    // Effects anchors it on the first baseline AT THE JUSTIFICATION POINT (left
+    // edge for left-align, centre for centre, right edge for right) and the source
+    // gives us the text's bounding-box top-left. The EXACT landing, for any
+    // justification and any source (Figma / Illustrator / Photoshop), is to make
+    // the laid-out ink's top-left coincide with the node's box top-left: measure
+    // the ink bounds (relative to the anchor at the justification point) and offset
+    // position by them. This supersedes guessing the ascent (0.8*fontSize) and the
+    // justification width. Fall back to that estimate only if the rect is
+    // unavailable (older After Effects / empty text).
     if (!isBox) {
-      y = y + (fontSize || 16) * 0.8;
-      var w = t.width || 0;
-      if (align === 'CENTER') x = x + w / 2;
-      else if (align === 'RIGHT') x = x + w;
+      var placed = false;
+      try {
+        var comp0 = layer.containingComp;
+        var rect = layer.sourceRectAtTime(comp0 ? comp0.time : 0, false);
+        if (rect && isFinite(rect.left) && isFinite(rect.top) && (rect.width > 0 || rect.height > 0)) {
+          x = x - rect.left; // ink left  -> node box left
+          y = y - rect.top;  // ink top   -> node box top
+          placed = true;
+        }
+      } catch (eRect) {}
+      if (!placed) {
+        y = y + (fontSize || 16) * 0.8;
+        var w = t.width || 0;
+        if (align === 'CENTER') x = x + w / 2;
+        else if (align === 'RIGHT') x = x + w;
+      }
     }
     tr.property('ADBE Position').setValue([x, y]);
     if (t.matrix && t.matrix.length === 6) {
