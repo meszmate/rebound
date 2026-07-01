@@ -145,6 +145,41 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Ease Apply now reproduces the handles you drew (the core "it becomes
+  completely different than my bezier handles" bug).** After Effects' native
+  temporal ease reproduces *any* single monotonic-in-time cubic bezier exactly —
+  including value overshoot (Back-out) and anticipation — so the fix was to keep
+  every drawable curve inside the domain AE can store: **X in [0.001, 0.999]** and
+  **x1 ≤ x2** (monotonic time, so the two ease handles never overlap and influence
+  stays in 0.1%–100%). Two concrete divergences are gone: a **sub‑0.1%‑influence
+  handle** used to round‑trip to a different, steeper/overshooting curve (speed was
+  derived from the raw X while influence was clamped — now both use the same
+  clamped X); and **crossed handles (x1 > x2)**, which AE silently re‑solved into a
+  different shape, are prevented at the drag. `bezier.sanitizeHandles` is the
+  shared clamp across the editor, numeric fields, paste and Apply, mirrored in the
+  host. Y stays free, so overshoot/anticipation still apply natively (editable, no
+  baking). The live preview and the applied motion now match by construction.
+- **A Remove button everywhere it belongs.** The Ease tool (and Smooth, Velocity,
+  Copy Ease) now have a **Remove** that clears any Rebound expression and
+  linearizes the selected keyframes, via a shared `R.easing.removeFromSelection`
+  so the behavior is identical across tools; Bounce gets a Remove wired to its own
+  expression‑clear. (Not added where a linearize would mislead: Echo, Fade, Trim
+  Paths, Stagger, Sequence, Throw.)
+- **"Applied it and nothing changed" after switching Apply‑as modes.** Baking an
+  overshoot now clears any pre‑existing Rebound remap **expression** first — an
+  enabled expression overrides keyframe values in AE, so a leftover one from a
+  prior "Apply as: Expression" was silently ignoring the freshly‑baked keys.
+- **The live curve on selection now matches the Read button.** The passive
+  read used dimension 0 of the first selected pair while Read used the
+  most‑moving dimension of the first *moving* pair; on a flat‑dim‑0 or held
+  opening segment they disagreed. Both now share one segment‑pick.
+- **Easing no longer smooths a deliberate HOLD (stepped) key**, only the eased
+  side of a key is converted to bezier, and Apply now **reports skipped
+  segments** (held / zero‑length) instead of a silent partial no‑op.
+- **Read is honest about expression‑driven properties** (it says the keyframe
+  ease it shows isn't what's actually playing), the Spring mode labels no longer
+  wrap to two lines, and the Ease tool gains a **Reset** (to Easy Ease) plus an
+  "eases along the motion path" note for spatial Position/Anchor.
 - **Spring / overshoot bake now matches the live preview (was visibly "buggy").**
   Applying a Spring (or any overshooting curve) to two keyframes baked only the
   curve's **turning points** and let AE guess the tangents (continuous auto-bezier),
