@@ -30,6 +30,28 @@ describe('spring', () => {
     }
   });
 
+  it('releases from rest: x\'(0) ~ 0 when velocity is 0 (no launch kick)', () => {
+    const h = 1e-5;
+    for (const cfg of [
+      { mass: 1, stiffness: 120, damping: 12 }, // underdamped
+      { mass: 1, stiffness: 100, damping: 20 }, // critical
+      { mass: 1, stiffness: 100, damping: 80 }, // overdamped
+    ]) {
+      const s = spring.spring({ ...cfg, velocity: 0 });
+      const slope0 = (s.fn(h) - s.fn(0)) / h;
+      expect(Math.abs(slope0)).toBeLessThan(0.05);
+    }
+  });
+
+  it('actual peak overshoot matches the damping-ratio formula the readout uses', () => {
+    const s = spring.spring({ mass: 1, stiffness: 120, damping: 12, velocity: 0 });
+    const expected = 1 + Math.exp(-Math.PI * s.zeta / Math.sqrt(1 - s.zeta * s.zeta));
+    let peak = 0;
+    const dt = s.settleTime / 2000;
+    for (let t = 0; t <= s.settleTime; t += dt) peak = Math.max(peak, s.fn(t));
+    expect(peak).toBeCloseTo(expected, 2);
+  });
+
   it('respects initial velocity', () => {
     const still = spring.spring({ mass: 1, stiffness: 100, damping: 8, velocity: 0 });
     const kicked = spring.spring({ mass: 1, stiffness: 100, damping: 8, velocity: 5 });
