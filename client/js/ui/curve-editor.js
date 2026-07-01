@@ -218,13 +218,20 @@
         cx: hxPix, cy: hyPix, r: 7, class: 'rb-handle', 'data-handle': key,
         tabindex: 0, role: 'slider', 'aria-label': key === 'h1' ? 'Out handle' : 'In handle'
       });
+      // An invisible, larger hit target so the handle is easy to grab — landing a
+      // drag exactly on a 7px dot felt finicky ("buggy to grab"). It sits behind
+      // the visible dot and shares the same drag binding.
+      var hit = svg('circle', { cx: hxPix, cy: hyPix, r: 15, class: 'rb-handle-hit', 'data-handle': key });
       // CEF (After Effects) can drop POINTER events on SVG sub-elements while still
       // firing MOUSE events (same quirk that makes <button> get click but not
       // pointerdown). Bind both families; the drag-state guard dedupes the pair.
       var startHandle = startDrag(key, circle);
+      hit.addEventListener('mousedown', startHandle);
+      hit.addEventListener('pointerdown', startHandle);
       circle.addEventListener('mousedown', startHandle);
       circle.addEventListener('pointerdown', startHandle);
       circle.addEventListener('keydown', handleKey(key));
+      svgEl.appendChild(hit);
       svgEl.appendChild(circle);
     }
 

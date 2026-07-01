@@ -44,6 +44,9 @@
 }
 .rb-curve .rb-handle:hover { stroke: var(--rb-text); }
 .rb-curve .rb-handle.is-dragging { cursor: grabbing; stroke: var(--rb-text); }
+/* Invisible, larger grab area around each handle (easier to hit than the dot). */
+.rb-curve .rb-handle-hit { fill: transparent; cursor: grab; }
+.rb-curve .rb-handle-hit:active { cursor: grabbing; }
 .rb-curve .rb-anchor-dot { fill: var(--rb-text-faint); }
 
 /* The looping "feel it" motion swatch dot. */
