@@ -218,6 +218,18 @@
     return true;
   }
 
+  // An empty, invisible frame — a zero-size auto-layout spacer, or a wrapper whose
+  // children were all dropped/collapsed — draws nothing and holds nothing, so
+  // emitting it just litters the timeline. Drop it. (Checked AFTER chrome is
+  // applied, so a frame with a real background/stroke/effect is always kept.)
+  function frameDrawsNothing(base) {
+    if (base.children && base.children.length) return false;
+    if (base.background && base.background.length) return false;
+    if (base.stroke && base.stroke.paints && base.stroke.paints.length) return false;
+    if (base.effects && base.effects.length) return false;
+    return true;
+  }
+
   // Editable vector paths first, fall back to the rendered fill outline.
   function mapPaths(node) {
     var entries = (node.vectorPaths && node.vectorPaths.length) ? node.vectorPaths : (node.fillGeometry || []);
@@ -881,11 +893,13 @@
         base.children = await childrenToIR(node, nestedOrigin, assets);
         applyFrameChrome(base, node, w, h);
         await addFrameImageBackground(base, node, w, h, assets);
+        if (frameDrawsNothing(base)) return null; // empty invisible frame / spacer
         break;
       case 'GROUP':
         base.type = 'GROUP';
         base.children = await childrenToIR(node, origin, assets);
         if (node.fills && node.fills !== figma.mixed && node.fills.length) base.fills = mapFills(node.fills, w, h);
+        if ((!base.children || !base.children.length) && !(base.fills && base.fills.length)) return null;
         break;
       default:
         if (node.fillGeometry && node.fillGeometry.length) {
@@ -1025,5 +1039,5 @@
     };
   }
 
-  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION, isCollapsibleLayout: isCollapsibleLayout };
+  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION, isCollapsibleLayout: isCollapsibleLayout, frameDrawsNothing: frameDrawsNothing };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

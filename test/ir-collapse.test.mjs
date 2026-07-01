@@ -62,3 +62,21 @@ describe('ir-build.isCollapsibleLayout', () => {
     expect(isCollapsibleLayout(frame({ fills: [{ type: 'SOLID', opacity: 0 }] }))).toBe(true);
   });
 });
+
+describe('ir-build.frameDrawsNothing', () => {
+  const { frameDrawsNothing } = globalThis.ReboundFigma;
+
+  it('drops an empty invisible frame (a zero-size spacer)', () => {
+    expect(frameDrawsNothing({ type: 'FRAME', children: [], background: [] })).toBe(true);
+  });
+
+  it('keeps a frame that has children', () => {
+    expect(frameDrawsNothing({ children: [{}] })).toBe(false);
+  });
+
+  it('keeps a frame with a real background / stroke / effect', () => {
+    expect(frameDrawsNothing({ children: [], background: [{ type: 'SOLID' }] })).toBe(false);
+    expect(frameDrawsNothing({ children: [], stroke: { paints: [{}] } })).toBe(false);
+    expect(frameDrawsNothing({ children: [], effects: [{ type: 'DROP_SHADOW' }] })).toBe(false);
+  });
+});
