@@ -867,14 +867,26 @@
     return applied;
   }
 
-  function placeText(layer, node, isBox, fontSize) {
+  function placeText(layer, node, isBox, fontSize, align) {
     var t = node.transform || {};
     var tr = layer.property('ADBE Transform Group');
     tr.property('ADBE Anchor Point').setValue([0, 0]);
     var x = t.x || 0, y = t.y || 0;
-    // Box text starts at the box top-left; point text is anchored on the first
-    // baseline, so drop it by roughly the ascent.
-    if (!isBox) y = y + (fontSize || 16) * 0.8;
+    // Box text starts at the box top-left and is justified/centred WITHIN the box,
+    // so its top-left position is correct as-is. POINT text has no box: After
+    // Effects anchors it on the first baseline AT THE JUSTIFICATION POINT — the
+    // left edge for left-align, but the horizontal CENTRE for centre-align and the
+    // RIGHT edge for right-align. Figma's x is always the text box's left edge, so
+    // for a centre/right-aligned point label (e.g. an auto-width button label that
+    // hugs its text) we must move the insertion point to the centre/right of the
+    // node's width, or the text lands half a width (centre) or a full width (right)
+    // off to the left.
+    if (!isBox) {
+      y = y + (fontSize || 16) * 0.8;
+      var w = t.width || 0;
+      if (align === 'CENTER') x = x + w / 2;
+      else if (align === 'RIGHT') x = x + w;
+    }
     tr.property('ADBE Position').setValue([x, y]);
     if (t.matrix && t.matrix.length === 6) {
       var d = N.decomposeMatrix(t.matrix);
@@ -1009,7 +1021,7 @@
       }
     }
 
-    placeText(layer, node, isBox, base.fontSize);
+    placeText(layer, node, isBox, base.fontSize, data.textAlignHorizontal);
     // Tag the layer with any unresolved family so the resolver can find it.
     if (layerMissing.length) {
       var tags = '';
