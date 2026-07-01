@@ -44,10 +44,11 @@ approximated is listed at the end of the export.
 
 ## Known limitations
 
-- **Rotated text stays editable but imports unrotated.** Illustrator's scripting
-  DOM exposes no transform matrix or rotation angle for a text frame, so rotation
-  can't be detected or carried. Rasterize a rotated text frame in Illustrator
-  first if you need it pixel-exact.
+- **Rotated text is baked to a pixel-exact image** (Illustrator's scripting DOM
+  exposes no rotation angle for a text frame, so it can't be carried as editable
+  rotated text). A clearly-rotated single line is detected and baked so it lands
+  correct; very small rotations or multi-line rotated frames may still import as
+  flat editable text — rotate those in After Effects, or rasterize in Illustrator.
 - **Opacity masks are baked** (the mask art isn't a separable page item in the
   DOM), so the masked result is a flat image rather than an editable luma matte.
 - **Live-effect detection is heuristic** (visible-bounds overflow): a heavily

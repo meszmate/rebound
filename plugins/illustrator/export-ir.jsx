@@ -611,6 +611,32 @@
     return img;
   }
 
+  // Illustrator's scripting DOM exposes no rotation angle / transform matrix for a
+  // text frame, so a rotated label can't be carried as editable rotated text. But
+  // a meaningfully-rotated SINGLE line is detectable: its axis-aligned bounds are
+  // far taller than a horizontal line of that size. Detect that (conservatively,
+  // so ordinary horizontal text is never tripped) and bake it to a pixel-exact
+  // image, so rotated text lands correct instead of flat and mis-placed. Small
+  // rotations and multi-line frames fall through to editable text unchanged.
+  function isRotatedText(item) {
+    try {
+      var lines = item.lines;
+      if (!lines || lines.length !== 1) return false; // multi-line: can't tell rotation from height
+      var gb = item.geometricBounds; // [left, top, right, bottom] Y-up
+      var h = gb[1] - gb[3];
+      var fs = 12;
+      try { fs = item.textRange.characterAttributes.size || 12; } catch (eS) {}
+      return h > fs * 2.5; // a horizontal single line is ~1x the font size tall
+    } catch (e) { return false; }
+  }
+
+  function bakedForRotation(item) {
+    if (!isRotatedText(item)) return null;
+    var img = imageItemToIR(item);
+    if (img) note(item, 'rotated text baked to a pixel-exact image (Illustrator exposes no text rotation to carry it as editable rotated text)');
+    return img;
+  }
+
   function itemToIR(item) {
     var tn;
     try { if (item.hidden) return null; tn = item.typename; } catch (e) { return null; }
@@ -627,7 +653,10 @@
       return compoundToIR(item);
     }
     if (tn === 'GroupItem') return groupToIR(item);
-    if (tn === 'TextFrame') return textToIR(item);
+    if (tn === 'TextFrame') {
+      var rt = bakedForRotation(item); if (rt) return rt;
+      return textToIR(item);
+    }
     // Placed / raster images, meshes, symbol instances, and graphs all bake to a
     // pixel-exact PNG instead of vanishing (each previously returned null).
     if (tn === 'PlacedItem' || tn === 'RasterItem' || tn === 'MeshItem' || tn === 'SymbolItem' || tn === 'GraphItem') {
