@@ -30,7 +30,17 @@ Photoshop's `Presets/Scripts` folder and restart Photoshop.
 ## What transfers
 
 Groups (with blend + opacity), editable type layers (font, size, colour,
-tracking, alignment), and layer effects as real layer styles. Raster, shape,
-smart-object, fill, and adjustment layers are flattened to images and placed by
-their bounds. Rich (mixed) type styling falls back to the dominant style, and
-bevel/satin/gradient-overlay are noted in the export report for now.
+tracking, alignment, per-run styling), vector shape layers (as editable paths),
+and layer effects (drop/inner shadow, glow, colour/gradient overlay, stroke,
+bevel, satin) as real layer styles. Raster, smart-object, fill, and adjustment
+layers are placed as pixel-exact images by their bounds.
+
+## Known limitations
+
+- **Rotated text is baked to a pixel-exact image** (Photoshop text rotation
+  isn't carried as editable AE text). Unrotated text stays fully editable.
+- **Paragraph-text box sizing uses the ink bounds**, not the text frame, so a
+  paragraph box much wider than its text could re-wrap slightly. Point text and
+  box-filling paragraph text are unaffected.
+- Rich (mixed) type styling on very old Photoshop builds falls back to the
+  dominant style; everything approximated is listed in the export report.

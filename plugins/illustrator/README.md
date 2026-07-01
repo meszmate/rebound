@@ -33,9 +33,22 @@ Illustrator's `Presets/<locale>/Scripts` folder and restart Illustrator.
 
 ## What transfers
 
-Paths and compound paths (exact bezier, even-odd holes), groups, and text
-(editable, per character-attribute run, with the real font). Solid, gradient
-(colours exact), CMYK/Gray/Spot (converted to RGB), strokes (width, cap, join,
-dashes), opacity, and blend modes. Placed/linked images, symbols, gradient
-meshes, and patterns are not transferred in this version and are listed at the
-end of the export so you know exactly what to redo by hand.
+Paths and compound paths (exact bezier, even-odd holes), groups (with clip
+masks), and text (editable, per character-attribute run, with the real font).
+Solid, gradient (colours exact, linear/radial with geometry), CMYK/Gray/Spot/Lab
+(converted to RGB), strokes (width, cap, join, dashes), opacity, and blend modes.
+Placed/linked images, symbols, gradient meshes, patterns, live effects (drop
+shadow/glow/blur), and opacity-masked art are **baked to pixel-exact PNGs** so
+they still come across (they just aren't editable vectors). Everything baked or
+approximated is listed at the end of the export.
+
+## Known limitations
+
+- **Rotated text stays editable but imports unrotated.** Illustrator's scripting
+  DOM exposes no transform matrix or rotation angle for a text frame, so rotation
+  can't be detected or carried. Rasterize a rotated text frame in Illustrator
+  first if you need it pixel-exact.
+- **Opacity masks are baked** (the mask art isn't a separable page item in the
+  DOM), so the masked result is a flat image rather than an editable luma matte.
+- **Live-effect detection is heuristic** (visible-bounds overflow): a heavily
+  mitred stroke could bake when it didn't need to. Both cases are noted.
