@@ -7,6 +7,14 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Behaviors (new tool) — a drag-and-apply motion library.** Browse ready-made
+  **entrances, exits, and emphasis** moves (Fade / Scale / Pop / Slide / Rise /
+  Sink / Pulse / Pop / Spin) and drop them on the selected layers. Unlike
+  expression-preset libraries, each behavior lays down **clean, hand-tunable
+  keyframes with real eases** (authored from Rebound's own easing model) starting
+  at the playhead — with shared Duration / Distance / Direction / Overshoot
+  controls. Pure, unit-tested spec builder (`client/js/behaviors/library.js`, 10
+  tests); the host turns specs into keyframes + temporal eases.
 - **Figma re-import updates in place instead of stacking duplicates.** Every
   imported layer is now stamped with its Figma node id (in the layer comment).
   With the new **"Update in place on re-import"** toggle on, re-importing the
