@@ -166,6 +166,58 @@
     return (typeof node.cornerRadius === 'number') ? node.cornerRadius : 0;
   }
 
+  // ---- collapse pure-layout wrapper frames ---------------------------------
+  // Figma auto-layout produces deep chains of "Container" frames that carry NO
+  // visual (no fill/stroke/effect/clip/opacity/blend/corner/rotation) — they only
+  // exist to lay out their children. In After Effects each such frame would become
+  // a junk container layer, so a 2746-object board floods the timeline. When
+  // COLLAPSE_LAYOUT is on, such a wrapper is dropped and its children are hoisted
+  // into the parent. This is a VISUAL no-op (the wrapper drew nothing) and
+  // position-safe: relMatrix uses each node's ABSOLUTE transform minus the frame
+  // origin, so hoisting with the parent's origin keeps every child exactly put.
+  var COLLAPSE_LAYOUT = true;
+
+  function hasVisiblePaint(paints) {
+    if (!paints || (typeof figma !== 'undefined' && paints === figma.mixed) || !paints.length) return false;
+    for (var i = 0; i < paints.length; i++) {
+      var p = paints[i];
+      if (p && p.visible !== false && (p.opacity == null || p.opacity > 0)) return true;
+    }
+    return false;
+  }
+
+  function hasVisibleEffect(node) {
+    var ef = node.effects;
+    if (!ef || !ef.length) return false;
+    for (var i = 0; i < ef.length; i++) { if (ef[i] && ef[i].visible !== false) return true; }
+    return false;
+  }
+
+  function isCollapsibleLayout(node) {
+    if (!node || node.visible === false) return false;
+    var t = node.type;
+    // Only plain FRAME/GROUP wrappers. INSTANCE/COMPONENT keep their identity (they
+    // are candidates for reuse/de-dup, a separate strategy).
+    if (t !== 'FRAME' && t !== 'GROUP') return false;
+    var kids = node.children;
+    if (!kids || !kids.length) return false;
+    if (node.isMask) return false;
+    // A mask CHILD scopes to this group's following siblings; hoisting would
+    // re-scope it across the parent, so never collapse a wrapper containing one.
+    for (var k = 0; k < kids.length; k++) { if (kids[k] && kids[k].isMask) return false; }
+    // Any visual or structural role -> keep the wrapper.
+    try { if (hasVisiblePaint(node.fills)) return false; } catch (e1) {}
+    try { if (hasVisiblePaint(node.strokes)) return false; } catch (e2) {}
+    try { if (hasVisibleEffect(node)) return false; } catch (e3) {}
+    try { if (node.clipsContent) return false; } catch (e4) {}
+    try { if (node.opacity != null && node.opacity < 1) return false; } catch (e5) {}
+    try { if (node.blendMode && node.blendMode !== 'PASS_THROUGH' && node.blendMode !== 'NORMAL') return false; } catch (e6) {}
+    var c = null; try { c = mapCorners(node); } catch (e7) {}
+    if (c && (c.topLeft || c.topRight || c.bottomRight || c.bottomLeft)) return false;
+    try { if (typeof node.rotation === 'number' && Math.abs(node.rotation) > 0.01) return false; } catch (e8) {}
+    return true;
+  }
+
   // Editable vector paths first, fall back to the rendered fill outline.
   function mapPaths(node) {
     var entries = (node.vectorPaths && node.vectorPaths.length) ? node.vectorPaths : (node.fillGeometry || []);
@@ -671,8 +723,16 @@
     var out = [];
     var kids = node.children || [];
     for (var i = 0; i < kids.length; i++) {
-      var ir = await nodeToIR(kids[i], origin, assets);
-      if (ir) out.push(ir);
+      var kid = kids[i];
+      if (COLLAPSE_LAYOUT && isCollapsibleLayout(kid)) {
+        // Hoist the pure-layout wrapper's children straight into this parent (same
+        // origin): the wrapper drew nothing and carries no transform of its own.
+        var inner = await childrenToIR(kid, origin, assets);
+        for (var j = 0; j < inner.length; j++) out.push(inner[j]);
+      } else {
+        var ir = await nodeToIR(kid, origin, assets);
+        if (ir) out.push(ir);
+      }
     }
     assignMaskTargets(out);
     return out;
@@ -943,7 +1003,11 @@
     };
   }
 
-  async function buildIR(selection) {
+  async function buildIR(selection, opts) {
+    opts = opts || {};
+    // Default ON: collapse pure-layout wrapper frames so a deep auto-layout board
+    // doesn't flood the timeline. A future UI toggle can send collapseLayout:false.
+    COLLAPSE_LAYOUT = opts.collapseLayout !== false;
     var assets = {};
     var frames = [];
     var loose = [];
@@ -961,5 +1025,5 @@
     };
   }
 
-  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION };
+  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION, isCollapsibleLayout: isCollapsibleLayout };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

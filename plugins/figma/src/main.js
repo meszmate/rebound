@@ -44,7 +44,7 @@ figma.ui.onmessage = async function (msg) {
       return;
     }
     try {
-      var ir = await ReboundFigma.buildIR(sel);
+      var ir = await ReboundFigma.buildIR(sel, msg.options || {});
       figma.ui.postMessage({ type: 'ir', ir: ir });
     } catch (e) {
       figma.ui.postMessage({ type: 'error', error: (e && e.message) || String(e) });
