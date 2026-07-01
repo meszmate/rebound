@@ -9,6 +9,16 @@
 (function () {
   var R = $.__rebound;
   var util = R.util;
+  var rig = R.rig;
+
+  // Clear any Rebound remap/overshoot EXPRESSION on a property before baking
+  // keyframes onto it. An enabled expression overrides keyframe values in AE, so
+  // a leftover expression from a prior "Apply as: Expression" would silently
+  // ignore the freshly-baked keys ("I applied it and nothing changed"). Only
+  // Rebound's own (MARKER-tagged) expression is cleared; user expressions stay.
+  function clearReboundExpr(p) {
+    try { if (rig && rig.clearExpression) rig.clearExpression(p); } catch (e) {}
+  }
 
   function valuesAt(prop, index) {
     var v = prop.keyValue(index);
@@ -72,6 +82,7 @@
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
       var idx = p.selectedKeys.length >= 2 ? p.selectedKeys : null;
       if (!idx) continue;
+      clearReboundExpr(p);
       var dims = util.dimensionsOf(p);
       var did = false;
 
@@ -276,6 +287,7 @@
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
       var idx = p.selectedKeys;
       if (!idx || idx.length < 2) continue;
+      clearReboundExpr(p);
       var dims = util.dimensionsOf(p);
       var pairs = [];
       for (var s = 0; s < idx.length - 1; s++) {
