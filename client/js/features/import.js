@@ -213,7 +213,9 @@
     ]);
 
     if (report.replaced) {
-      card.appendChild(el('div.rb-faint', { text: 'Updated in place: replaced ' + report.replaced + ' previously-imported layer' + (report.replaced === 1 ? '' : 's') + '.' }));
+      var upd = 'Updated in place: replaced ' + report.replaced + ' previously-imported layer' + (report.replaced === 1 ? '' : 's');
+      if (report.animRestored) upd += ' · kept your animation on ' + report.animRestored + ' of them';
+      card.appendChild(el('div.rb-faint', { text: upd + '.' }));
     }
 
     if (report.missingFonts && report.missingFonts.length) card.appendChild(fontResolver(report.missingFonts));
@@ -517,7 +519,7 @@
       autoPrecompToggle ? autoPrecompToggle.el : null,
       el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each large frame (e.g. a whole screen) becomes its own comp — so importing a full board doesn’t flood the timeline. Small frames stay flat. Importing a single frame is unaffected.' }),
       updateToggle ? updateToggle.el : null,
-      el('div.rb-faint', { text: 'On: re-importing the same design removes the prior version of each layer instead of stacking a duplicate. Layers you added by hand are never touched. (Animation on replaced layers is rebuilt, not carried over — keyframe-preserving merge is coming.)' }),
+      el('div.rb-faint', { text: 'On: re-importing the same design replaces the prior version of each layer instead of stacking a duplicate, and KEEPS any animation you added — Position/Anchor keyframes follow the new placement; Scale/Rotation/Opacity are preserved. Layers you added by hand are never touched.' }),
 
       el('div.rb-section-label', { text: 'Send from a design app' }),
       sendNote,

@@ -768,6 +768,132 @@
     return comp;
   }
 
+  // ---- keyframe-preserving re-import ---------------------------------------
+  // Update-in-place replaces a layer, which would drop any animation the user
+  // added. Capture each matched layer's Transform keyframes/expressions BEFORE
+  // deletion, then re-apply them to the freshly-built layer with the same node id.
+  // Position/Anchor keyframes are OFFSET so the animation FOLLOWS the redesign's
+  // new placement (its first keyframe lands on the new static value); Scale /
+  // Rotation / Opacity keep their absolute values (a fade or settle is intrinsic,
+  // not relative to placement). Every step is guarded: any failure just leaves
+  // that property un-animated (identical to today's rebuild), never throws.
+
+  function safeGet(fn) { try { return fn(); } catch (e) { return null; } }
+
+  function isPositionMatch(mn) {
+    return mn === 'ADBE Position' || mn === 'ADBE Position_0' || mn === 'ADBE Position_1' ||
+      mn === 'ADBE Position_2' || mn === 'ADBE Anchor Point';
+  }
+
+  function addVal(a, off) {
+    if (a instanceof Array) { var o = []; for (var i = 0; i < a.length; i++) o.push(a[i] + (off[i] || 0)); return o; }
+    return a + (off instanceof Array ? (off[0] || 0) : off);
+  }
+  function subVal(a, b) {
+    if (a instanceof Array) { var o = []; for (var i = 0; i < a.length; i++) o.push((a[i] || 0) - (b[i] || 0)); return o; }
+    return a - (b instanceof Array ? (b[0] || 0) : b);
+  }
+
+  // Capture one animatable leaf property (recurse into sub-groups, e.g. separated
+  // Position). Pushes { mn, first, keys[], expr } onto `out` when it has animation.
+  function capProp(p, out) {
+    var kids = safeGet(function () { return p.numProperties; }) || 0;
+    if (kids > 0) { for (var i = 1; i <= kids; i++) { try { capProp(p.property(i), out); } catch (e) {} } return; }
+    if (!safeGet(function () { return p.canVaryOverTime; })) return;
+    var expr = '';
+    try { if (p.expressionEnabled && p.expression) expr = p.expression; } catch (e2) {}
+    var nk = safeGet(function () { return p.numKeys; }) || 0;
+    if (nk < 1 && !expr) return;
+    var keys = [];
+    for (var k = 1; k <= nk; k++) {
+      keys.push({
+        t: p.keyTime(k), v: p.keyValue(k),
+        inI: safeGet(function () { return p.keyInInterpolationType(k); }),
+        outI: safeGet(function () { return p.keyOutInterpolationType(k); }),
+        inE: safeGet(function () { return p.keyInTemporalEase(k); }),
+        outE: safeGet(function () { return p.keyOutTemporalEase(k); }),
+        inT: safeGet(function () { return p.keyInSpatialTangent(k); }),
+        outT: safeGet(function () { return p.keyOutSpatialTangent(k); })
+      });
+    }
+    out.push({ mn: safeGet(function () { return p.matchName; }), first: keys.length ? keys[0].v : null, keys: keys, expr: expr });
+  }
+
+  function captureLayerAnim(layer) {
+    var tg = safeGet(function () { return layer.property('ADBE Transform Group'); });
+    if (!tg) return null;
+    var out = [];
+    var kids = safeGet(function () { return tg.numProperties; }) || 0;
+    for (var i = 1; i <= kids; i++) { try { capProp(tg.property(i), out); } catch (e) {} }
+    return out.length ? out : null;
+  }
+
+  // Capture animation from every matched (re-imported) layer, keyed by node id.
+  function captureReimportAnim(comp, incoming) {
+    var map = {};
+    for (var i = 1; i <= comp.numLayers; i++) {
+      var L = comp.layer(i), c = '';
+      try { c = L.comment || ''; } catch (e) { c = ''; }
+      if (c.substr(0, ID_TAG.length) === ID_TAG) {
+        var id = c.substr(ID_TAG.length);
+        if (incoming[id]) { var a = captureLayerAnim(L); if (a) map[id] = a; }
+      }
+    }
+    return map;
+  }
+
+  function findLeaf(group, mn) {
+    var kids = safeGet(function () { return group.numProperties; }) || 0;
+    for (var i = 1; i <= kids; i++) {
+      var p = group.property(i);
+      if (safeGet(function () { return p.matchName; }) === mn) return p;
+      if ((safeGet(function () { return p.numProperties; }) || 0) > 0) { var f = findLeaf(p, mn); if (f) return f; }
+    }
+    return null;
+  }
+
+  function restoreLayerAnim(layer, caps) {
+    var tg = safeGet(function () { return layer.property('ADBE Transform Group'); });
+    if (!tg) return;
+    for (var i = 0; i < caps.length; i++) {
+      var c = caps[i];
+      var p = findLeaf(tg, c.mn);
+      if (!p) continue;
+      try {
+        // Position/Anchor: shift so the first keyframe lands on the new static
+        // value, i.e. the animation follows the redesign's placement.
+        var off = null;
+        if (isPositionMatch(c.mn) && c.first != null && c.keys.length) {
+          var cur = safeGet(function () { return p.value; });
+          if (cur != null) off = subVal(cur, c.first);
+        }
+        for (var k = 0; k < c.keys.length; k++) {
+          var v = c.keys[k].v;
+          if (off != null) v = addVal(v, off);
+          p.setValueAtTime(c.keys[k].t, v);
+        }
+        for (var k2 = 0; k2 < c.keys.length; k2++) {
+          var ki = k2 + 1, kf = c.keys[k2];
+          if (kf.inI != null && kf.outI != null) safeGet(function () { p.setInterpolationTypeAtKey(ki, kf.inI, kf.outI); return 1; });
+          if (kf.inT && kf.outT) safeGet(function () { p.setSpatialTangentsAtKey(ki, kf.inT, kf.outT); return 1; });
+          if (kf.inE && kf.outE) safeGet(function () { p.setTemporalEaseAtKey(ki, kf.inE, kf.outE); return 1; });
+        }
+        if (c.expr) safeGet(function () { p.expression = c.expr; return 1; });
+      } catch (e) { /* leave this property un-animated */ }
+    }
+  }
+
+  function restoreReimportAnim(map) {
+    if (!map) return 0;
+    var n = 0;
+    for (var id in map) {
+      if (!map.hasOwnProperty(id)) continue;
+      var L = R.importer.layerById && R.importer.layerById[id];
+      if (L && L.property) { restoreLayerAnim(L, map[id]); n++; }
+    }
+    return n;
+  }
+
   function build(ir) {
     var check = R.ir.validate(ir);
     var report = newReport();
@@ -809,9 +935,12 @@
 
     // Update-in-place: drop the prior version of every re-imported node first, so
     // the fresh build lands as an update rather than a stacked duplicate.
+    var animMap = null;
     if (R.importer.opts.updateExisting && target) {
       var incoming = {};
       collectIds(frames, incoming);
+      // Preserve any animation the user added, before the old layers are replaced.
+      animMap = safeGet(function () { return captureReimportAnim(target, incoming); });
       report.replaced = removeReimported(target, incoming);
     }
 
@@ -838,6 +967,9 @@
       report.placedInComp = !!target;
       target = comp;
     }
+
+    // Re-apply any animation captured from the replaced layers onto the fresh ones.
+    if (animMap) { try { report.animRestored = restoreReimportAnim(animMap); } catch (eAnim) {} }
 
     // Clipping mattes and layer styles run last (after every layer exists).
     if (R.importer.mask) R.importer.mask.flushAll();

@@ -51,8 +51,15 @@ All notable changes to Rebound are documented here. The format follows
   the fresh one — so iterating on a design after you've started animating no
   longer buries the comp in duplicate layer sets. Layers you added by hand
   (untagged) are never touched; the report shows how many were replaced.
-  (Animation on replaced layers is rebuilt for now; a keyframe-preserving merge
-  is the next step.)
+- **Re-import KEEPS your animation.** Update-in-place now captures each replaced
+  layer's Transform keyframes/expressions before deletion and re-applies them to
+  the freshly-built layer with the same node id — so you can iterate on the
+  design (colours, text, art) after animating without losing your work.
+  **Position/Anchor keyframes follow the redesign's new placement** (the first
+  keyframe lands on the new position); **Scale/Rotation/Opacity are preserved
+  absolute** (a fade or settle is intrinsic). Fail-safe: any property that can't
+  be transferred falls back to a plain rebuild. The report shows how many layers
+  kept their animation.
 - **Audio & rhythm (new tool) — beat/transient markers, a category no all-in-one
   rival owns.** Drop comp or layer markers from a **BPM beat grid** (with
   **tap-tempo** and subdivision) or **detected from the audio itself**: select a
