@@ -76,12 +76,22 @@
     return out;
   }
 
-  function ensureBezier(prop, index) {
-    prop.setInterpolationTypeAtKey(
-      index,
-      KeyframeInterpolationType.BEZIER,
-      KeyframeInterpolationType.BEZIER
-    );
+  // Convert ONLY the side being eased to BEZIER, preserving the other side's
+  // interpolation (so easing the outgoing side of a key doesn't disturb a HOLD
+  // on its incoming side, and vice-versa). A plain LINEAR side becoming BEZIER is
+  // expected; a HOLD on the OTHER side is left intact.
+  function ensureBezierSide(prop, index, side) {
+    var inType = prop.keyInInterpolationType(index);
+    var outType = prop.keyOutInterpolationType(index);
+    if (side === 'out') outType = KeyframeInterpolationType.BEZIER;
+    else inType = KeyframeInterpolationType.BEZIER;
+    prop.setInterpolationTypeAtKey(index, inType, outType);
+  }
+
+  // A stepped (HOLD-out) segment has no interpolation to ease; easing it would
+  // silently turn a deliberate stepped hold into a smooth ramp. Skip + report.
+  function isHoldSegment(prop, a) {
+    try { return prop.keyOutInterpolationType(a) === KeyframeInterpolationType.HOLD; } catch (e) { return false; }
   }
 
   function applyEase(args) {
@@ -100,6 +110,8 @@
 
     var propsTouched = 0;
     var segments = 0;
+    var skippedHold = 0;
+    var skippedFlat = 0;
 
     for (var t = 0; t < list.length; t++) {
       var prop = list[t].prop;
@@ -115,13 +127,16 @@
         var b = idx[s + 1];
         var dt = prop.keyTime(b) - prop.keyTime(a);
         if (dt <= 0) continue;
+        // A stepped (HOLD) segment has no interpolation to ease — leave it as-is
+        // instead of silently smoothing a deliberate stepped hold.
+        if (isHoldSegment(prop, a)) { skippedHold++; continue; }
 
         var aVals = valuesAt(prop, a);
         var bVals = valuesAt(prop, b);
         // A spatial segment with no motion (identical position/anchor values) has
         // a zero-length path; applying a temporal ease throws "zero denominator
         // converting ratio" in AE. Leave that segment untouched.
-        if (spatial && magnitude(aVals, bVals) < 1e-6) continue;
+        if (spatial && magnitude(aVals, bVals) < 1e-6) { skippedFlat++; continue; }
         var outArr = [];
         var inArr = [];
         for (var d = 0; d < dims; d++) {
@@ -132,11 +147,11 @@
         }
 
         if (setOut) {
-          ensureBezier(prop, a);
+          ensureBezierSide(prop, a, 'out');
           prop.setTemporalEaseAtKey(a, prop.keyInTemporalEase(a), outArr);
         }
         if (setIn) {
-          ensureBezier(prop, b);
+          ensureBezierSide(prop, b, 'in');
           prop.setTemporalEaseAtKey(b, inArr, prop.keyOutTemporalEase(b));
         }
         segments++;
@@ -145,7 +160,12 @@
       if (didProp) propsTouched++;
     }
 
-    return { properties: propsTouched, segments: segments };
+    return {
+      properties: propsTouched,
+      segments: segments,
+      skippedHold: skippedHold,
+      skippedFlat: skippedFlat
+    };
   }
 
   // Reconstruct a normalized cubic-bezier from one selected segment's ease. The

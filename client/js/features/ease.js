@@ -264,8 +264,16 @@
       ctx.invoke('ease.apply', { curve: withType(R.easing.bezier.sanitizeHandles(curve)), scope: useScope, applyToAll: applyToAll })
         .then(function (res) {
           var sideNote = useScope !== scope ? ' (' + useScope + ')' : '';
-          ctx.toast('Eased ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's') +
-            ' across ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') + sideNote, { kind: 'success' });
+          var skips = [];
+          if (res.skippedHold) skips.push(res.skippedHold + ' held');
+          if (res.skippedFlat) skips.push(res.skippedFlat + ' zero-length');
+          var skipNote = skips.length ? ' · skipped ' + skips.join(', ') : '';
+          if (!res.segments && skips.length) {
+            ctx.toast('Nothing eased — skipped ' + skips.join(', ') + ' segment' + (res.skippedHold + res.skippedFlat === 1 ? '' : 's'), { kind: 'info' });
+          } else {
+            ctx.toast('Eased ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's') +
+              ' across ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') + sideNote + skipNote, { kind: 'success' });
+          }
           ctx.refreshSelection();
         })
         .catch(function (err) {
