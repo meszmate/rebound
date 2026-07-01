@@ -46,21 +46,15 @@ body {
   padding: 11px 13px 9px;
 }
 .brand { display: flex; align-items: center; gap: 8px; }
-.logo { flex: none; border-radius: 6px; }
-.logo .logo-bg { fill: var(--rb-accent); }
+.logo { flex: none; display: block; color: var(--rb-accent); }
 .word { font-size: 13px; font-weight: 650; letter-spacing: 0.1px; color: var(--figma-color-text, #1a1a1a); }
 .word b { font-weight: 500; color: var(--figma-color-text-tertiary, #a0a0a0); margin-left: 4px; }
 
-/* ── Connection card (the hero status) ───────────────────────────── */
+/* ── Connection status (a quiet strip, not a card) ───────────────── */
 .conn {
-  margin: 0 10px;
-  padding: 9px 11px;
-  border: 1px solid var(--figma-color-border, #e6e6e6);
-  border-radius: var(--rb-r);
-  background: var(--figma-color-bg-secondary, #f5f5f5);
-  transition: border-color var(--rb-med) var(--rb-ease);
+  padding: 3px 13px 11px;
+  border-bottom: 1px solid var(--figma-color-border, #e6e6e6);
 }
-.conn[data-state="connected"] { border-color: color-mix(in srgb, var(--rb-ok) 38%, var(--figma-color-border, #e6e6e6)); }
 .conn-main { display: flex; align-items: center; gap: 9px; }
 
 .conn-dot {
@@ -134,23 +128,17 @@ body {
 .conn-steps b { color: var(--figma-color-text, #1a1a1a); font-weight: 600; }
 
 /* ── Body ────────────────────────────────────────────────────────── */
-.body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 8px; }
+.body { padding: 11px 13px 12px; display: flex; flex-direction: column; gap: 10px; }
 
+/* Selection is a quiet inline line, not a boxed card. */
 .sel {
   display: flex; align-items: center; gap: 9px;
-  padding: 9px 11px;
-  border: 1px solid var(--figma-color-border, #e6e6e6);
-  border-radius: var(--rb-r);
-  background: var(--figma-color-bg, #fff);
-  transition: border-color var(--rb-fast);
+  padding: 1px 1px 2px;
 }
-.sel[data-has="false"] { border-style: dashed; }
 .sel-ic {
   flex: none;
-  width: 28px; height: 28px;
+  width: 19px; height: 19px;
   display: grid; place-items: center;
-  border-radius: var(--rb-r-sm);
-  background: var(--figma-color-bg-secondary, #f5f5f5);
   color: var(--figma-color-text-tertiary, #a0a0a0);
   transition: color var(--rb-fast);
 }

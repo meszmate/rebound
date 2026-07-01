@@ -93,8 +93,9 @@
       }
       ctx.invoke('fade.apply', { inFrames: inFrames, outFrames: outFrames, doIn: doIn, doOut: doOut, ease: ease })
         .then(function (res) {
-          ctx.toast('Faded ' + res.faded + ' layer' + (res.faded === 1 ? '' : 's'),
-            { kind: res.faded ? 'success' : 'info' });
+          var msg = 'Faded ' + res.faded + ' layer' + (res.faded === 1 ? '' : 's');
+          if (res.skipped && res.skipped.length) msg += ' · skipped ' + res.skipped.length;
+          ctx.toast(msg, { kind: res.faded ? 'success' : 'info' });
           ctx.refreshSelection();
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not fade', { kind: 'error' }); });

@@ -139,7 +139,7 @@
     var moved = 0;
     var skipped = [];
 
-    app.beginUndoGroup('Rebound: Move Anchor');
+    R.beginUndo('Rebound: Move Anchor');
     try {
       for (var i = 0; i < layers.length; i++) {
         var layer = layers[i];
@@ -190,7 +190,7 @@
         moved++;
       }
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
 
     return { moved: moved, skipped: skipped };

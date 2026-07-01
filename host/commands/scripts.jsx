@@ -14,15 +14,15 @@
     if (!code || !('' + code).length) throw new Error('No script to run.');
     var label = (args && args.label) ? ('' + args.label) : 'Run Script';
 
-    app.beginUndoGroup('Rebound: ' + label);
+    R.beginUndo('Rebound: ' + label);
     var result;
     try {
       result = eval('' + code);
     } catch (e) {
-      app.endUndoGroup();
+      R.endUndo();
       throw new Error((e && e.message) ? e.message : ('Script error: ' + e));
     }
-    app.endUndoGroup();
+    R.endUndo();
 
     var out = (result === undefined || result === null) ? '' : ('' + result);
     return { ok: true, result: out };

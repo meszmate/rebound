@@ -76,8 +76,13 @@
       children.push(el('div.rb-tile-name', { text: p.name }));
       var node = el('div.rb-tile', {
         'data-name': p.name, title: 'Apply ' + p.name,
-        onclick: function () {
-          if (config.set) { try { config.set(p.state); } catch (e) { R.log.error('Preset apply failed', e); } }
+        onclick: function (ev) {
+          // onPick (opt-in) applies the preset to the live selection immediately
+          // — the Flow-style one-click. The click event is forwarded so a tool can
+          // honor modifier keys (e.g. Alt/Shift to force the eased side). Tools
+          // without onPick fall back to loading the preset into their editor.
+          if (config.onPick) { try { config.onPick(p.state, ev); } catch (e0) { R.log.error('Preset apply failed', e0); } }
+          else if (config.set) { try { config.set(p.state); } catch (e) { R.log.error('Preset apply failed', e); } }
           mark(p.name);
         }
       }, children);

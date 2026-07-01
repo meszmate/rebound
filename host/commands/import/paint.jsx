@@ -74,7 +74,7 @@
     if (h && h.length >= 2) {
       var start = [h[0][0], h[0][1]];
       var end = [h[1][0], h[1][1]];
-      if (paint.type === 'GRADIENT_RADIAL' && h.length >= 3 && h[2]) {
+      if ((paint.type === 'GRADIENT_RADIAL' || paint.type === 'GRADIENT_DIAMOND') && h.length >= 3 && h[2]) {
         var dMain = Math.sqrt(Math.pow(end[0] - start[0], 2) + Math.pow(end[1] - start[1], 2));
         var dWide = Math.sqrt(Math.pow(h[2][0] - start[0], 2) + Math.pow(h[2][1] - start[1], 2));
         if (dWide > dMain) end = [h[2][0], h[2][1]];
@@ -366,6 +366,110 @@
     }
   }
 
+  // AE shape strokes are CENTRE-only, so an INSIDE/OUTSIDE *gradient* stroke
+  // (a centred G-Stroke) spills half its width to the wrong side. We compensate
+  // by shifting the PATH the gradient stroke paints, with an Offset Paths
+  // operator, so the centred stroke lands where Figma's inside/outside border
+  // would. The offset must touch ONLY this gradient stroke -- not the fills (built
+  // later, below the stroke in the contents list, so a flat Offset Paths would
+  // shift them too) and not any other stroke -- so the gradient stroke is built in
+  // its OWN nested vector group: a private copy of the geometry, then the Offset
+  // Paths, then the G-Stroke. The fills and the main geometry are untouched.
+  //
+  // Offset Paths amount uses AE's outward-positive convention: OUTSIDE pushes the
+  // path out by +weight/2, INSIDE pulls it in by -weight/2; a centred stroke on the
+  // shifted path then covers the same band the source's inside/outside stroke did.
+  //
+  // Returns the sub-contents group the G-Stroke should be added into, or null when
+  // an isolated offset group could not be built (no scriptable geometry to copy,
+  // e.g. a boolean) -- the caller then builds a plain centred stroke and flags the
+  // approximation so it is never silently wrong.
+  // Shoelace SIGNED area of a closed subpath's anchor vertices (node-local px,
+  // verts have .x/.y). Textbook formula: 0.5 * sum(x_i*y_{i+1} - x_{i+1}*y_i).
+  //
+  // CALIBRATION (this is the whole point of the helper): AE's Offset Paths treats
+  // +amount as "outward" only relative to the subpath's winding, so we must learn
+  // which sign of the shoelace area corresponds to the winding our parametric
+  // primitives already use (where +amount is reliably outward). The host's
+  // roundedRect (geometry.jsx, commented "clockwise") walks its anchors:
+  //   (a,0) -> (w-b,0) -> (w,b) -> (w,h-c) -> (w-c,h) -> (d,h) -> (0,h-d) -> (0,a)
+  // i.e. right along the top, down the right edge, left along the bottom, up the
+  // left edge -- visually clockwise in AE's Y-DOWN space. Plugging the rectangle
+  // corners into the textbook shoelace gives +w*h, a POSITIVE area. So in this
+  // Y-down IR/AE space a POSITIVE signed area == the primitives' "+amount = outward"
+  // winding. (This is inverted vs the textbook Y-up convention, where CW is
+  // negative -- hence the calibration rather than assuming a sign.)
+  function signedArea(verts) {
+    if (!verts || verts.length < 3) return 0;
+    var sum = 0;
+    for (var i = 0; i < verts.length; i++) {
+      var a = verts[i];
+      var b = verts[(i + 1) % verts.length];
+      if (!a || !b || a.x == null || a.y == null || b.x == null || b.y == null) return 0;
+      sum += (a.x * b.y) - (b.x * a.y);
+    }
+    return sum / 2;
+  }
+
+  // +1 when the node's first CLOSED subpath is wound like the primitives (so AE's
+  // +amount is already outward), -1 when it is wound the opposite way (so +amount
+  // points INWARD and we must flip the offset sign to keep "outward" consistent).
+  // Returns +1 (no change) when winding can't be determined -- no node.paths, no
+  // closed subpath (parametric rect/ellipse, which AE winds consistently), or a
+  // degenerate/zero-area path -- so the result is never worse than today.
+  function outwardWindingFactor(node) {
+    var paths = node && node.paths;
+    if (!paths || !paths.length) return 1;
+    for (var i = 0; i < paths.length; i++) {
+      var p = paths[i];
+      if (!p || !p.closed) continue;
+      var area = 0;
+      try { area = signedArea(p.vertices); } catch (e) { area = 0; }
+      if (area > 0) return 1;   // matches calibrated CW "+amount = outward"
+      if (area < 0) return -1;  // opposite winding: flip so +amount stays outward
+      return 1;                 // degenerate/zero area on the first closed subpath
+    }
+    return 1; // no closed subpath (e.g. open path or primitive); leave dir as-is
+  }
+
+  function offsetStrokeGroup(contents, node, st) {
+    var dir = (st.align === 'INSIDE') ? -1 : 1; // OUTSIDE outward (+), INSIDE inward (-)
+    // Freeform/boolean closed paths can be wound either way; AE's Offset Paths
+    // "outward" follows the winding, so flip the sign on opposite-wound paths so
+    // INSIDE/OUTSIDE stays correct. Primitives (no closed node.paths) yield +1.
+    var windingFactor = 1;
+    try { windingFactor = outwardWindingFactor(node); } catch (eW) { windingFactor = 1; }
+    var amount = dir * (st.weight / 2) * windingFactor;
+    var grp = contents.addProperty('ADBE Vector Group');
+    var sub = grp.property('ADBE Vectors Group');
+    // Copy the same geometry this layer draws (node-local, origin at top-left).
+    var built = 0;
+    try { built = R.importer.addGeometry(sub, node, [0, 0]); } catch (eG) { built = 0; }
+    if (!built) { try { grp.remove(); } catch (eR) {} return null; }
+    // Offset Paths sits ABOVE the geometry copy (added after it) and BELOW the
+    // G-Stroke (added next), so only this group's stroke paints the shifted path.
+    var offset = null;
+    try { offset = sub.addProperty('ADBE Vector Filter - Offset'); } catch (eO) { offset = null; }
+    if (!offset) { try { grp.remove(); } catch (eR2) {} return null; }
+    setSafe(offset, 'ADBE Vector Offset Amount', amount);
+    // Verify the offset actually took; if the property name is unknown on this AE
+    // build the stroke would be silently centred -- drop the group so the caller
+    // falls back to a flagged centred stroke instead.
+    var got = null;
+    try { got = offset.property('ADBE Vector Offset Amount').value; } catch (eV) { got = null; }
+    if (got == null || Math.abs(got - amount) > 0.01) { try { grp.remove(); } catch (eR3) {} return null; }
+    return sub;
+  }
+
+  // Flagged once per import when an inside/outside gradient stroke fell back to a
+  // plain centred stroke (no scriptable geometry to offset, or Offset Paths
+  // unavailable) so the half-width shift is documented rather than silent.
+  function noteOffsetGradStroke(node, report) {
+    if (!report || report.__offsetGradStrokeNoted) return;
+    report.__offsetGradStrokeNoted = true;
+    R.importer.util.note(report, 'approximated', { name: node.name, detail: 'inside/outside gradient stroke approximated as a centered stroke' });
+  }
+
   // Build one shape stroke operator for a single paint, sharing the node's
   // weight / cap / join / miter / dashes.
   function addStrokePaint(contents, node, st, paint, report) {
@@ -377,12 +481,39 @@
       var op = (paint.opacity != null ? paint.opacity : 1) * (c.a != null ? c.a : 1);
       setSafe(stroke, 'ADBE Vector Stroke Opacity', op * 100);
     } else if (isGradient(paint.type)) {
-      stroke = contents.addProperty('ADBE Vector Graphic - G-Stroke');
-      var pts = gradBuildPoints(paint, node);
-      R.grad.applyGradient(stroke, { type: gradTypeNum(paint.type), start: pts.start, end: pts.end });
+      // AE strokes are centre-only: an INSIDE/OUTSIDE gradient stroke is shifted
+      // onto its proper side by building it in a private offset group (geometry
+      // copy + Offset Paths + this G-Stroke). CENTRE alignment is untouched, and
+      // the offset never reaches the fills or any other stroke. Guarded: if the
+      // group can't be built (no copyable geometry, or Offset Paths missing) fall
+      // back to a plain centred G-Stroke on the shared contents and flag it.
+      var gContents = contents;
+      var offCenter = st.align && st.align !== 'CENTER';
+      if (offCenter) {
+        var sub = null;
+        try { sub = offsetStrokeGroup(contents, node, st); } catch (eOff) { sub = null; }
+        if (sub) gContents = sub;
+        else noteOffsetGradStroke(node, report);
+      }
+      stroke = gContents.addProperty('ADBE Vector Graphic - G-Stroke');
+      // Angular warps to a conic via a layer-wide Polar effect -- only safe when
+      // the angular paint is alone on the layer; otherwise build it as a native
+      // radial (like diamond) so a co-resident fill / stroke is never bent. Mirror
+      // the fill path (addFillPaint) so a stroke never warps the whole layer.
+      var warpAngular = (paint.type === 'GRADIENT_ANGULAR') && angularCanWarp(node);
+      var gtype = (paint.type === 'GRADIENT_LINEAR' ||
+                   (paint.type === 'GRADIENT_ANGULAR' && warpAngular)) ? 1 : 2;
+      var pts = warpAngular ? angularPoints(node) : gradPoints(paint, node);
+      R.grad.applyGradient(stroke, { type: gtype, start: pts.start, end: pts.end });
+      // Mirror the solid stroke opacity (and the fill path): a semi-transparent
+      // gradient border must not import fully opaque.
+      if (paint.opacity != null) setSafe(stroke, 'ADBE Vector Stroke Opacity', paint.opacity * 100);
       if (R.grad.applyGradientColors(stroke, gradStops(paint))) node.__nativeGradFill = true;
       else noteGradFallback(node, report);
-      if (paint.type === 'GRADIENT_ANGULAR') node.__angularConic = true;
+      // The Polar Coordinates warp is added once, layer-wide, in the gradientEffect
+      // post-pass (it needs the layer, not the contents group).
+      if (warpAngular) node.__angularConic = true;
+      else if (paint.type === 'GRADIENT_ANGULAR') noteAngularRadial(node, report);
       if (paint.type === 'GRADIENT_DIAMOND') noteDiamondApprox(node, report);
     } else {
       return null;

@@ -37,7 +37,7 @@
     var sz = args.size != null ? args.size : 6;
     var sp = Math.max(6, args.spacing || 18);
 
-    app.beginUndoGroup('Rebound: Backdrop');
+    R.beginUndo('Rebound: Backdrop');
     try {
       if (!args.transparent) {
         var solid = comp.layers.addSolid(hexToRgb01(args.bg), 'Backdrop BG', comp.width, comp.height, comp.pixelAspect);
@@ -73,7 +73,7 @@
       }
       try { tg.property(M.rotation).setValue(args.angle || 0); } catch (e) {}
       lay.moveToEnd();
-    } finally { app.endUndoGroup(); }
+    } finally { R.endUndo(); }
     return { ok: true };
   }
 
@@ -94,7 +94,7 @@
     var layers = comp.selectedLayers;
     if (!layers.length) throw new Error('Select one or more layers to add effects to.');
     var applied = 0;
-    app.beginUndoGroup('Rebound: Backdrop Effects');
+    R.beginUndo('Rebound: Backdrop Effects');
     try {
       for (var i = 0; i < layers.length; i++) {
         var lay = layers[i];
@@ -105,7 +105,7 @@
         if (args.ca) { try { applyCA(lay, args.caAmount || 6); } catch (e5) {} }
         applied++;
       }
-    } finally { app.endUndoGroup(); }
+    } finally { R.endUndo(); }
     return { applied: applied };
   }
 

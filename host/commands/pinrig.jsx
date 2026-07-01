@@ -638,7 +638,7 @@
     var cap = Math.min(layers.length, 12);
     var total = 0, rigged = 0;
 
-    app.beginUndoGroup('Rebound: Pin Rig');
+    R.beginUndo('Rebound: Pin Rig');
     try {
       // Background dot grid: a full-comp backdrop, built once (comp space, not
       // parented to any artwork), regardless of how many layers are rigged.
@@ -662,7 +662,7 @@
       }
       rigged = cap;
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
     return { layers: total, rigged: rigged, capped: layers.length > cap };
   }
@@ -670,13 +670,13 @@
   function remove() {
     var comp = util.activeComp();
     var removed = 0;
-    app.beginUndoGroup('Rebound: Remove Pin Rig');
+    R.beginUndo('Rebound: Remove Pin Rig');
     try {
       for (var i = comp.numLayers; i >= 1; i--) {
         var lay = comp.layer(i);
         if (lay.comment && lay.comment.indexOf(TAG) !== -1) { lay.remove(); removed++; }
       }
-    } finally { app.endUndoGroup(); }
+    } finally { R.endUndo(); }
     return { removed: removed };
   }
 
@@ -727,7 +727,7 @@
     if (!src) { var sel = comp.selectedLayers; src = sel.length ? sel[0] : null; }
     if (!src) throw new Error('Could not find the rigged artwork to re-read.');
 
-    app.beginUndoGroup('Rebound: Restyle Pins');
+    R.beginUndo('Rebound: Restyle Pins');
     try {
       var t0 = comp.time;
       var sc = (args && args.scale != null) ? args.scale : 1;
@@ -749,7 +749,7 @@
       var stash = findStash(comp, src);
       if (stash) stampSettings(stash, args || {});
     } finally {
-      app.endUndoGroup();
+      R.endUndo();
     }
     return { restyled: true };
   }
@@ -784,13 +784,13 @@
     var comp = util.activeComp();
     var on = !!(args && args.visible);
     var n = 0;
-    app.beginUndoGroup('Rebound: Toggle Pin Rig');
+    R.beginUndo('Rebound: Toggle Pin Rig');
     try {
       for (var i = 1; i <= comp.numLayers; i++) {
         var L = comp.layer(i);
         if (L.comment && L.comment.indexOf(TAG) !== -1) { try { L.enabled = on; n++; } catch (e) {} }
       }
-    } finally { app.endUndoGroup(); }
+    } finally { R.endUndo(); }
     return { toggled: n, visible: on };
   }
 
@@ -830,7 +830,7 @@
     var comp = util.activeComp();
     var t0 = comp.time;
     var layersDone = 0, counter = { n: 0 };
-    app.beginUndoGroup('Rebound: Flatten Pin Rig');
+    R.beginUndo('Rebound: Flatten Pin Rig');
     try {
       for (var i = 1; i <= comp.numLayers; i++) {
         var L = comp.layer(i);
@@ -839,7 +839,7 @@
         bakeMarked(L, t0, counter);
         if (counter.n > before) layersDone++;
       }
-    } finally { app.endUndoGroup(); }
+    } finally { R.endUndo(); }
     return { flattened: layersDone, properties: counter.n };
   }
 

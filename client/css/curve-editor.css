@@ -80,3 +80,39 @@
   color: var(--rb-text-faint);
 }
 .rb-fidelity.is-warn { color: var(--rb-warning); }
+
+/* Real-values readout: the actual AE influence/speed a curve will set, per
+   selected property (Position px/s, Scale %/s, …). */
+.rb-ease-real {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rb-gap-1);
+}
+.rb-ease-real-empty {
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-faint);
+}
+.rb-ease-real-note {
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-faint);
+  font-style: italic;
+}
+.rb-ease-real-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rb-gap-2);
+  font-size: calc(var(--rb-font-size) - 1px);
+}
+.rb-ease-real-name {
+  color: var(--rb-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rb-ease-real-vals {
+  color: var(--rb-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: none;
+}

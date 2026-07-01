@@ -71,7 +71,7 @@
           }
           var msg = 'Broke into ' + res.created + ' layer' + (res.created === 1 ? '' : 's');
           if (res.skipped && res.skipped.length) {
-            msg += ' · skipped ' + res.skipped.length + ' non-shape layer' + (res.skipped.length === 1 ? '' : 's');
+            msg += ' · skipped ' + res.skipped.length + ' incompatible layer' + (res.skipped.length === 1 ? '' : 's');
           }
           ctx.toast(msg, { kind: 'success' });
           ctx.refreshSelection();

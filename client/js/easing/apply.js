@@ -36,4 +36,32 @@
         ctx.toast((err && err.message) || ('Could not apply ' + label), { kind: 'error' });
       });
   };
+
+  // The universal "undo my easing" action, shared by every easing tool so the
+  // behaviour and wording are identical everywhere. ease.reset (host) clears any
+  // Rebound remap/overshoot expression AND linearizes the selected keyframes —
+  // the honest baseline, since AE keeps no history of the pre-ease handles.
+  R.easing.removeFromSelection = function (ctx) {
+    return ctx.invoke('ease.reset', {})
+      .then(function (res) {
+        var n = res && res.changed;
+        if (n === 0) ctx.toast('Nothing to remove — select eased keyframes', { kind: 'info' });
+        else ctx.toast('Removed easing', { kind: 'success' });
+        ctx.refreshSelection();
+        return res;
+      })
+      .catch(function (err) {
+        ctx.toast((err && err.message) || 'Could not remove easing', { kind: 'error' });
+      });
+  };
+
+  // A footer Remove button wired to removeFromSelection, so tools add one line
+  // and get a consistent control. Returns the <button> element.
+  R.easing.removeButton = function (ctx, opts) {
+    opts = opts || {};
+    return R.dom.el('button.rb-btn.is-ghost', {
+      title: opts.title || 'Remove easing from the selected keyframes (clears any Rebound expression + linearizes)',
+      onclick: function () { R.easing.removeFromSelection(ctx); }
+    }, [opts.label || 'Remove']);
+  };
 })(window.Rebound = window.Rebound || {});

@@ -26,6 +26,15 @@
         "exportedAt": { "type": "string" }
       }
     },
+    "options": {
+      "type": "object",
+      "description": "Import preferences set by the receiving panel (not the exporter).",
+      "properties": {
+        "precompFrames": { "type": "boolean", "default": false, "description": "When true, each frame becomes a trimmed precomp; otherwise frames flatten to groups in one comp." },
+        "importToActiveComp": { "type": "boolean", "default": true, "description": "When true (default), import into the active composition if one is open; when false, always create a new composition (Overlord-style toggle)." },
+        "updateExisting": { "type": "boolean", "default": false, "description": "When true, re-importing removes the prior version of each matched layer (stamped with its Figma node id) instead of stacking a duplicate." }
+      }
+    },
     "document": {
       "type": "object",
       "required": ["frames"],
@@ -271,6 +280,7 @@
         "fontFamily": { "type": "string" },
         "fontStyle": { "type": "string" },
         "postScriptName": { "type": "string" },
+        "fontWeight": { "type": "number", "description": "Numeric font weight (100..900) for resolving a style when the literal style name misses." },
         "fontSize": { "type": "number" },
         "fills": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
         "tracking": { "type": "number", "description": "After Effects tracking units (1000 = 1em)." },
@@ -483,6 +493,7 @@
         "name": { "type": "string" },
         "width": { "type": "number" },
         "height": { "type": "number" },
+        "offset": { "type": "object", "properties": { "x": { "type": "number" }, "y": { "type": "number" } }, "description": "Absolute canvas position of the frame's top-left, so the importer can lay multiple frames out in one comp." },
         "background": { "type": "array", "items": { "$ref": "#/definitions/paint" } },
         "clipsContent": { "type": "boolean", "default": true },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },

@@ -113,6 +113,10 @@
     fade: t('timing', ICONS.clock, 'Add opacity fade in / out'),
     keys: t('timing', ICONS.clock, 'Set keyframe interpolation',
       'Beyond F9 Easy Ease: set Linear, Hold, Bezier, or Easy Ease across every selected key, with the correct single ease for spatial properties, and it never aborts on an edge key.'),
+    audio: t('timing', ICONS.wave, 'Place beat / transient markers from tempo or audio',
+      'Drops comp or layer markers on a BPM grid (with tap-tempo) or on transients detected in a WAV audio layer, so Stagger/Sequence can sync to the beat. No After Effects equivalent.'),
+    behaviors: t('timing', ICONS.spring, 'Drop ready-made animations on layers',
+      'A browse-and-apply library of entrances, exits, and emphasis moves (Fade/Slide/Pop/Pulse/Spin…) that lay down clean, hand-tunable keyframes with real eases — not a locked expression.'),
 
     // Transform & rig
     anchor: t('transform', ICONS.target, 'Move the anchor without moving the layer',
@@ -155,6 +159,8 @@
 
     // Convert & import
     import: t('convert', ICONS.importIn, 'Bring a Figma, Illustrator, or Photoshop design in as native, editable layers'),
+    lottie: t('convert', ICONS.importIn, 'Export transform animation to Lottie JSON for web/app',
+      'Bakes the selected layers’ transform animation (position, scale, rotation, opacity, anchor) and its eases to a Lottie .json — closing the Figma → AE → code handoff. Solids/shapes carry a colored fill; text/other export transform-only.'),
 
     // Color
     color: t('color', ICONS.droplet, 'Set fill, solid, or effect color'),

@@ -85,6 +85,14 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(el('button.rb-btn.is-ghost', {
+      title: 'Remove the bounce expression from the selected properties',
+      onclick: function () {
+        ctx.invoke('bounce.remove', {})
+          .then(function () { ctx.toast('Removed bounce', { kind: 'success' }); ctx.refreshSelection(); })
+          .catch(function (err) { ctx.toast((err && err.message) || 'Could not remove', { kind: 'error' }); });
+      }
+    }, ['Remove']));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply bounce']));
 
     var off = ctx.onSelection(function (sel) {

@@ -112,13 +112,14 @@
     }
 
     function getState() {
-      return { direction: direction, durationFrames: durationFrames, ease: ease };
+      return { direction: direction, durationFrames: durationFrames, ease: ease, replace: replace };
     }
     function applyState(s) {
       if (!s) return;
       if (s.direction != null) { direction = s.direction; directionCtl.set(s.direction); }
       if (s.durationFrames != null) { durationFrames = s.durationFrames; durationField.set(s.durationFrames); }
       if (s.ease != null) { ease = s.ease; easeCtl.set(s.ease); }
+      if (s.replace != null) { replace = s.replace; replaceToggle.set(s.replace); }
       renderPreview();
     }
 

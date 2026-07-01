@@ -21,7 +21,8 @@
 .rb-home-themebtn { color: var(--rb-accent); }
 .rb-home-themebtn:hover { background: color-mix(in srgb, var(--rb-accent) 16%, transparent); color: var(--rb-accent); }
 .rb-home-brand { display: flex; align-items: center; gap: 5px; font-weight: 700; font-size: calc(var(--rb-font-size) + 1px); color: var(--rb-text); letter-spacing: 0.01em; }
-.rb-home-mark { color: var(--rb-accent); font-size: calc(var(--rb-font-size) + 3px); }
+.rb-home-mark { color: var(--rb-accent); display: inline-flex; align-items: center; }
+.rb-home-mark svg { display: block; width: auto; height: calc(var(--rb-font-size) + 5px); }
 .rb-home-title { font-size: calc(var(--rb-font-size) + 3px); font-weight: 700; color: var(--rb-text); }
 .rb-home-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); min-height: 0; flex: none; }
 

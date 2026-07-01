@@ -104,7 +104,11 @@
       regime = 'underdamped';
       var wd = w0 * Math.sqrt(1 - zeta * zeta);
       var A = -1;
-      var B = (v0 - zeta * w0 * A) / wd; // = (v0 + zeta*w0) / wd
+      // x'(0) = -zeta*w0*A + wd*B must equal v0, so B = (v0 + zeta*w0*A)/wd.
+      // With A = -1 that is (v0 - zeta*w0)/wd — the spring is released from REST
+      // when velocity is 0 (a previous sign slip left it launching at 2*zeta*w0,
+      // which also made the real overshoot ~2x the reported figure).
+      var B = (v0 + zeta * w0 * A) / wd;
       fn = function (t) {
         var env = Math.exp(-zeta * w0 * t);
         return 1 + env * (A * Math.cos(wd * t) + B * Math.sin(wd * t));
@@ -113,7 +117,7 @@
       // Critically damped.
       regime = 'critical';
       var A2 = -1;
-      var B2 = v0 + w0 * 1; // y'(0) = -w0*A + B = v0
+      var B2 = v0 + w0 * A2; // y'(0) = -w0*A2 + B2 = v0 => B2 = v0 - w0 (rest release)
       fn = function (t) {
         return 1 + Math.exp(-w0 * t) * (A2 + B2 * t);
       };

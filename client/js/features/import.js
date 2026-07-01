@@ -73,6 +73,33 @@
     }
   }
 
+  // Build options the panel controls (the exporter never sets these). Default is
+  // the flat Overlord/AEUX build (one comp, frames become editable groups); the
+  // user can opt into trimmed precomp-per-frame instead.
+  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false };
+  try {
+    if (typeof localStorage !== 'undefined') buildOpts.precompFrames = localStorage.getItem('rb-import-precomp') === '1';
+  } catch (e) { /* no storage in this host */ }
+  // Default on: only false when the user explicitly turned it off ('0').
+  try {
+    if (typeof localStorage !== 'undefined') buildOpts.importToActiveComp = localStorage.getItem('rb-import-active') !== '0';
+  } catch (e) { /* no storage in this host */ }
+  try {
+    if (typeof localStorage !== 'undefined') buildOpts.updateExisting = localStorage.getItem('rb-import-update') === '1';
+  } catch (e) { /* no storage in this host */ }
+  function setPrecompFrames(on) {
+    buildOpts.precompFrames = !!on;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-precomp', on ? '1' : '0'); } catch (e2) { /* no storage */ }
+  }
+  function setImportToActiveComp(on) {
+    buildOpts.importToActiveComp = !!on;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-active', on ? '1' : '0'); } catch (e2) { /* no storage */ }
+  }
+  function setUpdateExisting(on) {
+    buildOpts.updateExisting = !!on;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-update', on ? '1' : '0'); } catch (e2) { /* no storage */ }
+  }
+
   // ---- the import path -----------------------------------------------------
 
   function preValidate(ir) {
@@ -91,6 +118,11 @@
     var pre = preValidate(ir);
     if (!pre.ok) return Promise.reject(new Error(pre.error));
     try { materializeAssets(ir); } catch (e) { /* non-fatal: host flags missing images */ }
+    // Apply the panel's build preference unless the document already carries one.
+    ir.options = ir.options || {};
+    if (ir.options.precompFrames == null) ir.options.precompFrames = buildOpts.precompFrames;
+    if (ir.options.importToActiveComp == null) ir.options.importToActiveComp = buildOpts.importToActiveComp;
+    if (ir.options.updateExisting == null) ir.options.updateExisting = buildOpts.updateExisting;
     return R.bridge.invoke('import.build', ir).then(function (report) {
       showReport(report);
       emitStatus();
@@ -169,6 +201,10 @@
         el('span.rb-report-counts', { text: report.framesBuilt + (report.framesBuilt === 1 ? ' frame' : ' frames') + ' · ' + report.layersBuilt + (report.layersBuilt === 1 ? ' layer' : ' layers') })
       ])
     ]);
+
+    if (report.replaced) {
+      card.appendChild(el('div.rb-faint', { text: 'Updated in place: replaced ' + report.replaced + ' previously-imported layer' + (report.replaced === 1 ? '' : 's') + '.' }));
+    }
 
     if (report.missingFonts && report.missingFonts.length) card.appendChild(fontResolver(report.missingFonts));
 
@@ -425,6 +461,27 @@
 
     var reportEl = el('div.rb-report-host');
 
+    // Target preference: reuse the open comp (Overlord-style) vs always make a new one.
+    var activeCompToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
+      value: buildOpts.importToActiveComp,
+      label: 'Import into the active composition',
+      onChange: setImportToActiveComp
+    }) : null;
+
+    // Build preference: flat (one comp, frames as groups) vs trimmed precomps.
+    var precompToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
+      value: buildOpts.precompFrames,
+      label: 'Precomp frames (trim & clip to bounds)',
+      onChange: setPrecompFrames
+    }) : null;
+
+    // Re-import in place: replace the previous version of matched layers.
+    var updateToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
+      value: buildOpts.updateExisting,
+      label: 'Update in place on re-import',
+      onChange: setUpdateExisting
+    }) : null;
+
     ctx.body.appendChild(el('div.rb-col.rb-import', null, [
       bridge,
       buildSources(),
@@ -433,6 +490,14 @@
       el('div.rb-section-label', { text: 'What transfers' }),
       buildCaps(),
       el('div.rb-faint', { text: 'Everything comes in editable; a fidelity report lists anything approximated or skipped.' }),
+
+      el('div.rb-section-label', { text: 'How it builds' }),
+      activeCompToggle ? activeCompToggle.el : null,
+      el('div.rb-faint', { text: 'Off: always create a new composition.' }),
+      precompToggle ? precompToggle.el : null,
+      el('div.rb-faint', { text: 'Off: one comp, frames become editable groups (like Overlord & AEUX). On: each frame is its own trimmed precomp.' }),
+      updateToggle ? updateToggle.el : null,
+      el('div.rb-faint', { text: 'On: re-importing the same design removes the prior version of each layer instead of stacking a duplicate. Layers you added by hand are never touched. (Animation on replaced layers is rebuilt, not carried over — keyframe-preserving merge is coming.)' }),
 
       el('div.rb-section-label', { text: 'Send from a design app' }),
       sendNote,

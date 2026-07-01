@@ -505,7 +505,7 @@
       if (editing) tabsBar.appendChild(el('button.rb-home-tab.rb-home-tab-add', { type: 'button', title: 'New board', onclick: addBoard }, ['+']));
     }
 
-    var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { text: '◗' }), el('span', { text: 'Rebound' })]);
+    var brand = el('div.rb-home-brand', null, [el('span.rb-home-mark', { html: R.brand.MARK }), el('span', { text: 'Rebound' })]);
     var actions = [addBtn, editBtn];
     if (opts.onBrowse) actions.push(iconBtn(ICON_BROWSE, 'Browse all tools', opts.onBrowse));
     var themeBtn = iconBtn(ICON_THEME, 'Theme & colours', function () { if (R.appearance) R.appearance.open(); });

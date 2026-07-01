@@ -66,6 +66,39 @@ $.__rebound.util = (function () {
       prop.propertyValueType === PropertyValueType.ThreeD_SPATIAL;
   }
 
+  function dist(a, b) {
+    var s = 0;
+    for (var i = 0; i < a.length; i++) { var d = (b[i] || 0) - (a[i] || 0); s += d * d; }
+    return Math.sqrt(s);
+  }
+
+  // The distance a spatial property actually travels between two times (the
+  // motion-path arc length), sampled uniformly in time. A straight path returns
+  // ~the chord; a curved (auto-bezier) or there-and-back path returns the true
+  // travel — the correct `dv` for a single along-the-path temporal ease, shared
+  // by ease apply/read and the live readout so all three agree.
+  function spatialArcLength(prop, ta, tb) {
+    var n = 24;
+    var len = 0;
+    var pv = prop.valueAtTime(ta, true);
+    var prev = pv instanceof Array ? pv : [pv];
+    for (var i = 1; i <= n; i++) {
+      var cv = prop.valueAtTime(ta + (tb - ta) * (i / n), true);
+      var cur = cv instanceof Array ? cv : [cv];
+      len += dist(prev, cur);
+      prev = cur;
+    }
+    return len;
+  }
+
+  // The spatial dv to ease with: the arc length when the path is curved or
+  // returns near its start (chord tiny), else the plain straight-line chord.
+  function spatialDelta(prop, ta, tb, aVals, bVals) {
+    var chord = dist(aVals, bVals);
+    var arc = spatialArcLength(prop, ta, tb);
+    return (arc > chord * 1.01 || chord < 1e-6) ? arc : chord;
+  }
+
   // Resolve a property on a layer from an array of matchNames, e.g.
   // ['ADBE Transform Group','ADBE Position'].
   function resolveProperty(layer, path) {
@@ -141,6 +174,8 @@ $.__rebound.util = (function () {
     layerOfProperty: layerOfProperty,
     dimensionsOf: dimensionsOf,
     isSpatial: isSpatial,
+    spatialArcLength: spatialArcLength,
+    spatialDelta: spatialDelta,
     resolveProperty: resolveProperty,
     layerByIndex: layerByIndex,
     color255: color255,

@@ -31,7 +31,8 @@
       missingFonts: [], // family names
       warnings: [],
       errors: [],
-      placedInComp: false
+      placedInComp: false,
+      replaced: 0
     };
   }
 
@@ -88,11 +89,43 @@
 
   // ---- node + frame walk ---------------------------------------------------
 
-  // Map a node id to its created layer, so clipping masks can resolve targets.
+  // Layer.comment prefix that stamps a layer with its Figma node id, so a later
+  // re-import can find and replace exactly this layer (update-in-place).
+  var ID_TAG = 'rb#';
+
+  // Map a node id to its created layer, so clipping masks can resolve targets;
+  // also stamp the id onto the layer for cross-import matching.
   function registerLayer(node, layer) {
     if (!layer || layer.length !== undefined || !node || !node.id) return;
     if (!R.importer.layerById) R.importer.layerById = {};
     R.importer.layerById[node.id] = layer;
+    try { layer.comment = ID_TAG + node.id; } catch (e) {}
+  }
+
+  // Collect every node id in the incoming document (frames + descendants).
+  function walkIds(node, into) {
+    if (!node) return;
+    if (node.id) into[node.id] = true;
+    var ch = node.children;
+    if (ch) for (var i = 0; i < ch.length; i++) walkIds(ch[i], into);
+  }
+  function collectIds(frames, into) {
+    for (var i = 0; i < frames.length; i++) walkIds(frames[i], into);
+  }
+
+  // Update-in-place: delete any previously-imported layer (tagged with ID_TAG)
+  // whose node id is in the incoming set, so the fresh build replaces it instead
+  // of stacking a duplicate. Untagged (hand-made) layers are never touched.
+  function removeReimported(comp, incoming) {
+    var toRemove = [];
+    for (var i = 1; i <= comp.numLayers; i++) {
+      var L = comp.layer(i), c = '';
+      try { c = L.comment || ''; } catch (e) { c = ''; }
+      if (c.substr(0, ID_TAG.length) === ID_TAG && incoming[c.substr(ID_TAG.length)]) toRemove.push(L);
+    }
+    var removed = 0;
+    for (var j = 0; j < toRemove.length; j++) { try { toRemove[j].remove(); removed++; } catch (e2) {} }
+    return removed;
   }
 
   // Accumulate created layers (a builder may return one layer or an array).
@@ -124,7 +157,9 @@
     for (var i = 0; i < made.length; i++) {
       var layer = made[i];
       if (!layer) continue;
-      if (layer.nullLayer) { flagged = true; continue; }
+      // Nulls and guide-shape containers (nested groups/frames) do not propagate
+      // opacity to their parented children, so flag them rather than multiply.
+      if (layer.nullLayer || layer.guideLayer) { flagged = true; continue; }
       try {
         var op = layer.property(util.MATCH.transform).property(util.MATCH.opacity);
         op.setValue(op.value * node.opacity);
@@ -136,14 +171,33 @@
   function buildGroup(comp, node, report) {
     var made = buildChildren(comp, node.children || [], report);
     if (!made.length) return null;
-    var nul = comp.layers.addNull();
-    nul.name = node.name || 'Group';
+    var t = node.transform || {};
+    var gw = t.width || 0, gh = t.height || 0;
+    var container;
+    if (gw > 0 && gh > 0) {
+      // A sized guide shape layer covers the group's bounds (a null cannot be
+      // resized). Centre the anchor and sit it on the group's own origin
+      // (children carry frame-local coords, so it is a handle, not a transform).
+      // Set transform BEFORE parenting so AE's re-parent counterbalance keeps
+      // children put; the frame-level shiftLayer moves the whole group later.
+      container = addGuideContainer(comp, node.name || 'Group', gw, gh);
+      try {
+        var trg = container.property(util.MATCH.transform);
+        trg.property(util.MATCH.anchor).setValue([gw / 2, gh / 2]);
+        trg.property(util.MATCH.position).setValue([(t.x || 0) + gw / 2, (t.y || 0) + gh / 2]);
+      } catch (eT) {}
+    } else {
+      // Degenerate group (no size): keep the old identity-null handle so it works.
+      container = comp.layers.addNull();
+      try { container.name = node.name || 'Group'; } catch (eN) {}
+      placeNull(container, t.x || 0, t.y || 0);
+    }
     for (var i = 0; i < made.length; i++) {
-      try { made[i].parent = nul; } catch (e) { /* some layers reject parenting */ }
+      try { made[i].parent = container; } catch (e) { /* some layers reject parenting */ }
     }
     applyGroupOpacity(made, node, report);
     flagGroupExtras(node, report);
-    return nul;
+    return container;
   }
 
   function flagGroupExtras(node, report) {
@@ -179,6 +233,61 @@
     return false;
   }
 
+  // Each direct child's TRUE axis-aligned bbox (frame-local), exact for rotated
+  // children: transform the four local corners through the child's affine matrix
+  // t.matrix=[a,b,c,d,tx,ty] (maps (x,y)->(a*x+c*y+tx, b*x+d*y+ty), see
+  // schema matrix2x3 / N.decomposeMatrix) and take the min/max. When no matrix is
+  // present, fall back to the unrotated (t.x,t.y,t.width,t.height) box.
+  function childAABB(c) {
+    var t = c.transform || {};
+    var w = t.width || 0, h = t.height || 0;
+    var m = t.matrix;
+    if (!m || m.length !== 6) {
+      var x = t.x || 0, y = t.y || 0;
+      return { minX: x, minY: y, maxX: x + w, maxY: y + h };
+    }
+    var pts = [[0, 0], [w, 0], [w, h], [0, h]];
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < 4; i++) {
+      var px = m[0] * pts[i][0] + m[2] * pts[i][1] + m[4];
+      var py = m[1] * pts[i][0] + m[3] * pts[i][1] + m[5];
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+  }
+
+  // Does a frame's content spill past its bounds? Tests each direct child's TRUE
+  // axis-aligned bbox (via childAABB, which transforms the child's corners through
+  // its affine matrix) against the frame bounds, so it is exact for rotated children
+  // too. Still conservative for a non-clipping nested frame whose own content
+  // overflows. Used only to decide whether a CLIPPING frame needs a precomp (so a
+  // clipping frame whose content fits stays a flat editable group); a missed case
+  // just leaves a little overflow visible rather than breaking anything.
+  function frameContentOverflows(node) {
+    var kids = node.children || [];
+    var fw = node.width || (node.transform && node.transform.width) || 0;
+    var fh = node.height || (node.transform && node.transform.height) || 0;
+    if (!fw || !fh || !kids.length) return false;
+    var eps = 0.5;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (!c || c.visible === false) continue;
+      var bb = childAABB(c);
+      if (bb.minX < -eps || bb.minY < -eps || bb.maxX > fw + eps || bb.maxY > fh + eps) return true;
+    }
+    return false;
+  }
+
+  // Clip 1:1 with Figma: only a frame whose clipsContent is ON AND whose content
+  // overflows needs clipping (and clipping in AE needs a comp boundary). A frame
+  // that does not clip in Figma is never clipped here.
+  function frameShouldClip(node) {
+    return !!node.clipsContent && frameContentOverflows(node);
+  }
+
   // Clip a precomp layer to its comp bounds (or rounded corners) so overflowing
   // children are hidden, matching a Figma frame's clipsContent. roundFrameCorners
   // already adds a rounded mask when cornerRadii are present; only add a plain
@@ -201,39 +310,273 @@
   // Build the nested frame's own CompItem, fill its background and recurse its
   // children into it, then drop it into the parent comp as a precomp layer and
   // decorate it (shadow/border/rounded/clip) just like a top-level frame.
-  function buildNestedFrame(comp, node, report) {
+  function buildNestedFrame(comp, node, report, baseX, baseY, childOffset) {
     var fps = 30, dur = 10, par = 1;
     try { fps = comp.frameRate; dur = comp.duration; par = comp.pixelAspect; } catch (e) {}
+    // addComp builds ratios from pixelAspect/frameRate/duration; a zero in any of
+    // them throws "zero denominator converting ratio". Floor to sane positives.
+    if (!(fps > 0)) fps = 30;
+    if (!(dur > 0)) dur = 10;
+    if (!(par > 0)) par = 1;
     var w = Math.max(1, Math.round(node.width || (node.transform && node.transform.width) || 100));
     var h = Math.max(1, Math.round(node.height || (node.transform && node.transform.height) || 100));
 
     var inner = app.project.items.addComp(node.name || 'Frame', w, h, par, dur, fps);
     if (node.background && node.background.length) buildFrameBackground(inner, node, report);
     buildChildren(inner, node.children || [], report);
+    // A GROUP's children carry FRAME-local coords (not group-local), so when a
+    // group is precomped (used as a mask) the inner content sits offset by the
+    // group's own origin. Slide every root layer back into the group's own space
+    // (parented children follow their root). Frames don't need this — their
+    // children are already re-based to the frame's own origin by the exporter.
+    if (childOffset && (childOffset.x || childOffset.y)) {
+      for (var li = 1; li <= inner.numLayers; li++) {
+        var L = inner.layer(li);
+        try { if (L.parent == null) shiftLayer(L, -childOffset.x, -childOffset.y); } catch (eShift) {}
+      }
+    }
     report.framesBuilt++;
 
     var pcLayer = comp.layers.add(inner);
-    placeLocal(pcLayer, node);
+    // Place at an explicit comp position when given (a clipping top-level frame),
+    // otherwise at the node's own local origin (a nested frame).
+    if (typeof baseX === 'number' && typeof baseY === 'number') {
+      try {
+        var ptr = pcLayer.property(util.MATCH.transform);
+        ptr.property(util.MATCH.anchor).setValue([0, 0]);
+        ptr.property(util.MATCH.position).setValue([baseX, baseY]);
+      } catch (eP) {}
+    } else {
+      placeLocal(pcLayer, node);
+    }
     decorateFrameLayer(pcLayer, node, report);
     clipPrecompLayer(pcLayer, node);
     return pcLayer;
   }
 
+  // ---- flat build (Overlord / AEUX default: one comp, frames as groups) ----
+
+  // A frame needs a visible background card only if it actually paints something:
+  // a fill, a visible border, or a frame-level effect. Corners alone are invisible.
+  function frameHasChrome(node) {
+    if (node.background && node.background.length) return true;
+    var st = node.stroke;
+    if (st && st.paints) {
+      for (var i = 0; i < st.paints.length; i++) { if (st.paints[i] && st.paints[i].visible !== false) return true; }
+    }
+    if (node.effects && node.effects.length) return true;
+    return false;
+  }
+
+  // The frame's chrome as a real shape layer (rounded rect + fills + border +
+  // shadow), built at the frame's local origin and reused through buildShapeNode
+  // so gradients / strokes / effects land exactly like any other shape.
+  function buildFrameChrome(comp, node, report) {
+    var w = Math.max(1, Math.round(node.width || (node.transform && node.transform.width) || 100));
+    var h = Math.max(1, Math.round(node.height || (node.transform && node.transform.height) || 100));
+    var chromeNode = {
+      name: (node.name || 'Frame') + ' BG',
+      type: 'RECTANGLE',
+      transform: { x: 0, y: 0, width: w, height: h },
+      primitive: { rect: { size: [w, h], roundness: 0 } },
+      cornerRadii: node.cornerRadii || null,
+      fills: node.background || [],
+      stroke: (node.stroke && node.stroke.paints && node.stroke.paints.length) ? node.stroke : null,
+      effects: node.effects || []
+    };
+    return R.importer.buildShapeNode(comp, chromeNode, report);
+  }
+
+  // Add (dx,dy) to a layer's position — moves the layer (and, for a null, every
+  // layer parented to it) by that delta. Used to slide a group/frame's content
+  // from its built local space into its place in the comp.
+  function shiftLayer(layer, dx, dy) {
+    if ((!dx && !dy) || !layer || layer.length !== undefined) return;
+    try {
+      var pos = layer.property(util.MATCH.transform).property(util.MATCH.position);
+      var p = pos.value;
+      pos.setValue([p[0] + dx, p[1] + dy]);
+    } catch (e) { /* position rig varies */ }
+  }
+
+  // Sit a group/frame null right on its content (anchor at the node's top-left),
+  // instead of leaving it at the comp centre where it reads as "detached". Set
+  // BEFORE parenting children so AE's re-parent counterbalance keeps them put.
+  function placeNull(nul, x, y) {
+    try {
+      var tr = nul.property(util.MATCH.transform);
+      tr.property(util.MATCH.anchor).setValue([0, 0]);
+      tr.property(util.MATCH.position).setValue([x || 0, y || 0]);
+    } catch (e) { /* position rig varies */ }
+  }
+
+  // A frame/group container as an INVISIBLE sized shape layer (not a null): a null
+  // cannot be resized, so a wide frame would collapse to a 100x100 corner square.
+  // This shape is sized to the node bounds so its selection box covers the whole
+  // group and it parents the children (move them together) — but it draws NOTHING
+  // (a fully transparent fill, no stroke), matching a Figma group/frame that has
+  // no background or border. Its only role is bounds + a parent handle. A frame
+  // that DOES have a fill/border/shadow gets that real card via buildFrameChrome,
+  // separately. Marked as a guide layer so it never renders to output either.
+  function addGuideContainer(comp, name, w, h) {
+    var sl = comp.layers.addShape();
+    try { sl.name = name || 'Frame'; } catch (eN) {}
+    try {
+      var contents = sl.property('ADBE Root Vectors Group').addProperty('ADBE Vector Group').property('ADBE Vectors Group');
+      var rect = contents.addProperty('ADBE Vector Shape - Rect');
+      try { rect.property('ADBE Vector Rect Size').setValue([w, h]); } catch (eS) {}
+      try { rect.property('ADBE Vector Rect Position').setValue([w / 2, h / 2]); } catch (eP) {}
+      // A fully transparent fill (no stroke): the layer has the frame's bounds for
+      // selection/parenting but renders nothing — no fake outline or background.
+      try {
+        var fill = contents.addProperty('ADBE Vector Graphic - Fill');
+        try { fill.property('ADBE Vector Fill Opacity').setValue(0); } catch (eFo) {}
+      } catch (eF) {}
+    } catch (eC) { /* shape contents vary by build */ }
+    // A guide layer never renders to output; keep it un-shy so it stays visible in
+    // the timeline as the group's handle.
+    try { sl.guideLayer = true; } catch (eG) {}
+    try { sl.shy = false; } catch (eSh) {}
+    return sl;
+  }
+
+  // Frame opacity has nowhere to live on a null (parenting does not inherit it),
+  // so fold it into each child, exactly like group opacity.
+  function applyFrameFlatOpacity(made, chrome, node, report) {
+    if (typeof node.opacity !== 'number' || node.opacity >= 1) return;
+    var layers = made.slice();
+    if (chrome) layers.push(chrome);
+    var flagged = false;
+    for (var i = 0; i < layers.length; i++) {
+      var layer = layers[i];
+      if (!layer) continue;
+      // Nulls and guide-shape containers do not propagate opacity to their
+      // parented children, so flag them rather than apply a meaningless multiply.
+      if (layer.nullLayer || layer.guideLayer) { flagged = true; continue; }
+      try { var op = layer.property(util.MATCH.transform).property(util.MATCH.opacity); op.setValue(op.value * node.opacity); }
+      catch (e) { flagged = true; }
+    }
+    if (flagged) note(report, 'approximated', { name: node.name, detail: 'frame opacity on nested groups is not exact' });
+  }
+
+  // Build a frame as a group in the CURRENT comp: a background card (if any), its
+  // children, and a null that owns them, positioned by (dx,dy). No precomp, no
+  // clip — everything stays in one editable comp (the Overlord/AEUX default).
+  function buildFrameFlat(comp, node, baseX, baseY, report) {
+    // Chrome first so it sits at the bottom of the group, then children above it.
+    var chrome = frameHasChrome(node) ? buildFrameChrome(comp, node, report) : null;
+    var made = buildChildren(comp, node.children || [], report);
+    if (!made.length && !chrome) return null;
+
+    // Children build in this frame's local space; slide them (and the chrome) to
+    // the frame's place in the comp, then sit the container right on top of them.
+    if (chrome) shiftLayer(chrome, baseX, baseY);
+    for (var i = 0; i < made.length; i++) shiftLayer(made[i], baseX, baseY);
+
+    // A sized guide shape layer covers the frame's bounds (a null cannot be
+    // resized, so a wide frame would collapse to a 100x100 corner square). Size
+    // it like the chrome; centre the anchor and place it over the slid content.
+    // Set transform BEFORE parenting so AE's re-parent counterbalance keeps the
+    // children put.
+    var w = Math.max(1, Math.round(node.width || (node.transform && node.transform.width) || 100));
+    var h = Math.max(1, Math.round(node.height || (node.transform && node.transform.height) || 100));
+    var container = addGuideContainer(comp, node.name || 'Frame', w, h);
+    try {
+      var trc = container.property(util.MATCH.transform);
+      trc.property(util.MATCH.anchor).setValue([w / 2, h / 2]);
+      trc.property(util.MATCH.position).setValue([baseX + w / 2, baseY + h / 2]);
+    } catch (eT) {}
+    if (chrome) { try { chrome.parent = container; } catch (e) {} }
+    for (var j = 0; j < made.length; j++) { try { made[j].parent = container; } catch (e2) {} }
+
+    applyFrameFlatOpacity(made, chrome, node, report);
+    if (node.blendMode && node.blendMode !== 'NORMAL' && node.blendMode !== 'PASS_THROUGH') {
+      note(report, 'approximated', { name: node.name, detail: 'frame blend mode is applied per layer, not as a group' });
+    }
+    // No clip note here: a clipping frame whose content overflows is routed to a
+    // precomp (which clips) before it ever reaches buildFrameFlat, so a frame that
+    // lands here either does not clip or has nothing overflowing to clip.
+    report.framesBuilt++;
+    return container;
+  }
+
+  // Top-level frames place into ONE comp; (px,py) is where the selection's
+  // top-left lands, then each frame keeps its position relative to the others.
+  function buildTopFrameFlat(comp, frame, origin, px, py, report) {
+    var off = frame.offset || { x: 0, y: 0 };
+    var baseX = px + (off.x - origin.x), baseY = py + (off.y - origin.y);
+    // A clipping top-level frame whose content overflows is clipped 1:1 by building
+    // it as a precomp placed at its comp position; everything else stays flat.
+    if (frameShouldClip(frame)) {
+      var pc;
+      try { pc = buildNestedFrame(comp, frame, report, baseX, baseY); }
+      catch (e) { pc = buildFrameFlat(comp, frame, baseX, baseY, report); }
+      registerLayer(frame, pc);
+      if (R.importer.mask) R.importer.mask.collect(frame, pc, report);
+      return pc;
+    }
+    return buildFrameFlat(comp, frame, baseX, baseY, report);
+  }
+
+  // Union of all top-level frames in canvas space, for sizing the one new comp.
+  function framesBounds(frames) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      var off = f.offset || { x: 0, y: 0 };
+      var w = f.width || 100, h = f.height || 100;
+      if (off.x < minX) minX = off.x;
+      if (off.y < minY) minY = off.y;
+      if (off.x + w > maxX) maxX = off.x + w;
+      if (off.y + h > maxY) maxY = off.y + h;
+    }
+    if (minX === Infinity) { minX = 0; minY = 0; maxX = 100; maxY = 100; }
+    return { x: minX, y: minY, w: Math.max(1, Math.round(maxX - minX)), h: Math.max(1, Math.round(maxY - minY)) };
+  }
+
   function buildNode(comp, node, report) {
     if (!node || node.visible === false) return null;
-    if (node.type === 'FRAME' && frameWantsPrecomp(node)) {
-      try {
-        var fl = buildNestedFrame(comp, node, report);
-        registerLayer(node, fl);
-        if (R.importer.mask) R.importer.mask.collect(node, fl, report);
-        return fl;
-      } catch (e) {
-        // Never let a nested-frame failure lose the content: fall back to a group.
-        note(report, 'approximated', { name: node.name, detail: 'nested frame fell back to a group' });
-        return buildGroup(comp, node, report);
+    if (node.type === 'FRAME') {
+      var result;
+      var tx = (node.transform && node.transform.x) || 0;
+      var ty = (node.transform && node.transform.y) || 0;
+      // A precomp is the faithful tool when: the user opted into precomp frames;
+      // the frame is used as a mask (a track matte needs one pixel layer); or it
+      // clips AND its content overflows (so a non-clipping frame is never precomped).
+      var needPrecomp = (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) ||
+        node.isMask || frameShouldClip(node);
+      if (needPrecomp) {
+        try {
+          result = buildNestedFrame(comp, node, report);
+        } catch (e) {
+          note(report, 'approximated', { name: node.name, detail: 'nested frame fell back to a group' });
+          result = buildFrameFlat(comp, node, tx, ty, report);
+        }
+      } else {
+        result = buildFrameFlat(comp, node, tx, ty, report);
       }
+      registerLayer(node, result);
+      if (R.importer.mask) R.importer.mask.collect(node, result, report);
+      return result;
     }
-    if (node.type === 'GROUP' || node.type === 'FRAME') return buildGroup(comp, node, report);
+    if (node.type === 'GROUP') {
+      var gresult;
+      // A group used as a mask needs a single pixel layer to matte with -> precomp;
+      // otherwise it stays a flat editable group.
+      if (node.isMask) {
+        // Re-base the group's frame-local children into group-local space inside
+        // the precomp (see buildNestedFrame childOffset), so the matte silhouette
+        // lands where the group actually is.
+        var goff = { x: (node.transform && node.transform.x) || 0, y: (node.transform && node.transform.y) || 0 };
+        try { gresult = buildNestedFrame(comp, node, report, undefined, undefined, goff); }
+        catch (eg) { gresult = buildGroup(comp, node, report); }
+      } else {
+        gresult = buildGroup(comp, node, report);
+      }
+      registerLayer(node, gresult);
+      if (R.importer.mask) R.importer.mask.collect(node, gresult, report);
+      return gresult;
+    }
     var builder = builders[node.type];
     if (builder) {
       try {
@@ -361,6 +704,11 @@
     var fps = target ? target.frameRate : 30;
     var dur = target ? target.duration : 10;
     var par = target ? target.pixelAspect : 1;
+    // A zero pixelAspect/frameRate/duration would throw "zero denominator
+    // converting ratio" in addComp — floor to sane positives.
+    if (!(fps > 0)) fps = 30;
+    if (!(dur > 0)) dur = 10;
+    if (!(par > 0)) par = 1;
     var w = Math.max(1, Math.round(frame.width || 100));
     var h = Math.max(1, Math.round(frame.height || 100));
 
@@ -393,15 +741,55 @@
     R.importer.assets = (ir.document && ir.document.assets) || {};
     R.importer.footageCache = {};
     R.importer.layerById = {};
+    // Import options (panel-side). Default is the Overlord/AEUX flat build: one
+    // comp, frames as groups. precompFrames restores trimmed precomp-per-frame.
+    var opts = ir.options || {};
+    R.importer.opts = {
+      precompFrames: !!opts.precompFrames,
+      importToActiveComp: opts.importToActiveComp !== false, // default true
+      updateExisting: !!opts.updateExisting
+    };
     if (R.importer.layerStyle) R.importer.layerStyle.reset();
     if (R.importer.mask) R.importer.mask.reset();
 
     var active = app.project ? app.project.activeItem : null;
-    var target = (active && util.isComp(active)) ? active : null;
-
+    // Honor the "use active composition" toggle: when off, never reuse the active
+    // comp — the flat branch then always makes a new comp, the precomp branch
+    // leaves the frame comps loose in the project.
+    var useActive = R.importer.opts.importToActiveComp;
+    var target = (useActive && active && util.isComp(active)) ? active : null;
     var frames = ir.document.frames;
-    for (var i = 0; i < frames.length; i++) {
-      buildFrame(target, frames[i], report);
+
+    // Update-in-place: drop the prior version of every re-imported node first, so
+    // the fresh build lands as an update rather than a stacked duplicate.
+    if (R.importer.opts.updateExisting && target) {
+      var incoming = {};
+      collectIds(frames, incoming);
+      report.replaced = removeReimported(target, incoming);
+    }
+
+    if (R.importer.opts.precompFrames) {
+      // Opt-in: each top-level frame is its own trimmed comp, nested into the
+      // active comp as a precomp layer when one is open.
+      for (var i = 0; i < frames.length; i++) buildFrame(target, frames[i], report);
+    } else {
+      // Default flat build: drop everything into ONE comp as editable layers.
+      // Use the active comp if there is one, else create a single comp sized to
+      // the selection. A new comp is sized to the art (top-left at origin); an
+      // existing comp gets the art centred so the import is immediately visible.
+      var bounds = framesBounds(frames);
+      var comp = target;
+      var px = 0, py = 0;
+      if (!comp) {
+        var name = (frames.length === 1 && frames[0].name) || (ir.document && ir.document.name) || 'Import';
+        comp = app.project.items.addComp(name, bounds.w, bounds.h, 1, 10, 30);
+      } else {
+        px = Math.round((comp.width - bounds.w) / 2);
+        py = Math.round((comp.height - bounds.h) / 2);
+      }
+      for (var k = 0; k < frames.length; k++) buildTopFrameFlat(comp, frames[k], bounds, px, py, report);
+      report.placedInComp = !!target;
+      target = comp;
     }
 
     // Clipping mattes and layer styles run last (after every layer exists).

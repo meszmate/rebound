@@ -156,6 +156,7 @@ a {
 .rb-wrap { flex-wrap: wrap; }
 .rb-muted { color: var(--rb-text-muted); }
 .rb-faint { color: var(--rb-text-faint); }
+.rb-hint { color: var(--rb-text-faint); font-size: calc(var(--rb-font-size) - 1px); margin: var(--rb-gap-1) 0 var(--rb-gap-2); line-height: 1.35; }
 .rb-hidden { display: none !important; }
 .rb-scroll { overflow-y: auto; overflow-x: hidden; }
 

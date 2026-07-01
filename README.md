@@ -1,6 +1,8 @@
 <div align="center">
 
-# ◗ Rebound
+<img src="docs/logo.svg" alt="Rebound" width="116" height="106" />
+
+# Rebound
 
 **A free easing & motion-design panel for After Effects.**
 

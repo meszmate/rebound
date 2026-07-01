@@ -129,8 +129,11 @@
       patSeg.set(st.pattern); transTog.set(st.transparent); bgRow.style.display = st.transparent ? 'none' : '';
       spacingS.set(st.spacing); sizeS.set(st.size); opacityS.set(st.opacity); angleS.set(st.angle);
       echoTog.set(st.echo); echoBox.style.display = st.echo ? '' : 'none';
+      echoTimeS.set(st.echoTime); echoesS.set(st.echoes); echoDecayS.set(st.echoDecay);
       rblurTog.set(st.rblur); rblurBox.style.display = st.rblur ? '' : 'none'; rblurTypeSeg.set(st.rblurType);
+      rblurAmountS.set(st.rblurAmount);
       caTog.set(st.ca); caBox.style.display = st.ca ? '' : 'none';
+      caAmountS.set(st.caAmount);
       renderPreview();
     }
 

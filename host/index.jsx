@@ -93,6 +93,7 @@
   loadCmd('commands/ease.jsx');
   loadCmd('commands/ease-remap.jsx');
   loadCmd('commands/ease-mode.jsx');
+  loadCmd('commands/easescripts.jsx');
   loadCmd('commands/spring.jsx');
   loadCmd('commands/anchor.jsx');
   loadCmd('commands/align.jsx');
@@ -109,6 +110,9 @@
   loadCmd('commands/motion.jsx');
   loadCmd('commands/follow.jsx');
   loadCmd('commands/comp.jsx');
+  loadCmd('commands/lottie.jsx');
+  loadCmd('commands/audio.jsx');
+  loadCmd('commands/behavior.jsx');
   loadCmd('commands/fade.jsx');
   loadCmd('commands/trimpaths.jsx');
   loadCmd('commands/shapes.jsx');

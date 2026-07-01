@@ -16,7 +16,7 @@
     var W = 160, H = 90, y = H / 2;
     var n = Math.max(1, Math.min(30, Math.round(state.numEchoes || 1)));
     var decay = Math.max(0, Math.min(1, state.decay == null ? 0.7 : state.decay));
-    var spacing = Math.min(22, 6 + Math.abs(state.echoTime || 0.05) * 30);
+    var spacing = Math.min(22, 6 + Math.abs(state.echoTime == null ? 0.05 : state.echoTime) * 30);
     var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
     var baseX = W - 28;
     for (var k = n; k >= 0; k--) {

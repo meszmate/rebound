@@ -232,7 +232,7 @@
   // ---- Left rail ------------------------------------------------------------
 
   function buildRail() {
-    var children = [el('div.rb-rail-logo', { text: '◗', title: 'Rebound' })];
+    var children = [el('div.rb-rail-logo', { html: R.brand.MARK, title: 'Rebound' })];
     homeRailBtn = el('button.rb-rail-btn', { title: 'Home', 'aria-label': 'Home', onclick: showHome });
     homeRailBtn.innerHTML = R.toolMeta.svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>');
     children.push(homeRailBtn);
@@ -619,6 +619,29 @@
         return;
       }
       if (e.key === '/' && !inInput) { e.preventDefault(); if (searchInput) searchInput.focus(); return; }
+
+      // User-assignable shortcuts: a bound chord runs its Home action from
+      // anywhere in the panel (when not typing). Reserved chords above already
+      // returned, so this never shadows Cmd+K / Cmd+Enter / Esc / Enter / "/".
+      if (!inInput && R.keybinds) {
+        var chord = R.keybinds.chordFromEvent(e);
+        if (chord && !R.keybinds.isReserved(chord)) {
+          var actionId = R.keybinds.actionIdForChord(chord);
+          if (actionId && R.homeActions) {
+            var action = R.homeActions.byId(actionId);
+            if (action) {
+              e.preventDefault();
+              R.homeActions.run(action, {
+                invoke: function (m, a) { return R.bridge.invoke(m, a); },
+                openTool: openToolById,
+                toast: R.ui.toast,
+                refreshSelection: pollSelection
+              }).catch(function () { /* toasted by run() */ });
+              return;
+            }
+          }
+        }
+      }
 
       if (view === 'detail') {
         if (e.key === 'Escape' && !inInput) { e.preventDefault(); back(); return; }

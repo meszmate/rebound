@@ -7,6 +7,85 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Behaviors (new tool) — a drag-and-apply motion library.** Browse ready-made
+  **entrances, exits, and emphasis** moves (Fade / Scale / Pop / Slide / Rise /
+  Sink / Pulse / Pop / Spin) and drop them on the selected layers. Unlike
+  expression-preset libraries, each behavior lays down **clean, hand-tunable
+  keyframes with real eases** (authored from Rebound's own easing model) starting
+  at the playhead — with shared Duration / Distance / Direction / Overshoot
+  controls. Pure, unit-tested spec builder (`client/js/behaviors/library.js`, 10
+  tests); the host turns specs into keyframes + temporal eases.
+- **Figma re-import updates in place instead of stacking duplicates.** Every
+  imported layer is now stamped with its Figma node id (in the layer comment).
+  With the new **"Update in place on re-import"** toggle on, re-importing the
+  same design **removes the prior version of each matched layer** before building
+  the fresh one — so iterating on a design after you've started animating no
+  longer buries the comp in duplicate layer sets. Layers you added by hand
+  (untagged) are never touched; the report shows how many were replaced.
+  (Animation on replaced layers is rebuilt for now; a keyframe-preserving merge
+  is the next step.)
+- **Audio & rhythm (new tool) — beat/transient markers, a category no all-in-one
+  rival owns.** Drop comp or layer markers from a **BPM beat grid** (with
+  **tap-tempo** and subdivision) or **detected from the audio itself**: select a
+  WAV layer and Rebound decodes it (the panel's Node runtime) and energy-flux
+  onset-detects the transients, mapping them into composition time. Markers feed
+  straight into the already-polished Stagger/Sequence. Backed by a pure,
+  unit-tested module (`client/js/audio/onset.js` — WAV decode + onset detection +
+  beat grid + snap, 9 tests). MP3/AAC fall back to the BPM grid (no bundled
+  decoder yet); snapping existing keyframes to the grid is a planned follow-up.
+- **Lottie export (new tool) — close the Figma → AE → code loop.** Select layers
+  and export their transform animation (position, scale, rotation, opacity,
+  anchor) *with eases* to a Lottie `.json` for web (lottie-web) or app (Lottie
+  iOS/Android). Lottie's per-keyframe `o`/`i` tangents are the same normalized
+  cubic-bezier Rebound already uses, so eases round-trip exactly — no
+  approximation. Solids/shapes carry a colored fill; text/other export
+  transform-only (flagged). Backed by a pure, unit-tested serializer
+  (`client/js/export/lottie.js`, 11 tests). No competitor in the audit set
+  offers Lottie/MOGRT export.
+- **Easing delivery layer — the last mile to full Flow parity (three parts).**
+  - **Modifier-key side at apply:** hold **Alt** while applying (the Apply button
+    *or* a one-click preset tile) to ease the **Out** side only, **Shift** for
+    **In** only, **Alt+Shift** for both — without touching the In/Out/Both control.
+  - **Export eases as standalone scripts:** a new host command writes one
+    self-contained `.jsx` per saved ease (built-in + your own) to a folder you
+    pick. Each bakes the curve and applies it with **no Rebound dependency**, so
+    it drops straight onto a **KBar** "Run Script File" button, a Tool Launcher,
+    or AE's Scripts menu. Monotonic curves are fitted to a single bezier;
+    overshoot/spring curves (not expressible as one cubic) are skipped.
+  - **User-assignable keyboard shortcuts:** bind any Home action to a key in
+    Settings → *Keyboard shortcuts* (click **Set**, press your combo). Chords are
+    unique, reserved combos (Cmd+K, Cmd+Enter, Esc, Enter, "/") are protected, and
+    bindings persist. These are panel-focused shortcuts (a CEP panel can't
+    register global AE hotkeys — KBar is the route for those, hence the exporter).
+- **Ease presets now apply on click (Flow-style one-click easing).** Clicking a
+  preset tile in the Ease tool's gallery now **eases the selected keyframes
+  immediately** and loads the curve into the editor for tweaking/re-Apply — no
+  separate Apply step. If nothing's selected yet it just loads (no error). Other
+  tools are unaffected: the gallery gained an opt-in `onPick` hook and only the
+  Ease tool uses it. (The Home board's one-click Easy Ease / Ease In / Ease Out
+  tiles already applied natively; this brings the in-tool gallery in line.)
+- **Ease tool: edit the Speed graph directly, 1:1 with After Effects.** A new
+  **Value graph / Speed graph** toggle flips the curve editor between the
+  progress/value curve (CSS `cubic-bezier`, an S-shape for an ease-in-out) and
+  the **velocity-over-time graph** AE's Graph Editor shows by default (a hump for
+  the same ease). In Speed mode a handle's **height is the keyframe's speed** and
+  its **X is the influence**, so dragging a handle *up* makes that end genuinely
+  faster — no more S-curve↔hump mental translation, and what you draw matches
+  what AE displays. Both modes edit the same `{x1,y1,x2,y2}`, so Apply/Read are
+  unchanged. Backed by a new tested `easing/speedgraph` module (the speed profile
+  is the exact derivative of the value curve — verified to integrate to 1).
+- **Ease tool now shows the real AE values before you Apply.** A live "Applies as
+  (real values)" readout lists every selected keyframe segment and the actual
+  **influence % and speed** the current curve will set on it — in real units per
+  property (Position `px/s`, Scale `%/s`, Rotation `°/s`, Opacity `%/s`). Because
+  one normalized curve maps to *different* speeds per property (speed = slope ×
+  the segment's own dv/dt), selecting a null's **Position and Scale** together now
+  shows both rows with their distinct numbers, so there's no surprise after Apply.
+  It also makes the (speed, influence) model visible: the handle's **X is the
+  influence** — drag a handle only *up* (changing speed/Y) while its X stays small
+  and the readout shows a low influence %, explaining why the motion barely eases.
+  Updates live as you shape the curve, switch In/Out/In&Out, Read, or paste.
+
 - **No-image fidelity round: every fill type now rebuilds as native vector/effect
   content** (multi-agent implement + adversarial review). Nothing in this list is
   a flat raster any more — the only remaining pixels are an image that was already
@@ -66,6 +145,167 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Ease Apply now reproduces the handles you drew (the core "it becomes
+  completely different than my bezier handles" bug).** After Effects' native
+  temporal ease reproduces *any* single monotonic-in-time cubic bezier exactly —
+  including value overshoot (Back-out) and anticipation — so the fix was to keep
+  every drawable curve inside the domain AE can store: **X in [0.001, 0.999]** and
+  **x1 ≤ x2** (monotonic time, so the two ease handles never overlap and influence
+  stays in 0.1%–100%). Two concrete divergences are gone: a **sub‑0.1%‑influence
+  handle** used to round‑trip to a different, steeper/overshooting curve (speed was
+  derived from the raw X while influence was clamped — now both use the same
+  clamped X); and **crossed handles (x1 > x2)**, which AE silently re‑solved into a
+  different shape, are prevented at the drag. `bezier.sanitizeHandles` is the
+  shared clamp across the editor, numeric fields, paste and Apply, mirrored in the
+  host. Y stays free, so overshoot/anticipation still apply natively (editable, no
+  baking). The live preview and the applied motion now match by construction.
+- **A Remove button everywhere it belongs.** The Ease tool (and Smooth, Velocity,
+  Copy Ease) now have a **Remove** that clears any Rebound expression and
+  linearizes the selected keyframes, via a shared `R.easing.removeFromSelection`
+  so the behavior is identical across tools; Bounce gets a Remove wired to its own
+  expression‑clear. (Not added where a linearize would mislead: Echo, Fade, Trim
+  Paths, Stagger, Sequence, Throw.)
+- **"Applied it and nothing changed" after switching Apply‑as modes.** Baking an
+  overshoot now clears any pre‑existing Rebound remap **expression** first — an
+  enabled expression overrides keyframe values in AE, so a leftover one from a
+  prior "Apply as: Expression" was silently ignoring the freshly‑baked keys.
+- **The live curve on selection now matches the Read button.** The passive
+  read used dimension 0 of the first selected pair while Read used the
+  most‑moving dimension of the first *moving* pair; on a flat‑dim‑0 or held
+  opening segment they disagreed. Both now share one segment‑pick.
+- **Easing no longer smooths a deliberate HOLD (stepped) key**, only the eased
+  side of a key is converted to bezier, and Apply now **reports skipped
+  segments** (held / zero‑length) instead of a silent partial no‑op.
+- **Read is honest about expression‑driven properties** (it says the keyframe
+  ease it shows isn't what's actually playing), the Spring mode labels no longer
+  wrap to two lines, and the Ease tool gains a **Reset** (to Easy Ease) plus an
+  "eases along the motion path" note for spatial Position/Anchor.
+- **Spatial eases follow the real motion‑path length.** Position/Anchor ease a
+  single scalar along the path; Apply/Read used the straight‑line chord, so a
+  **curved** path eased flatter than drawn and a **there‑and‑back** move (equal
+  endpoints, real travel) was a silent no‑op. Both now use the true **arc length**
+  when the path is curved or returns near its start (straight paths unchanged);
+  Apply, Read, and the live readout share one `util.spatialDelta` so they agree.
+- **Spring / overshoot bake now matches the live preview (was visibly "buggy").**
+  Applying a Spring (or any overshooting curve) to two keyframes baked only the
+  curve's **turning points** and let AE guess the tangents (continuous auto-bezier),
+  which the project's own overshoot fidelity tests show is *dramatically* less
+  faithful than pinning the **true slope** at each key — so the baked motion
+  didn't look like the exact curve the preview animates. Worse, the normalized
+  spring is clamped flat at its endpoint while the underlying curve is still
+  moving, which planted a **near-duplicate reversal keyframe** a hair before the
+  second key — a tiny jerk right as it "reached the final state." The overshoot
+  bake was rebuilt to be faithful: anchors now sit at every **extremum *and*
+  target-crossing**, each keyframe's temporal handle is pinned to the curve's
+  **real slope** (the Hermite that hugs the math, the same technique the recoil
+  bake uses), and the endpoint duplicate is merged away. Target crossings that
+  land exactly on the value (elastic/back curves on a clean period) are now
+  detected too. Reconstruction error dropped to ~1–3% of travel across springs
+  and elastic (`client/js/easing/sampler.js` `fitSamples`,
+  `host/commands/spring.jsx`; 6 new fidelity tests). The bounce still fits
+  *between* the two selected keyframes (settling on the second at its time, as the
+  preview does); say the word if you'd rather it extend the settle past the second
+  key.
+- **"zero denominator converting ratio" AE error — guarded at every source.** Two
+  reachable triggers, both fixed: (1) applying a temporal ease to a **zero-length
+  spatial segment** (two Position/Anchor keyframes with identical values — e.g. a
+  Behavior with distance 0, or easing a non-moving null's Position) — Behaviors,
+  the Ease tool, and the exported ease scripts now leave such a segment linear
+  instead of throwing; (2) `addComp` during Figma import reading a **0
+  pixel-aspect / duration / frame-rate** off an odd active comp — both import
+  `addComp` paths now floor those to sane positives. (The related "outside of list
+  length" error had no unguarded call site in the host — all list indexing is
+  bounds-checked — so it was a downstream symptom of the undo-stack corruption
+  above; the reference-counted undo fix removes it.)
+- **"Undo group mismatch, will attempt to fix" (recurring AE warning) — root-caused
+  and eliminated.** The RPC dispatch already wraps every labelled command in one
+  `beginUndoGroup`/`endUndoGroup` (with `finally`), but seven commands
+  (Anchor, Recoil, Pin Rig, Backdrop, ease-remap, plus the new Audio and Behaviors)
+  *also* opened their own group — and After Effects does **not** support nested
+  undo groups, so each call produced the mismatch warning, which then persisted
+  across subsequent actions. Undo grouping is now **reference-counted** in the host
+  core: only the outermost begin/end touches AE, inner ones are no-ops, and the
+  dispatch force-closes any group a command leaves open (`resetUndo` in `finally`)
+  so the stack can never stay unbalanced. All self-managing commands route through
+  the counter.
+- **Cross-tool consistency & correctness pass (adversarial multi-agent review of
+  16 tools; 15 verified fixes applied).** Every fix was confirmed real against the
+  code and safe to apply:
+  - **Motion** no longer reports a false success when every layer is skipped — it
+    now throws "No supported layers: …" like its peers (Squash).
+  - **Motion / Pins / Kinetic / Fade** now surface the host's *skipped* layers
+    (count or reasons) in their result toasts instead of silently dropping them.
+  - **Backdrop** presets now sync the effect sliders (Echo time/count/decay, Radial
+    blur amount, Chromatic aberration) — loading a preset updated the values but
+    left the sliders showing stale positions.
+  - **Trim Paths** presets now round-trip the "Replace existing" toggle (it was
+    dropped from saved state).
+  - **Echo** preview honored `echoTime` via a truthy check, so a valid `0` fell
+    back to the default spacing — now a proper null check.
+  - **Rename**'s button is disabled with no selection (was clickable → no-op).
+  - **Kinetic** remove, **Break**'s skip wording, and **Vignette**'s toast were
+    tidied for accurate, consistent feedback; **Tags** cleanup wrapped like peers.
+- **Ease "Read" showed the wrong curve on a multi-property selection.** Read used
+  the *first* selected property, but a property whose value is constant across the
+  segment (a null's held Scale, a non-moving axis) carries no recoverable timing —
+  it can only read back as a linear diagonal. So reading an eased null that also
+  had a flat Scale/axis selected showed a straight line, not the curve you applied.
+  Read now skips non-moving properties and reports the first one that actually
+  moves (falling back to a flat one only if nothing in the selection moves). It
+  also scans *within* a property — past a held opening segment to a later moving
+  one — and, for non-spatial multi-dimension properties (e.g. a non-uniform Scale
+  eased only on its Y axis), reads the dimension that actually changes rather than
+  always dimension 0. The apply↔read round-trip is exact: applying a curve then
+  reading it back reconstructs the same x1/y1/x2/y2 (the `avg` speed factor cancels).
+- **Align/Distribute moved parented layers to the wrong place.** A layer's
+  Position is in its *parent's* coordinate space (comp space only when it has no
+  parent), but the align math measured each layer's box from raw Position as if it
+  were comp space — so aligning anything imported into a group/frame (everything
+  the Figma importer makes) put them somewhere unrelated (e.g. aligning *left*
+  could shove the upper layer *right*). Align is now parent-aware: each layer's
+  content rect is mapped into true composition space through the full parent chain
+  (rotation/scale included, X/Y-separated Position handled), aligned there, and the
+  resulting move is converted back into the layer's own Position space. Unparented
+  layers are unchanged.
+- **Easing curve handles couldn't be dragged in After Effects.** AE's CEF runtime
+  drops **pointer events on SVG sub-elements** (the same quirk that gives a
+  `<button>` a `click` but no `pointerdown`), so the bezier handles — SVG
+  `<circle>`s wired to `pointerdown` — never started a drag. The handles now bind
+  **both mouse and pointer** events (mouse fires reliably in CEF), with guards so
+  the paired down/up events drive a single drag, and the drag no longer relies on
+  `setPointerCapture` (which throws on SVG in CEF). Browser preview fires
+  pointerdown fine, which is why it slipped through.
+- **Imported text lost its font and weight (Inter Bold came in as Helvetica).**
+  The host font resolver had a single strategy (AE 24's exact
+  family+style lookup) and silently set no font on a miss, so any AE without the
+  Fonts API, or any style-name mismatch, left AE's default face. It is now a
+  multi-strategy resolver — explicit PostScript name, exact family+style, style
+  synonyms and a numeric-weight→style map, a constructed `Family-Style` PostScript
+  probe, and a scan of every installed face (matching native names too) — that
+  never accepts a substitute, verifies the set, prefers `fontObject` (24.0+) to
+  dodge silent substitution, falls back to faux bold/italic when only the upright
+  face exists, and only then flags a genuinely missing font. The exporter now ships
+  `postScriptName` + `fontWeight` per run and keeps the font even when segment
+  reading throws. (`app.fonts.allFonts` is also now read shape-agnostically, fixing
+  an empty font-replacement dropdown.)
+- **All imported text was secretly point text.** `TextDocument.boxText` is
+  read-only, so the old `boxText = true` write was swallowed and every text layer
+  fell back to point text (no wrapping to the source width). Box text is now
+  created up front via `addBoxText([w,h], …)`, with vertical alignment
+  (`boxVerticalAlignment`, 24.6+) honoured; point text only when the source
+  auto-resizes width-and-height.
+- **A wide frame imported as a tiny 100×100 null in the corner.** After Effects
+  nulls cannot be resized, so a frame/group handle never covered its content. Like
+  Overlord/AEUX, the flat build now uses a **guide shape layer sized to the node**
+  (transparent fill, faint non-rendering outline, anchor centred) so the container
+  box actually spans the art; children stay put. A group used *as a mask* still
+  bails safely instead of matting through the empty guide.
+- **Text styling that silently did nothing.** `allCaps`/`smallCaps` are read-only
+  (now set via `fontCapsOption`); `applyUnderline` does not exist in AE scripting
+  (now flagged as an approximation, like strikethrough); the phantom
+  `leftMargin`/`rightMargin` indent writes were removed (only `startIndent`/
+  `endIndent` are real); and Figma `paragraphSpacing` now lands as space-*after*
+  (it was being written as space-before).
 - **Anchor handles do nothing on click.** The nine anchor handles are `<button>`
   elements, and in After Effects' CEF runtime a button fires `click` but not
   `pointerdown`, so after the handles were switched to `pointerdown` they stopped
@@ -83,6 +323,68 @@ All notable changes to Rebound are documented here. The format follows
   tool's verbose diagnostic toasts were trimmed to a single brief confirmation.
 
 ### Changed
+- **Last text & fidelity gaps closed (Figma → AE), so import is 1:1.**
+  **Strikethrough** now draws like underline (a generated rule through the
+  x-height). **Underline/strikethrough on part of a line** is measured to the
+  exact run extent (single line) instead of spanning the whole line. **Lowercase
+  / title-case** text (which After Effects has no case option for) is reproduced
+  by baking the case into the displayed characters (length-preserving, so styling
+  stays aligned). **Lists/bullets** rebuild as real markers (`•` / `1.`) with a
+  hanging indent — handling the U+2028 line-separators Figma uses between items.
+  **Truncated** text keeps its box and is flagged (AE has no ellipsis). Plus the
+  **mirrored-image cover** alignment and the **rotated backdrop-blur mask** edge
+  cases are now correct.
+- **Reproduced the things After Effects "can't do" (Figma → AE).** None of these
+  were dead ends — each now has a faithful, editable reconstruction:
+  **underline** is drawn as a generated stroked line under each baseline (from
+  `textDocument.baselineLocs`, following wraps), matched to the text and parented
+  to it; **backdrop/background blur** becomes an adjustment layer with a Gaussian
+  blur, masked to the node's footprint and placed below it so it blurs what's
+  behind (glassmorphism), instead of being dropped; **image fills** scale as true
+  **cover** (uniform + centre-crop) rather than stretching on an aspect mismatch;
+  the **clip-overflow** test now uses each child's true rotated bounding box; and
+  **inside/outside gradient strokes** flip their offset by the path winding so the
+  side is correct on freeform/boolean paths.
+- **1:1 clipping, masks, image backgrounds and inside/outside strokes (Figma →
+  AE).** A frame now clips exactly when Figma's clip-content is on **and** its
+  content overflows — built as a precomp boundary (the only faithful clip in AE),
+  and never for a frame that does not clip, so non-clipping frames stay flat. A
+  **frame or group used as a mask** becomes a real pixel layer (precomp) so its
+  silhouette mattes correctly (a group's frame-local children are re-based into
+  group space first); multi-target masks (one Figma mask over several siblings)
+  wire each target reliably (top-down, adjacency-verified). **Image frame
+  backgrounds** rebuild as a footage layer at the bottom of the frame (clipped to
+  the frame's rounded corners when it clips). **Inside/outside gradient strokes**
+  are offset into place with an isolated Offset-Paths group so only the stroke
+  shifts, not the fill.
+- **Import fidelity sweep (Figma → AE).** Beyond the font/box-text/container fixes
+  above: a new **"Import into the active composition"** toggle (default on,
+  Overlord-style — off always makes a new comp); polygons, stars and boolean
+  operations rebuild as **editable Polystar / Merge-Paths** shapes instead of dead
+  baked outlines; rounded-corner and circular **image fills clip to their exact
+  silhouette**; image **flips/mirrors** survive; **gradient stroke opacity**, a
+  guard so a conic-gradient *stroke* no longer warps the whole layer, shadow
+  **spread converted px→percent**, drop-shadow **knockout** (`showShadowBehindNode`),
+  and a flag when multiple shadows collapse to AE's single-shadow limit; sheared
+  nodes rasterise pixel-exact (with a skew note as a backstop); elongated radial/
+  diamond gradients size to their longer axis; `dashOffset` round-trips; and
+  `BOOLEAN`/`ADJUSTMENT` validate cleanly. Genuinely-unscriptable cases (underline,
+  true backdrop blur, lists/bullets, per-paragraph mixed alignment) are flagged as
+  approximations rather than faked.
+- **Figma → AE import now flattens into one composition by default, matching
+  Overlord/AEUX.** Each frame becomes an editable group (a null parenting its
+  children, plus a background shape layer that rebuilds the frame's
+  fill/corners/border/shadow) instead of a precomp per frame, so importing a
+  real design no longer explodes the project into dozens of nested comps. A new
+  **Precomp frames** toggle (Import ▸ How it builds) restores the trimmed,
+  clipped precomp-per-frame build when you want it. Top-level frames now carry an
+  `offset` in the IR so multi-frame and loose selections keep their layout in the
+  single comp.
+- **The Rebound "bounce" mark is now the logo everywhere in the UI** — the AE
+  panel rail/home/settings marks, the panel menu icons, and the Figma plugin
+  header, replacing the old `◗` glyph, disc icons, and relay-arrow. The Figma
+  plugin UI was de-boxed (bare brand mark instead of a blue chip, borderless
+  status/selection rows) for a lighter, less generic look.
 - Home tiles and widgets are less rounded by default (corner radius 12 → 7px),
   for a tighter, less bubbly look; the Appearance ▸ Corners scale was lowered to
   match (Sharp 3 / Rounded 7 / Round 12 / Extra 20).

@@ -12,21 +12,31 @@
   var R = $.__rebound;
   var util = R.util;
 
-  function clampInfluence(v) {
-    return v < 0.1 ? 0.1 : v > 100 ? 100 : v;
+  // Handle X lives in [0.001, 0.999] (AE influence is a % in [0.1, 100]).
+  function clampX(v) {
+    return v < 0.001 ? 0.001 : v > 0.999 ? 0.999 : v;
   }
 
+  // Constrain a curve to the domain AE reproduces EXACTLY as a native temporal
+  // ease: X in [0.001,0.999] and x1<=x2 (monotonic time, handles never overlap).
+  // Y stays free (overshoot/anticipation render faithfully). Mirrors the panel's
+  // bezier.sanitizeHandles so host and panel agree.
+  function sanitizeCurve(curve) {
+    var x1 = clampX(curve.x1);
+    var x2 = clampX(curve.x2);
+    if (x1 > x2) { var m = (x1 + x2) / 2; x1 = m; x2 = m; }
+    return { x1: x1, y1: curve.y1, x2: x2, y2: curve.y2 };
+  }
+
+  // Speed is derived from the SAME clamped x used for influence, so the stored
+  // (influence, speed) pair reconstructs the exact handle point that was drawn.
   function outEase(curve, avg) {
-    var influence = clampInfluence(curve.x1 * 100);
-    var speed = curve.x1 === 0 ? 0 : (curve.y1 / curve.x1) * avg;
-    return new KeyframeEase(speed, influence);
+    return new KeyframeEase((curve.y1 / curve.x1) * avg, curve.x1 * 100);
   }
 
   function inEase(curve, avg) {
     var den = 1 - curve.x2;
-    var influence = clampInfluence(den * 100);
-    var speed = den === 0 ? 0 : ((1 - curve.y2) / den) * avg;
-    return new KeyframeEase(speed, influence);
+    return new KeyframeEase(((1 - curve.y2) / den) * avg, den * 100);
   }
 
   function valuesAt(prop, index) {
@@ -66,17 +76,28 @@
     return out;
   }
 
-  function ensureBezier(prop, index) {
-    prop.setInterpolationTypeAtKey(
-      index,
-      KeyframeInterpolationType.BEZIER,
-      KeyframeInterpolationType.BEZIER
-    );
+  // Convert ONLY the side being eased to BEZIER, preserving the other side's
+  // interpolation (so easing the outgoing side of a key doesn't disturb a HOLD
+  // on its incoming side, and vice-versa). A plain LINEAR side becoming BEZIER is
+  // expected; a HOLD on the OTHER side is left intact.
+  function ensureBezierSide(prop, index, side) {
+    var inType = prop.keyInInterpolationType(index);
+    var outType = prop.keyOutInterpolationType(index);
+    if (side === 'out') outType = KeyframeInterpolationType.BEZIER;
+    else inType = KeyframeInterpolationType.BEZIER;
+    prop.setInterpolationTypeAtKey(index, inType, outType);
+  }
+
+  // A stepped (HOLD-out) segment has no interpolation to ease; easing it would
+  // silently turn a deliberate stepped hold into a smooth ramp. Skip + report.
+  function isHoldSegment(prop, a) {
+    try { return prop.keyOutInterpolationType(a) === KeyframeInterpolationType.HOLD; } catch (e) { return false; }
   }
 
   function applyEase(args) {
     var curve = args.curve;
     if (!curve) throw new Error('No curve supplied.');
+    curve = sanitizeCurve(curve);
     var scope = args.scope || 'inout';
     if (scope === 'auto') scope = 'inout';
     var setOut = scope === 'out' || scope === 'inout';
@@ -89,6 +110,8 @@
 
     var propsTouched = 0;
     var segments = 0;
+    var skippedHold = 0;
+    var skippedFlat = 0;
 
     for (var t = 0; t < list.length; t++) {
       var prop = list[t].prop;
@@ -104,24 +127,37 @@
         var b = idx[s + 1];
         var dt = prop.keyTime(b) - prop.keyTime(a);
         if (dt <= 0) continue;
+        // A stepped (HOLD) segment has no interpolation to ease — leave it as-is
+        // instead of silently smoothing a deliberate stepped hold.
+        if (isHoldSegment(prop, a)) { skippedHold++; continue; }
 
         var aVals = valuesAt(prop, a);
         var bVals = valuesAt(prop, b);
+        // Spatial props ease a single scalar along the motion PATH. Use the real
+        // arc length when the path is curved or returns near its start, and the
+        // straight-line chord otherwise (unchanged for the common straight case).
+        // A truly stationary segment (no path travel at all) is skipped — easing
+        // a zero-length path throws "zero denominator converting ratio" in AE.
+        var spatialDv = 0;
+        if (spatial) {
+          spatialDv = util.spatialDelta(prop, prop.keyTime(a), prop.keyTime(b), aVals, bVals);
+          if (spatialDv < 1e-6) { skippedFlat++; continue; }
+        }
         var outArr = [];
         var inArr = [];
         for (var d = 0; d < dims; d++) {
-          var dv = spatial ? magnitude(aVals, bVals) : (bVals[d] || 0) - (aVals[d] || 0);
+          var dv = spatial ? spatialDv : (bVals[d] || 0) - (aVals[d] || 0);
           var avg = dv / dt;
           outArr.push(outEase(curve, avg));
           inArr.push(inEase(curve, avg));
         }
 
         if (setOut) {
-          ensureBezier(prop, a);
+          ensureBezierSide(prop, a, 'out');
           prop.setTemporalEaseAtKey(a, prop.keyInTemporalEase(a), outArr);
         }
         if (setIn) {
-          ensureBezier(prop, b);
+          ensureBezierSide(prop, b, 'in');
           prop.setTemporalEaseAtKey(b, inArr, prop.keyOutTemporalEase(b));
         }
         segments++;
@@ -130,45 +166,88 @@
       if (didProp) propsTouched++;
     }
 
-    return { properties: propsTouched, segments: segments };
+    return {
+      properties: propsTouched,
+      segments: segments,
+      skippedHold: skippedHold,
+      skippedFlat: skippedFlat
+    };
   }
 
-  // Read the existing ease of the first usable selected segment back into a
-  // normalized cubic-bezier (reverse sync into the editor).
+  // Reconstruct a normalized cubic-bezier from one selected segment's ease. The
+  // y (slope) factors divide by the segment's average speed `avg`, so a segment
+  // whose value does NOT change over time (avg == 0) carries no recoverable
+  // timing — it can only read back as the linear diagonal. `flat` flags that.
+  // True when the property's motion is driven by an (enabled) expression, so the
+  // keyframe temporal ease Read reconstructs is NOT what actually plays back.
+  function hasExpr(p) {
+    try { return p.expressionEnabled === true; } catch (e) { return false; }
+  }
+
+  function reconstructSegment(p, a, b, avg, dim) {
+    var outE = p.keyOutTemporalEase(a)[dim];
+    var inE = p.keyInTemporalEase(b)[dim];
+    var x1 = clamp01(outE.influence / 100);
+    var x2 = 1 - clamp01(inE.influence / 100);
+    var flat = Math.abs(avg) < 1e-6;
+    var y1 = flat ? x1 : (outE.speed / avg) * x1;
+    var y2 = flat ? x2 : 1 - (inE.speed / avg) * (1 - x2);
+    return {
+      found: true,
+      flat: flat,
+      hasExpression: hasExpr(p),
+      propertyName: p.name,
+      layerName: util.layerOfProperty(p).name,
+      curve: { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 }
+    };
+  }
+
+  // Read the existing ease back into a normalized cubic-bezier (reverse sync into
+  // the editor). A property whose value is constant across the segment (a held
+  // Scale, a non-moving axis) cannot encode a timing curve — it always reads back
+  // linear — so prefer the first selected property that actually MOVES; only fall
+  // back to a flat one if nothing in the selection moves.
   function readEase() {
     var comp = util.activeComp();
     var props = comp.selectedProperties;
+    var flatFallback = null;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
       if (!(p instanceof Property)) continue;
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
-      var keys = p.selectedKeys.length >= 2 ? p.selectedKeys : [1, 2];
-      var a = keys[0];
-      var b = keys[1];
-      var dt = p.keyTime(b) - p.keyTime(a);
-      if (dt <= 0) continue;
+      // Inspect consecutive pairs among the SELECTED keys (or every key if fewer
+      // than two are selected) and return the FIRST segment that actually moves —
+      // scanning within the property, not just its first pair, so a held opening
+      // segment (avg == 0, reads linear) can't mask a later moving one.
+      var keys = p.selectedKeys.length >= 2 ? p.selectedKeys : null;
+      if (!keys) { keys = []; for (var k = 1; k <= p.numKeys; k++) keys.push(k); }
+      for (var s = 0; s < keys.length - 1; s++) {
+        var a = keys[s];
+        var b = keys[s + 1];
+        var dt = p.keyTime(b) - p.keyTime(a);
+        if (dt <= 0) continue;
 
-      var aVals = valuesAt(p, a);
-      var bVals = valuesAt(p, b);
-      var dv = util.isSpatial(p) ? magnitude(aVals, bVals) : (bVals[0] || 0) - (aVals[0] || 0);
-      var avg = dv / dt;
+        var aVals = valuesAt(p, a);
+        var bVals = valuesAt(p, b);
+        var dv, dim;
+        if (util.isSpatial(p)) {
+          dv = util.spatialDelta(p, p.keyTime(a), p.keyTime(b), aVals, bVals); dim = 0; // along the path
+        } else {
+          // Pick the dimension that moves most; a flat axis carries no timing.
+          dv = 0; dim = 0;
+          for (var d = 0; d < aVals.length; d++) {
+            var chg = (bVals[d] || 0) - (aVals[d] || 0);
+            if (Math.abs(chg) > Math.abs(dv)) { dv = chg; dim = d; }
+          }
+        }
+        var avg = dv / dt;
 
-      var outE = p.keyOutTemporalEase(a)[0];
-      var inE = p.keyInTemporalEase(b)[0];
-
-      var x1 = clamp01(outE.influence / 100);
-      var x2 = 1 - clamp01(inE.influence / 100);
-      var y1 = avg === 0 ? x1 : (outE.speed / avg) * x1;
-      var y2 = avg === 0 ? x2 : 1 - (inE.speed / avg) * (1 - x2);
-
-      return {
-        found: true,
-        propertyName: p.name,
-        layerName: util.layerOfProperty(p).name,
-        curve: { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 }
-      };
+        var res = reconstructSegment(p, a, b, avg, dim);
+        if (res.flat) { if (!flatFallback) flatFallback = res; continue; }
+        return res;
+      }
     }
-    return { found: false };
+    return flatFallback || { found: false };
   }
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }

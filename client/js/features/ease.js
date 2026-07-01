@@ -40,6 +40,7 @@
         curve = c;
         syncFields();
         updateReadout();
+        renderRealValues();
       }
     });
 
@@ -56,6 +57,61 @@
       }).join(', ') + ')');
     }
 
+    // --- Real-values readout: what Apply will actually set on the selection ----
+    // One normalized curve maps to DIFFERENT AE influence/speed per property,
+    // because speed = slope * (the segment's own dv/dt). Showing it removes the
+    // "I dragged the handle but nothing happened" mystery: a small influence (the
+    // handle's X) barely eases no matter how high you pull it (the Y / speed).
+    var lastSel = ctx.getSelection();
+    var realValuesEl = el('div.rb-ease-real');
+
+    function projForCurve(avg) {
+      var den = 1 - curve.x2;
+      return {
+        outInfl: clampInfluence(curve.x1 * 100),
+        outSpeed: curve.x1 === 0 ? 0 : (curve.y1 / curve.x1) * avg,
+        inInfl: clampInfluence(den * 100),
+        inSpeed: den === 0 ? 0 : ((1 - curve.y2) / den) * avg
+      };
+    }
+    function fmtSpeed(v, unit) {
+      return R.units.round(v, 1) + (unit || '') + '/s';
+    }
+    function renderRealValues() {
+      R.dom.clear(realValuesEl);
+      var segs = [];
+      if (lastSel && lastSel.properties) {
+        for (var i = 0; i < lastSel.properties.length; i++) {
+          if (lastSel.properties[i].segment) segs.push(lastSel.properties[i]);
+        }
+      }
+      if (!segs.length) {
+        realValuesEl.appendChild(el('div.rb-ease-real-empty', {
+          text: 'Select 2+ keyframes to see the values Apply will set.'
+        }));
+        return;
+      }
+      var anySpatial = false;
+      for (var k = 0; k < segs.length; k++) { if (segs[k].isSpatial) { anySpatial = true; break; } }
+      if (anySpatial) {
+        realValuesEl.appendChild(el('div.rb-ease-real-note', {
+          text: 'Position / Anchor ease along the motion path — one curve for the whole path, not per axis.'
+        }));
+      }
+      for (var j = 0; j < segs.length; j++) {
+        var p = segs[j];
+        var pr = projForCurve(p.segment.avg);
+        var unit = p.segment.unit;
+        var parts = [];
+        if (scope !== 'in') parts.push('out ' + fmtSpeed(pr.outSpeed, unit) + ' @ ' + Math.round(pr.outInfl) + '%');
+        if (scope !== 'out') parts.push('in ' + fmtSpeed(pr.inSpeed, unit) + ' @ ' + Math.round(pr.inInfl) + '%');
+        realValuesEl.appendChild(el('div.rb-ease-real-row', null, [
+          el('span.rb-ease-real-name', { text: (p.layerName ? p.layerName + ' · ' : '') + p.name }),
+          el('span.rb-ease-real-vals', { text: parts.join('   ·   ') })
+        ]));
+      }
+    }
+
     // --- Numeric bezier fields ---
     var fields = {};
     function field(key, label) {
@@ -66,9 +122,13 @@
         decimals: 2,
         width: '100%',
         onChange: function (v) {
-          curve[key] = key.charAt(0) === 'x' ? clamp01(v) : v;
+          curve[key] = v;
+          var moved = key === 'x1' ? 'out' : key === 'x2' ? 'in' : undefined;
+          curve = withType(R.easing.bezier.sanitizeHandles(curve, moved));
           editor.setCurve(curve);
+          syncFields();
           updateReadout();
+          renderRealValues();
         }
       });
       fields[key] = f;
@@ -99,7 +159,7 @@
       { value: 'out', label: 'Out', title: 'Ease the outgoing side only' },
       { value: 'inout', label: 'In & Out', title: 'Ease both sides (adapts at the ends of the selection)' },
       { value: 'in', label: 'In', title: 'Ease the incoming side only' }
-    ], { value: scope, onChange: function (v) { scope = v; } });
+    ], { value: scope, onChange: function (v) { scope = v; renderRealValues(); } });
 
     var allToggle = ui.toggle({
       label: 'Apply to every keyframe (not just selected)',
@@ -124,25 +184,53 @@
         readClipboard().then(function (text) {
           var parsed = parseCubicBezier(text);
           if (!parsed) { ctx.toast('No cubic-bezier found on the clipboard', { kind: 'error' }); return; }
-          curve = { type: 'bezier', x1: parsed[0], y1: parsed[1], x2: parsed[2], y2: parsed[3] };
+          curve = withType(R.easing.bezier.sanitizeHandles({ x1: parsed[0], y1: parsed[1], x2: parsed[2], y2: parsed[3] }));
           editor.setCurve(curve);
           syncFields();
           updateReadout();
+          renderRealValues();
           ctx.toast('Pasted curve', { kind: 'success' });
         });
       }
     }, ['Paste']);
 
+    var resetBtn = el('button.rb-btn.is-ghost', {
+      title: 'Reset the curve to Easy Ease',
+      onclick: function () {
+        editor.setGhost(curve);
+        curve = { type: 'bezier', x1: 0.33, y1: 0, x2: 0.67, y2: 1 };
+        editor.setCurve(curve);
+        syncFields();
+        updateReadout();
+        renderRealValues();
+      }
+    }, ['Reset']);
+
+    var exportBtn = el('button.rb-btn.is-ghost', {
+      title: 'Write every saved ease as a standalone .jsx — wire each to a KBar button, a Tool Launcher, or AE’s Scripts menu',
+      onclick: doExportScripts
+    }, ['Export → scripts']);
+
+    // --- Graph space: Value (progress) vs Speed (velocity, like AE) ---
+    var graphCtl = ui.segmented([
+      { value: 'value', label: 'Value graph', title: 'Progress/value curve — the same shape as CSS cubic-bezier()' },
+      { value: 'speed', label: 'Speed graph', title: 'Velocity over time — matches After Effects’ Graph Editor (no mental translation)' }
+    ], { value: editor.getSpace(), onChange: function (v) { editor.setSpace(v); } });
+
     // --- Assemble body ---
     ctx.body.appendChild(el('div.rb-col', null, [
       previewHost,
+      graphCtl.el,
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
-      el('div.rb-row', null, [copyBtn, pasteBtn]),
+      el('div.rb-row.rb-wrap', null, [copyBtn, pasteBtn, resetBtn, exportBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
-      allToggle.el
+      el('div.rb-hint', { text: 'Tip: hold Alt while applying for Out only, Shift for In only — works on preset tiles too.' }),
+      allToggle.el,
+      el('div.rb-section-label', { text: 'Applies as (real values)' }),
+      realValuesEl
     ]));
 
     // --- Footer actions ---
@@ -151,8 +239,12 @@
       title: 'Read the selected keyframes’ ease into the editor',
       onclick: doRead
     }, ['Read']);
-    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    var applyBtn = el('button.rb-btn.is-primary', {
+      onclick: doApply,
+      title: 'Apply the curve to the selected keyframes. Hold Alt = Out only, Shift = In only, Alt+Shift = In & Out.'
+    }, ['Apply']);
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(R.easing.removeButton(ctx));
     ctx.footer.appendChild(readBtn);
     ctx.footer.appendChild(applyBtn);
 
@@ -165,20 +257,86 @@
     }
 
     var off = ctx.onSelection(function (sel) {
+      lastSel = sel;
       scopeText.textContent = describeSelection(sel);
+      renderRealValues();
     });
-    scopeText.textContent = describeSelection(ctx.getSelection());
+    scopeText.textContent = describeSelection(lastSel);
 
-    function doApply() {
-      ctx.invoke('ease.apply', { curve: curve, scope: scope, applyToAll: applyToAll })
+    // Flow-style modifier override: hold a modifier while applying (Apply button
+    // or a preset tile) to force the eased side for that one apply, without
+    // touching the In/Out/Both control. Alt = Out only, Shift = In only, both =
+    // In & Out; no modifier = whatever the scope control says.
+    function scopeForEvent(e) {
+      if (!e) return scope;
+      var alt = !!e.altKey, shift = !!e.shiftKey;
+      if (alt && shift) return 'inout';
+      if (alt) return 'out';
+      if (shift) return 'in';
+      return scope;
+    }
+
+    function doApply(e) {
+      var useScope = scopeForEvent(e);
+      // Final guarantee: apply only a curve AE can reproduce exactly, so the
+      // motion matches the handles the user drew.
+      ctx.invoke('ease.apply', { curve: withType(R.easing.bezier.sanitizeHandles(curve)), scope: useScope, applyToAll: applyToAll })
         .then(function (res) {
-          ctx.toast('Eased ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's') +
-            ' across ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies'), { kind: 'success' });
+          var sideNote = useScope !== scope ? ' (' + useScope + ')' : '';
+          var skips = [];
+          if (res.skippedHold) skips.push(res.skippedHold + ' held');
+          if (res.skippedFlat) skips.push(res.skippedFlat + ' zero-length');
+          var skipNote = skips.length ? ' · skipped ' + skips.join(', ') : '';
+          if (!res.segments && skips.length) {
+            ctx.toast('Nothing eased — skipped ' + skips.join(', ') + ' segment' + (res.skippedHold + res.skippedFlat === 1 ? '' : 's'), { kind: 'info' });
+          } else {
+            ctx.toast('Eased ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's') +
+              ' across ' + res.properties + ' propert' + (res.properties === 1 ? 'y' : 'ies') + sideNote + skipNote, { kind: 'success' });
+          }
           ctx.refreshSelection();
         })
         .catch(function (err) {
           ctx.toast(err.message || 'Could not apply ease', { kind: 'error' });
         });
+    }
+
+    // Export every saved ease (built-in + your own) as a standalone .jsx the host
+    // writes to a folder you pick. Monotonic penner curves are fitted to a single
+    // cubic-bezier; overshoot/spring curves can't be one bezier, so they're skipped.
+    function asBezierCurve(c) {
+      if (!c) return null;
+      if (c.type === 'bezier') return c;
+      var sampler = R.easing.sampler;
+      if (sampler.strategy(c) === 'temporal-ease') {
+        var h = sampler.fitBezierHandles(c);
+        return { type: 'bezier', x1: h.x1, y1: h.y1, x2: h.x2, y2: h.y2 };
+      }
+      return null;
+    }
+    function gatherEasePresets() {
+      var out = [];
+      ((R.presets && R.presets.defaults) || []).forEach(function (p) {
+        var c = asBezierCurve(p && p.curve);
+        if (c) out.push({ name: p.name, curve: c });
+      });
+      var user = [];
+      try { var d = R.disk.read('presets:ease', null); if (d && d.items) user = d.items; } catch (e) { /* none */ }
+      user.forEach(function (u) {
+        var c = asBezierCurve(u.state && u.state.curve);
+        if (c) out.push({ name: u.name, curve: c });
+      });
+      return out;
+    }
+    function doExportScripts() {
+      var presets = gatherEasePresets();
+      if (!presets.length) { ctx.toast('No exportable eases found', { kind: 'error' }); return; }
+      ctx.invoke('ease.exportScripts', { presets: presets })
+        .then(function (res) {
+          if (!res || res.cancelled) return;
+          ctx.toast('Exported ' + res.written + ' ease script' + (res.written === 1 ? '' : 's') +
+            ' to ' + res.folder, { kind: 'success' });
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not export ease scripts', { kind: 'error' }); });
     }
 
     function doRead() {
@@ -190,7 +348,12 @@
           editor.setCurve(curve);
           syncFields();
           updateReadout();
-          ctx.toast('Read ease from ' + res.propertyName, { kind: 'info' });
+          renderRealValues();
+          if (res.hasExpression) {
+            ctx.toast('Read keyframe ease from ' + res.propertyName + ' — but this property is driven by an expression, so the live motion differs', { kind: 'info' });
+          } else {
+            ctx.toast('Read ease from ' + res.propertyName, { kind: 'info' });
+          }
         })
         .catch(function (err) {
           ctx.toast(err.message || 'Could not read ease', { kind: 'error' });
@@ -204,9 +367,23 @@
       editor.setCurve(curve);
       syncFields();
       updateReadout();
+      renderRealValues();
+    }
+
+    // Flow-style one-click: clicking a preset tile loads it into the editor AND
+    // eases the live selection immediately. If nothing is selected yet, it just
+    // loads (no error) so you can select keyframes and click again.
+    function canApplyNow() {
+      return applyToAll || (!!lastSel && lastSel.hasComp && (lastSel.totalSelectedKeys || 0) >= 2);
+    }
+    function pickPreset(state, e) {
+      applyState(state);
+      if (canApplyNow()) doApply(e);
+      else ctx.toast('Loaded — select 2+ keyframes to apply', { kind: 'info' });
     }
 
     updateReadout();
+    renderRealValues();
 
     // Selecting a keyframe pair shows its live ease (from the cached summary, no
     // host round-trip — the host already computes currentEase when >=2 keys).
@@ -221,6 +398,7 @@
         toolId: 'ease',
         get: getState,
         set: applyState,
+        onPick: pickPreset,
         previewFor: function (s) { return s.curve; },
         defaults: easeDefaults()
       },
@@ -258,7 +436,10 @@
 
   // --- helpers --------------------------------------------------------------
 
-  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  // Mirror host/commands/ease.jsx clampInfluence so the readout matches Apply.
+  function clampInfluence(v) { return v < 0.1 ? 0.1 : v > 100 ? 100 : v; }
+  // Re-attach the bezier type to a sanitized {x1,y1,x2,y2}.
+  function withType(s) { return { type: 'bezier', x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }; }
 
   function parseCubicBezier(text) {
     if (!text) return null;

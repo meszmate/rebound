@@ -133,7 +133,11 @@
         orbitRadius: orbitRadius,
         orbitSpeed: orbitSpeed
       })
-        .then(function (res) { ctx.toast('Motion on ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          var skip = (res.skipped && res.skipped.length) ? ' (skipped ' + res.skipped.length + ')' : '';
+          ctx.toast('Motion on ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's') + skip, { kind: 'success' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Motion', { kind: 'error' }); });
     }
     function doRemove() {

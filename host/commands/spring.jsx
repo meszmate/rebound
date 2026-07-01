@@ -9,6 +9,16 @@
 (function () {
   var R = $.__rebound;
   var util = R.util;
+  var rig = R.rig;
+
+  // Clear any Rebound remap/overshoot EXPRESSION on a property before baking
+  // keyframes onto it. An enabled expression overrides keyframe values in AE, so
+  // a leftover expression from a prior "Apply as: Expression" would silently
+  // ignore the freshly-baked keys ("I applied it and nothing changed"). Only
+  // Rebound's own (MARKER-tagged) expression is cleared; user expressions stay.
+  function clearReboundExpr(p) {
+    try { if (rig && rig.clearExpression) rig.clearExpression(p); } catch (e) {}
+  }
 
   function valuesAt(prop, index) {
     var v = prop.keyValue(index);
@@ -72,6 +82,7 @@
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
       var idx = p.selectedKeys.length >= 2 ? p.selectedKeys : null;
       if (!idx) continue;
+      clearReboundExpr(p);
       var dims = util.dimensionsOf(p);
       var did = false;
 
@@ -132,12 +143,100 @@
     } catch (e3) {}
   }
 
-  // Place one keyframe per turning point inside a segment (endpoints already
-  // exist), then give every key in the segment a continuous bezier handle, so
-  // the overshoot is a smooth, editable curve with the fewest possible keys.
+  // ---- Faithful (true-slope Hermite) baking --------------------------------
+  // When an anchor carries its true slope m (dy/dt in normalized segment time),
+  // we pin the keyframe's temporal handle to that slope at a 1/3 influence, so
+  // the cubic AE draws between two anchors IS the Hermite that hugs the curve,
+  // not a guessed continuous-bezier that sags between peaks. This is the same
+  // technique the unit-tested recoil bake uses; it's what makes the baked spring
+  // match the live preview (which samples the exact function).
+  var FIT_INFLUENCE = 33.3333;
+
+  function zeros(n) { var a = []; for (var i = 0; i < n; i++) a.push(0); return a; }
+
+  function keyIndexAtTime(prop, t, eps) {
+    for (var i = 1; i <= prop.numKeys; i++) {
+      if (Math.abs(prop.keyTime(i) - t) <= eps) return i;
+    }
+    return -1;
+  }
+
+  // Per-dimension value slope (units/sec) for anchor slope m: value = va + (vb -
+  // va)*y, so d(value)/d(realTime) = (vb - va) * m / dt.
+  function valueSlopeVec(va, vb, m, dt, dims) {
+    var vp = [];
+    for (var d = 0; d < dims; d++) vp.push(((vb[d] || 0) - (va[d] || 0)) * m / dt);
+    return vp;
+  }
+
+  // Build a temporal-ease array matching the live arity: spatial props share one
+  // speed graph (the magnitude); everything else gets one signed speed per dim.
+  function easeFromSlope(cur, vp, dims) {
+    var arr = [];
+    if (cur.length === 1) {
+      var speed;
+      if (dims > 1) { var m = 0; for (var d = 0; d < dims; d++) m += vp[d] * vp[d]; speed = Math.sqrt(m); }
+      else speed = vp[0];
+      arr.push(new KeyframeEase(speed, FIT_INFLUENCE));
+    } else {
+      for (var d2 = 0; d2 < cur.length; d2++) arr.push(new KeyframeEase(d2 < vp.length ? vp[d2] : 0, FIT_INFLUENCE));
+    }
+    return arr;
+  }
+
+  // Straighten the spatial tangents that are INTERNAL to the baked overshoot so
+  // the path traces the straight velocity line (no AE auto-bezier bow); keep the
+  // endpoints' outward tangents so the surrounding motion is untouched.
+  function straightenSpatial(prop, ki, dims, keepIn, keepOut) {
+    try {
+      var z = zeros(dims);
+      var inT = keepIn ? prop.keyInSpatialTangent(ki) : z;
+      var outT = keepOut ? prop.keyOutSpatialTangent(ki) : z;
+      prop.setSpatialTangentsAtKey(ki, inT, outT);
+    } catch (e) {}
+  }
+
+  // Interior overshoot key: both sides pinned to the true slope (in == out, no
+  // kink), spatial path straightened.
+  function setFitEase(prop, ki, vp, dims, spatial) {
+    try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER); } catch (e) {}
+    try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
+    try { prop.setTemporalContinuousAtKey(ki, false); } catch (e2) {}
+    try { var cur = prop.keyInTemporalEase(ki); var a = easeFromSlope(cur, vp, dims); prop.setTemporalEaseAtKey(ki, a, a); } catch (e3) {}
+    if (spatial) straightenSpatial(prop, ki, dims, false, false);
+  }
+
+  // Start key: set ONLY its OUT handle to the curve's leaving slope; keep the
+  // arrival (IN) the user had. End key: set ONLY its IN handle to the arriving
+  // slope; keep the departure (OUT).
+  function setEndpointEase(prop, ki, vp, dims, spatial, isStart) {
+    try {
+      if (isStart) {
+        var curIn = prop.keyInTemporalEase(ki);
+        var inType = prop.keyInInterpolationType(ki);
+        try { prop.setInterpolationTypeAtKey(ki, inType, KeyframeInterpolationType.BEZIER); } catch (e0) {}
+        try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e1) {}
+        prop.setTemporalEaseAtKey(ki, curIn, easeFromSlope(curIn, vp, dims));
+      } else {
+        var curOut = prop.keyOutTemporalEase(ki);
+        var outType = prop.keyOutInterpolationType(ki);
+        try { prop.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, outType); } catch (e2) {}
+        try { prop.setTemporalAutoBezierAtKey(ki, false); } catch (e3) {}
+        prop.setTemporalEaseAtKey(ki, easeFromSlope(curOut, vp, dims), curOut);
+      }
+    } catch (e) {}
+    if (spatial) straightenSpatial(prop, ki, dims, !isStart, isStart);
+  }
+
+  // Place one keyframe per anchor inside a segment (endpoints already exist),
+  // then pin each key's handle to the anchor's true slope so the overshoot is a
+  // smooth, editable curve that matches the math with the fewest possible keys.
+  // Anchors without a slope fall back to the old continuous-bezier smoothing.
   function bakeSparseSegment(prop, pr, pts, dims, influence) {
     removeKeysBetween(prop, pr.ta, pr.tb);
     var dt = pr.tb - pr.ta;
+    var spatial = util.isSpatial(prop);
+    var hasSlopes = pts.length > 0 && pts[0].m != null;
     for (var j = 0; j < pts.length; j++) {
       var pt = pts[j];
       if (pt.t <= 1e-6 || pt.t >= 1 - 1e-6) continue; // endpoints already exist
@@ -152,9 +251,21 @@
       prop.setValueAtTime(t, val);
     }
     var eps = 1e-5;
-    for (var ki = 1; ki <= prop.numKeys; ki++) {
-      var kt = prop.keyTime(ki);
-      if (kt >= pr.ta - eps && kt <= pr.tb + eps) smoothKey(prop, ki, influence);
+    if (hasSlopes) {
+      for (var a2 = 0; a2 < pts.length; a2++) {
+        var p2 = pts[a2];
+        var ki = keyIndexAtTime(prop, pr.ta + p2.t * dt, eps);
+        if (ki < 1) continue;
+        var vp = valueSlopeVec(pr.va, pr.vb, p2.m, dt, dims);
+        if (p2.t <= 1e-6) setEndpointEase(prop, ki, vp, dims, spatial, true);
+        else if (p2.t >= 1 - 1e-6) setEndpointEase(prop, ki, vp, dims, spatial, false);
+        else setFitEase(prop, ki, vp, dims, spatial);
+      }
+    } else {
+      for (var ki2 = 1; ki2 <= prop.numKeys; ki2++) {
+        var kt = prop.keyTime(ki2);
+        if (kt >= pr.ta - eps && kt <= pr.tb + eps) smoothKey(prop, ki2, influence);
+      }
     }
   }
 
@@ -176,6 +287,7 @@
       if (!p.canVaryOverTime || p.numKeys < 2) continue;
       var idx = p.selectedKeys;
       if (!idx || idx.length < 2) continue;
+      clearReboundExpr(p);
       var dims = util.dimensionsOf(p);
       var pairs = [];
       for (var s = 0; s < idx.length - 1; s++) {

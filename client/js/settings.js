@@ -68,7 +68,7 @@
 
     var body = el('div.rb-tool-host');
     app.appendChild(el('div.rb-header', null, [
-      el('div.rb-logo', null, [el('span.rb-logo-mark', { text: '◗' }), 'Settings'])
+      el('div.rb-logo', null, [el('span.rb-logo-mark', { html: R.brand.MARK }), 'Settings'])
     ]));
     app.appendChild(body);
 

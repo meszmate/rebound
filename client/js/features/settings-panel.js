@@ -87,6 +87,82 @@
 
   // Build the settings form. onChange(settings) fires after each change (already
   // persisted), so the host panel can re-apply theme/prefs live.
+  // One row of the shortcut editor: label · current chord · Set (record) · Clear.
+  function keybindRow(action) {
+    var chordEl = el('span.rb-kbd');
+    var setBtn = el('button.rb-btn.is-ghost.rb-btn-sm', { type: 'button', title: 'Record a shortcut' }, ['Set']);
+    var clearBtn = el('button.rb-btn.is-ghost.rb-btn-sm', { type: 'button', title: 'Clear shortcut' }, ['Clear']);
+    function refresh() {
+      var c = R.keybinds.bindingFor(action.id);
+      chordEl.textContent = c || '—';
+      chordEl.classList.toggle('is-empty', !c);
+      clearBtn.style.display = c ? '' : 'none';
+    }
+    setBtn.addEventListener('click', function () {
+      var prev = setBtn.textContent;
+      setBtn.textContent = 'Press keys…';
+      setBtn.classList.add('is-active');
+      function cleanup() {
+        document.removeEventListener('keydown', onKey, true);
+        setBtn.textContent = prev;
+        setBtn.classList.remove('is-active');
+      }
+      // Capture phase so the global dispatcher (bubble phase) never sees the key.
+      function onKey(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.key === 'Escape') { cleanup(); return; }
+        var chord = R.keybinds.chordFromEvent(ev);
+        if (!chord) return; // a modifier alone — keep listening
+        if (R.keybinds.isReserved(chord)) {
+          if (ui.toast) ui.toast(chord + ' is reserved by Rebound', { kind: 'error' });
+          return;
+        }
+        R.keybinds.setBinding(action.id, chord);
+        cleanup();
+        refresh();
+      }
+      document.addEventListener('keydown', onKey, true);
+    });
+    clearBtn.addEventListener('click', function () { R.keybinds.clearBinding(action.id); refresh(); });
+    refresh();
+    return el('div.rb-kbd-row', null, [
+      el('span.rb-kbd-label', { text: action.label || action.id }),
+      el('span.rb-spacer'),
+      chordEl, setBtn, clearBtn
+    ]);
+  }
+
+  function buildKeybindsSection() {
+    var raw = (R.homeActions && R.homeActions.all && R.homeActions.all()) || [];
+    var seen = {}, list = [];
+    raw.forEach(function (a) { if (a && a.id && !seen[a.id]) { seen[a.id] = 1; list.push(a); } });
+    list.sort(function (a, b) {
+      var g = String(a.group || '').localeCompare(String(b.group || ''));
+      return g || String(a.label || '').localeCompare(String(b.label || ''));
+    });
+    var listEl = el('div.rb-kbd-list.rb-scroll');
+    function render(filter) {
+      R.dom.clear(listEl);
+      var f = String(filter || '').toLowerCase(), n = 0;
+      list.forEach(function (a) {
+        if (f && String(a.label || '').toLowerCase().indexOf(f) === -1 &&
+            String(a.group || '').toLowerCase().indexOf(f) === -1) return;
+        listEl.appendChild(keybindRow(a));
+        n++;
+      });
+      if (!n) listEl.appendChild(el('div.rb-faint', { text: 'No actions match.' }));
+    }
+    var searchInput = el('input', { type: 'text', placeholder: 'Filter actions…' });
+    searchInput.addEventListener('input', function () { render(searchInput.value); });
+    render('');
+    return section('Keyboard shortcuts', [
+      el('div.rb-faint', { text: 'Shortcuts run while the Rebound panel is focused (a CEP panel can’t register global After Effects hotkeys). Click Set, then press your combo — a letter, optionally with Alt / Shift / Cmd. Some combos are reserved.' }),
+      el('div.rb-field.rb-field-text', null, [searchInput]),
+      listEl
+    ]);
+  }
+
   function buildBody(onChange) {
     var settings = load();
     applyTheme(settings);
@@ -136,6 +212,8 @@
       ui.toggle({ label: 'Show real-unit overlay on the curve editor', value: settings.showUnitsOverlay,
         onChange: function (v) { update({ showUnitsOverlay: v }); } }).el
     ]));
+
+    if (R.keybinds && R.homeActions) body.appendChild(buildKeybindsSection());
 
     body.appendChild(section('Data', [
       el('div.rb-faint', { text: R.disk.available

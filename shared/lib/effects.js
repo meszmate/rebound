@@ -70,7 +70,11 @@
       ls.angle = da.angle;
     }
     if (typeof e.radius === 'number') ls.size = e.radius;
-    if (typeof e.spread === 'number') { ls.spread = e.spread; ls.choke = e.spread; }
+    // Figma spread is PIXELS; AE Drop Shadow Spread / Inner Shadow Choke are a
+    // PERCENTAGE of the blur (0..100). Carry the raw px so the host can convert,
+    // keeping ls.spread for back-compat (do NOT seed ls.choke with raw px).
+    if (typeof e.spread === 'number') { ls.spread = e.spread; ls.spreadPx = e.spread; }
+    if (typeof e.showShadowBehindNode === 'boolean') ls.showShadowBehindNode = e.showShadowBehindNode;
     return ls;
   }
 

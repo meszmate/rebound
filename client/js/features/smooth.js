@@ -101,6 +101,7 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(R.easing.removeButton(ctx));
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });

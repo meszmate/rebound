@@ -116,14 +116,21 @@
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Rename']);
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Rename']));
+    ctx.footer.appendChild(applyBtn);
+    function setEnabled(sel) {
+      var ok = !!(sel && sel.hasComp && sel.selectedLayerCount > 0);
+      applyBtn.disabled = !ok;
+      applyBtn.classList.toggle('is-disabled', !ok);
+    }
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); updateNames(sel); renderPreview(); });
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); updateNames(sel); renderPreview(); setEnabled(sel); });
     var initSel = ctx.getSelection();
     scopeText.textContent = describe(initSel);
     updateNames(initSel);
     renderPreview();
+    setEnabled(initSel);
 
     function doApply() {
       ctx.invoke('rename.apply', st)
