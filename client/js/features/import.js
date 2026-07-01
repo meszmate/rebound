@@ -502,11 +502,12 @@
       onChange: setPrecompFrames
     }) : null;
 
-    // Scale preference: auto-precomp large sub-frames so a big multi-screen board
-    // lands as a handful of editable precomps instead of thousands of flat layers.
+    // Scale preference: auto-precomp large sub-frames AND large groups so a big
+    // board (or a single huge frame) lands as a handful of editable precomps
+    // instead of thousands of flat layers.
     var autoPrecompToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
       value: buildOpts.autoPrecomp,
-      label: 'Precomp large frames (avoid flooding the timeline)',
+      label: 'Precomp large frames & groups (avoid flooding the timeline)',
       onChange: setAutoPrecomp
     }) : null;
 

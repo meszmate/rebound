@@ -328,6 +328,16 @@
     } catch (e) { /* masks vary by build */ }
   }
 
+  // The project-panel folder that generated precomps are filed under. Created lazily
+  // on the first precomp so a clean flat import (no precomps) adds no empty folder.
+  function ensureImportFolder() {
+    if (R.importer.importFolder) return R.importer.importFolder;
+    try {
+      R.importer.importFolder = app.project.items.addFolder(R.importer.importFolderName || 'Rebound Import');
+    } catch (e) { R.importer.importFolder = null; }
+    return R.importer.importFolder;
+  }
+
   // Build the nested frame's own CompItem, fill its background and recurse its
   // children into it, then drop it into the parent comp as a precomp layer and
   // decorate it (shadow/border/rounded/clip) just like a top-level frame.
@@ -343,6 +353,10 @@
     var h = Math.max(1, Math.round(node.height || (node.transform && node.transform.height) || 100));
 
     var inner = app.project.items.addComp(node.name || 'Frame', w, h, par, dur, fps);
+    // Keep generated precomps out of the project-panel root: file them under one
+    // "<design> — Import" folder so a big import does not scatter dozens of loose
+    // comps. Lazy + guarded (the folder is created on the first precomp only).
+    try { var fld = ensureImportFolder(); if (fld) inner.parentFolder = fld; } catch (eFld) {}
     if (node.background && node.background.length) buildFrameBackground(inner, node, report);
     buildChildren(inner, node.children || [], report);
     // A GROUP's children carry FRAME-local coords (not group-local), so when a
@@ -611,6 +625,15 @@
         var goff = { x: (node.transform && node.transform.x) || 0, y: (node.transform && node.transform.y) || 0 };
         try { gresult = buildNestedFrame(comp, node, report, undefined, undefined, goff); }
         catch (eg) { gresult = buildGroup(comp, node, report); }
+      } else if (frameIsBig(node)) {
+        // Auto-precomp a genuinely LARGE group too (same threshold as frames). A
+        // single huge frame is often flat frames + deep GROUPS; precomping only
+        // frames left those groups flooding one timeline. Now a big group folds
+        // into its own editable precomp. Re-base its frame-local children to
+        // group-local space in the precomp (the proven mask-group path).
+        var gbo = { x: (node.transform && node.transform.x) || 0, y: (node.transform && node.transform.y) || 0 };
+        try { gresult = buildNestedFrame(comp, node, report, undefined, undefined, gbo); }
+        catch (egb) { gresult = buildGroup(comp, node, report); }
       } else {
         gresult = buildGroup(comp, node, report);
       }
@@ -754,6 +777,7 @@
     var h = Math.max(1, Math.round(frame.height || 100));
 
     var comp = app.project.items.addComp(frame.name || 'Frame', w, h, par, dur, fps);
+    try { var pfld = ensureImportFolder(); if (pfld) comp.parentFolder = pfld; } catch (ePfld) {}
     if (frame.background && frame.background.length) buildFrameBackground(comp, frame, report);
 
     buildChildren(comp, frame.children || [], report);
@@ -921,6 +945,9 @@
     R.importer.assets = (ir.document && ir.document.assets) || {};
     R.importer.footageCache = {};
     R.importer.layerById = {};
+    // Where generated precomps are filed in the project panel (created lazily).
+    R.importer.importFolder = null;
+    R.importer.importFolderName = ((ir.document && ir.document.name) || 'Rebound') + ' — Import';
     // Import options (panel-side). Default is the Overlord/AEUX flat build: one
     // comp, frames as groups. precompFrames restores trimmed precomp-per-frame.
     var opts = ir.options || {};

@@ -24,6 +24,15 @@ All notable changes to Rebound are documented here. The format follows
   the source. Auto-width labels are unaffected (box == ink).
 
 ### Added
+- **Organizing very large imports (1000+ objects).** Two improvements so a huge
+  frame no longer lands as one unmanageable timeline:
+  - **Auto-precomp now covers large GROUPS, not just frames.** A single huge frame
+    is often flat frames plus deep groups; precomping only frames left those groups
+    flooding one comp. Any subtree (frame or group) with ≥120 descendants now folds
+    into its own editable precomp (same opt-out toggle, now "Precomp large frames &
+    groups").
+  - **Generated precomps are filed in a project-panel folder** ("‹design› —
+    Import") instead of scattering as loose comps in the project root.
 - **Import 1:1 self-check.** After a build, the importer reconciles every source
   element against what it actually built and reports the result in the panel: a
   clean import shows "all N elements accounted for"; a net deficit is flagged
