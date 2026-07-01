@@ -370,6 +370,9 @@
         try { if (L.parent == null) shiftLayer(L, -childOffset.x, -childOffset.y); } catch (eShift) {}
       }
     }
+    // Frame border as a real shape stroke on top (after the content shift, so it is
+    // placed at the comp's own 0..w/0..h, not re-offset).
+    buildFrameBorder(inner, node, report);
     report.framesBuilt++;
 
     var pcLayer = comp.layers.add(inner);
@@ -734,19 +737,37 @@
   }
 
   // A node-like object so effect.jsx / layerstyle.jsx can decorate the precomp
-  // exactly like any other layer: frame shadow/blur as effects, frame border as a
-  // Stroke layer style (any alignment, since a precomp has no shape stroke).
+  // exactly like any other layer: frame shadow/blur as effects. The frame BORDER is
+  // NOT applied here as a Stroke layer style anymore (that left AE's default RED
+  // border when the scripted colour set silently failed) — it is drawn as a real
+  // shape stroke INSIDE the precomp by buildFrameBorder.
   function frameStyleNode(frame) {
-    var node = { name: frame.name || 'Frame', effects: frame.effects || [], stroke: null, layerStyles: [] };
+    return { name: frame.name || 'Frame', effects: frame.effects || [], stroke: null, layerStyles: [] };
+  }
+
+  // Draw a frame's border as a real, correctly-coloured shape stroke: a rounded
+  // rect (no fill) sized to the frame, added as the TOP layer inside the frame's
+  // precomp. applyStroke insets/outsets it (Offset Paths) for INSIDE/OUTSIDE, so
+  // the border lands 1:1 with the source — and never as a red layer-style default.
+  function buildFrameBorder(comp, frame, report) {
     var st = frame.stroke;
-    if (st && st.weight && st.paints && st.paints.length) {
-      var p = null;
-      for (var i = 0; i < st.paints.length; i++) { if (st.paints[i] && st.paints[i].visible !== false) { p = st.paints[i]; break; } }
-      if (p && p.type === 'SOLID') {
-        node.layerStyles.push({ type: 'STROKE', size: st.weight, color: p.color, position: st.align || 'CENTER', opacity: (p.opacity != null ? p.opacity : 1) });
-      }
-    }
-    return node;
+    if (!st || !st.weight || !st.paints || !st.paints.length) return;
+    var vis = false;
+    for (var i = 0; i < st.paints.length; i++) { if (st.paints[i] && st.paints[i].visible !== false) { vis = true; break; } }
+    if (!vis) return;
+    var w = Math.max(1, Math.round(frame.width || (frame.transform && frame.transform.width) || 100));
+    var h = Math.max(1, Math.round(frame.height || (frame.transform && frame.transform.height) || 100));
+    var borderNode = {
+      name: (frame.name || 'Frame') + ' Border',
+      type: 'RECTANGLE',
+      transform: { x: 0, y: 0, width: w, height: h },
+      primitive: { rect: { size: [w, h], roundness: 0 } },
+      cornerRadii: frame.cornerRadii || null,
+      fills: [],
+      stroke: st,
+      effects: []
+    };
+    try { R.importer.buildShapeNode(comp, borderNode, report); } catch (e) { /* border is best-effort */ }
   }
 
   function decorateFrameLayer(pcLayer, frame, report) {
@@ -781,6 +802,7 @@
     if (frame.background && frame.background.length) buildFrameBackground(comp, frame, report);
 
     buildChildren(comp, frame.children || [], report);
+    buildFrameBorder(comp, frame, report);
 
     report.framesBuilt++;
 

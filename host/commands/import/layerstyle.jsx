@@ -222,7 +222,10 @@
     var i;
     if (node.layerStyles) { for (i = 0; i < node.layerStyles.length; i++) add(node.layerStyles[i]); }
     if (node.effects) { for (i = 0; i < node.effects.length; i++) add(FX.effectToLayerStyle(node.effects[i])); }
-    add(strokeToLayerStyle(node));
+    // NOTE: inside/outside solid strokes are NOT reproduced as a Stroke layer style
+    // anymore — paint.jsx now draws them as real, correctly-coloured shape strokes
+    // (Offset Paths inset/outset). The Stroke layer style left AE's default RED
+    // border whenever its scripted colour set silently failed ("red borders" bug).
     if (report) {
       for (var t in dropped) {
         if (dropped.hasOwnProperty(t)) {

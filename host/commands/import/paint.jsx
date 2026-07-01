@@ -461,41 +461,41 @@
     return sub;
   }
 
-  // Flagged once per import when an inside/outside gradient stroke fell back to a
-  // plain centred stroke (no scriptable geometry to offset, or Offset Paths
-  // unavailable) so the half-width shift is documented rather than silent.
-  function noteOffsetGradStroke(node, report) {
-    if (!report || report.__offsetGradStrokeNoted) return;
-    report.__offsetGradStrokeNoted = true;
-    R.importer.util.note(report, 'approximated', { name: node.name, detail: 'inside/outside gradient stroke approximated as a centered stroke' });
+  // Flagged once per import when an inside/outside stroke fell back to a plain
+  // centred stroke (no scriptable geometry to offset, or Offset Paths unavailable)
+  // so the half-width shift is documented rather than silent. The COLOUR is always
+  // correct on the fallback; only the position is ~half a stroke-width off.
+  function noteOffsetStroke(node, report) {
+    if (!report || report.__offsetStrokeNoted) return;
+    report.__offsetStrokeNoted = true;
+    R.importer.util.note(report, 'approximated', { name: node.name, detail: 'inside/outside stroke approximated as a centered stroke' });
   }
 
   // Build one shape stroke operator for a single paint, sharing the node's
-  // weight / cap / join / miter / dashes.
+  // weight / cap / join / miter / dashes. Inside/outside alignment (Figma's DEFAULT
+  // is INSIDE) is reproduced for BOTH solid and gradient paints by shifting the
+  // stroke onto its side in a private geometry copy + Offset Paths group — a real,
+  // correctly-COLOURED shape stroke. This replaces the old Stroke *layer style*
+  // path for solids, which left AE's default RED border whenever its colour set
+  // silently failed on the running AE build (the "red borders everywhere" bug).
   function addStrokePaint(contents, node, st, paint, report) {
     var stroke;
+    var target = contents;
+    var offCenter = st.align && st.align !== 'CENTER';
+    if (offCenter) {
+      var sub = null;
+      try { sub = offsetStrokeGroup(contents, node, st); } catch (eOff) { sub = null; }
+      if (sub) target = sub;   // exact inset/outset shape stroke
+      else noteOffsetStroke(node, report); // fall back to a centred stroke (right colour)
+    }
     if (paint.type === 'SOLID') {
-      stroke = contents.addProperty('ADBE Vector Graphic - Stroke');
+      stroke = target.addProperty('ADBE Vector Graphic - Stroke');
       var c = N.normalizeColor(paint.color);
       stroke.property('ADBE Vector Stroke Color').setValue([c.r, c.g, c.b]);
       var op = (paint.opacity != null ? paint.opacity : 1) * (c.a != null ? c.a : 1);
       setSafe(stroke, 'ADBE Vector Stroke Opacity', op * 100);
     } else if (isGradient(paint.type)) {
-      // AE strokes are centre-only: an INSIDE/OUTSIDE gradient stroke is shifted
-      // onto its proper side by building it in a private offset group (geometry
-      // copy + Offset Paths + this G-Stroke). CENTRE alignment is untouched, and
-      // the offset never reaches the fills or any other stroke. Guarded: if the
-      // group can't be built (no copyable geometry, or Offset Paths missing) fall
-      // back to a plain centred G-Stroke on the shared contents and flag it.
-      var gContents = contents;
-      var offCenter = st.align && st.align !== 'CENTER';
-      if (offCenter) {
-        var sub = null;
-        try { sub = offsetStrokeGroup(contents, node, st); } catch (eOff) { sub = null; }
-        if (sub) gContents = sub;
-        else noteOffsetGradStroke(node, report);
-      }
-      stroke = gContents.addProperty('ADBE Vector Graphic - G-Stroke');
+      stroke = target.addProperty('ADBE Vector Graphic - G-Stroke');
       // Angular warps to a conic via a layer-wide Polar effect -- only safe when
       // the angular paint is alone on the layer; otherwise build it as a native
       // radial (like diamond) so a co-resident fill / stroke is never bent. Mirror
@@ -530,27 +530,18 @@
 
   // A node can carry several stacked stroke paints (Figma maps every stroke into
   // node.stroke.paints). Build one stroke operator per visible paint, in reverse
-  // so the first (topmost) source paint ends up on top. An inside/outside SOLID
-  // stroke is reproduced as a Stroke layer style (layerstyle.jsx), so it is
-  // skipped here to avoid a doubled centred stroke.
+  // so the first (topmost) source paint ends up on top. Every paint — solid or
+  // gradient, any alignment — is now a real shape stroke (addStrokePaint handles
+  // inside/outside via Offset Paths), so nothing routes to a Stroke layer style.
   function applyStroke(contents, node, report) {
     var st = node.stroke;
     if (!st || !st.weight || !st.paints || !st.paints.length) return null;
-    var offCenter = st.align && st.align !== 'CENTER';
     var made = null;
     for (var i = st.paints.length - 1; i >= 0; i--) {
       var paint = st.paints[i];
       if (!paint || paint.visible === false) continue;
-      if (offCenter && paint.type === 'SOLID') continue;
       var s = addStrokePaint(contents, node, st, paint, report);
       if (s) made = s;
-    }
-    if (offCenter) {
-      var solidCount = 0;
-      for (var k = 0; k < st.paints.length; k++) { if (st.paints[k] && st.paints[k].visible !== false && st.paints[k].type === 'SOLID') solidCount++; }
-      if (solidCount > 1) {
-        R.importer.util.note(report, 'approximated', { name: node.name, detail: 'only the first ' + st.align.toLowerCase() + ' solid stroke is reproduced as a layer style' });
-      }
     }
     return made;
   }

@@ -7,10 +7,16 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
-- **No more "red borders" around imported groups.** Freshly-scripted layers are all
-  left selected, and After Effects draws each selected/guide layer's bounding box in
-  the comp viewport (red by default) — which read as a red outline on every group.
-  The importer now clears the selection when it finishes.
+- **The "red borders" are gone (real root cause).** Figma's default stroke align is
+  INSIDE, and inside/outside SOLID strokes were reproduced as an After Effects
+  *Stroke layer style*. When that layer style's scripted colour set silently failed
+  on a given AE build, AE left its **default red** border — on every bordered card,
+  button and swatch, unaffected by deselecting. Borders are now drawn as real,
+  correctly-coloured **shape strokes** (inset/outset via Offset Paths for
+  inside/outside), for both flat shapes/frames and precomped frames (a border shape
+  is added inside the precomp). Even if the offset can't be built, the fallback is a
+  centred stroke with the *correct colour* — never a red default. Also deselects all
+  layers after import (removes AE's selection outlines) as belt-and-suspenders.
 - **Installed fonts (e.g. Inter) no longer report as "not installed".** The font
   read-back check flagged a family missing whenever AE's `TextDocument.font` string
   differed from the PostScript name we requested — even when we had set a verified,
