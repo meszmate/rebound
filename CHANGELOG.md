@@ -180,6 +180,12 @@ All notable changes to Rebound are documented here. The format follows
   ease it shows isn't what's actually playing), the Spring mode labels no longer
   wrap to two lines, and the Ease tool gains a **Reset** (to Easy Ease) plus an
   "eases along the motion path" note for spatial Position/Anchor.
+- **Spatial eases follow the real motion‑path length.** Position/Anchor ease a
+  single scalar along the path; Apply/Read used the straight‑line chord, so a
+  **curved** path eased flatter than drawn and a **there‑and‑back** move (equal
+  endpoints, real travel) was a silent no‑op. Both now use the true **arc length**
+  when the path is curved or returns near its start (straight paths unchanged);
+  Apply, Read, and the live readout share one `util.spatialDelta` so they agree.
 - **Spring / overshoot bake now matches the live preview (was visibly "buggy").**
   Applying a Spring (or any overshooting curve) to two keyframes baked only the
   curve's **turning points** and let AE guess the tangents (continuous auto-bezier),
