@@ -76,9 +76,14 @@
   // Build options the panel controls (the exporter never sets these). Default is
   // the flat Overlord/AEUX build (one comp, frames become editable groups); the
   // user can opt into trimmed precomp-per-frame instead.
-  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false };
+  var buildOpts = { precompFrames: false, importToActiveComp: true, updateExisting: false, autoPrecomp: true };
   try {
     if (typeof localStorage !== 'undefined') buildOpts.precompFrames = localStorage.getItem('rb-import-precomp') === '1';
+  } catch (e) { /* no storage in this host */ }
+  // Default on: auto-precomp large sub-frames so a big board doesn't flood the
+  // timeline. Only false when the user explicitly turned it off ('0').
+  try {
+    if (typeof localStorage !== 'undefined') buildOpts.autoPrecomp = localStorage.getItem('rb-import-autoprecomp') !== '0';
   } catch (e) { /* no storage in this host */ }
   // Default on: only false when the user explicitly turned it off ('0').
   try {
@@ -98,6 +103,10 @@
   function setUpdateExisting(on) {
     buildOpts.updateExisting = !!on;
     try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-update', on ? '1' : '0'); } catch (e2) { /* no storage */ }
+  }
+  function setAutoPrecomp(on) {
+    buildOpts.autoPrecomp = !!on;
+    try { if (typeof localStorage !== 'undefined') localStorage.setItem('rb-import-autoprecomp', on ? '1' : '0'); } catch (e2) { /* no storage */ }
   }
 
   // ---- the import path -----------------------------------------------------
@@ -123,6 +132,7 @@
     if (ir.options.precompFrames == null) ir.options.precompFrames = buildOpts.precompFrames;
     if (ir.options.importToActiveComp == null) ir.options.importToActiveComp = buildOpts.importToActiveComp;
     if (ir.options.updateExisting == null) ir.options.updateExisting = buildOpts.updateExisting;
+    if (ir.options.autoPrecompThreshold == null) ir.options.autoPrecompThreshold = buildOpts.autoPrecomp ? 120 : 0;
     return R.bridge.invoke('import.build', ir).then(function (report) {
       showReport(report);
       emitStatus();
@@ -475,6 +485,14 @@
       onChange: setPrecompFrames
     }) : null;
 
+    // Scale preference: auto-precomp large sub-frames so a big multi-screen board
+    // lands as a handful of editable precomps instead of thousands of flat layers.
+    var autoPrecompToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
+      value: buildOpts.autoPrecomp,
+      label: 'Precomp large frames (avoid flooding the timeline)',
+      onChange: setAutoPrecomp
+    }) : null;
+
     // Re-import in place: replace the previous version of matched layers.
     var updateToggle = (R.ui && R.ui.toggle) ? R.ui.toggle({
       value: buildOpts.updateExisting,
@@ -496,6 +514,8 @@
       el('div.rb-faint', { text: 'Off: always create a new composition.' }),
       precompToggle ? precompToggle.el : null,
       el('div.rb-faint', { text: 'Off: one comp, frames become editable groups (like Overlord & AEUX). On: each frame is its own trimmed precomp.' }),
+      autoPrecompToggle ? autoPrecompToggle.el : null,
+      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each large frame (e.g. a whole screen) becomes its own comp — so importing a full board doesn’t flood the timeline. Small frames stay flat. Importing a single frame is unaffected.' }),
       updateToggle ? updateToggle.el : null,
       el('div.rb-faint', { text: 'On: re-importing the same design removes the prior version of each layer instead of stacking a duplicate. Layers you added by hand are never touched. (Animation on replaced layers is rebuilt, not carried over — keyframe-preserving merge is coming.)' }),
 
