@@ -20,8 +20,16 @@ mismatch into a fast, precise fix.
 4. **Spot-check placement**: nothing should be off-canvas, collapsed to a corner,
    or overlapping wrongly. Toggle a few layers; confirm they sit where the design
    has them.
+5. **Click "Check for red borders."** The import report has a button that scans
+   the imported comps (including precomps) for After Effects' two default-red
+   sources — an enabled Stroke *layer style* (the old "red borders everywhere"
+   bug; a correct import has **zero**) and any red-dominant shape paint. It reports
+   an objective verdict right in the panel: *"No red borders: 0 stroke layer
+   styles across N comps…"* on a clean import. This is the machine check that
+   replaces eyeballing the border colour — and a regression guard you can re-run
+   after any future change.
 
-If steps 2–4 are clean, the import is faithful. If anything looks off, the next
+If steps 2–5 are clean, the import is faithful. If anything looks off, the next
 section makes the report actionable.
 
 ## The canonical acceptance test (the real Branding board)

@@ -169,6 +169,7 @@
   loadCmd('commands/import/adjust.jsx');
   loadCmd('commands/import/fonts.jsx');
   loadCmd('commands/import/audit.jsx');
+  loadCmd('commands/import/verify.jsx');
 
   $.__rebound.loadErrors = loadErrors;
   $.__rebound.loaded = true;

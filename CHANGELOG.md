@@ -21,6 +21,13 @@ All notable changes to Rebound are documented here. The format follows
   is now deleted so it can't be re-wired back in. The regression lock covers both
   of AE's default-red sources — an uncoloured shape **stroke** *and* an uncoloured
   shape **fill** — proving the importer can't leave any paint at AE's default red.
+- **New: a one-click "Check for red borders" verifier, run inside After Effects.**
+  The import report now has a button that scans the imported comps (recursing into
+  precomps) for AE's two default-red sources — an enabled Stroke *layer style* (the
+  old bug source; a correct import has zero) and any red-dominant shape paint — and
+  reports an objective verdict in the panel. It turns "eyeball the render" into a
+  machine check, and doubles as a permanent regression guard you can re-run anytime
+  (`verify.redScan` host command; logic locked by `test/host-verify.test.mjs`).
 - **Installed fonts (e.g. Inter) no longer report as "not installed".** The font
   read-back check flagged a family missing whenever AE's `TextDocument.font` string
   differed from the PostScript name we requested — even when we had set a verified,

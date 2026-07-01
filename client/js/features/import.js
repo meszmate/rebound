@@ -267,7 +267,61 @@
     if (!approx.length && !skip.length && !hasFonts) {
       card.appendChild(el('div.rb-report-clean', { text: 'Everything transferred cleanly.' }));
     }
+
+    // One-click, OBJECTIVE "are the red borders gone?" check. The panel can't
+    // render AE, so this scans the imported comps in-app for AE's two default-red
+    // sources — an enabled Stroke layer style (the old bug) or a red-dominant
+    // paint — and reports the verdict. It's the in-AE demonstration that replaces
+    // eyeballing, and a regression guard the user can re-run anytime.
+    card.appendChild(redBorderCheck());
+
     host.appendChild(card);
+  }
+
+  // The action + its inline result. Kept out of renderReport so the click handler
+  // has a stable place to render into.
+  function redBorderCheck() {
+    var out = el('div.rb-report-sec.rb-redcheck');
+    var btn = el('button.rb-btn.is-ghost', { type: 'button' }, ['Check for red borders']);
+    var result = el('div.rb-faint');
+    // CEF fires click (not pointerdown) on buttons — bind click. See memory.
+    btn.addEventListener('click', function () {
+      btn.disabled = true;
+      result.textContent = 'Scanning the imported comps…';
+      R.bridge.invoke('verify.redScan', { allComps: false }).then(function (v) {
+        btn.disabled = false;
+        renderRedVerdict(result, v);
+      }).catch(function (err) {
+        btn.disabled = false;
+        result.textContent = 'Check failed: ' + ((err && err.message) ? err.message : err);
+      });
+    });
+    out.appendChild(btn);
+    out.appendChild(result);
+    return out;
+  }
+
+  function renderRedVerdict(node, v) {
+    R.dom.clear(node);
+    if (!v) { node.textContent = 'No result.'; return; }
+    if (v.clean) {
+      node.appendChild(el('span.rb-report-clean', {
+        text: 'No red borders: 0 stroke layer styles across ' + v.compsScanned +
+          (v.compsScanned === 1 ? ' comp, ' : ' comps, ') + v.shapeLayers +
+          (v.shapeLayers === 1 ? ' shape layer.' : ' shape layers.')
+      }));
+    } else {
+      node.appendChild(el('span', {
+        text: v.strokeLayerStyles.length + ' stroke layer style' +
+          (v.strokeLayerStyles.length === 1 ? '' : 's') + ' still present — please report this file.'
+      }));
+    }
+    if (v.redPaints && v.redPaints.length) {
+      node.appendChild(el('div.rb-faint', {
+        text: v.redPaints.length + ' red-coloured paint' + (v.redPaints.length === 1 ? '' : 's') +
+          ' to review (could be intentional red artwork).'
+      }));
+    }
   }
 
   // ---- the receiver (loopback server) --------------------------------------
