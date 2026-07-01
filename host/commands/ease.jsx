@@ -107,6 +107,10 @@
 
         var aVals = valuesAt(prop, a);
         var bVals = valuesAt(prop, b);
+        // A spatial segment with no motion (identical position/anchor values) has
+        // a zero-length path; applying a temporal ease throws "zero denominator
+        // converting ratio" in AE. Leave that segment untouched.
+        if (spatial && magnitude(aVals, bVals) < 1e-6) continue;
         var outArr = [];
         var inArr = [];
         for (var d = 0; d < dims; d++) {

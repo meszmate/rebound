@@ -52,7 +52,12 @@
     var av = arrify(mp.keyValue(a)), bv = arrify(mp.keyValue(b));
     var outArr = [], inArr = [];
     if (spatial) {
-      var avg = mag(av, bv) / dt;
+      // A zero-length motion path (identical consecutive position/anchor values)
+      // cannot carry a temporal ease — AE throws "zero denominator converting
+      // ratio". Leave the segment linear instead.
+      var d = mag(av, bv);
+      if (d < 1e-6) return;
+      var avg = d / dt;
       outArr.push(outKE(ease, avg)); inArr.push(inKE(ease, avg));
     } else {
       for (var d = 0; d < av.length; d++) {

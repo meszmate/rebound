@@ -59,6 +59,7 @@
       "      var a = idx[s], b = idx[s + 1];",
       "      var dt = p.keyTime(b) - p.keyTime(a); if (dt <= 0) continue;",
       "      var av = vals(p, a), bv = vals(p, b), outArr = [], inArr = [];",
+      "      if (spatial && mag(av, bv) < 1e-6) continue;",
       "      for (var d = 0; d < dims; d++) {",
       "        var dv = spatial ? mag(av, bv) : ((bv[d] || 0) - (av[d] || 0));",
       "        var avg = dv / dt;",

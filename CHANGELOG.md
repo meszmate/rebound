@@ -145,6 +145,17 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **"zero denominator converting ratio" AE error — guarded at every source.** Two
+  reachable triggers, both fixed: (1) applying a temporal ease to a **zero-length
+  spatial segment** (two Position/Anchor keyframes with identical values — e.g. a
+  Behavior with distance 0, or easing a non-moving null's Position) — Behaviors,
+  the Ease tool, and the exported ease scripts now leave such a segment linear
+  instead of throwing; (2) `addComp` during Figma import reading a **0
+  pixel-aspect / duration / frame-rate** off an odd active comp — both import
+  `addComp` paths now floor those to sane positives. (The related "outside of list
+  length" error had no unguarded call site in the host — all list indexing is
+  bounds-checked — so it was a downstream symptom of the undo-stack corruption
+  above; the reference-counted undo fix removes it.)
 - **"Undo group mismatch, will attempt to fix" (recurring AE warning) — root-caused
   and eliminated.** The RPC dispatch already wraps every labelled command in one
   `beginUndoGroup`/`endUndoGroup` (with `finally`), but seven commands

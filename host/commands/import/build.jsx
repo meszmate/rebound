@@ -313,6 +313,11 @@
   function buildNestedFrame(comp, node, report, baseX, baseY, childOffset) {
     var fps = 30, dur = 10, par = 1;
     try { fps = comp.frameRate; dur = comp.duration; par = comp.pixelAspect; } catch (e) {}
+    // addComp builds ratios from pixelAspect/frameRate/duration; a zero in any of
+    // them throws "zero denominator converting ratio". Floor to sane positives.
+    if (!(fps > 0)) fps = 30;
+    if (!(dur > 0)) dur = 10;
+    if (!(par > 0)) par = 1;
     var w = Math.max(1, Math.round(node.width || (node.transform && node.transform.width) || 100));
     var h = Math.max(1, Math.round(node.height || (node.transform && node.transform.height) || 100));
 
@@ -699,6 +704,11 @@
     var fps = target ? target.frameRate : 30;
     var dur = target ? target.duration : 10;
     var par = target ? target.pixelAspect : 1;
+    // A zero pixelAspect/frameRate/duration would throw "zero denominator
+    // converting ratio" in addComp — floor to sane positives.
+    if (!(fps > 0)) fps = 30;
+    if (!(dur > 0)) dur = 10;
+    if (!(par > 0)) par = 1;
     var w = Math.max(1, Math.round(frame.width || 100));
     var h = Math.max(1, Math.round(frame.height || 100));
 
