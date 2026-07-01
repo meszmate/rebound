@@ -88,6 +88,7 @@
       else skipped.push(layer.name + ' (has an expression)');
     }
 
+    if (!applied) throw new Error('No supported layers: ' + skipped.join(', '));
     return { applied: applied, skipped: skipped };
   }
 

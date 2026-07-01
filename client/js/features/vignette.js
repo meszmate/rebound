@@ -71,7 +71,7 @@
 
     function doApply() {
       ctx.invoke('vignette.apply', { amount: amount, feather: feather, scale: scale, replace: replace })
-        .then(function () { ctx.toast('Added vignette', { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) { ctx.toast('Added vignette' + (res && res.created ? ' (' + res.created + ' layer' + (res.created === 1 ? '' : 's') + ')' : ''), { kind: 'success' }); ctx.refreshSelection(); })
         .catch(function (err) { ctx.toast(err.message || 'Could not add vignette', { kind: 'error' }); });
     }
 

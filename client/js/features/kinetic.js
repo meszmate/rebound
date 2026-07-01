@@ -80,13 +80,17 @@
 
     function doApply() {
       ctx.invoke('kinetic.apply', { target: target, sensitivity: sensitivity, max: max })
-        .then(function (res) { ctx.toast(res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' driven', { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          ctx.toast(res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' driven', { kind: 'success' });
+          if (res.skipped && res.skipped.length) ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Kinetic', { kind: 'error' }); });
     }
     function doRemove() {
       ctx.invoke('kinetic.remove', {})
         .then(function (res) { ctx.toast('Removed Kinetic from ' + res.cleared + ' layer' + (res.cleared === 1 ? '' : 's'), { kind: 'info' }); ctx.refreshSelection(); })
-        .catch(function (err) { ctx.toast(err.message, { kind: 'error' }); });
+        .catch(function (err) { ctx.toast(err.message || 'Could not remove Kinetic', { kind: 'error' }); });
     }
 
     function getState() {

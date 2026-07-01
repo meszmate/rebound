@@ -175,7 +175,7 @@
         .catch(function (err) { ctx.toast(err.message || 'Could not clear tags', { kind: 'error' }); });
     }
 
-    return { destroy: off };
+    return { destroy: function () { off(); } };
   }
 
   function describe(sel) {

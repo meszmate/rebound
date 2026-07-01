@@ -145,6 +145,23 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Cross-tool consistency & correctness pass (adversarial multi-agent review of
+  16 tools; 15 verified fixes applied).** Every fix was confirmed real against the
+  code and safe to apply:
+  - **Motion** no longer reports a false success when every layer is skipped — it
+    now throws "No supported layers: …" like its peers (Squash).
+  - **Motion / Pins / Kinetic / Fade** now surface the host's *skipped* layers
+    (count or reasons) in their result toasts instead of silently dropping them.
+  - **Backdrop** presets now sync the effect sliders (Echo time/count/decay, Radial
+    blur amount, Chromatic aberration) — loading a preset updated the values but
+    left the sliders showing stale positions.
+  - **Trim Paths** presets now round-trip the "Replace existing" toggle (it was
+    dropped from saved state).
+  - **Echo** preview honored `echoTime` via a truthy check, so a valid `0` fell
+    back to the default spacing — now a proper null check.
+  - **Rename**'s button is disabled with no selection (was clickable → no-op).
+  - **Kinetic** remove, **Break**'s skip wording, and **Vignette**'s toast were
+    tidied for accurate, consistent feedback; **Tags** cleanup wrapped like peers.
 - **Ease "Read" showed the wrong curve on a multi-property selection.** Read used
   the *first* selected property, but a property whose value is constant across the
   segment (a null's held Scale, a non-moving axis) carries no recoverable timing —

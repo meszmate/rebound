@@ -89,7 +89,8 @@
     function doBind() {
       ctx.invoke('pins.bind', { style: st.style, size: st.size, label: st.label })
         .then(function (res) {
-          ctx.toast('Bound ' + res.bound + ' pin' + (res.bound === 1 ? '' : 's') + ' to ' + res.nulls + ' controller' + (res.nulls === 1 ? '' : 's'), { kind: 'success' });
+          var skip = (res.skipped && res.skipped.length) ? ' (' + res.skipped.length + ' skipped)' : '';
+          ctx.toast('Bound ' + res.bound + ' pin' + (res.bound === 1 ? '' : 's') + ' to ' + res.nulls + ' controller' + (res.nulls === 1 ? '' : 's') + skip, { kind: 'success' });
           ctx.refreshSelection();
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not bind pins', { kind: 'error' }); });
@@ -106,7 +107,11 @@
     }
     function doLink() {
       ctx.invoke('pins.link', { name: st.ctrlName })
-        .then(function (res) { ctx.toast('Linked ' + res.linked + ' propert' + (res.linked === 1 ? 'y' : 'ies') + ' to “' + st.ctrlName + '”', { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          ctx.toast('Linked ' + res.linked + ' propert' + (res.linked === 1 ? 'y' : 'ies') + ' to “' + st.ctrlName + '”', { kind: 'success' });
+          if (res.skipped && res.skipped.length) ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not link', { kind: 'error' }); });
     }
 
