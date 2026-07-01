@@ -87,6 +87,35 @@
     };
   }
 
+  // The smallest/largest handle X After Effects can store: influence is a
+  // percentage in [0.1, 100], so x (=influence/100) lives in [0.001, 0.999].
+  var X_MIN = 0.001;
+  var X_MAX = 0.999;
+
+  /**
+   * Constrain a curve's handles to the domain After Effects can reproduce as an
+   * EXACT native temporal ease, so "what you drew" == "what plays back":
+   *   - X in [0.001, 0.999]  (influence's real 0.1%..100% range), and
+   *   - x1 <= x2             (time stays monotonic; the two ease handles never
+   *                           overlap, since outInfluence + inInfluence =
+   *                           100*(1 + x1 - x2) <= 100 when x1 <= x2).
+   * Y is deliberately left free: a single cubic with y1<0 or y2>1 is genuine
+   * anticipation / overshoot and AE renders it faithfully via handle speed, so
+   * clamping Y would throw away a real, representable feature.
+   *
+   * `moved` ('out' | 'in') is the handle the user is dragging, so the OTHER one
+   * holds still and the dragged one clamps against it (matches AE's graph editor).
+   */
+  function sanitizeHandles(h, moved) {
+    var x1 = clamp(h.x1, X_MIN, X_MAX);
+    var x2 = clamp(h.x2, X_MIN, X_MAX);
+    if (x1 > x2) {
+      if (moved === 'in') x2 = x1;        // in-handle can't cross left of the out-handle
+      else x1 = x2;                        // out-handle can't cross right of the in-handle
+    }
+    return { x1: x1, y1: h.y1, x2: x2, y2: h.y2 };
+  }
+
   /**
    * Convert a unit-square cubic bezier into After Effects temporal-ease values
    * for the two keyframes it spans.
@@ -103,6 +132,12 @@
    *   incoming influence = (1 - x2) * 100
    *   incoming speed     = ((1 - y2) / (1 - x2)) * (dv/dt)
    *
+   * The handles are sanitized first, and crucially the SPEED is derived from the
+   * SAME clamped x used for the influence — so the (influence, speed) pair AE
+   * stores reconstructs the exact handle point that was drawn. (The old code
+   * clamped influence but computed speed from the raw x, so a sub-0.1%-influence
+   * handle round-tripped to a different, steeper/overshooting curve than drawn.)
+   *
    * @param {{x1:number,y1:number,x2:number,y2:number}} h handle coordinates
    * @param {number} dv value delta between the two keyframes
    * @param {number} dt time delta in seconds between the two keyframes
@@ -110,19 +145,12 @@
    */
   function bezierToTemporalEase(h, dv, dt) {
     var avgSpeed = dt !== 0 ? dv / dt : 0;
-    var x1 = clamp(h.x1, 0, 1);
-    var x2 = clamp(h.x2, 0, 1);
-
-    var outInfluence = clamp(x1 * 100, 0.1, 100);
-    var outSpeed = x1 === 0 ? 0 : (h.y1 / x1) * avgSpeed;
-
-    var inDen = 1 - x2;
-    var inInfluence = clamp(inDen * 100, 0.1, 100);
-    var inSpeed = inDen === 0 ? 0 : ((1 - h.y2) / inDen) * avgSpeed;
+    var s = sanitizeHandles(h);
+    var inDen = 1 - s.x2;
 
     return {
-      out: { influence: outInfluence, speed: outSpeed },
-      in: { influence: inInfluence, speed: inSpeed },
+      out: { influence: s.x1 * 100, speed: (s.y1 / s.x1) * avgSpeed },
+      in: { influence: inDen * 100, speed: ((1 - s.y2) / inDen) * avgSpeed },
     };
   }
 
@@ -143,6 +171,7 @@
     cubicBezier: cubicBezier,
     bezierToTemporalEase: bezierToTemporalEase,
     temporalEaseToBezier: temporalEaseToBezier,
+    sanitizeHandles: sanitizeHandles,
     clamp: clamp,
   };
 });

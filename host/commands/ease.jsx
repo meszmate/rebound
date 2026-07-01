@@ -12,21 +12,31 @@
   var R = $.__rebound;
   var util = R.util;
 
-  function clampInfluence(v) {
-    return v < 0.1 ? 0.1 : v > 100 ? 100 : v;
+  // Handle X lives in [0.001, 0.999] (AE influence is a % in [0.1, 100]).
+  function clampX(v) {
+    return v < 0.001 ? 0.001 : v > 0.999 ? 0.999 : v;
   }
 
+  // Constrain a curve to the domain AE reproduces EXACTLY as a native temporal
+  // ease: X in [0.001,0.999] and x1<=x2 (monotonic time, handles never overlap).
+  // Y stays free (overshoot/anticipation render faithfully). Mirrors the panel's
+  // bezier.sanitizeHandles so host and panel agree.
+  function sanitizeCurve(curve) {
+    var x1 = clampX(curve.x1);
+    var x2 = clampX(curve.x2);
+    if (x1 > x2) { var m = (x1 + x2) / 2; x1 = m; x2 = m; }
+    return { x1: x1, y1: curve.y1, x2: x2, y2: curve.y2 };
+  }
+
+  // Speed is derived from the SAME clamped x used for influence, so the stored
+  // (influence, speed) pair reconstructs the exact handle point that was drawn.
   function outEase(curve, avg) {
-    var influence = clampInfluence(curve.x1 * 100);
-    var speed = curve.x1 === 0 ? 0 : (curve.y1 / curve.x1) * avg;
-    return new KeyframeEase(speed, influence);
+    return new KeyframeEase((curve.y1 / curve.x1) * avg, curve.x1 * 100);
   }
 
   function inEase(curve, avg) {
     var den = 1 - curve.x2;
-    var influence = clampInfluence(den * 100);
-    var speed = den === 0 ? 0 : ((1 - curve.y2) / den) * avg;
-    return new KeyframeEase(speed, influence);
+    return new KeyframeEase(((1 - curve.y2) / den) * avg, den * 100);
   }
 
   function valuesAt(prop, index) {
@@ -77,6 +87,7 @@
   function applyEase(args) {
     var curve = args.curve;
     if (!curve) throw new Error('No curve supplied.');
+    curve = sanitizeCurve(curve);
     var scope = args.scope || 'inout';
     if (scope === 'auto') scope = 'inout';
     var setOut = scope === 'out' || scope === 'inout';

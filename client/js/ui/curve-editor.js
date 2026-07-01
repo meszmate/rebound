@@ -22,10 +22,19 @@
   var svg = R.dom.svg;
   var sampler = R.easing.sampler;
   var speedgraph = R.easing.speedgraph;
+  var bezier = R.easing.bezier;
+
+  // Keep a bezier curve inside the AE-representable domain (X in [0.001,0.999],
+  // x1<=x2); pass non-bezier (spring/penner) curves through untouched.
+  function sanitize(c) {
+    if (!c || c.type !== 'bezier') return c;
+    var s = bezier.sanitizeHandles(c);
+    return { type: 'bezier', x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 };
+  }
 
   function CurveEditor(container, opts) {
     opts = opts || {};
-    var curve = clone(opts.value) || { type: 'bezier', x1: 0.33, y1: 0, x2: 0.67, y2: 1 };
+    var curve = sanitize(clone(opts.value)) || { type: 'bezier', x1: 0.33, y1: 0, x2: 0.67, y2: 1 };
     // 'value' = progress/value curve (CSS cubic-bezier). 'speed' = velocity over
     // time, exactly like After Effects' Graph Editor (so the editor mirrors AE
     // instead of forcing a mental S-curve↔hump translation). Both edit the SAME
@@ -287,7 +296,12 @@
     }
 
     function applyHandle(key, x, y, ev) {
-      x = clamp01(x);
+      // Keep X in [0.001, 0.999] and x1 <= x2 so the curve stays exactly what AE
+      // can reproduce (monotonic time, handles never overlap). The dragged handle
+      // clamps against the other's current position; Y is left free so overshoot
+      // and anticipation are still drawable (AE renders them via handle speed).
+      if (key === 'h1') x = clamp(x, 0.001, Math.max(0.001, curve.x2));
+      else x = clamp(x, Math.min(curve.x1, 0.999), 0.999);
       if (space === 'speed') {
         // y is a normalized speed (avg == 1). X stays the influence; convert the
         // height back into the stored value-curve y so {x1,y1,x2,y2} is exact and
@@ -379,7 +393,7 @@
     return {
       el: container,
       getCurve: function () { return clone(curve); },
-      setCurve: function (c) { curve = clone(c); render(); },
+      setCurve: function (c) { curve = sanitize(clone(c)); render(); },
       setGhost: function (c) { ghost = c ? clone(c) : null; render(); },
       getSpace: function () { return space; },
       setSpace: function (s) {

@@ -115,8 +115,11 @@
         decimals: 2,
         width: '100%',
         onChange: function (v) {
-          curve[key] = key.charAt(0) === 'x' ? clamp01(v) : v;
+          curve[key] = v;
+          var moved = key === 'x1' ? 'out' : key === 'x2' ? 'in' : undefined;
+          curve = withType(R.easing.bezier.sanitizeHandles(curve, moved));
           editor.setCurve(curve);
+          syncFields();
           updateReadout();
           renderRealValues();
         }
@@ -174,7 +177,7 @@
         readClipboard().then(function (text) {
           var parsed = parseCubicBezier(text);
           if (!parsed) { ctx.toast('No cubic-bezier found on the clipboard', { kind: 'error' }); return; }
-          curve = { type: 'bezier', x1: parsed[0], y1: parsed[1], x2: parsed[2], y2: parsed[3] };
+          curve = withType(R.easing.bezier.sanitizeHandles({ x1: parsed[0], y1: parsed[1], x2: parsed[2], y2: parsed[3] }));
           editor.setCurve(curve);
           syncFields();
           updateReadout();
@@ -255,7 +258,9 @@
 
     function doApply(e) {
       var useScope = scopeForEvent(e);
-      ctx.invoke('ease.apply', { curve: curve, scope: useScope, applyToAll: applyToAll })
+      // Final guarantee: apply only a curve AE can reproduce exactly, so the
+      // motion matches the handles the user drew.
+      ctx.invoke('ease.apply', { curve: withType(R.easing.bezier.sanitizeHandles(curve)), scope: useScope, applyToAll: applyToAll })
         .then(function (res) {
           var sideNote = useScope !== scope ? ' (' + useScope + ')' : '';
           ctx.toast('Eased ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's') +
@@ -399,9 +404,10 @@
 
   // --- helpers --------------------------------------------------------------
 
-  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   // Mirror host/commands/ease.jsx clampInfluence so the readout matches Apply.
   function clampInfluence(v) { return v < 0.1 ? 0.1 : v > 100 ? 100 : v; }
+  // Re-attach the bezier type to a sanitized {x1,y1,x2,y2}.
+  function withType(s) { return { type: 'bezier', x1: s.x1, y1: s.y1, x2: s.x2, y2: s.y2 }; }
 
   function parseCubicBezier(text) {
     if (!text) return null;
