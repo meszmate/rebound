@@ -459,3 +459,147 @@ describe('figma exporter -> IR', () => {
     expect(node.transform.width).toBe(100);
   });
 });
+
+// Ground-truth scenarios lifted from the user's real Branding board
+// (file ExF7F6OQea07IneHpInnXU, node 55:2 — 1855 frames / 766 text / 124 vectors,
+// nested up to 14 deep). Confirmed against the live Figma API: deep "Container"
+// wrapper chains, a gradient card with TOP-ONLY corner rounding + an INSIDE border,
+// and a 16-vector curve-graph "Icon". These encode that exact combination so a
+// regression in collapse / per-corner radii / stroke-align / icon-merge is caught
+// in CI, not on the user's next import.
+describe('figma exporter -> IR (real Branding-board patterns)', () => {
+  // A pure-layout wrapper frame (Figma auto-layout "Container"): draws nothing,
+  // only positions its single child. sits at `abs` on the canvas.
+  function container(id, abs, child) {
+    return {
+      id, name: 'Container', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH', isMask: false,
+      width: 332, height: 168, rotation: 0,
+      absoluteTransform: [[1, 0, abs[0]], [0, 1, abs[1]]],
+      absoluteBoundingBox: { x: abs[0], y: abs[1], width: 332, height: 168 },
+      fills: [], strokes: [], effects: [], clipsContent: false,
+      children: [child]
+    };
+  }
+
+  // The gradient card 57:59: linear ramp #1e63ff@8% -> #16e0c0@92%, top corners
+  // rounded 5px (bottom square), a 1px INSIDE border #3b3c40, one child inside.
+  function gradientCard(abs) {
+    const inner = {
+      id: '57:60', name: 'Swatch', type: 'RECTANGLE', visible: true, opacity: 1, blendMode: 'NORMAL', isMask: false,
+      width: 20, height: 10, rotation: 0,
+      absoluteTransform: [[1, 0, abs[0] + 4], [0, 1, abs[1] + 4]],
+      absoluteBoundingBox: { x: abs[0] + 4, y: abs[1] + 4, width: 20, height: 10 },
+      cornerRadius: 0, cornerSmoothing: 0,
+      fills: [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 }, opacity: 1, visible: true }], strokes: []
+    };
+    return {
+      id: '57:59', name: 'Gradient Card', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH', isMask: false,
+      width: 332, height: 168, rotation: 0,
+      absoluteTransform: [[1, 0, abs[0]], [0, 1, abs[1]]],
+      absoluteBoundingBox: { x: abs[0], y: abs[1], width: 332, height: 168 },
+      clipsContent: false,
+      // Per-corner: top rounded, bottom square (Figma topLeftRadius/... fields).
+      topLeftRadius: 5, topRightRadius: 5, bottomRightRadius: 0, bottomLeftRadius: 0, cornerSmoothing: 0,
+      fills: [{
+        type: 'GRADIENT_LINEAR', visible: true, opacity: 1,
+        gradientStops: [
+          { position: 0.08, color: { r: 0.118, g: 0.388, b: 1, a: 1 } },
+          { position: 0.92, color: { r: 0.086, g: 0.878, b: 0.753, a: 1 } }
+        ],
+        gradientTransform: [[1, 0, 0], [0, 1, 0]]
+      }],
+      strokes: [{ type: 'SOLID', color: { r: 0.231, g: 0.235, b: 0.251 }, opacity: 1, visible: true }],
+      strokeWeight: 1, strokeAlign: 'INSIDE', strokeCap: 'NONE', strokeJoin: 'MITER',
+      effects: [],
+      children: [inner]
+    };
+  }
+
+  // A top-level screen frame (like "Gradient" 57:2) at canvas origin (100,200).
+  function screen(children) {
+    return {
+      id: '57:2', name: 'Gradient', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH', isMask: false,
+      width: 400, height: 880, rotation: 0,
+      absoluteTransform: [[1, 0, 100], [0, 1, 200]],
+      absoluteBoundingBox: { x: 100, y: 200, width: 400, height: 880 },
+      fills: [], strokes: [], effects: [], clipsContent: true,
+      children
+    };
+  }
+
+  it('collapses a deep Container wrapper chain and hoists the gradient card, position-safe', async () => {
+    // screen(100,200) > Container(112,212) > Container(134,234) > gradientCard(156,256)
+    const card = gradientCard([156, 256]);
+    const chain = container('C1', [112, 212], container('C2', [134, 234], card));
+    const ir = await buildIR([screen([chain])]);
+
+    // Both pure-layout Containers collapse; the card hoists to the screen's own kids.
+    expect(ir.document.stats.collapsed).toBe(2);
+    const kids = ir.document.frames[0].children;
+    expect(kids.length).toBe(1);
+    const built = kids[0];
+    expect(built.name).toBe('Gradient Card');
+    // Position survives the collapse: absolute (156,256) minus screen origin (100,200).
+    expect(built.transform.x).toBe(56);
+    expect(built.transform.y).toBe(56);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
+  it('keeps the gradient card 1:1 — linear stops at 8%/92%, top-only rounding, INSIDE 1px border', async () => {
+    const ir = await buildIR([screen([gradientCard([156, 256])])]);
+    const card = ir.document.frames[0].children[0];
+    expect(card.type).toBe('FRAME');
+    // Gradient rides the frame background as a real (non-rasterised) native ramp.
+    const g = card.background[0];
+    expect(g.type).toBe('GRADIENT_LINEAR');
+    expect(g.stops[0].position).toBeCloseTo(0.08, 3);
+    expect(g.stops[1].position).toBeCloseTo(0.92, 3);
+    // Horizontal ramp (bg-gradient-to-r): mid-height, spanning the full width.
+    expect(g.gradientHandles[0][1]).toBeCloseTo(84, 3);
+    expect(g.gradientHandles[1][0]).toBeCloseTo(332, 3);
+    // Per-corner radii preserved exactly (top 5, bottom 0) — NOT flattened to uniform.
+    expect(card.cornerRadii.topLeft).toBe(5);
+    expect(card.cornerRadii.topRight).toBe(5);
+    expect(card.cornerRadii.bottomRight).toBe(0);
+    expect(card.cornerRadii.bottomLeft).toBe(0);
+    // Inside border with its real weight & alignment (host insets it via Offset Paths).
+    expect(card.stroke.weight).toBe(1);
+    expect(card.stroke.align).toBe('INSIDE');
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+
+  it('merges a 16-vector curve-graph Icon into ONE editable shape layer (not 16)', async () => {
+    // The Home/Ease "Icon" frames hold ~16 stroked vectors (the graph). They must
+    // become a single merged shape whose sub-groups are the 16 vectors — one layer.
+    const vecs = [];
+    for (let i = 0; i < 16; i++) {
+      vecs.push({
+        id: '49:' + (45 + i), name: 'Vector', type: 'VECTOR', visible: true, opacity: 1, blendMode: 'NORMAL', isMask: false,
+        width: 4, height: 240, rotation: 0,
+        absoluteTransform: [[1, 0, 200 + i], [0, 1, 260]],
+        absoluteBoundingBox: { x: 200 + i, y: 260, width: 4, height: 240 },
+        vectorPaths: [{ data: 'M0 0 L0 240', windingRule: 'NONZERO' }],
+        fills: [], strokes: [{ type: 'SOLID', color: { r: 0.35, g: 0.6, b: 1 }, opacity: 1, visible: true }],
+        strokeWeight: 1, strokeAlign: 'CENTER', strokeCap: 'ROUND', strokeJoin: 'ROUND'
+      });
+    }
+    const icon = {
+      id: '49:44', name: 'Icon', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH', isMask: false,
+      width: 330, height: 240, rotation: 0,
+      absoluteTransform: [[1, 0, 200], [0, 1, 260]],
+      absoluteBoundingBox: { x: 200, y: 260, width: 330, height: 240 },
+      fills: [], strokes: [], effects: [], clipsContent: false,
+      children: vecs
+    };
+    const ir = await buildIR([screen([icon])]);
+    expect(ir.document.stats.merged).toBe(1);
+    const built = ir.document.frames[0].children[0];
+    expect(built.type).toBe('GROUP');
+    expect(built.merged).toBe(true);
+    expect(built.children.length).toBe(16);
+    // countIRLayers treats the merged icon as ONE layer (its vectors ride it).
+    // screen(1) + merged icon(1) = 2; the 16 vectors do NOT inflate the count.
+    expect(ir.document.stats.layers).toBe(2);
+    expect(validateMod.validate(ir).valid).toBe(true);
+  });
+});
