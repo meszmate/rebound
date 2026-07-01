@@ -145,6 +145,26 @@ All notable changes to Rebound are documented here. The format follows
   settings extensions), dev tooling, CI, and documentation.
 
 ### Fixed
+- **Spring / overshoot bake now matches the live preview (was visibly "buggy").**
+  Applying a Spring (or any overshooting curve) to two keyframes baked only the
+  curve's **turning points** and let AE guess the tangents (continuous auto-bezier),
+  which the project's own overshoot fidelity tests show is *dramatically* less
+  faithful than pinning the **true slope** at each key — so the baked motion
+  didn't look like the exact curve the preview animates. Worse, the normalized
+  spring is clamped flat at its endpoint while the underlying curve is still
+  moving, which planted a **near-duplicate reversal keyframe** a hair before the
+  second key — a tiny jerk right as it "reached the final state." The overshoot
+  bake was rebuilt to be faithful: anchors now sit at every **extremum *and*
+  target-crossing**, each keyframe's temporal handle is pinned to the curve's
+  **real slope** (the Hermite that hugs the math, the same technique the recoil
+  bake uses), and the endpoint duplicate is merged away. Target crossings that
+  land exactly on the value (elastic/back curves on a clean period) are now
+  detected too. Reconstruction error dropped to ~1–3% of travel across springs
+  and elastic (`client/js/easing/sampler.js` `fitSamples`,
+  `host/commands/spring.jsx`; 6 new fidelity tests). The bounce still fits
+  *between* the two selected keyframes (settling on the second at its time, as the
+  preview does); say the word if you'd rather it extend the settle past the second
+  key.
 - **"zero denominator converting ratio" AE error — guarded at every source.** Two
   reachable triggers, both fixed: (1) applying a temporal ease to a **zero-length
   spatial segment** (two Position/Anchor keyframes with identical values — e.g. a

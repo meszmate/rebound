@@ -151,19 +151,137 @@
     return out;
   }
 
+  // Numeric slope dy/dt of a normalized easing fn at t in [0,1]. The samples are
+  // kept strictly inside (0,1): a spring's normalized fn is clamped flat at the
+  // exact endpoints (y=1 at t>=1) even while the underlying curve is still
+  // moving, so sampling the boundary itself yields a spurious huge slope. Insetting
+  // gives the endpoints their true leaving/arriving slope instead.
+  function slopeAt(fn, t) {
+    var h = 1e-3;
+    var lo = 5e-4, hi = 1 - 5e-4;
+    var a = t - h, b = t + h;
+    if (a < lo) a = lo;
+    if (b > hi) b = hi;
+    if (b <= a) { a = lo; b = hi; }
+    return (fn(b) - fn(a)) / (b - a);
+  }
+
   /**
-   * A sparse set of { t, y } anchors that captures an overshooting curve's
-   * shape: every turning point and endpoint, plus the curve-sampled midpoint of
-   * each gap so the arcs between extrema stay faithful. Typically 8-20 points
-   * for an elastic/bounce, vs hundreds for a per-frame bake. The host places a
-   * keyframe at each (auto-bezier smoothed) so the curve is visible and editable
-   * in the Graph Editor.
+   * A faithful, sparse anchor set for baking an overshooting curve as a FEW
+   * editable keyframes that actually match the math. Each anchor is
+   * { t, y, m } where t in [0,1], y is the (over/undershooting) value and m is
+   * the true slope dy/dt in normalized time. Anchors are placed at:
+   *   - both endpoints (exact, so the user's keyframe values are preserved),
+   *   - every extremum (each overshoot peak / undershoot valley),
+   *   - every target crossing (where the value passes 1) — the steep midpoints
+   *     the old extrema-only bake missed, which made the arcs sag.
+   * The host pins each keyframe's temporal handle to m, so the cubic between
+   * anchors is the Hermite that hugs the curve (see host/commands/spring.jsx),
+   * exactly the technique the unit-tested recoil bake uses. Near-duplicate
+   * anchors (a tail wiggle a hair before the end) are merged into the endpoint
+   * so no zero-length reversal key is written.
+   */
+  function fitSamples(curve) {
+    var fn = toFunction(curve);
+    var N = 600;
+    var eps = 0.008; // merge anchors closer than this (normalized time)
+    var raw = [{ t: 0, y: fn(0) }];
+    var prevY = fn(0), prevT = 0, prevDSign = 0, prevRel = fn(0) - 1;
+    for (var i = 1; i <= N; i++) {
+      var t = i / N;
+      var y = fn(t);
+      var dy = y - prevY;
+      var dSign = dy > 1e-9 ? 1 : (dy < -1e-9 ? -1 : prevDSign);
+      // Extremum at the previous sample (the slope just changed direction).
+      if (prevDSign !== 0 && dSign !== 0 && dSign !== prevDSign) raw.push({ t: prevT, y: prevY });
+      // Target crossing (value passes 1) between prevT and t: interpolate the
+      // exact time and anchor it on the target so the pass-through stays crisp.
+      // The <=/>= comparisons catch a crossing that lands exactly on a sample
+      // (elastic/back curves with clean periods hit y=1 on the grid, and a
+      // strict !=0 test would skip them entirely).
+      var rel = y - 1;
+      if ((prevRel < 0 && rel >= 0) || (prevRel > 0 && rel <= 0)) {
+        var denom = prevRel - rel;
+        var frac = denom !== 0 ? prevRel / denom : 0;
+        if (frac < 0) frac = 0;
+        if (frac > 1) frac = 1;
+        raw.push({ t: prevT + (t - prevT) * frac, y: 1 });
+      }
+      prevDSign = dSign; prevY = y; prevT = t; prevRel = rel;
+    }
+    raw.push({ t: 1, y: fn(1) });
+
+    raw.sort(function (p, q) { return p.t - q.t; });
+    var out = [];
+    for (var j = 0; j < raw.length; j++) {
+      var p = raw[j];
+      if (p.t < 0) p.t = 0;
+      if (p.t > 1) p.t = 1;
+      if (out.length) {
+        var lastP = out[out.length - 1];
+        if (p.t - lastP.t < eps) {
+          // Prefer the true endpoint over a near-coincident interior wiggle.
+          if (p.t >= 1 - 1e-9) out[out.length - 1] = p;
+          continue;
+        }
+      }
+      out.push(p);
+    }
+    // Pin exact endpoints (the user's keyframe values ride on y=0 and y=1).
+    out[0] = { t: 0, y: fn(0) };
+    out[out.length - 1] = { t: 1, y: fn(1) };
+    for (var k = 0; k < out.length; k++) out[k].m = slopeAt(fn, out[k].t);
+
+    // Adaptive refinement: the extrema/crossing seeds land on the curve's
+    // features, but a single Hermite across a long arc (e.g. a rest-released
+    // spring's accelerating rise, which has an inflection) can still drift.
+    // Greedily insert an anchor at the worst-fitting point of the worst segment
+    // until every segment is within tolerance (or a sane key budget is hit), so
+    // the baked keyframes reproduce ANY overshoot curve, not just gentle ones.
+    var tol = 0.01;        // 1% of travel — visually indistinguishable
+    var maxAnchors = 48;   // backstop against pathological curves
+    while (out.length < maxAnchors) {
+      var worstErr = 0, wi = -1, wt = -1;
+      for (var si = 0; si < out.length - 1; si++) {
+        var w = worstInSegment(fn, out[si], out[si + 1]);
+        if (w.err > worstErr) { worstErr = w.err; wi = si; wt = w.t; }
+      }
+      if (worstErr <= tol || wt < 0) break;
+      out.splice(wi + 1, 0, { t: wt, y: fn(wt), m: slopeAt(fn, wt) });
+    }
+    return out;
+  }
+
+  // Cubic-Hermite value between two { t, y, m } anchors (m = dy/dt), matching
+  // exactly what the host bakes (handle pinned to slope at 1/3 influence).
+  function hermiteAt(a, b, t) {
+    var h = b.t - a.t;
+    if (h <= 0) return a.y;
+    var u = (t - a.t) / h, u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * a.y
+      + (u3 - 2 * u2 + u) * h * a.m
+      + (-2 * u3 + 3 * u2) * b.y
+      + (u3 - u2) * h * b.m;
+  }
+
+  // Worst Hermite-vs-true error inside a segment and where it occurs.
+  function worstInSegment(fn, a, b) {
+    var worst = 0, wt = -1, K = 16;
+    for (var i = 1; i < K; i++) {
+      var t = a.t + (b.t - a.t) * (i / K);
+      var e = Math.abs(hermiteAt(a, b, t) - fn(t));
+      if (e > worst) { worst = e; wt = t; }
+    }
+    return { err: worst, t: wt };
+  }
+
+  /**
+   * A sparse set of { t, y, m } anchors that captures an overshooting curve's
+   * shape (turning points, target crossings, endpoints) with the true slope at
+   * each, so the host can bake a FEW editable keyframes that match the curve.
    */
   function sparseSamples(curve) {
-    // Just the turning points and endpoints. The host gives every key a
-    // continuous bezier handle, so the arcs between extrema stay smooth with the
-    // fewest possible keyframes (one per peak/valley), each editable by hand.
-    return turningPoints(curve, 600);
+    return fitSamples(curve);
   }
 
   /**
@@ -200,6 +318,7 @@
     range: range,
     bakeFactors: bakeFactors,
     turningPoints: turningPoints,
+    fitSamples: fitSamples,
     sparseSamples: sparseSamples,
     fitBezierHandles: fitBezierHandles,
     toTemporalEase: toTemporalEase,
