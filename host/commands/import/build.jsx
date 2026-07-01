@@ -434,8 +434,14 @@
       } catch (eF) {}
     } catch (eC) { /* shape contents vary by build */ }
     // A guide layer never renders to output; keep it un-shy so it stays visible in
-    // the timeline as the group's handle.
+    // the timeline as the group's handle. Turn its VIDEO switch off too: the layer
+    // draws nothing anyway (transparent fill, no stroke), and a video-off layer is
+    // fully suppressed in the Composition viewport — so AE never draws the sized
+    // guide-shape's boundary as an overlay (the "red border around every component"
+    // that shows up on these container layers). Parenting is unaffected by the
+    // video switch, so children still move with the container.
     try { sl.guideLayer = true; } catch (eG) {}
+    try { sl.enabled = false; } catch (eEn) {}
     try { sl.shy = false; } catch (eSh) {}
     return sl;
   }
