@@ -431,8 +431,39 @@
         clipNode.maskTargetId = targets[0];
         if (targets.length > 1) clipNode.maskTargetIds = targets;
       }
+    } else if (canMergeVectorGroup(node.children)) {
+      // An icon (a group of leaf vector paths, no clip / gradients / effects)
+      // becomes ONE editable shape layer in After Effects (each path an editable
+      // sub-group) instead of one layer per path — parity with the Figma import.
+      node.merged = true;
     }
     return node;
+  }
+
+  function paintsHaveGradient(paints) {
+    if (!paints) return false;
+    for (var i = 0; i < paints.length; i++) {
+      if (paints[i] && paints[i].type && paints[i].type.indexOf('GRADIENT') === 0) return true;
+    }
+    return false;
+  }
+
+  // True when a group's children are all leaf VECTOR paths with solid (non-
+  // gradient) paint and no effects, so the host can merge them into one shape
+  // layer via the proven buildMergedShape path (gradients ride a layer-level ramp
+  // that can't target one sub-group, so a gradient child keeps its own layer).
+  function canMergeVectorGroup(children) {
+    if (!children || children.length < 2) return false;
+    for (var i = 0; i < children.length; i++) {
+      var c = children[i];
+      if (!c || c.type !== 'VECTOR') return false;
+      if (c.children && c.children.length) return false;
+      if (c.isMask) return false;
+      if (paintsHaveGradient(c.fills)) return false;
+      if (c.stroke && paintsHaveGradient(c.stroke.paints)) return false;
+      if (c.effects && c.effects.length) return false;
+    }
+    return true;
   }
 
   // ---- text ----------------------------------------------------------------
