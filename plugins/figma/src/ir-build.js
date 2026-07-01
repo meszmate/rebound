@@ -166,6 +166,127 @@
     return (typeof node.cornerRadius === 'number') ? node.cornerRadius : 0;
   }
 
+  // ---- collapse pure-layout wrapper frames ---------------------------------
+  // Figma auto-layout produces deep chains of "Container" frames that carry NO
+  // visual (no fill/stroke/effect/clip/opacity/blend/corner/rotation) — they only
+  // exist to lay out their children. In After Effects each such frame would become
+  // a junk container layer, so a 2746-object board floods the timeline. When
+  // COLLAPSE_LAYOUT is on, such a wrapper is dropped and its children are hoisted
+  // into the parent. This is a VISUAL no-op (the wrapper drew nothing) and
+  // position-safe: relMatrix uses each node's ABSOLUTE transform minus the frame
+  // origin, so hoisting with the parent's origin keeps every child exactly put.
+  var COLLAPSE_LAYOUT = true;
+
+  function hasVisiblePaint(paints) {
+    if (!paints || (typeof figma !== 'undefined' && paints === figma.mixed) || !paints.length) return false;
+    for (var i = 0; i < paints.length; i++) {
+      var p = paints[i];
+      if (p && p.visible !== false && (p.opacity == null || p.opacity > 0)) return true;
+    }
+    return false;
+  }
+
+  function hasVisibleEffect(node) {
+    var ef = node.effects;
+    if (!ef || !ef.length) return false;
+    for (var i = 0; i < ef.length; i++) { if (ef[i] && ef[i].visible !== false) return true; }
+    return false;
+  }
+
+  function isCollapsibleLayout(node) {
+    if (!node || node.visible === false) return false;
+    var t = node.type;
+    // Only plain FRAME/GROUP wrappers. INSTANCE/COMPONENT keep their identity (they
+    // are candidates for reuse/de-dup, a separate strategy).
+    if (t !== 'FRAME' && t !== 'GROUP') return false;
+    var kids = node.children;
+    if (!kids || !kids.length) return false;
+    if (node.isMask) return false;
+    // A mask CHILD scopes to this group's following siblings; hoisting would
+    // re-scope it across the parent, so never collapse a wrapper containing one.
+    for (var k = 0; k < kids.length; k++) { if (kids[k] && kids[k].isMask) return false; }
+    // Any visual or structural role -> keep the wrapper.
+    try { if (hasVisiblePaint(node.fills)) return false; } catch (e1) {}
+    try { if (hasVisiblePaint(node.strokes)) return false; } catch (e2) {}
+    try { if (hasVisibleEffect(node)) return false; } catch (e3) {}
+    try { if (node.clipsContent) return false; } catch (e4) {}
+    try { if (node.opacity != null && node.opacity < 1) return false; } catch (e5) {}
+    try { if (node.blendMode && node.blendMode !== 'PASS_THROUGH' && node.blendMode !== 'NORMAL') return false; } catch (e6) {}
+    var c = null; try { c = mapCorners(node); } catch (e7) {}
+    if (c && (c.topLeft || c.topRight || c.bottomRight || c.bottomLeft)) return false;
+    try { if (typeof node.rotation === 'number' && Math.abs(node.rotation) > 0.01) return false; } catch (e8) {}
+    return true;
+  }
+
+  // An empty, invisible frame — a zero-size auto-layout spacer, or a wrapper whose
+  // children were all dropped/collapsed — draws nothing and holds nothing, so
+  // emitting it just litters the timeline. Drop it. (Checked AFTER chrome is
+  // applied, so a frame with a real background/stroke/effect is always kept.)
+  function frameDrawsNothing(base) {
+    if (base.children && base.children.length) return false;
+    if (base.background && base.background.length) return false;
+    if (base.stroke && base.stroke.paints && base.stroke.paints.length) return false;
+    if (base.effects && base.effects.length) return false;
+    return true;
+  }
+
+  // ---- merge icon vector groups into one editable shape layer --------------
+  // A Figma icon is ONE visual thing, but it is authored as a wrapper containing
+  // several vector nodes (the curve-editor icon is 16). Left as-is, each vector
+  // is its own AE layer. When a pure wrapper's children are ALL leaf vector
+  // shapes, we emit it as a single GROUP marked `merged`, which the host builds
+  // as ONE shape layer with each vector as its own editable sub-group (the same
+  // proven coordinate path buildBoolean uses) — 1:1 and one layer, not many.
+  function paintsHaveGradient(paints) {
+    if (!paints || (typeof figma !== 'undefined' && paints === figma.mixed)) return false;
+    for (var i = 0; i < paints.length; i++) {
+      var p = paints[i];
+      if (p && p.visible !== false && p.type && p.type.indexOf('GRADIENT') === 0) return true;
+    }
+    return false;
+  }
+
+  function isLeafVectorShape(n) {
+    if (!n || n.visible === false) return false;
+    var t = n.type;
+    if (t !== 'VECTOR' && t !== 'LINE' && t !== 'RECTANGLE' && t !== 'ELLIPSE' && t !== 'STAR' && t !== 'POLYGON') return false;
+    if (n.children && n.children.length) return false; // must be a leaf, not a nested group
+    if (n.isMask) return false;
+    // A gradient fill/stroke rides a layer-level Ramp effect, which can't target
+    // one sub-group of a merged shape — so keep such a vector its own layer.
+    try { if (paintsHaveGradient(n.fills) || paintsHaveGradient(n.strokes)) return false; } catch (e) {}
+    // A rotated/sheared child would need its own transform inside the merged
+    // layer (sub-groups carry only an offset), so keep it separate.
+    try { if (typeof n.rotation === 'number' && Math.abs(n.rotation) > 0.01) return false; } catch (e2) {}
+    return true;
+  }
+
+  function isIconGroup(node) {
+    if (!node || node.visible === false) return false;
+    var t = node.type;
+    if (t !== 'FRAME' && t !== 'GROUP') return false;
+    if (node.isMask) return false;
+    var kids = node.children;
+    if (!kids || kids.length < 2) return false;
+    // The wrapper itself must be a pure container (a card background / border /
+    // clip / rounding means it is real chrome, not an icon).
+    try { if (hasVisiblePaint(node.fills)) return false; } catch (e1) {}
+    try { if (hasVisiblePaint(node.strokes)) return false; } catch (e2) {}
+    try { if (hasVisibleEffect(node)) return false; } catch (e3) {}
+    try { if (node.clipsContent) return false; } catch (e4) {}
+    var c = null; try { c = mapCorners(node); } catch (e5) {}
+    if (c && (c.topLeft || c.topRight || c.bottomRight || c.bottomLeft)) return false;
+    try { if (typeof node.rotation === 'number' && Math.abs(node.rotation) > 0.01) return false; } catch (e6) {}
+    var vis = 0;
+    for (var i = 0; i < kids.length; i++) {
+      var k = kids[i];
+      if (!k || k.visible === false) continue;
+      if (!isLeafVectorShape(k)) return false;
+      vis++;
+    }
+    return vis >= 2;
+  }
+
   // Editable vector paths first, fall back to the rendered fill outline.
   function mapPaths(node) {
     var entries = (node.vectorPaths && node.vectorPaths.length) ? node.vectorPaths : (node.fillGeometry || []);
@@ -671,8 +792,17 @@
     var out = [];
     var kids = node.children || [];
     for (var i = 0; i < kids.length; i++) {
-      var ir = await nodeToIR(kids[i], origin, assets);
-      if (ir) out.push(ir);
+      var kid = kids[i];
+      if (COLLAPSE_LAYOUT && isCollapsibleLayout(kid) && !isIconGroup(kid)) {
+        // Hoist the pure-layout wrapper's children straight into this parent (same
+        // origin): the wrapper drew nothing and carries no transform of its own.
+        // (An icon group is left for nodeToIR to emit as a single merged shape.)
+        var inner = await childrenToIR(kid, origin, assets);
+        for (var j = 0; j < inner.length; j++) out.push(inner[j]);
+      } else {
+        var ir = await nodeToIR(kid, origin, assets);
+        if (ir) out.push(ir);
+      }
     }
     assignMaskTargets(out);
     return out;
@@ -681,6 +811,16 @@
   async function nodeToIR(node, origin, assets) {
     var base = baseFields(node, origin);
     var w = node.width, h = node.height;
+
+    // An icon (a pure wrapper whose children are all leaf vectors) becomes ONE
+    // editable shape layer. Children stay in the PARENT origin (frame-local) so
+    // the host offsets each by (child - node) — the proven buildBoolean path.
+    if (isIconGroup(node)) {
+      base.type = 'GROUP';
+      base.merged = true;
+      base.children = await childrenToIR(node, origin, assets);
+      return base;
+    }
 
     // Image-filled LEAF shapes become IMAGE nodes (the common placed-image case);
     // a container with an image fill must still recurse into its children. An
@@ -821,11 +961,13 @@
         base.children = await childrenToIR(node, nestedOrigin, assets);
         applyFrameChrome(base, node, w, h);
         await addFrameImageBackground(base, node, w, h, assets);
+        if (frameDrawsNothing(base)) return null; // empty invisible frame / spacer
         break;
       case 'GROUP':
         base.type = 'GROUP';
         base.children = await childrenToIR(node, origin, assets);
         if (node.fills && node.fills !== figma.mixed && node.fills.length) base.fills = mapFills(node.fills, w, h);
+        if ((!base.children || !base.children.length) && !(base.fills && base.fills.length)) return null;
         break;
       default:
         if (node.fillGeometry && node.fillGeometry.length) {
@@ -943,7 +1085,11 @@
     };
   }
 
-  async function buildIR(selection) {
+  async function buildIR(selection, opts) {
+    opts = opts || {};
+    // Default ON: collapse pure-layout wrapper frames so a deep auto-layout board
+    // doesn't flood the timeline. A future UI toggle can send collapseLayout:false.
+    COLLAPSE_LAYOUT = opts.collapseLayout !== false;
     var assets = {};
     var frames = [];
     var loose = [];
@@ -961,5 +1107,5 @@
     };
   }
 
-  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION };
+  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION, isCollapsibleLayout: isCollapsibleLayout, frameDrawsNothing: frameDrawsNothing, isIconGroup: isIconGroup };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

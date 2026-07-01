@@ -7,6 +7,23 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Import scale: big designs no longer flood the After Effects timeline.** A
+  deeply-nested design (e.g. a 9-screen board ≈ 2,700 objects) used to land as
+  thousands of flat layers. Four levers, all opt-out:
+  - **Auto-precomp large frames** (default on) — any nested frame that flattens
+    into ≥120 layers (a whole screen) becomes its own editable precomp, via the
+    same path clipping frames already use. A multi-screen board lands as a handful
+    of precomps in the main comp; a single frame stays flat. Toggle in Import.
+  - **Collapse pure-layout wrapper frames** — Figma auto-layout "Container" frames
+    with no fill/stroke/effect/clip are hoisted away (visual no-op, position-exact).
+  - **Merge icon vector groups** — a wrapper whose children are all leaf vectors
+    becomes ONE editable shape layer (each vector an editable sub-group) instead
+    of one layer per vector.
+  - **Drop empty spacer frames**, and a **Figma-plugin object-count guardrail**
+    that warns before sending a huge selection.
+  (Collapse / merge / spacer-drop are unit-tested IR shaping; auto-precomp reuses
+  the proven nested-precomp build. Benefits all three sources for the importer-side
+  parts.)
 - **Behaviors (new tool) — a drag-and-apply motion library.** Browse ready-made
   **entrances, exits, and emphasis** moves (Fade / Scale / Pop / Slide / Rise /
   Sink / Pulse / Pop / Spin) and drop them on the selected layers. Unlike

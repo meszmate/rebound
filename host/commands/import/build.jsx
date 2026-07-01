@@ -221,6 +221,27 @@
   // clip, no chrome to preserve) stay flat nulls via buildGroup, which is cheaper
   // and keeps existing simple-group imports unchanged. A clipping frame defaults
   // to PRECOMP; a non-clipping one with no chrome can fall back to a null group.
+  // Approx number of AE layers a frame flattens into (visible descendants). Used
+  // to auto-precomp genuinely large sub-frames (e.g. a whole screen inside a
+  // multi-screen board) so the import lands as a handful of editable precomps
+  // instead of flooding one comp with thousands of layers.
+  function countLayers(node) {
+    var kids = node.children;
+    if (!kids || !kids.length) return 0;
+    var n = 0;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (!c || c.visible === false) continue;
+      n += 1 + countLayers(c);
+    }
+    return n;
+  }
+
+  function frameIsBig(node) {
+    var thr = (R.importer.opts && R.importer.opts.autoPrecompThreshold) || 0;
+    return thr > 0 && countLayers(node) >= thr;
+  }
+
   function frameWantsPrecomp(node) {
     if (node.buildMode === 'GROUP') return false;
     if (node.buildMode === 'PRECOMP') return true;
@@ -549,7 +570,12 @@
       // A precomp is the faithful tool when: the user opted into precomp frames;
       // the frame is used as a mask (a track matte needs one pixel layer); or it
       // clips AND its content overflows (so a non-clipping frame is never precomped).
-      var needPrecomp = (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) ||
+      // Auto-precomp a genuinely large sub-frame (a whole screen) so a big board
+      // becomes a few editable precomps instead of thousands of flat layers. A
+      // small frame (a button) stays flat/editable. Top-level frames build flat
+      // (they never reach buildNode), so importing ONE screen stays flat.
+      var needPrecomp = frameIsBig(node) ||
+        (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) ||
         node.isMask || frameShouldClip(node);
       if (needPrecomp) {
         try {
@@ -567,6 +593,15 @@
     }
     if (node.type === 'GROUP') {
       var gresult;
+      // A merged icon (wrapper of leaf vectors) builds as ONE editable shape layer.
+      // Fall back to a normal group if the merge can't be built.
+      if (node.merged && R.importer.buildMergedShape) {
+        try { gresult = R.importer.buildMergedShape(comp, node, report); } catch (em) { gresult = null; }
+        if (!gresult) gresult = buildGroup(comp, node, report);
+        registerLayer(node, gresult);
+        if (R.importer.mask) R.importer.mask.collect(node, gresult, report);
+        return gresult;
+      }
       // A group used as a mask needs a single pixel layer to matte with -> precomp;
       // otherwise it stays a flat editable group.
       if (node.isMask) {
@@ -753,7 +788,13 @@
     R.importer.opts = {
       precompFrames: !!opts.precompFrames,
       importToActiveComp: opts.importToActiveComp !== false, // default true
-      updateExisting: !!opts.updateExisting
+      updateExisting: !!opts.updateExisting,
+      // Auto-precomp any NESTED frame that flattens into this many+ layers, so a
+      // multi-screen board lands as a handful of editable precomps rather than a
+      // flooded timeline. 0 disables. Default targets screen-sized frames while
+      // leaving buttons/cards flat; importing a single screen (a top-level frame)
+      // is unaffected because top-level frames build flat.
+      autoPrecompThreshold: (typeof opts.autoPrecompThreshold === 'number') ? opts.autoPrecompThreshold : 120
     };
     if (R.importer.layerStyle) R.importer.layerStyle.reset();
     if (R.importer.mask) R.importer.mask.reset();

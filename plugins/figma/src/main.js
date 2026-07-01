@@ -11,9 +11,25 @@ figma.showUI(__html__, { width: 340, height: 300, title: 'Rebound Relay', themeC
 // Tell the UI which IR version we emit, so it can warn on receiver version skew.
 figma.ui.postMessage({ type: 'meta', irVersion: ReboundFigma.irVersion });
 
+// Count visible descendants so the UI can warn BEFORE a huge selection floods
+// the After Effects timeline (each node becomes ~one layer). Cheap scene-graph
+// walk; hidden nodes are excluded because the importer skips them.
+function countNodes(nodes) {
+  var n = 0;
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    if (!node || node.visible === false) continue;
+    n++;
+    if (node.children && node.children.length) n += countNodes(node.children);
+  }
+  return n;
+}
+
 function postSelection() {
   var sel = figma.currentPage.selection;
-  figma.ui.postMessage({ type: 'selection', count: sel.length });
+  var total = 0;
+  try { total = countNodes(sel); } catch (e) { total = sel.length; }
+  figma.ui.postMessage({ type: 'selection', count: sel.length, total: total });
 }
 
 figma.on('selectionchange', postSelection);
@@ -28,7 +44,7 @@ figma.ui.onmessage = async function (msg) {
       return;
     }
     try {
-      var ir = await ReboundFigma.buildIR(sel);
+      var ir = await ReboundFigma.buildIR(sel, msg.options || {});
       figma.ui.postMessage({ type: 'ir', ir: ir });
     } catch (e) {
       figma.ui.postMessage({ type: 'error', error: (e && e.message) || String(e) });

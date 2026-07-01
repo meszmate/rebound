@@ -185,16 +185,29 @@
     syncHeight();
   }
 
-  function updateSelection(count) {
+  // Above this many objects, a flat import floods the After Effects timeline;
+  // warn and point at a lighter strategy (import one frame / precomp).
+  var HEAVY_THRESHOLD = 400;
+
+  function updateSelection(count, total) {
     selectionCount = count;
     var has = count > 0;
     el.sel.setAttribute('data-has', has ? 'true' : 'false');
     if (has) {
       el.selTitle.textContent = count + (count === 1 ? ' layer selected' : ' layers selected');
-      el.selSub.textContent = 'Ready to send to After Effects';
+      var obj = (total && total > count) ? total : count;
+      if (obj >= HEAVY_THRESHOLD) {
+        el.selTitle.textContent = '~' + obj + ' objects selected';
+        el.selSub.textContent = 'That\'s a lot of layers — import one screen at a time, or use a precomp/collapse strategy.';
+        el.sel.setAttribute('data-warn', 'true');
+      } else {
+        el.selSub.textContent = obj > count ? ('~' + obj + ' objects · ready to send') : 'Ready to send to After Effects';
+        el.sel.removeAttribute('data-warn');
+      }
     } else {
       el.selTitle.textContent = 'Nothing selected';
       el.selSub.textContent = 'Select a frame or layers in Figma';
+      el.sel.removeAttribute('data-warn');
     }
     refreshSend();
   }
@@ -357,7 +370,7 @@
     if (msg.type === 'meta') {
       if (msg.irVersion) IR_VERSION = msg.irVersion;
     } else if (msg.type === 'selection') {
-      updateSelection(msg.count);
+      updateSelection(msg.count, msg.total);
     } else if (msg.type === 'ir') {
       lastIR = msg.ir;
       if (pendingSave) {
