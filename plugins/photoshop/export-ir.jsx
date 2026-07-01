@@ -117,6 +117,24 @@
     return executeActionGet(ref);
   }
 
+  // The active text layer's 2x2 transform (from textKey.transform). A plain
+  // (unrotated) text layer has zero off-diagonal terms; a rotated/sheared one
+  // does not. Reads defensively; any failure returns null (treated as unrotated).
+  function readTextTransform() {
+    try {
+      var d = activeLayerDescriptor();
+      if (!d.hasKey(sID('textKey'))) return null;
+      var tk = d.getObjectValue(sID('textKey'));
+      if (!tk.hasKey(sID('transform'))) return null;
+      var t = tk.getObjectValue(sID('transform'));
+      return { xx: t.getDouble(sID('xx')), xy: t.getDouble(sID('xy')), yx: t.getDouble(sID('yx')), yy: t.getDouble(sID('yy')) };
+    } catch (e) { return null; }
+  }
+  function textIsRotated(tr) {
+    if (!tr) return false;
+    return Math.abs(tr.xy) > 1e-4 || Math.abs(tr.yx) > 1e-4;
+  }
+
   function readColorDesc(d) {
     // RGBC channels are reliably addressed by charID (note the trailing spaces).
     try {
@@ -459,6 +477,14 @@
   }
 
   function textToIR(layer) {
+    // A rotated/sheared text layer's axis-aligned bounds don't describe its true
+    // placement, and Photoshop text rotation isn't carried as editable AE text, so
+    // bake it to a pixel-exact image (the raster keeps the rotation). Unrotated
+    // text (the common case) stays fully editable.
+    if (textIsRotated(readTextTransform())) {
+      var r = rasterToIR(layer);
+      if (r) { note(layer.name, 'rotated text baked to a pixel-exact image (Photoshop text rotation is not carried as editable text)'); return r; }
+    }
     var node = baseNode(layer);
     node.type = 'TEXT';
     var ti = layer.textItem;

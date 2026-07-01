@@ -554,6 +554,32 @@
     return false;
   }
 
+  // A live effect (drop shadow, glow, feather, blur, outer effect) is applied via
+  // Illustrator's appearance and is NOT enumerable in the scripting DOM — the
+  // vector geometry alone would import WITHOUT the effect. But such effects inflate
+  // the item's VISIBLE bounds well past its geometric (path) bounds, so detect that
+  // and bake the item to a pixel-exact PNG (imageCapture renders the effect). The
+  // margin allows a centred stroke (+ a little mitre slack) so ordinary stroked
+  // paths are NOT baked; only a clear visible-bounds overflow trips it.
+  function hasLiveEffect(item) {
+    try {
+      var g = item.geometricBounds, v = item.visibleBounds; // [left, top, right, bottom] Y-up
+      if (!g || !v) return false;
+      var sw = 0;
+      try { if (item.stroked && typeof item.strokeWidth === 'number') sw = item.strokeWidth; } catch (e) {}
+      var pad = sw + 4;
+      if (v[0] < g[0] - pad || v[1] > g[1] + pad || v[2] > g[2] + pad || v[3] < g[3] - pad) return true;
+    } catch (e2) {}
+    return false;
+  }
+
+  function bakedForEffect(item) {
+    if (!hasLiveEffect(item)) return null;
+    var img = imageItemToIR(item);
+    if (img) note(item, 'live effect (shadow/glow/blur) baked to a pixel-exact image — Illustrator effects have no editable After Effects rebuild');
+    return img;
+  }
+
   function itemToIR(item) {
     var tn;
     try { if (item.hidden) return null; tn = item.typename; } catch (e) { return null; }
@@ -562,9 +588,13 @@
     if (hasOpacityMask(item)) { var om = opacityMaskToIR(item); if (om) return om; }
     if (tn === 'PathItem') {
       if (hasUnreproducibleFill(item)) { var ri = imageItemToIR(item); if (ri) return ri; }
+      var pe = bakedForEffect(item); if (pe) return pe;
       return pathToIR(item);
     }
-    if (tn === 'CompoundPathItem') return compoundToIR(item);
+    if (tn === 'CompoundPathItem') {
+      var ce = bakedForEffect(item); if (ce) return ce;
+      return compoundToIR(item);
+    }
     if (tn === 'GroupItem') return groupToIR(item);
     if (tn === 'TextFrame') return textToIR(item);
     // Placed / raster images, meshes, symbol instances, and graphs all bake to a
