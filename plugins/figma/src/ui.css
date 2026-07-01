@@ -153,6 +153,10 @@ body {
   font-size: 10.5px; color: var(--figma-color-text-tertiary, #a0a0a0); margin-top: 1px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Heavy selection: nudge the icon + subtitle to the warn colour so the object
+   count reads as a caution, not just info. */
+.sel[data-warn="true"] .sel-ic { color: var(--rb-warn); }
+.sel[data-warn="true"] .sel-sub { color: var(--rb-warn); white-space: normal; }
 
 /* Primary action — flat solid accent, no glow. */
 .send {
