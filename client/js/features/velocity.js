@@ -107,6 +107,7 @@
       onclick: doRead
     }, ['Read']);
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(R.easing.removeButton(ctx));
     ctx.footer.appendChild(readBtn);
     ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
 

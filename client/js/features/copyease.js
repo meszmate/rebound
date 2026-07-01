@@ -103,6 +103,7 @@
     // --- Footer ---
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(R.easing.removeButton(ctx));
 
     function describeSelection(sel) {
       if (!sel || !sel.hasComp) return 'Open a composition';

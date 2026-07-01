@@ -225,6 +225,7 @@
       title: 'Apply the curve to the selected keyframes. Hold Alt = Out only, Shift = In only, Alt+Shift = In & Out.'
     }, ['Apply']);
     ctx.footer.appendChild(scopeText);
+    ctx.footer.appendChild(R.easing.removeButton(ctx));
     ctx.footer.appendChild(readBtn);
     ctx.footer.appendChild(applyBtn);
 
