@@ -132,7 +132,7 @@
     var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply spring']);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('span.rb-spacer'));
-    ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove, title: 'Remove easing from the selected keyframes' }, ['Remove']));
+    ctx.footer.appendChild(R.easing.removeButton(ctx));
     ctx.footer.appendChild(applyBtn);
 
     var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
@@ -153,12 +153,6 @@
 
     function doApply() {
       R.easing.applyCurve(ctx, curve(), 'Spring');
-    }
-    // Remove easing from the selected keyframes (clears expressions + linearizes).
-    function doRemove() {
-      ctx.invoke('ease.reset', {})
-        .then(function () { ctx.toast('Removed easing', { kind: 'success' }); ctx.refreshSelection(); })
-        .catch(function (err) { ctx.toast((err && err.message) || 'Could not remove', { kind: 'error' }); });
     }
 
     function getState() {
