@@ -172,6 +172,12 @@
   // y (slope) factors divide by the segment's average speed `avg`, so a segment
   // whose value does NOT change over time (avg == 0) carries no recoverable
   // timing — it can only read back as the linear diagonal. `flat` flags that.
+  // True when the property's motion is driven by an (enabled) expression, so the
+  // keyframe temporal ease Read reconstructs is NOT what actually plays back.
+  function hasExpr(p) {
+    try { return p.expressionEnabled === true; } catch (e) { return false; }
+  }
+
   function reconstructSegment(p, a, b, avg, dim) {
     var outE = p.keyOutTemporalEase(a)[dim];
     var inE = p.keyInTemporalEase(b)[dim];
@@ -183,6 +189,7 @@
     return {
       found: true,
       flat: flat,
+      hasExpression: hasExpr(p),
       propertyName: p.name,
       layerName: util.layerOfProperty(p).name,
       curve: { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 }

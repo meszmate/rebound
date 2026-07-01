@@ -91,6 +91,13 @@
         }));
         return;
       }
+      var anySpatial = false;
+      for (var k = 0; k < segs.length; k++) { if (segs[k].isSpatial) { anySpatial = true; break; } }
+      if (anySpatial) {
+        realValuesEl.appendChild(el('div.rb-ease-real-note', {
+          text: 'Position / Anchor ease along the motion path — one curve for the whole path, not per axis.'
+        }));
+      }
       for (var j = 0; j < segs.length; j++) {
         var p = segs[j];
         var pr = projForCurve(p.segment.avg);
@@ -187,6 +194,18 @@
       }
     }, ['Paste']);
 
+    var resetBtn = el('button.rb-btn.is-ghost', {
+      title: 'Reset the curve to Easy Ease',
+      onclick: function () {
+        editor.setGhost(curve);
+        curve = { type: 'bezier', x1: 0.33, y1: 0, x2: 0.67, y2: 1 };
+        editor.setCurve(curve);
+        syncFields();
+        updateReadout();
+        renderRealValues();
+      }
+    }, ['Reset']);
+
     var exportBtn = el('button.rb-btn.is-ghost', {
       title: 'Write every saved ease as a standalone .jsx — wire each to a KBar button, a Tool Launcher, or AE’s Scripts menu',
       onclick: doExportScripts
@@ -205,7 +224,7 @@
       editorHost,
       el('div.rb-section-label', { text: 'Bezier points' }),
       fieldRow,
-      el('div.rb-row.rb-wrap', null, [copyBtn, pasteBtn, exportBtn]),
+      el('div.rb-row.rb-wrap', null, [copyBtn, pasteBtn, resetBtn, exportBtn]),
       el('div.rb-section-label', { text: 'Apply to' }),
       scopeCtl.el,
       el('div.rb-hint', { text: 'Tip: hold Alt while applying for Out only, Shift for In only — works on preset tiles too.' }),
@@ -330,7 +349,11 @@
           syncFields();
           updateReadout();
           renderRealValues();
-          ctx.toast('Read ease from ' + res.propertyName, { kind: 'info' });
+          if (res.hasExpression) {
+            ctx.toast('Read keyframe ease from ' + res.propertyName + ' — but this property is driven by an expression, so the live motion differs', { kind: 'info' });
+          } else {
+            ctx.toast('Read ease from ' + res.propertyName, { kind: 'info' });
+          }
         })
         .catch(function (err) {
           ctx.toast(err.message || 'Could not read ease', { kind: 'error' });
