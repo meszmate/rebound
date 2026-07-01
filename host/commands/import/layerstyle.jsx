@@ -192,16 +192,12 @@
     }
   }
 
-  // An inside/outside SOLID stroke has no centred-shape-stroke equivalent, so it
-  // is reproduced exactly as a Stroke layer style instead.
-  function strokeToLayerStyle(node) {
-    var st = node.stroke;
-    if (!st || !st.weight || !st.align || st.align === 'CENTER' || !st.paints || !st.paints.length) return null;
-    var p = null;
-    for (var i = 0; i < st.paints.length; i++) { if (st.paints[i] && st.paints[i].visible !== false) { p = st.paints[i]; break; } }
-    if (!p || p.type !== 'SOLID') return null; // gradient strokes stay shape strokes
-    return { type: 'STROKE', size: st.weight, color: p.color, position: st.align, opacity: (p.opacity != null ? p.opacity : 1) };
-  }
+  // (Removed: strokeToLayerStyle. Inside/outside solid strokes used to be
+  // reproduced as a Stroke layer style, which left AE's default RED border
+  // whenever its scripted colour set silently failed — the "red borders
+  // everywhere" bug. They are now drawn as real, correctly-coloured shape strokes
+  // in paint.jsx (Offset Paths inset/outset). This dead path is deleted so it can
+  // never be re-wired back into gatherStyles.)
 
   // Shadow/glow styles AE allows only one of each; extras get dropped (below).
   var SHADOW_GLOW = { DROP_SHADOW: 1, INNER_SHADOW: 1, OUTER_GLOW: 1, INNER_GLOW: 1 };

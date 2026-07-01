@@ -45,8 +45,13 @@ function strokeColorOf(contents) {
   if (!stroke) return null;
   return stroke.property('ADBE Vector Stroke Color').value;
 }
+function fillColorOf(contents) {
+  const fill = findByName(contents, 'ADBE Vector Graphic - Fill');
+  if (!fill) return null;
+  return fill.property('ADBE Vector Fill Color').value;
+}
 
-let applyStroke;
+let applyStroke, applyFills;
 
 beforeAll(() => {
   const dir = path.dirname(fileURLToPath(import.meta.url));
@@ -59,6 +64,7 @@ beforeAll(() => {
   $.__rebound.grad = { applyGradient: function () {}, applyGradientColors: function () { return true; } };
   new Function('$', src)($);
   applyStroke = $.__rebound.importer.paint.applyStroke;
+  applyFills = $.__rebound.importer.paint.applyFills;
 });
 
 function solidStrokeNode(align) {
@@ -106,5 +112,46 @@ describe('host paint.applyStroke — solid borders are coloured shape strokes (n
     const contents = makeProp();
     applyStroke(contents, { name: 'x', stroke: { weight: 1, align: 'INSIDE', paints: [{ type: 'SOLID', visible: false }] } }, {});
     expect(strokeColorOf(contents)).toBeNull();
+  });
+});
+
+// The OTHER default-red source in AE is an uncoloured FILL operator. A freshly
+// added 'ADBE Vector Graphic - Fill' renders red until its colour is set, exactly
+// like a stroke. Lock the fill path too so the importer is provably incapable of
+// leaving ANY paint at AE's default red.
+function solidFillNode() {
+  return {
+    name: 'Card',
+    fills: [{ type: 'SOLID', visible: true, opacity: 1, color: { r: 0.231, g: 0.235, b: 0.251, a: 1 } }]
+  };
+}
+
+describe('host paint.applyFills — solid fills are coloured (no red default)', () => {
+  it('a solid fill sets the fill colour on the contents', () => {
+    const contents = makeProp();
+    applyFills(contents, solidFillNode(), {});
+    const col = fillColorOf(contents);
+    expect(col).not.toBeNull();
+    expect(col[0]).toBeCloseTo(0.231, 3);
+    expect(col[1]).toBeCloseTo(0.235, 3);
+    expect(col[2]).toBeCloseTo(0.251, 3);
+  });
+
+  it('an image fill gets a neutral grey placeholder, never red', () => {
+    const contents = makeProp();
+    applyFills(contents, { name: 'Photo', fills: [{ type: 'IMAGE', visible: true }] }, {});
+    const col = fillColorOf(contents);
+    expect(col).not.toBeNull();
+    // grey placeholder [0.5,0.5,0.5] — the three channels are equal, so it can
+    // never read as AE's red default (which has r ≫ g,b).
+    expect(col[0]).toBeCloseTo(0.5, 3);
+    expect(col[0]).toBeCloseTo(col[1], 6);
+    expect(col[1]).toBeCloseTo(col[2], 6);
+  });
+
+  it('no fill operator is added when every fill is hidden (nothing to colour red)', () => {
+    const contents = makeProp();
+    applyFills(contents, { name: 'x', fills: [{ type: 'SOLID', visible: false }] }, {});
+    expect(fillColorOf(contents)).toBeNull();
   });
 });

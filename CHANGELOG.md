@@ -17,6 +17,10 @@ All notable changes to Rebound are documented here. The format follows
   is added inside the precomp). Even if the offset can't be built, the fallback is a
   centred stroke with the *correct colour* — never a red default. Also deselects all
   layers after import (removes AE's selection outlines) as belt-and-suspenders.
+  The dead `strokeToLayerStyle` path (the exact code that produced the red border)
+  is now deleted so it can't be re-wired back in. The regression lock covers both
+  of AE's default-red sources — an uncoloured shape **stroke** *and* an uncoloured
+  shape **fill** — proving the importer can't leave any paint at AE's default red.
 - **Installed fonts (e.g. Inter) no longer report as "not installed".** The font
   read-back check flagged a family missing whenever AE's `TextDocument.font` string
   differed from the PostScript name we requested — even when we had set a verified,
