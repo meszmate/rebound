@@ -177,6 +177,10 @@
   // origin, so hoisting with the parent's origin keeps every child exactly put.
   var COLLAPSE_LAYOUT = true;
 
+  // Import stats, so the plugin can tell the user how much the timeline flood was
+  // tamed (e.g. "collapsed 1400 layout wrappers, merged 30 icons"). Reset per run.
+  var STATS = { collapsed: 0, merged: 0, dropped: 0 };
+
   function hasVisiblePaint(paints) {
     if (!paints || (typeof figma !== 'undefined' && paints === figma.mixed) || !paints.length) return false;
     for (var i = 0; i < paints.length; i++) {
@@ -797,6 +801,7 @@
         // Hoist the pure-layout wrapper's children straight into this parent (same
         // origin): the wrapper drew nothing and carries no transform of its own.
         // (An icon group is left for nodeToIR to emit as a single merged shape.)
+        STATS.collapsed++;
         var inner = await childrenToIR(kid, origin, assets);
         for (var j = 0; j < inner.length; j++) out.push(inner[j]);
       } else {
@@ -819,6 +824,7 @@
       base.type = 'GROUP';
       base.merged = true;
       base.children = await childrenToIR(node, origin, assets);
+      STATS.merged++;
       return base;
     }
 
@@ -961,13 +967,13 @@
         base.children = await childrenToIR(node, nestedOrigin, assets);
         applyFrameChrome(base, node, w, h);
         await addFrameImageBackground(base, node, w, h, assets);
-        if (frameDrawsNothing(base)) return null; // empty invisible frame / spacer
+        if (frameDrawsNothing(base)) { STATS.dropped++; return null; } // empty invisible frame / spacer
         break;
       case 'GROUP':
         base.type = 'GROUP';
         base.children = await childrenToIR(node, origin, assets);
         if (node.fills && node.fills !== figma.mixed && node.fills.length) base.fills = mapFills(node.fills, w, h);
-        if ((!base.children || !base.children.length) && !(base.fills && base.fills.length)) return null;
+        if ((!base.children || !base.children.length) && !(base.fills && base.fills.length)) { STATS.dropped++; return null; }
         break;
       default:
         if (node.fillGeometry && node.fillGeometry.length) {
@@ -1090,6 +1096,7 @@
     // Default ON: collapse pure-layout wrapper frames so a deep auto-layout board
     // doesn't flood the timeline. A future UI toggle can send collapseLayout:false.
     COLLAPSE_LAYOUT = opts.collapseLayout !== false;
+    STATS = { collapsed: 0, merged: 0, dropped: 0 };
     var assets = {};
     var frames = [];
     var loose = [];
@@ -1103,9 +1110,27 @@
     return {
       irVersion: IR_VERSION,
       source: { app: 'figma', exporterVersion: '0.1.0', fileName: figma.root.name, selectionCount: selection.length },
-      document: { name: figma.root.name, colorSpace: 'srgb', unit: 'px', yAxis: 'down', assets: assets, frames: frames }
+      document: {
+        name: figma.root.name, colorSpace: 'srgb', unit: 'px', yAxis: 'down', assets: assets, frames: frames,
+        // How much the timeline flood was tamed (the plugin surfaces this).
+        stats: { collapsed: STATS.collapsed, merged: STATS.merged, dropped: STATS.dropped, layers: countIRLayers(frames) }
+      }
     };
   }
 
-  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION, isCollapsibleLayout: isCollapsibleLayout, frameDrawsNothing: frameDrawsNothing, isIconGroup: isIconGroup };
+  // Count the layers the AE importer will build from the emitted IR (every node,
+  // recursively). Merged icons count as ONE (their children stay in the merged
+  // shape). Used only for the plugin's "sent N layers" readout.
+  function countIRLayers(nodes) {
+    var n = 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      if (!node) continue;
+      n++;
+      if (node.children && node.children.length && !node.merged) n += countIRLayers(node.children);
+    }
+    return n;
+  }
+
+  root.ReboundFigma = { buildIR: buildIR, irVersion: IR_VERSION, isCollapsibleLayout: isCollapsibleLayout, frameDrawsNothing: frameDrawsNothing, isIconGroup: isIconGroup, countIRLayers: countIRLayers };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

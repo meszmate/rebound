@@ -101,6 +101,25 @@ describe('ir-build.isIconGroup', () => {
   });
 });
 
+describe('ir-build.countIRLayers', () => {
+  const { countIRLayers } = globalThis.ReboundFigma;
+
+  it('counts every node recursively', () => {
+    // outer(1) + leaf(1) + mid(1) + mid's two leaves(2) = 5
+    expect(countIRLayers([{ children: [{}, { children: [{}, {}] }] }])).toBe(5);
+  });
+
+  it('counts a merged icon as ONE layer (its vectors ride the merged shape)', () => {
+    const merged = { merged: true, children: [{}, {}, {}] };
+    expect(countIRLayers([merged])).toBe(1);
+    expect(countIRLayers([{ children: [merged, {}] }])).toBe(3); // wrapper + merged(1) + leaf
+  });
+
+  it('ignores null/holes', () => {
+    expect(countIRLayers([{}, null, { children: [] }])).toBe(2);
+  });
+});
+
 describe('ir-build.frameDrawsNothing', () => {
   const { frameDrawsNothing } = globalThis.ReboundFigma;
 

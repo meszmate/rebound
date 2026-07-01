@@ -282,6 +282,20 @@
 
   // ── Sending ───────────────────────────────────────────────────────
 
+  // A short "how much the flood was tamed" suffix from the IR stats, so a big
+  // import reads e.g. "130 layers · collapsed 1400 layout wrappers, merged 30 icons".
+  function statsSuffix(ir) {
+    var s = ir && ir.document && ir.document.stats;
+    if (!s) return '';
+    var tamed = [];
+    if (s.collapsed) tamed.push('collapsed ' + s.collapsed + ' layout wrapper' + (s.collapsed === 1 ? '' : 's'));
+    if (s.merged) tamed.push('merged ' + s.merged + ' icon' + (s.merged === 1 ? '' : 's'));
+    if (s.dropped) tamed.push('dropped ' + s.dropped + ' spacer' + (s.dropped === 1 ? '' : 's'));
+    if (!s.layers && !tamed.length) return '';
+    var head = s.layers ? (s.layers + ' layer' + (s.layers === 1 ? '' : 's')) : '';
+    return ' (' + [head].concat(tamed.length ? [tamed.join(', ')] : []).filter(Boolean).join(' · ') + ')';
+  }
+
   function postIR(ir) {
     loading(true, 'Sending…');
     showMsg('info', 'Sending to After Effects…');
@@ -294,7 +308,7 @@
       .then(function (res) {
         loading(false);
         if (res.ok && res.body && res.body.ok) {
-          showMsg('ok', 'Sent. Your design is now in After Effects.');
+          showMsg('ok', 'Sent. Your design is now in After Effects.' + statsSuffix(ir));
           renderReport(res.body.report);
         } else {
           showMsg('error', (res.body && res.body.error) || 'After Effects could not import this.');
