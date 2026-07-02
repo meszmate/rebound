@@ -10,7 +10,9 @@
   border: 1px solid var(--rb-border);
   border-radius: var(--rb-radius-3);
   overflow: hidden;
-  touch-action: none;
+  /* touch-action is scoped to the draggable handles below, NOT the whole graph,
+     so a scroll gesture that starts over the (large) graph still scrolls the
+     panel instead of being swallowed — the "buggy scrolling" fix. */
 }
 .rb-curve svg { display: block; width: 100%; height: 100%; }
 
@@ -44,8 +46,11 @@
 }
 .rb-curve .rb-handle:hover { stroke: var(--rb-text); }
 .rb-curve .rb-handle.is-dragging { cursor: grabbing; stroke: var(--rb-text); }
+/* Only the handles capture the gesture (so a handle drag never scrolls); the rest
+   of the graph lets scroll gestures pass through to the panel. */
+.rb-curve .rb-handle { touch-action: none; }
 /* Invisible, larger grab area around each handle (easier to hit than the dot). */
-.rb-curve .rb-handle-hit { fill: transparent; cursor: grab; }
+.rb-curve .rb-handle-hit { fill: transparent; cursor: grab; touch-action: none; }
 .rb-curve .rb-handle-hit:active { cursor: grabbing; }
 .rb-curve .rb-anchor-dot { fill: var(--rb-text-faint); }
 
