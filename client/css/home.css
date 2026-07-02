@@ -904,22 +904,27 @@
 
 /* ---- Board Size + Columns controls + drag-resize handle ------------------ */
 /* The edit bar wraps and spaces its control groups so nothing collides. */
-.rb-home-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 7px 16px; }
-.rb-home-hint .rb-grow { flex: 1 1 100%; }
-.rb-home-sizectl { display: none; align-items: center; gap: 6px; }
+/* Compact: this edit bar sits above the board, so keep it to one tight row.
+   Tighter gaps + smaller buttons/labels leave the board room to breathe (it used
+   to wrap into two or three tall rows and crowd everything out). */
+.rb-home-hint { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+/* The tip text shares the row with the controls and truncates, instead of taking
+   a full 100% line that pushed the Size/Columns/Board groups onto a second row. */
+.rb-home-hint .rb-grow { flex: 1 1 60px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-home-sizectl { display: none; align-items: center; gap: 3px; }
 .rb-home.is-editing .rb-home-sizectl { display: inline-flex; }
-.rb-home-sizectl .rb-faint { font-size: calc(var(--rb-font-size) - 1px); white-space: nowrap; }
+.rb-home-sizectl .rb-faint { font-size: calc(var(--rb-font-size) - 2px); white-space: nowrap; }
 .rb-home-sizebtn {
-  width: 22px; height: 20px; border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
-  background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; font-size: 11px;
+  width: 19px; height: 17px; border: 1px solid var(--rb-border-strong); border-radius: var(--rb-radius-1);
+  background: transparent; color: var(--rb-text-muted); cursor: pointer; font: inherit; font-size: 10px;
   transition: color var(--rb-transition), border-color var(--rb-transition);
 }
 .rb-home-sizebtn.is-active { border-color: var(--rb-accent); color: var(--rb-accent); }
 .rb-home-sizebtn:hover { color: var(--rb-text); }
 /* A text button (e.g. "Auto") sizes to its label instead of a fixed square. */
-.rb-home-autobtn { width: auto; min-width: 0; padding: 0 9px; }
+.rb-home-autobtn { width: auto; min-width: 0; padding: 0 6px; }
 /* Board accent picker in the edit bar, and the per-widget colour swatch. */
-.rb-home-boardcolor { width: 26px; height: 20px; }
+.rb-home-boardcolor { width: 22px; height: 17px; }
 .rb-home-wcolor {
   width: 24px; height: 24px; padding: 0; flex: none; cursor: pointer;
   border: 1px solid var(--rb-border-strong); border-radius: 999px; background: none;
