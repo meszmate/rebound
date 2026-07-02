@@ -408,9 +408,9 @@
   min-height: 190px;
   border-radius: 16px;
   background:
-    radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--rb-accent) 12%, transparent), transparent 60%),
+    radial-gradient(120% 120% at 50% 0%, rgba(var(--rb-accent-rgb), 0.12), transparent 60%),
     var(--rb-bg-sunken);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 5%, transparent), inset 0 0 0 1px var(--rb-border);
+  box-shadow: inset 0 1px 0 rgba(255,255,255, 0.05), inset 0 0 0 1px var(--rb-border);
   cursor: crosshair;
   touch-action: none;
   overflow: hidden;
@@ -424,9 +424,10 @@
 }
 .rb-anchor-card {
   border-radius: 11px;
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--rb-anchor-tint, var(--rb-accent)) 24%, var(--rb-bg-raised)), var(--rb-bg-raised));
-  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px color-mix(in srgb, var(--rb-anchor-tint, var(--rb-accent)) 40%, var(--rb-border));
+  /* solid base + rgba tint overlay (CEF has no color-mix) */
+  background-color: var(--rb-bg-raised);
+  background-image: linear-gradient(160deg, rgba(var(--rb-accent-rgb), 0.24), transparent 70%);
+  box-shadow: 0 8px 22px -10px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(var(--rb-accent-rgb), 0.4);
   overflow: visible;
 }
 .rb-anchor-card.is-empty {
@@ -480,7 +481,7 @@
   pointer-events: none;
   text-align: center;
 }
-.rb-anchor-glyph { width: 30px; height: 30px; color: color-mix(in srgb, var(--rb-text) 70%, var(--rb-anchor-tint, var(--rb-accent))); }
+.rb-anchor-glyph { width: 30px; height: 30px; color: var(--rb-text); }
 .rb-anchor-glyph svg { width: 100%; height: 100%; display: block; }
 .rb-anchor-name {
   max-width: 90%;
@@ -495,8 +496,8 @@
 /* The pivot demo: a ghost of the card that wobbles around the anchor point. */
 .rb-anchor-ghost {
   border-radius: 11px;
-  border: 1.5px dashed color-mix(in srgb, var(--rb-accent) 60%, transparent);
-  background: color-mix(in srgb, var(--rb-accent) 7%, transparent);
+  border: 1.5px dashed rgba(var(--rb-accent-rgb), 0.6);
+  background: rgba(var(--rb-accent-rgb), 0.07);
   pointer-events: none;
   z-index: 1;
   animation: rb-anchor-pivot 4.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
@@ -521,16 +522,18 @@
   padding: 0;
   border-radius: 50%;
   border: 0;
-  background: color-mix(in srgb, var(--rb-accent) 22%, var(--rb-bg-raised));
+  /* solid base + rgba tint overlay (CEF has no color-mix) */
+  background-color: var(--rb-bg-raised);
+  background-image: linear-gradient(rgba(var(--rb-accent-rgb), 0.22), rgba(var(--rb-accent-rgb), 0.22));
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35), inset 0 0 0 2px var(--rb-bg-raised);
   cursor: pointer;
   z-index: 3;
   transition: transform var(--rb-dur-fast, 0.16s) var(--rb-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)),
     background var(--rb-transition), box-shadow var(--rb-transition);
 }
-.rb-anchor-dot:hover { transform: translate(-50%, -50%) scale(1.5); background: color-mix(in srgb, var(--rb-accent) 55%, var(--rb-bg-raised)); box-shadow: 0 0 0 7px color-mix(in srgb, var(--rb-accent) 16%, transparent); }
+.rb-anchor-dot:hover { transform: translate(-50%, -50%) scale(1.5); background-image: linear-gradient(rgba(var(--rb-accent-rgb), 0.55), rgba(var(--rb-accent-rgb), 0.55)); box-shadow: 0 0 0 7px rgba(var(--rb-accent-rgb), 0.16); }
 .rb-anchor-dot:active { transform: translate(-50%, -50%) scale(1.25); }
-.rb-anchor-dot.is-active { background: var(--rb-accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--rb-accent) 22%, transparent); }
+.rb-anchor-dot.is-active { background: var(--rb-accent); box-shadow: 0 0 0 6px rgba(var(--rb-accent-rgb), 0.22); }
 
 /* The draggable anchor pin: a target reticle that floats above the card. */
 .rb-anchor-pin {
@@ -542,10 +545,10 @@
   border: 3px solid var(--rb-accent);
   background:
     radial-gradient(circle at 50% 50%, var(--rb-accent) 0 3px, transparent 4px),
-    radial-gradient(circle, color-mix(in srgb, var(--rb-accent) 30%, transparent), transparent 70%);
+    radial-gradient(circle, rgba(var(--rb-accent-rgb), 0.3), transparent 70%);
   pointer-events: none;
   z-index: 5;
-  box-shadow: 0 3px 12px -2px color-mix(in srgb, var(--rb-accent) 70%, transparent), 0 0 0 4px color-mix(in srgb, var(--rb-bg-sunken) 55%, transparent);
+  box-shadow: 0 3px 12px -2px rgba(var(--rb-accent-rgb), 0.7), 0 0 0 4px rgba(var(--rb-bg-sunken-rgb), 0.55);
   animation: rb-anchor-pulse 2.4s ease-in-out infinite;
 }
 /* North/East/South/West ticks on the reticle. */
@@ -555,8 +558,8 @@
 .rb-anchor-pin::after { top: 50%; left: -7px; right: -7px; height: 2px; transform: translateY(-50%); }
 .rb-anchor-pin.is-outside { border-style: dashed; opacity: 0.85; }
 @keyframes rb-anchor-pulse {
-  0%, 100% { box-shadow: 0 3px 12px -2px color-mix(in srgb, var(--rb-accent) 55%, transparent), 0 0 0 0 color-mix(in srgb, var(--rb-accent) 35%, transparent); }
-  50% { box-shadow: 0 3px 12px -2px color-mix(in srgb, var(--rb-accent) 70%, transparent), 0 0 0 9px color-mix(in srgb, var(--rb-accent) 0%, transparent); }
+  0%, 100% { box-shadow: 0 3px 12px -2px rgba(var(--rb-accent-rgb), 0.55), 0 0 0 0 rgba(var(--rb-accent-rgb), 0.35); }
+  50% { box-shadow: 0 3px 12px -2px rgba(var(--rb-accent-rgb), 0.7), 0 0 0 9px rgba(var(--rb-accent-rgb), 0); }
 }
 @media (prefers-reduced-motion: reduce) { .rb-anchor-pin { animation: none; } }
 :root.rb-tiles-static .rb-anchor-pin { animation: none; }
@@ -636,7 +639,7 @@
   caret-color: var(--rb-text);
   -webkit-text-fill-color: transparent;
 }
-.rb-code-input::selection { background: color-mix(in srgb, var(--rb-accent) 35%, transparent); }
+.rb-code-input::selection { background: rgba(var(--rb-accent-rgb), 0.35); }
 .rb-code-input::placeholder { color: var(--rb-text-faint); -webkit-text-fill-color: var(--rb-text-faint); }
 .rb-code-input:focus { outline: none; }
 .rb-code-editor:focus-within { border-color: var(--rb-accent); }

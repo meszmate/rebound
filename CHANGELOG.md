@@ -7,6 +7,18 @@ All notable changes to Rebound are documented here. The format follows
 ## [Unreleased]
 
 ### Fixed
+- **Panel scrolling was broken (content cut off, "won't go down").** `.rb-main`, a
+  vertical flex column, was missing `min-height: 0`, so tall tool content overflowed
+  the `overflow:hidden` app shell and the inner scroll area never engaged. One line
+  fixed it; the whole panel scrolls properly now.
+- **Invisible buttons / missing tints in After Effects (`color-mix` purge).** AE's
+  CEF Chromium doesn't support CSS `color-mix()`, so ~40 backgrounds, focus rings,
+  badges and hover tints silently rendered as *nothing* — including the widget's
+  own control buttons ("no background, not visible at all"). Added raw `--rb-*-rgb`
+  triplet tokens (published by `theme.js` per skin) and converted every `color-mix()`
+  to CEF-safe `rgba()` / layered backgrounds. Also gave the widget's ghost buttons a
+  real surface so they read as buttons. Guarded by tests that fail if any functional
+  `color-mix()` returns.
 - **The easing graph editor is resizable now — and calmer by default.** The curve
   editor was a fixed, oversized 300px block with no way to resize it; trying to
   drag it did nothing. It now opens at a more compact height and has a slim drag

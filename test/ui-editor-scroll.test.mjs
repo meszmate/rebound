@@ -59,6 +59,27 @@ describe('tool panel — the scroll chain is height-bounded', () => {
   });
 });
 
+describe('theme — no color-mix() (unsupported by AE CEF Chromium)', () => {
+  // AE's CEF drops any declaration using color-mix(), so tints/backgrounds go
+  // invisible. All tints must use rgba(var(--x-rgb), a) instead.
+  const files = [
+    'client/css/base.css', 'client/css/home.css', 'client/css/components.css',
+    'client/css/import.css', 'client/css/layout.css', 'client/css/nav.css',
+    'client/css/curve-editor.css'
+  ];
+  const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const f of files) {
+    it(`${f.split('/').pop()} has no functional color-mix()`, () => {
+      expect(stripComments(read(f))).not.toMatch(/color-mix\(/);
+    });
+  }
+  it('theme.js publishes the rgba() triplet tokens', () => {
+    const t = read('client/js/core/theme.js');
+    expect(t).toMatch(/--rb-accent-rgb/);
+    expect(t).toMatch(/accentRgb/);
+  });
+});
+
 describe('editing view — the graph is resizable', () => {
   it('R.ui.resizeHandle exists', () => {
     const controls = read('client/js/ui/controls.js');

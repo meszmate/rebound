@@ -25,6 +25,13 @@
   --rb-danger: #e5534b;
   --rb-warning: #e8a838;
   --rb-success: #5cb878;
+  /* Raw "r,g,b" triplets for rgba() tints — AE's CEF Chromium has no color-mix().
+     theme.js overwrites these per skin/accent. */
+  --rb-accent-rgb: 84,150,250;
+  --rb-bg-rgb: 30,31,35;
+  --rb-bg-raised-rgb: 47,48,52;
+  --rb-bg-sunken-rgb: 23,24,27;
+  --rb-success-rgb: 92,184,120;
   --rb-font-size: 11px;
 
   /* Spacing + radius scale (original Rebound design language). */

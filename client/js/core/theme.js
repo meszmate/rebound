@@ -40,11 +40,19 @@
     var toward = dark ? 255 : 0; // lighten on dark themes, darken on light
     var away = dark ? 0 : 255;
 
+    var raised = mix(bg, toward, 0.075);
+    var sunken = mix(bg, away, 0.24);
+    // Raw "r,g,b" triplets so the CSS can build translucent tints with rgba() —
+    // AE's CEF Chromium does NOT support color-mix(), so any color-mix() silently
+    // drops the whole declaration (invisible backgrounds, missing focus rings).
+    // rgba(var(--x-rgb), a) renders everywhere.
+    function tri(a) { return clamp255(a[0]) + ',' + clamp255(a[1]) + ',' + clamp255(a[2]); }
+
     return {
       isDark: dark,
       bg: rgb(bg[0], bg[1], bg[2]),
-      bgRaised: rgb.apply(null, mix(bg, toward, 0.075)),
-      bgSunken: rgb.apply(null, mix(bg, away, 0.24)),
+      bgRaised: rgb.apply(null, raised),
+      bgSunken: rgb.apply(null, sunken),
       border: rgb.apply(null, mix(bg, toward, 0.13)),
       borderStrong: rgb.apply(null, mix(bg, toward, 0.26)),
       control: rgb.apply(null, mix(bg, toward, 0.11)),
@@ -56,7 +64,12 @@
       accentText: luma(accent) > 150 ? 'rgb(20,20,22)' : 'rgb(255,255,255)',
       danger: 'rgb(229,83,75)',
       warning: 'rgb(232,168,56)',
-      success: 'rgb(92,184,120)'
+      success: 'rgb(92,184,120)',
+      accentRgb: tri(accent),
+      bgRgb: tri(bg),
+      bgRaisedRgb: tri(raised),
+      bgSunkenRgb: tri(sunken),
+      successRgb: '92,184,120'
     };
   }
 
@@ -98,6 +111,12 @@
     set('--rb-danger', p.danger);
     set('--rb-warning', p.warning);
     set('--rb-success', p.success);
+    // Raw triplets for rgba() tints (CEF has no color-mix()).
+    set('--rb-accent-rgb', p.accentRgb);
+    set('--rb-bg-rgb', p.bgRgb);
+    set('--rb-bg-raised-rgb', p.bgRaisedRgb);
+    set('--rb-bg-sunken-rgb', p.bgSunkenRgb);
+    set('--rb-success-rgb', p.successRgb);
     if (fontSize) set('--rb-font-size', fontSize + 'px');
     root.setAttribute('data-theme', p.isDark ? 'dark' : 'light');
   }
