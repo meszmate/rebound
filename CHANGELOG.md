@@ -14,6 +14,14 @@ All notable changes to Rebound are documented here. The format follows
   the height remembered per tool. Applied consistently to Ease, Spring, Recoil and
   Bounce (shared `R.ui.resizeHandle`). Fixes "the editing view is too big and
   resizing just doesn't work."
+- **Buggy scrolling in the tool panel is fixed.** Two causes: (1) `touch-action:
+  none` was on the whole curve graph, so scroll gestures starting over it were
+  swallowed — now scoped to just the draggable handles, so the rest of the graph
+  scrolls the panel normally; (2) on wide docks the tool body flowed into CSS
+  multi-columns, which made scrolling jump between columns and sliced the graph
+  across them — replaced with a single, centered, comfortably-wide column that
+  scrolls predictably. Also enlarged the curve handles' grab area (invisible hit
+  target) so they're no longer finicky to drag.
 - **The "red borders" are gone (real root cause).** Figma's default stroke align is
   INSIDE, and inside/outside SOLID strokes were reproduced as an After Effects
   *Stroke layer style*. When that layer style's scripted colour set silently failed
