@@ -48,6 +48,17 @@ describe('editing view — tool body scrolls predictably (no multi-column)', () 
   });
 });
 
+describe('tool panel — the scroll chain is height-bounded', () => {
+  // .rb-main is a vertical flex column inside the column #rb-app; without
+  // min-height:0 it overflows (clipped by #rb-app's overflow:hidden) and the tool
+  // body can never scroll — "it won't go down / the bottom is cut off".
+  it('.rb-main sets min-height:0 so inner overflow-y:auto can scroll', () => {
+    const body = ruleBody(read('client/css/nav.css'), '.rb-main');
+    expect(body).not.toBeNull();
+    expect(body).toMatch(/min-height\s*:\s*0/);
+  });
+});
+
 describe('editing view — the graph is resizable', () => {
   it('R.ui.resizeHandle exists', () => {
     const controls = read('client/js/ui/controls.js');

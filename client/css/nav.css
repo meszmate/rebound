@@ -65,6 +65,12 @@
 .rb-main {
   flex: 1 1 auto;
   min-width: 0;
+  /* min-height:0 is REQUIRED here: .rb-main is a vertical flex column inside the
+     column #rb-app, so without it the flex item can't shrink below its content
+     height, overflows #rb-app (which is overflow:hidden), and the tool body's
+     inner overflow-y:auto never gets a bounded height — the whole "scrolling is
+     disabled / it won't go down / the bottom is cut off" bug. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
