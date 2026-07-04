@@ -6,7 +6,119 @@ All notable changes to Rebound are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Anything in Rebound can now be pinned to the Home board, from anywhere.**
+  A new load-time preset registry (`R.toolPresets`) turns every tool's built-in
+  presets AND every preset the user saves into pinnable Home actions, without
+  the tool ever having been opened (previously a tool's presets only appeared
+  after the tool mounted once, so e.g. no Spring preset was ever offered).
+  Spring, Bounce and Recoil presets apply in one click, byte-identical to the
+  tool's own Apply (with the Keyframes/Expression per-tile choice); every other
+  tool's preset pins as "open the tool with this preset loaded". All ~150
+  preset actions also become bindable to keyboard shortcuts for free, since
+  they live in the same action catalog. Pinning now also works in place: every
+  preset tile in every tool's gallery grew a hover "+" (Add to Home), and the
+  tool header grew a pin that drops the tool's launcher on the active board.
+  Spring, Recoil and Bounce can additionally be pinned as live widgets (their
+  preview + curve + sliders are the whole tool).
+- **The Add browser is a real catalog now.** It was a 640px dialog squeezed
+  into a ~370px panel with a bare 22px search pill (the input inside was 32px
+  tall, overflowing its own box) and a four-way kind filter. Now it is a
+  full-height sheet sized to the panel, with a proper search field (icon,
+  34px, focused on open) that cuts across everything, scrollable category
+  chips with live counts (Widgets / Actions / Presets / Easing / Expressions /
+  Scripts / Tools), presets grouped under a small tool heading with the preset
+  name on the card, and cards that draw the preset's REAL sampled curve
+  (spring overshoot, bounce decay) instead of a generic stand-in. The same
+  real-curve chip is what the pinned tile shows on the board.
+- **The "link" tool demo animates again.** Its follower elements shipped
+  out-of-range SMIL keyTimes (`0.08;0.58;1.08`), which the browser rejects
+  outright (console errors, static demo); the lag is now a `begin` offset with
+  valid keyTimes.
+
 ### Fixed
+- **"Precomp large frames & groups" off now really means no automatic precomps.**
+  A small clipping frame whose content pokes past its edge (the crop-by-frame
+  pattern: Figma hides the overflow, so the frame looks tiny and tidy) was
+  still forced into a precomp by the clipping rule, ignoring the toggle — "it
+  doesn't take up 40 layers but it comps it anyway". Now the clip rule defers
+  to the user: with both precomp toggles off the frame builds flat, its
+  overflow stays visible, and the fidelity report says exactly why ("clips
+  overflowing content, but precomps are turned off"). Defaults are unchanged
+  (clipping frames still clip 1:1 via a precomp), masks still get their matte
+  precomp, and a new exporter-to-host contract test locks all of it in CI
+  (test/host-precomp-decision.test.mjs, using the decision seam
+  R.importer.decide that build.jsx now exports).
+- **Resizing a Home tile no longer "jumps everywhere".** Three compounding bugs:
+  (1) the FLIP helper measured destination rects while previous glides were still
+  mid-transition, so fast drags compounded garbage deltas and sent tiles flying;
+  (2) FLIP also animated the very tile being resized, sliding it under the
+  pointer on every snap; (3) the pointer-to-cell math used a cell height and
+  anchor captured once at pointerdown, which went stale the moment a snap changed
+  the row count, because every 1fr row re-stretches on the fit-to-height board,
+  producing the snap/unsnap oscillation. Now: metrics and the anchor are re-read
+  on every move, a 58% hysteresis stops boundary flicker, the resized item is
+  excluded from FLIP, and in-flight transforms are cleared before destinations
+  are measured (which also steadies drag-to-reorder). Resizing also gained a live
+  size chip ("2 × 1", same voice as the curve editor's drag chips), a lifted
+  elevation on the grabbed tile, and pointercancel/lostpointercapture cleanup so
+  a cancelled drag can't strand listeners or the resizing state.
+- **Bezier handles can cross in X: strong ease-in-outs are drawable again.** The
+  editor (and the host's mirror sanitizer) forced x1 <= x2 on the wrong
+  assumption that the two keyframes' influences must sum to 100%, so the
+  in-handle could never be dragged left of the out-handle and curves like
+  cubic-bezier(0.87, 0, 0.13, 1) were impossible to author. In truth each
+  keyframe's influence is its own independent 0.1..100% (out = 100*x1, in =
+  100*(1-x2)), crossed handles are exactly representable as native temporal
+  ease, and x(t) stays monotonic for any x1,x2 in [0,1]. The crossing clamp is
+  removed from bezier.sanitizeHandles, the curve editor's applyHandle, the
+  numeric bezier fields, and the host's sanitizeCurve; X still clamps to
+  [0.001, 0.999]. Tests now lock crossing as supported instead of forbidden.
+- **Curve handles (and every other drag) no longer stick to the cursor after a
+  release outside the panel.** In CEP, releasing the mouse outside the panel
+  never delivers mouseup/pointerup, so any document-level move listener stayed
+  bound and the dragged thing chased the cursor on the next buttonless move,
+  which made the ease widget's bezier handles feel "buggy, can't drag them
+  anywhere". Every drag surface (curve editor handles, home-board resize,
+  colour picker, gradient endpoints/stops/chips, the anchor puck, field
+  scrubbing and the editor resize strip) now treats the first move with no
+  button held as the release and ends the drag cleanly. Also, the edit-mode
+  widget shield now explains itself: clicking a shielded widget shows "Turn off
+  Edit to use this widget" instead of silently swallowing the click.
+- **Resizing works inside After Effects (the grip no longer starts a card drag).**
+  Two CEF realities killed the resize in the real panel even though it worked in
+  a desktop browser: in edit mode the card is an HTML5 draggable, so pressing
+  the corner grip and moving started a native card DRAG (a reorder that shoves
+  the item down a row) instead of a resize; and AE's CEF can drop pointer
+  events while still delivering mouse events (the same quirk the curve editor
+  handles). The grip now cancels any dragstart born on it, disables the card's
+  draggable for the duration of a resize, binds both mousedown and pointerdown
+  (a flag dedupes the pair), and streams moves from the document instead of
+  relying on pointer capture. Verified with a mouse-events-only synthetic drag,
+  which is what CEF delivers at worst.
+- **Growing an item now grows it in place; the board scrolls in edit mode.**
+  Two design limits made a resize read as "it just moves down instead of doing
+  anything": dense auto-placement RELOCATES an item whose grown span no longer
+  fits at its position, and the fit-to-height board (no scrolling, rows stretch)
+  could not create room, so growth squeezed every row instead. In edit mode the
+  rows now hold their size cap and the board scrolls (`.rb-home.is-editing
+  .rb-home-grid`); during a resize drag the item is pinned to its origin cell
+  with an explicit grid start, so siblings reflow around it while it grows in
+  place, the width clamps to the columns remaining from that origin, and the
+  drag auto-scrolls at the board's edges. On release the item order is
+  re-derived from the visual board, so the re-render keeps the item where it was
+  left. Widget height caps were also raised (big widgets 6 to 8 rows, small 4 to
+  5) now that the board can scroll.
+- **Widget edit controls no longer pile on top of each other on narrow widgets.**
+  The floating top-right cluster (colour, Auto, collapse, open, maximize, remove)
+  is ~180px wide in edit mode, so on a one- or two-column widget it overflowed
+  the card and landed on the title chip and on itself. The cluster now wraps
+  right-aligned inside the card, the title chip's width adapts to the visible
+  cluster, and two width-measured tiers (`is-tight` < 210px, `is-xtight` <
+  150px, kept in sync by `syncTight()` on fit, render and live resize) shed the
+  colour pair, then maximize and the title, leaving collapse / open / remove,
+  which fit even a one-column widget. Very narrow tiles move the customize cog
+  to the free bottom-left corner so it can't touch the remove button.
 - **Panel scrolling was broken (content cut off, "won't go down").** `.rb-main`, a
   vertical flex column, was missing `min-height: 0`, so tall tool content overflowed
   the `overflow:hidden` app shell and the inner scroll area never engaged. One line
