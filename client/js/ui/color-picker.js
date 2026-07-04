@@ -65,7 +65,7 @@
     function bindDrag(elm, handler) {
       on(elm, 'pointerdown', function (e) {
         e.preventDefault(); handler(e);
-        var mv = function (ev) { handler(ev); };
+        var mv = function (ev) { if (ev.buttons === 0) return up(); handler(ev); }; // lost mouseup outside the panel (CEP)
         var up = function () { document.removeEventListener('pointermove', mv, true); document.removeEventListener('pointerup', up, true); pushRecent(hex()); };
         document.addEventListener('pointermove', mv, true); document.addEventListener('pointerup', up, true);
       });

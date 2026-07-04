@@ -152,6 +152,7 @@
 
       function onMove(e) {
         if (!dragging) return;
+        if (e.buttons === 0) return endDrag(); // lost mouseup outside the panel (CEP)
         var dx = e.movementX || 0;
         if (!dx) return;
         commit((R.units.parseNumber(input.value) || 0) + dx * step * (e.shiftKey ? 10 : 1), true);
@@ -281,6 +282,7 @@
     var start = null;
     function move(ev) {
       if (!start) return;
+      if (ev.buttons === 0) return end(); // lost mouseup outside the panel (CEP)
       var y = ev.clientY != null ? ev.clientY : start.y;
       setH(start.h + (y - start.y), false);
     }

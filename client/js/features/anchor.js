@@ -148,7 +148,7 @@
       }
       box.classList.add('is-dragging');
       setFromEvent(e);
-      function mv(ev) { setFromEvent(ev); }
+      function mv(ev) { if (ev.buttons === 0) return up(); setFromEvent(ev); } // lost mouseup outside the panel (CEP)
       function up() {
         document.removeEventListener('pointermove', mv);
         document.removeEventListener('pointerup', up);

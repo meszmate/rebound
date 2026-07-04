@@ -24,8 +24,8 @@
   var speedgraph = R.easing.speedgraph;
   var bezier = R.easing.bezier;
 
-  // Keep a bezier curve inside the AE-representable domain (X in [0.001,0.999],
-  // x1<=x2); pass non-bezier (spring/penner) curves through untouched.
+  // Keep a bezier curve inside the AE-representable domain (X in [0.001,0.999];
+  // handles may cross); pass non-bezier (spring/penner) curves through untouched.
   function sanitize(c) {
     if (!c || c.type !== 'bezier') return c;
     var s = bezier.sanitizeHandles(c);
@@ -254,6 +254,10 @@
         render();
         var ended = false;
         var move = function (ev) {
+          // A release OUTSIDE the panel never delivers mouseup/pointerup in CEP,
+          // which would leave this listener alive and the handle glued to the
+          // cursor on the next buttonless move. Treat that as the release.
+          if (ev.buttons === 0) return up();
           var p = toPlot(ev);
           applyHandle(key, domX(p.x), domV(p.y), ev);
         };
@@ -303,12 +307,11 @@
     }
 
     function applyHandle(key, x, y, ev) {
-      // Keep X in [0.001, 0.999] and x1 <= x2 so the curve stays exactly what AE
-      // can reproduce (monotonic time, handles never overlap). The dragged handle
-      // clamps against the other's current position; Y is left free so overshoot
-      // and anticipation are still drawable (AE renders them via handle speed).
-      if (key === 'h1') x = clamp(x, 0.001, Math.max(0.001, curve.x2));
-      else x = clamp(x, Math.min(curve.x1, 0.999), 0.999);
+      // Keep X in [0.001, 0.999] (AE's real influence range). The handles may
+      // cross in X: out/in influence are independent per keyframe, so x1 > x2
+      // (a strong ease-in-out like 0.87/0.13) is exactly representable. Y is
+      // left free so overshoot and anticipation are still drawable.
+      x = clamp(x, 0.001, 0.999);
       if (space === 'speed') {
         // y is a normalized speed (avg == 1). X stays the influence; convert the
         // height back into the stored value-curve y so {x1,y1,x2,y2} is exact and

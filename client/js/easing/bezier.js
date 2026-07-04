@@ -95,25 +95,22 @@
   /**
    * Constrain a curve's handles to the domain After Effects can reproduce as an
    * EXACT native temporal ease, so "what you drew" == "what plays back":
-   *   - X in [0.001, 0.999]  (influence's real 0.1%..100% range), and
-   *   - x1 <= x2             (time stays monotonic; the two ease handles never
-   *                           overlap, since outInfluence + inInfluence =
-   *                           100*(1 + x1 - x2) <= 100 when x1 <= x2).
+   *   - X in [0.001, 0.999]  (influence's real 0.1%..100% range).
+   * The handles MAY cross in X (x1 > x2): each keyframe's influence is its own
+   * independent 0.1..100% (out = 100*x1, in = 100*(1-x2)), so a strong
+   * ease-in-out like cubic-bezier(0.87, 0, 0.13, 1) is exactly representable,
+   * and x(t) stays monotonic for ANY x1,x2 in [0,1]. (An earlier version
+   * forbade crossing on the wrong assumption that the influences must sum to
+   * 100%, which made strong eases impossible to draw.)
    * Y is deliberately left free: a single cubic with y1<0 or y2>1 is genuine
    * anticipation / overshoot and AE renders it faithfully via handle speed, so
    * clamping Y would throw away a real, representable feature.
-   *
-   * `moved` ('out' | 'in') is the handle the user is dragging, so the OTHER one
-   * holds still and the dragged one clamps against it (matches AE's graph editor).
    */
-  function sanitizeHandles(h, moved) {
-    var x1 = clamp(h.x1, X_MIN, X_MAX);
-    var x2 = clamp(h.x2, X_MIN, X_MAX);
-    if (x1 > x2) {
-      if (moved === 'in') x2 = x1;        // in-handle can't cross left of the out-handle
-      else x1 = x2;                        // out-handle can't cross right of the in-handle
-    }
-    return { x1: x1, y1: h.y1, x2: x2, y2: h.y2 };
+  function sanitizeHandles(h) {
+    return {
+      x1: clamp(h.x1, X_MIN, X_MAX), y1: h.y1,
+      x2: clamp(h.x2, X_MIN, X_MAX), y2: h.y2,
+    };
   }
 
   /**

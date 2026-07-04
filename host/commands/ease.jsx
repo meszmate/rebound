@@ -18,14 +18,12 @@
   }
 
   // Constrain a curve to the domain AE reproduces EXACTLY as a native temporal
-  // ease: X in [0.001,0.999] and x1<=x2 (monotonic time, handles never overlap).
-  // Y stays free (overshoot/anticipation render faithfully). Mirrors the panel's
-  // bezier.sanitizeHandles so host and panel agree.
+  // ease: X in [0.001,0.999]. Handles MAY cross in X (x1 > x2): out/in influence
+  // are independent per keyframe (out = 100*x1, in = 100*(1-x2)), so a strong
+  // ease-in-out is representable. Y stays free (overshoot/anticipation render
+  // faithfully). Mirrors the panel's bezier.sanitizeHandles so host and panel agree.
   function sanitizeCurve(curve) {
-    var x1 = clampX(curve.x1);
-    var x2 = clampX(curve.x2);
-    if (x1 > x2) { var m = (x1 + x2) / 2; x1 = m; x2 = m; }
-    return { x1: x1, y1: curve.y1, x2: x2, y2: curve.y2 };
+    return { x1: clampX(curve.x1), y1: curve.y1, x2: clampX(curve.x2), y2: curve.y2 };
   }
 
   // Speed is derived from the SAME clamped x used for influence, so the stored

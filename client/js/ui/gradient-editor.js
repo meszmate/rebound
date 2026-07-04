@@ -171,7 +171,7 @@
       // the box when compact, so a handle dragged out stays grabbable and can
       // always be dragged back (and never causes the widget to scroll).
       var lo = compact ? 0 : -0.07, hi = compact ? 1 : 1.07;
-      function move(ev) { var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, lo, hi), y: clampR(p.y, lo, hi) }; renderStage(); }
+      function move(ev) { if (ev.buttons === 0) return up(); var p = ptFromEvent(ev); model[which] = { x: clampR(p.x, lo, hi), y: clampR(p.y, lo, hi) }; renderStage(); } // buttons check: lost mouseup outside the panel (CEP)
       function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
@@ -179,7 +179,7 @@
     function dragStop(s, fromHandle) {
       selected = s; renderStage(); renderSelected();
       var moved = false;
-      function move(ev) { moved = true; s.pos = clamp01(projectT(ptFromEvent(ev), model.start, model.end)); renderStage(); renderSelected(); }
+      function move(ev) { if (ev.buttons === 0) return up(); moved = true; s.pos = clamp01(projectT(ptFromEvent(ev), model.start, model.end)); renderStage(); renderSelected(); }
       function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); if (compact && fromHandle && !moved) openColor(s); else emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);
@@ -187,7 +187,7 @@
     function dragChip(s, fromHandle) {
       selected = s; renderStage(); renderSelected();
       var moved = false;
-      function move(ev) { moved = true; var r = bar.getBoundingClientRect(); s.pos = clamp01((ev.clientX - r.left) / (r.width || 1)); renderStage(); renderSelected(); }
+      function move(ev) { if (ev.buttons === 0) return up(); moved = true; var r = bar.getBoundingClientRect(); s.pos = clamp01((ev.clientX - r.left) / (r.width || 1)); renderStage(); renderSelected(); }
       function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); if (compact && fromHandle && !moved) openColor(s); else emit(); }
       document.addEventListener('pointermove', move);
       document.addEventListener('pointerup', up);

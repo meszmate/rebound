@@ -132,8 +132,7 @@
         width: '100%',
         onChange: function (v) {
           curve[key] = v;
-          var moved = key === 'x1' ? 'out' : key === 'x2' ? 'in' : undefined;
-          curve = withType(R.easing.bezier.sanitizeHandles(curve, moved));
+          curve = withType(R.easing.bezier.sanitizeHandles(curve));
           editor.setCurve(curve);
           syncFields();
           updateReadout();

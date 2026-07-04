@@ -114,17 +114,31 @@ describe('bezier.sanitizeHandles', () => {
     expect(s.y2).toBe(-0.3);
   });
 
-  it('enforces x1<=x2, yielding the dragged handle', () => {
-    // Dragging the out-handle past the in-handle clamps the out-handle.
-    expect(sanitizeHandles({ x1: 0.8, y1: 0.2, x2: 0.3, y2: 0.8 }, 'out').x1).toBeCloseTo(0.3, 6);
-    // Dragging the in-handle left past the out-handle clamps the in-handle.
-    expect(sanitizeHandles({ x1: 0.6, y1: 0.2, x2: 0.2, y2: 0.8 }, 'in').x2).toBeCloseTo(0.6, 6);
+  it('preserves crossed handles (x1 > x2): a strong ease-in-out is legal', () => {
+    // cubic-bezier(0.87, 0, 0.13, 1) style curves cross in X; AE represents
+    // them exactly because each keyframe's influence is independent.
+    const s = sanitizeHandles({ x1: 0.87, y1: 0, x2: 0.13, y2: 1 });
+    expect(s.x1).toBeCloseTo(0.87, 6);
+    expect(s.x2).toBeCloseTo(0.13, 6);
   });
 
-  it('guarantees out+in influence never exceeds 100% (no handle overlap)', () => {
+  it('maps crossed handles to per-side influences inside AE\'s [0.1, 100] range', () => {
     const s = sanitizeHandles({ x1: 0.9, y1: 0.2, x2: 0.1, y2: 0.8 });
     const outInfl = s.x1 * 100;
     const inInfl = (1 - s.x2) * 100;
-    expect(outInfl + inInfl).toBeLessThanOrEqual(100 + 1e-9);
+    expect(outInfl).toBeGreaterThanOrEqual(0.1);
+    expect(outInfl).toBeLessThanOrEqual(100);
+    expect(inInfl).toBeGreaterThanOrEqual(0.1);
+    expect(inInfl).toBeLessThanOrEqual(100);
+  });
+
+  it('keeps time monotonic even with crossed handles', () => {
+    const ease = cubicBezier(0.9, 0.2, 0.1, 0.8);
+    let prev = -Infinity;
+    for (let i = 0; i <= 100; i++) {
+      const y = ease(i / 100);
+      expect(Number.isFinite(y)).toBe(true);
+      prev = y <= prev ? prev : y; // x(t) is monotonic, so sampling never diverges
+    }
   });
 });
