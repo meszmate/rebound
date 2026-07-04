@@ -1,0 +1,339 @@
+---
+import Mark from './Mark.astro';
+
+// Tiny app marks for the switcher: Figma's five-shape logo, Adobe's two-letter chips.
+const figmaMark = `<svg viewBox="0 0 38 57" class="h-3.5 w-2.5" aria-hidden="true"><path d="M19 0H9.5a9.5 9.5 0 0 0 0 19H19V0Z" fill="#F24E1E"/><path d="M19 0h9.5a9.5 9.5 0 1 1 0 19H19V0Z" fill="#FF7262"/><path d="M19 28.5a9.5 9.5 0 1 1 19 0 9.5 9.5 0 0 1-19 0Z" fill="#1ABCFE"/><path d="M19 19H9.5a9.5 9.5 0 0 0 0 19H19V19Z" fill="#A259FF"/><path d="M9.5 57A9.5 9.5 0 0 0 19 47.5V38H9.5a9.5 9.5 0 0 0 0 19Z" fill="#0ACF83"/></svg>`;
+const aiMark = `<span class="grid h-4 w-4 place-items-center rounded-[3px] bg-[#330000] text-[8px] font-bold text-[#FF9A00]" aria-hidden="true">Ai</span>`;
+const psMark = `<span class="grid h-4 w-4 place-items-center rounded-[3px] bg-[#001E36] text-[8px] font-bold text-[#31A8FF]" aria-hidden="true">Ps</span>`;
+const apps = [
+  { name: 'Figma', mark: figmaMark },
+  { name: 'Illustrator', mark: aiMark },
+  { name: 'Photoshop', mark: psMark },
+];
+
+const fidelity = [
+  'Text stays editable',
+  'Shapes stay parametric',
+  'Gradients stay native',
+  'Effects become layer styles',
+  'Clipping becomes mattes',
+  'A report of what transferred',
+];
+---
+
+<section id="import" class="scroll-mt-20 border-t border-line-soft bg-mist/50 py-24 sm:py-32">
+  <div class="mx-auto max-w-6xl px-5 sm:px-8">
+    <div class="flex flex-wrap items-end justify-between gap-x-10 gap-y-6">
+      <div class="max-w-xl">
+        <p class="text-sm font-medium text-live" data-reveal>Rebound Relay</p>
+        <h2
+          class="mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-[2.5rem] sm:leading-[1.1]"
+          data-reveal
+          style="--reveal-delay: 0.06s"
+        >
+          From Figma, Illustrator and Photoshop to native layers.
+        </h2>
+        <p
+          class="mt-4 text-pretty text-[1.0625rem] leading-relaxed text-mute"
+          data-reveal
+          style="--reveal-delay: 0.12s"
+        >
+          Your design lands in the composition as editable After Effects layers. Nothing leaves
+          your machine.
+        </p>
+      </div>
+
+      <!-- App switcher -->
+      <div class="inline-flex self-end rounded-full border border-line bg-white p-1" role="tablist" data-reveal style="--reveal-delay: 0.15s">
+        {
+          apps.map((app, i) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={i === 0 ? 'true' : 'false'}
+              data-imp-tab={i}
+              class="flex cursor-pointer items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium text-mute transition-colors duration-200 aria-selected:bg-ink aria-selected:text-white hover:text-ink aria-selected:hover:text-white"
+            >
+              <Fragment set:html={app.mark} />
+              {app.name}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <!-- Source app -> AE flow -->
+    <div
+      class="mt-10 grid items-center gap-6 lg:grid-cols-[1fr_auto_1fr]"
+      data-reveal
+      style="--reveal-delay: 0.18s"
+    >
+      <!-- Source card -->
+      <div
+        id="imp-src"
+        class="imp-swap mx-auto w-full max-w-sm rounded-2xl border border-line bg-white p-1 shadow-[0_20px_50px_-25px_rgb(16_17_20/0.25)]"
+      >
+        <div class="px-5 pt-4 pb-3">
+          <div class="flex items-center gap-2 text-ink">
+            <Mark class="h-5 w-6 text-live" />
+            <span class="text-sm font-semibold tracking-[-0.01em]">Rebound</span>
+            <span class="text-sm text-faint">Relay</span>
+            <span class="ml-auto flex items-center rounded-md bg-mist px-2 py-1 text-xs font-medium text-ink-soft">
+              {
+                apps.map((app, i) => (
+                  <span data-appchip={i} class:list={['flex items-center gap-1.5', { hidden: i !== 0 }]}>
+                    <Fragment set:html={app.mark} />
+                    {app.name}
+                  </span>
+                ))
+              }
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2.5 border-y border-line-soft px-5 py-3">
+          <span class="relative flex h-2 w-2">
+            <span id="imp-ping" class="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#5cb878] opacity-60"></span>
+            <span id="imp-dot" class="relative inline-flex h-2 w-2 rounded-full bg-[#5cb878]"></span>
+          </span>
+          <div class="min-w-0 text-left">
+            <p id="imp-conn-title" class="text-[0.8125rem] font-medium text-ink">Connected to After Effects</p>
+            <p id="imp-conn-sub" class="text-xs text-faint">Rebound panel · port 7890</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2.5 px-5 py-3.5">
+          <svg class="h-4.5 w-4.5 shrink-0 text-live" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <rect x="2.5" y="2.5" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.5"></rect>
+            <path d="M2.5 6.5h13M6.5 2.5v13" stroke="currentColor" stroke-width="1.5"></path>
+          </svg>
+          <div class="text-left">
+            <p id="imp-sel-title" class="text-[0.8125rem] font-medium text-ink">Hero screen</p>
+            <p id="imp-sel-sub" class="text-xs text-faint">128 layers · ready to send</p>
+          </div>
+        </div>
+        <div class="px-4 pb-2">
+          <div id="imp-btn" class="flex h-9 items-center justify-center rounded-lg bg-[#4f8cff] text-[0.8125rem] font-medium text-white">
+            Send to After Effects
+          </div>
+          <p id="imp-alt" class="py-2 text-center text-xs text-faint">Save as a .rbir file instead</p>
+        </div>
+        <p class="flex items-center justify-center gap-1.5 border-t border-line-soft px-5 py-2.5 text-[0.6875rem] text-faint">
+          <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <rect x="2.5" y="5" width="7" height="5" rx="1" stroke="currentColor"></rect>
+            <path d="M4 5V3.5a2 2 0 1 1 4 0V5" stroke="currentColor"></path>
+          </svg>
+          Everything stays on your computer.
+        </p>
+      </div>
+
+      <!-- Flow beam -->
+      <div class="flex items-center justify-center lg:h-full" aria-hidden="true">
+        <div class="flex items-center gap-2 max-lg:flex-col max-lg:py-1">
+          <span class="imp-beam hidden h-px w-16 sm:w-24 lg:block"></span>
+          <span class="imp-beam-v block h-8 w-px lg:hidden"></span>
+          <span class="rounded-full border border-line bg-white px-2.5 py-1 font-mono text-[0.6875rem] text-mute">.rbir</span>
+          <span class="imp-beam hidden h-px w-16 sm:w-24 lg:block"></span>
+          <span class="imp-beam-v block h-8 w-px lg:hidden"></span>
+        </div>
+      </div>
+
+      <!-- AE report card -->
+      <div
+        id="imp-dst"
+        class="imp-swap mx-auto w-full max-w-sm rounded-2xl border border-[#0c0d0f] bg-[#1e1f23] p-1 shadow-[0_20px_50px_-25px_rgb(16_17_20/0.45)] [transition-delay:60ms]"
+      >
+        <div class="px-5 pt-4 pb-3">
+          <p class="flex items-center gap-2 text-sm font-semibold text-[#e3e5ea]">
+            <span class="grid h-4.5 w-4.5 place-items-center rounded-full bg-[#5cb878]/20 text-[10px] text-[#5cb878]">✓</span>
+            Rebuilt in After Effects
+          </p>
+        </div>
+        <div class="flex gap-2 px-5 pb-3">
+          <span class="rounded-[5px] border border-[#3b3c40] bg-[#17181b] px-2 py-1 text-[0.6875rem] text-[#989ca4]">1 comp</span>
+          <span id="imp-chip-layers" class="rounded-[5px] border border-[#3b3c40] bg-[#17181b] px-2 py-1 text-[0.6875rem] text-[#989ca4]">128 layers</span>
+          <span class="rounded-[5px] border border-[#3b3c40] bg-[#17181b] px-2 py-1 text-[0.6875rem] text-[#989ca4]">all accounted for</span>
+        </div>
+        <ul id="imp-notes" class="space-y-2 border-t border-[#3b3c40] px-5 py-4 text-left text-xs text-[#989ca4]"></ul>
+      </div>
+    </div>
+
+    <!-- Fidelity, one line each -->
+    <div class="mx-auto mt-12 flex max-w-4xl flex-wrap items-center justify-center gap-x-7 gap-y-3" data-reveal>
+      {
+        fidelity.map((f) => (
+          <span class="flex items-center gap-2 text-sm text-ink-soft">
+            <svg class="h-3.5 w-3.5 shrink-0 text-ink" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            {f}
+          </span>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .imp-beam {
+    background-image: linear-gradient(to right, rgb(16 17 20 / 0.3) 0 4px, transparent 4px 10px);
+    background-size: 10px 1px;
+    animation: imp-flow 0.9s linear infinite;
+  }
+  .imp-beam-v {
+    background-image: linear-gradient(to bottom, rgb(16 17 20 / 0.3) 0 4px, transparent 4px 10px);
+    background-size: 1px 10px;
+    animation: imp-flow-v 0.9s linear infinite;
+  }
+  @keyframes imp-flow {
+    to {
+      background-position: 10px 0;
+    }
+  }
+  @keyframes imp-flow-v {
+    to {
+      background-position: 0 10px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .imp-beam,
+    .imp-beam-v {
+      animation: none;
+    }
+  }
+  .imp-swap {
+    transition:
+      transform 0.34s var(--ease-out-quart),
+      opacity 0.22s ease;
+  }
+</style>
+
+<script>
+  const APPS = [
+    {
+      name: 'Figma',
+      live: true,
+      connTitle: 'Connected to After Effects',
+      connSub: 'Rebound panel · port 7890',
+      selTitle: 'Hero screen',
+      selSub: '128 layers · ready to send',
+      btn: 'Send to After Effects',
+      alt: 'Save as a .rbir file instead',
+      layers: '128 layers',
+      notes: [
+        ['ok', '14 text layers, all editable text'],
+        ['ok', '6 gradients, native editable stops'],
+        ['ok', '3 clipping frames as precomps + mattes'],
+        ['warn', '1 font missing, replace in one click'],
+      ],
+    },
+    {
+      name: 'Illustrator',
+      live: false,
+      connTitle: 'Runs from File ▸ Scripts',
+      connSub: 'export-ir.jsx',
+      selTitle: 'poster.ai',
+      selSub: '42 paths · 8 text frames',
+      btn: 'Export for After Effects',
+      alt: 'Saves a portable .rbir file',
+      layers: '42 layers',
+      notes: [
+        ['ok', '8 text frames, editable AE text'],
+        ['ok', '5 gradients kept native'],
+        ['ok', 'shapes stay parametric paths'],
+        ['warn', 'live effects baked pixel-exact'],
+      ],
+    },
+    {
+      name: 'Photoshop',
+      live: false,
+      connTitle: 'Runs from File ▸ Scripts ▸ Browse…',
+      connSub: 'export-ir.jsx',
+      selTitle: 'poster.psd',
+      selSub: '18 layers · 4 groups',
+      btn: 'Export for After Effects',
+      alt: 'Saves a portable .rbir file',
+      layers: '18 layers',
+      notes: [
+        ['ok', 'text layers stay editable text'],
+        ['ok', 'layer styles stay layer styles'],
+        ['ok', '2 adjustment layers, native effects'],
+        ['ok', 'masks become track mattes'],
+      ],
+    },
+  ];
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-imp-tab]'));
+  const src = $('imp-src');
+  const dst = $('imp-dst');
+  let idx = 0;
+
+  function render(i: number) {
+    const a = APPS[i];
+    document
+      .querySelectorAll<HTMLElement>('[data-appchip]')
+      .forEach((el) => el.classList.toggle('hidden', el.dataset.appchip !== String(i)));
+    $('imp-conn-title').textContent = a.connTitle;
+    $('imp-conn-sub').textContent = a.connSub;
+    $('imp-sel-title').textContent = a.selTitle;
+    $('imp-sel-sub').textContent = a.selSub;
+    $('imp-btn').textContent = a.btn;
+    $('imp-alt').textContent = a.alt;
+    $('imp-chip-layers').textContent = a.layers;
+    $('imp-dot').style.background = a.live ? '#5cb878' : '#9aa1ad';
+    $('imp-ping').style.display = a.live ? '' : 'none';
+    $('imp-notes').innerHTML = a.notes
+      .map(
+        ([kind, text]) =>
+          `<li class="flex gap-2"><span class="${kind === 'ok' ? 'text-[#5cb878]' : 'text-[#e8a838]'}">·</span> ${text}</li>`,
+      )
+      .join('');
+    tabs.forEach((t, ti) => t.setAttribute('aria-selected', String(ti === i)));
+  }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  let switching = false;
+
+  async function setApp(i: number) {
+    if (i === idx || switching) return;
+    switching = true;
+    // Slide out toward the old side, swap, slide in from the new side.
+    const dir = (i - idx + 3) % 3 === 1 ? 1 : -1;
+    idx = i;
+    for (const el of [src, dst]) {
+      el.style.transform = `translateX(${-22 * dir}px)`;
+      el.style.opacity = '0';
+    }
+    await sleep(240);
+    render(i);
+    for (const el of [src, dst]) {
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${22 * dir}px)`;
+    }
+    void src.offsetWidth;
+    for (const el of [src, dst]) {
+      el.style.transition = '';
+      el.style.transform = 'translateX(0)';
+      el.style.opacity = '1';
+    }
+    await sleep(360);
+    switching = false;
+  }
+
+  // Auto-cycle until the user picks an app themselves.
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let auto: ReturnType<typeof setInterval> | null = null;
+  if (!reduced) {
+    auto = setInterval(() => setApp((idx + 1) % APPS.length), 4200);
+  }
+  tabs.forEach((t, i) =>
+    t.addEventListener('click', () => {
+      if (auto) {
+        clearInterval(auto);
+        auto = null;
+      }
+      setApp(i);
+    }),
+  );
+
+  render(0);
+</script>

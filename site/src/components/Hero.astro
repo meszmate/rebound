@@ -1,0 +1,84 @@
+---
+import Button from './Button.astro';
+import Mark from './Mark.astro';
+---
+
+<section id="top" class="relative overflow-hidden pt-36 pb-20 sm:pt-44 sm:pb-24">
+  <!-- Faint dot grid backdrop, fading out toward the bottom -->
+  <div
+    class="pointer-events-none absolute inset-0 [background-image:radial-gradient(rgb(16_17_20/0.055)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:linear-gradient(to_bottom,black_0%,black_45%,transparent_85%)]"
+    aria-hidden="true"
+  >
+  </div>
+
+  <div class="relative mx-auto max-w-6xl px-5 sm:px-8">
+    <div class="mx-auto flex max-w-3xl flex-col items-center text-center">
+      <button
+        id="hero-mark"
+        type="button"
+        class="group cursor-pointer border-0 bg-transparent p-0 text-ink outline-none"
+        aria-label="Replay the Rebound mark animation"
+        title="Click to replay"
+      >
+        <Mark animate class="h-24 w-[6.6rem] sm:h-28 sm:w-[7.7rem]" />
+      </button>
+
+      <h1
+        class="mt-8 text-balance text-[2.6rem] leading-[1.06] font-semibold tracking-[-0.035em] text-ink sm:text-[3.4rem]"
+        data-reveal
+      >
+        Easing, springs, and motion tools for After Effects.
+      </h1>
+
+      <p
+        class="mt-6 max-w-xl text-pretty text-[1.0625rem] leading-relaxed text-mute sm:text-lg"
+        data-reveal
+        style="--reveal-delay: 0.08s"
+      >
+        One curve editor for easing and springs, batch tools for everything around it, and
+        import from Figma, Illustrator and Photoshop as native, editable layers.
+      </p>
+
+      <div
+        class="mt-9 flex flex-col items-center gap-3 sm:flex-row"
+        data-reveal
+        style="--reveal-delay: 0.16s"
+      >
+        <Button href="#download">
+          Download for After Effects
+          <svg
+            class="h-4 w-4 transition-transform duration-300 group-hover/btn:translate-y-0.5"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M8 2.5v8m0 0L4.75 7.25M8 10.5l3.25-3.25M3 13.5h10"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"></path>
+          </svg>
+        </Button>
+        <Button href="#playground" variant="ghost">Try the curve playground</Button>
+      </div>
+
+      <p class="mt-5 text-[0.8125rem] text-faint" data-reveal style="--reveal-delay: 0.24s">
+        Free for non-commercial use · After Effects 2019+ · macOS &amp; Windows
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Clicking the mark replays the draw-on animation.
+  const btn = document.getElementById('hero-mark');
+  const svg = btn?.querySelector('svg');
+  btn?.addEventListener('click', () => {
+    if (!svg) return;
+    svg.classList.remove('rb-mark-animate');
+    // Force a style flush so the CSS animation restarts (SVG has no offsetWidth).
+    void svg.getBoundingClientRect();
+    svg.classList.add('rb-mark-animate');
+  });
+</script>

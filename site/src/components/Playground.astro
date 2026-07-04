@@ -1,0 +1,546 @@
+---
+const presets = [
+  { name: 'Back Out', v: [0.175, 0.885, 0.32, 1.275] },
+  { name: 'Expo Out', v: [0.19, 1, 0.22, 1] },
+  { name: 'Quart Out', v: [0.165, 0.84, 0.44, 1] },
+  { name: 'Cubic InOut', v: [0.645, 0.045, 0.355, 1] },
+  { name: 'Sine InOut', v: [0.37, 0, 0.63, 1] },
+  { name: 'Quad Out', v: [0.25, 0.46, 0.45, 0.94] },
+  { name: 'Linear', v: [0, 0, 1, 1] },
+];
+---
+
+<section id="playground" class="scroll-mt-20 py-24 sm:py-32">
+  <div class="mx-auto max-w-6xl px-5 sm:px-8">
+    <div class="max-w-2xl">
+      <p class="text-sm font-medium text-live" data-reveal>The curve editor</p>
+      <h2
+        class="mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-[2.5rem] sm:leading-[1.1]"
+        data-reveal
+        style="--reveal-delay: 0.06s"
+      >
+        Feel a curve before you apply it.
+      </h2>
+      <p
+        class="mt-4 text-pretty text-[1.0625rem] leading-relaxed text-mute"
+        data-reveal
+        style="--reveal-delay: 0.12s"
+      >
+        One curve surface handles easing, springs, and overshoot. Drag the handles or try the
+        spring; in the panel it writes to your whole selection in a single undo.
+      </p>
+    </div>
+
+    <div
+      class="mt-12 overflow-hidden rounded-3xl border border-line bg-white shadow-[0_1px_2px_rgb(16_17_20/0.04),0_24px_60px_-30px_rgb(16_17_20/0.18)]"
+      data-reveal
+      style="--reveal-delay: 0.18s"
+    >
+      <!-- Instrument header -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-line-soft px-5 py-4 sm:px-7">
+        <div class="relative flex rounded-full bg-mist p-1" role="tablist" aria-label="Playground mode">
+          <span
+            id="pg-tab-thumb"
+            class="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-white shadow-[0_1px_3px_rgb(16_17_20/0.12)] transition-transform duration-400 [transition-timing-function:var(--ease-spring)]"
+            aria-hidden="true"></span>
+          <button
+            id="pg-tab-curve"
+            role="tab"
+            aria-selected="true"
+            aria-controls="pg-pane-curve"
+            class="relative z-10 rounded-full px-5 py-1.5 text-sm font-medium text-ink transition-colors"
+          >
+            Curve
+          </button>
+          <button
+            id="pg-tab-spring"
+            role="tab"
+            aria-selected="false"
+            aria-controls="pg-pane-spring"
+            class="relative z-10 rounded-full px-5 py-1.5 text-sm font-medium text-mute transition-colors"
+          >
+            Spring
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <code
+            id="pg-readout"
+            class="hidden rounded-lg bg-mist px-3 py-1.5 font-mono text-[0.8125rem] text-ink-soft sm:block"
+            >cubic-bezier(0.175, 0.885, 0.32, 1.275)</code
+          >
+          <button
+            id="pg-copy"
+            type="button"
+            class="cursor-pointer rounded-lg border border-line bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-ink transition-all duration-200 hover:bg-mist active:scale-95"
+          >
+            Copy CSS
+          </button>
+        </div>
+      </div>
+
+      <div class="grid lg:grid-cols-[1.15fr_1fr]">
+        <!-- Editor canvas -->
+        <div class="relative border-b border-line-soft p-4 sm:p-6 lg:border-r lg:border-b-0">
+          <svg
+            id="pg-svg"
+            viewBox="0 0 320 340"
+            class="mx-auto w-full max-w-[480px] touch-none select-none [aspect-ratio:320/340]"
+            aria-label="Easing curve editor. Drag the two round handles to shape the curve."
+          >
+            <!-- unit box -->
+            <g stroke="rgb(16 17 20 / 0.06)" stroke-width="1">
+              <line x1="20" y1="120" x2="300" y2="120"></line>
+              <line x1="20" y1="170" x2="300" y2="170"></line>
+              <line x1="20" y1="220" x2="300" y2="220"></line>
+              <line x1="90" y1="70" x2="90" y2="270"></line>
+              <line x1="160" y1="70" x2="160" y2="270"></line>
+              <line x1="230" y1="70" x2="230" y2="270"></line>
+            </g>
+            <rect x="20" y="70" width="280" height="200" fill="none" stroke="rgb(16 17 20 / 0.12)" stroke-width="1" rx="1"></rect>
+            <line x1="20" y1="270" x2="300" y2="70" stroke="rgb(16 17 20 / 0.08)" stroke-width="1" stroke-dasharray="3 4"></line>
+
+            <!-- spring curve (hidden in curve mode) -->
+            <polyline
+              id="pg-spring-line"
+              points=""
+              fill="none"
+              stroke="var(--color-ink)"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="hidden"></polyline>
+
+            <!-- bezier curve + handles -->
+            <g id="pg-bez">
+              <path
+                id="pg-curve"
+                d=""
+                fill="none"
+                stroke="var(--color-ink)"
+                stroke-width="2.5"
+                stroke-linecap="round"></path>
+              <line id="pg-arm1" stroke="rgb(62 116 232 / 0.4)" stroke-width="1.5"></line>
+              <line id="pg-arm2" stroke="rgb(62 116 232 / 0.4)" stroke-width="1.5"></line>
+              <circle cx="20" cy="270" r="5" fill="white" stroke="rgb(16 17 20 / 0.35)" stroke-width="1.5"></circle>
+              <circle cx="300" cy="70" r="5" fill="white" stroke="rgb(16 17 20 / 0.35)" stroke-width="1.5"></circle>
+              <circle
+                id="pg-h1"
+                r="9"
+                fill="var(--color-live)"
+                class="cursor-grab focus:outline-none focus-visible:stroke-ink focus-visible:stroke-[3]"
+                tabindex="0"
+                role="slider"
+                aria-label="First control point. Arrow keys to nudge, hold Shift for larger steps."></circle>
+              <circle
+                id="pg-h2"
+                r="9"
+                fill="var(--color-live)"
+                class="cursor-grab focus:outline-none focus-visible:stroke-ink focus-visible:stroke-[3]"
+                tabindex="0"
+                role="slider"
+                aria-label="Second control point. Arrow keys to nudge, hold Shift for larger steps."></circle>
+            </g>
+
+            <!-- live trace dot riding the curve -->
+            <circle id="pg-trace" r="5" fill="var(--color-live)" opacity="0" pointer-events="none"></circle>
+          </svg>
+        </div>
+
+        <!-- Preview + controls -->
+        <div class="flex flex-col p-5 sm:p-7">
+          <p class="text-xs font-medium tracking-wide text-faint uppercase">Preview</p>
+
+          <!-- Ball track -->
+          <div class="mt-4 rounded-2xl bg-mist px-5 py-6">
+            <div class="relative h-10">
+              <div class="absolute inset-x-0 top-1/2 h-px bg-[rgb(16_17_20/0.1)]"></div>
+              <div
+                id="pg-ball"
+                class="absolute top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-ink shadow-[0_4px_10px_-2px_rgb(16_17_20/0.35)] will-change-transform"
+              >
+              </div>
+            </div>
+          </div>
+
+          <!-- Property rows animating with the same ease -->
+          <div class="mt-5 space-y-3.5">
+            <div class="flex items-center gap-4">
+              <span class="w-16 shrink-0 text-[0.8125rem] text-mute">Scale</span>
+              <div class="flex h-8 flex-1 items-center">
+                <div id="pg-demo-scale" class="h-5 w-5 rounded-md bg-ink/80 will-change-transform"></div>
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+              <span class="w-16 shrink-0 text-[0.8125rem] text-mute">Rotation</span>
+              <div class="flex h-8 flex-1 items-center">
+                <div id="pg-demo-rot" class="h-5 w-5 rounded-md border-2 border-ink/80 will-change-transform"></div>
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+              <span class="w-16 shrink-0 text-[0.8125rem] text-mute">Opacity</span>
+              <div class="flex h-8 flex-1 items-center">
+                <div id="pg-demo-fade" class="h-2.5 w-full max-w-40 rounded-full bg-ink/15">
+                  <div id="pg-demo-fade-fill" class="h-full w-0 rounded-full bg-ink/70"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Curve presets -->
+          <div id="pg-presets" class="mt-7">
+            <p class="text-xs font-medium tracking-wide text-faint uppercase">Presets</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              {
+                presets.map((p) => (
+                  <button
+                    type="button"
+                    data-preset={p.v.join(',')}
+                    class="cursor-pointer rounded-full border border-line bg-white px-3.5 py-1.5 text-[0.8125rem] font-medium text-ink-soft transition-all duration-200 hover:border-[rgb(16_17_20/0.25)] hover:text-ink active:scale-95 data-[on=true]:border-ink data-[on=true]:bg-ink data-[on=true]:text-white"
+                  >
+                    {p.name}
+                  </button>
+                ))
+              }
+            </div>
+          </div>
+
+          <!-- Spring controls (hidden in curve mode) -->
+          <div id="pg-spring-ctl" class="mt-7 hidden">
+            <div class="space-y-5">
+              <label class="block">
+                <span class="flex items-baseline justify-between text-[0.8125rem]">
+                  <span class="font-medium text-ink-soft">Bounce</span>
+                  <span id="pg-bounce-val" class="font-mono text-mute">55%</span>
+                </span>
+                <input
+                  id="pg-bounce"
+                  type="range"
+                  min="0"
+                  max="90"
+                  value="55"
+                  class="mt-2 w-full accent-[var(--color-live)]"
+                />
+              </label>
+              <label class="block">
+                <span class="flex items-baseline justify-between text-[0.8125rem]">
+                  <span class="font-medium text-ink-soft">Response</span>
+                  <span id="pg-response-val" class="font-mono text-mute">0.55s</span>
+                </span>
+                <input
+                  id="pg-response"
+                  type="range"
+                  min="15"
+                  max="140"
+                  value="55"
+                  class="mt-2 w-full accent-[var(--color-live)]"
+                />
+              </label>
+            </div>
+            <p class="mt-5 text-[0.8125rem] leading-relaxed text-mute">
+              A real damped harmonic oscillator, the same engine behind Spring, Recoil, Bounce
+              and Follow in the panel. <span id="pg-settle" class="text-ink-soft">Settles in ~0.9s.</span>
+            </p>
+          </div>
+
+          <p class="mt-auto pt-7 text-[0.8125rem] text-faint">
+            In After Effects this writes native keyframe ease, or a clean expression, in one
+            undo step.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // ---------------------------------------------------------------- //
+  // Shared plumbing                                                   //
+  // ---------------------------------------------------------------- //
+  const $ = (id: string) => document.getElementById(id)!;
+  const svg = $('pg-svg') as unknown as SVGSVGElement;
+
+  // Unit square -> SVG coords. Value 0..1 maps to y 270..70; overshoot allowed.
+  const X = (u: number) => 20 + u * 280;
+  const Y = (v: number) => 270 - v * 200;
+
+  const state = {
+    mode: 'curve' as 'curve' | 'spring',
+    bez: [0.175, 0.885, 0.32, 1.275],
+    bounce: 0.55,
+    response: 0.55,
+    springDur: 1,
+    springAt: (_t: number) => 1,
+    // Vertical scale applied to the plotted spring so tall overshoots stay in view.
+    springScale: 1,
+  };
+
+  // ---------------------------------------------------------------- //
+  // Cubic bezier                                                      //
+  // ---------------------------------------------------------------- //
+  function bezierAt(t: number, [x1, y1, x2, y2]: number[]): number {
+    // Solve x(s) = t for s with Newton + bisection fallback, then return y(s).
+    const cx = (s: number) => 3 * x1 * s * (1 - s) ** 2 + 3 * x2 * s * s * (1 - s) + s ** 3;
+    const cy = (s: number) => 3 * y1 * s * (1 - s) ** 2 + 3 * y2 * s * s * (1 - s) + s ** 3;
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    let s = t;
+    for (let i = 0; i < 8; i++) {
+      const err = cx(s) - t;
+      if (Math.abs(err) < 1e-5) return cy(s);
+      const d =
+        3 * x1 * (1 - s) * (1 - 3 * s) + 3 * x2 * s * (2 - 3 * s) + 3 * s * s;
+      if (Math.abs(d) < 1e-6) break;
+      s -= err / d;
+      s = Math.min(1, Math.max(0, s));
+    }
+    let lo = 0,
+      hi = 1;
+    for (let i = 0; i < 24; i++) {
+      s = (lo + hi) / 2;
+      if (cx(s) < t) lo = s;
+      else hi = s;
+    }
+    return cy(s);
+  }
+
+  function drawBezier() {
+    const [x1, y1, x2, y2] = state.bez;
+    $('pg-curve').setAttribute(
+      'd',
+      `M ${X(0)} ${Y(0)} C ${X(x1)} ${Y(y1)}, ${X(x2)} ${Y(y2)}, ${X(1)} ${Y(1)}`,
+    );
+    const arm1 = $('pg-arm1'),
+      arm2 = $('pg-arm2'),
+      h1 = $('pg-h1'),
+      h2 = $('pg-h2');
+    arm1.setAttribute('x1', String(X(0)));
+    arm1.setAttribute('y1', String(Y(0)));
+    arm1.setAttribute('x2', String(X(x1)));
+    arm1.setAttribute('y2', String(Y(y1)));
+    arm2.setAttribute('x1', String(X(1)));
+    arm2.setAttribute('y1', String(Y(1)));
+    arm2.setAttribute('x2', String(X(x2)));
+    arm2.setAttribute('y2', String(Y(y2)));
+    h1.setAttribute('cx', String(X(x1)));
+    h1.setAttribute('cy', String(Y(y1)));
+    h2.setAttribute('cx', String(X(x2)));
+    h2.setAttribute('cy', String(Y(y2)));
+    const fmt = (n: number) => {
+      const r = Math.round(n * 100) / 100;
+      return Object.is(r, -0) ? '0' : String(r);
+    };
+    $('pg-readout').textContent = `cubic-bezier(${state.bez.map(fmt).join(', ')})`;
+    syncPresetChips();
+    restart();
+  }
+
+  function syncPresetChips() {
+    document.querySelectorAll<HTMLButtonElement>('#pg-presets [data-preset]').forEach((b) => {
+      const v = b.dataset.preset!.split(',').map(Number);
+      const on = v.every((n, i) => Math.abs(n - state.bez[i]) < 0.005);
+      b.dataset.on = String(on);
+    });
+  }
+
+  // Handle dragging ---------------------------------------------------
+  function svgPoint(e: PointerEvent) {
+    const r = svg.getBoundingClientRect();
+    const sx = ((e.clientX - r.left) / r.width) * 320;
+    const sy = ((e.clientY - r.top) / r.height) * 340;
+    return { u: (sx - 20) / 280, v: (270 - sy) / 200 };
+  }
+
+  function bindHandle(el: HTMLElement, ix: number, iy: number) {
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      el.style.cursor = 'grabbing';
+      const move = (ev: PointerEvent) => {
+        const { u, v } = svgPoint(ev);
+        state.bez[ix] = Math.min(1, Math.max(0, u));
+        state.bez[iy] = Math.min(1.32, Math.max(-0.32, v));
+        drawBezier();
+      };
+      const up = () => {
+        el.style.cursor = 'grab';
+        el.removeEventListener('pointermove', move);
+        el.removeEventListener('pointerup', up);
+        el.removeEventListener('pointercancel', up);
+        el.removeEventListener('lostpointercapture', up);
+      };
+      el.addEventListener('pointermove', move);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      el.addEventListener('lostpointercapture', up);
+    });
+    el.addEventListener('keydown', (e) => {
+      const step = e.shiftKey ? 0.1 : 0.02;
+      const k = e.key;
+      if (k === 'ArrowLeft') state.bez[ix] = Math.max(0, state.bez[ix] - step);
+      else if (k === 'ArrowRight') state.bez[ix] = Math.min(1, state.bez[ix] + step);
+      else if (k === 'ArrowUp') state.bez[iy] = Math.min(1.32, state.bez[iy] + step);
+      else if (k === 'ArrowDown') state.bez[iy] = Math.max(-0.32, state.bez[iy] - step);
+      else return;
+      e.preventDefault();
+      drawBezier();
+    });
+  }
+  bindHandle($('pg-h1'), 0, 1);
+  bindHandle($('pg-h2'), 2, 3);
+
+  // Presets ------------------------------------------------------------
+  document.querySelectorAll<HTMLButtonElement>('#pg-presets [data-preset]').forEach((b) => {
+    b.addEventListener('click', () => {
+      state.bez = b.dataset.preset!.split(',').map(Number);
+      drawBezier();
+    });
+  });
+
+  // Copy ----------------------------------------------------------------
+  const copyBtn = $('pg-copy');
+  copyBtn.addEventListener('click', async () => {
+    const text =
+      state.mode === 'curve'
+        ? $('pg-readout').textContent || ''
+        : `/* spring: bounce ${Math.round(state.bounce * 100)}%, response ${state.response}s */`;
+    try {
+      await navigator.clipboard.writeText(text);
+      copyBtn.textContent = 'Copied ✓';
+      setTimeout(() => (copyBtn.textContent = 'Copy CSS'), 1400);
+    } catch {
+      /* clipboard unavailable */
+    }
+  });
+
+  // ---------------------------------------------------------------- //
+  // Spring (damped harmonic oscillator)                                //
+  // ---------------------------------------------------------------- //
+  function rebuildSpring() {
+    const zeta = Math.max(0.02, 1 - state.bounce);
+    const w0 = (2 * Math.PI) / state.response;
+    let at: (t: number) => number;
+    if (zeta < 0.999) {
+      const wd = w0 * Math.sqrt(1 - zeta * zeta);
+      at = (t) =>
+        1 - Math.exp(-zeta * w0 * t) * (Math.cos(wd * t) + ((zeta * w0) / wd) * Math.sin(wd * t));
+    } else {
+      at = (t) => 1 - Math.exp(-w0 * t) * (1 + w0 * t);
+    }
+    const settle = Math.min(4, Math.max(0.35, 6.9 / (zeta * w0)));
+    state.springAt = at;
+    state.springDur = settle;
+    $('pg-settle').textContent = `Settles in ~${settle.toFixed(1)}s.`;
+
+    // Scale the plot down when the overshoot would leave the canvas.
+    let maxV = 1;
+    for (let i = 0; i <= 140; i++) maxV = Math.max(maxV, at((i / 140) * settle));
+    state.springScale = Math.min(1, 1.3 / maxV);
+
+    const pts: string[] = [];
+    for (let i = 0; i <= 140; i++) {
+      const t = (i / 140) * settle;
+      pts.push(`${X(i / 140).toFixed(1)},${Y(at(t) * state.springScale).toFixed(1)}`);
+    }
+    $('pg-spring-line').setAttribute('points', pts.join(' '));
+    restart();
+  }
+
+  const bounceIn = $('pg-bounce') as HTMLInputElement;
+  const responseIn = $('pg-response') as HTMLInputElement;
+  const onSpringInput = () => {
+    state.bounce = Number(bounceIn.value) / 100;
+    state.response = Number(responseIn.value) / 100;
+    $('pg-bounce-val').textContent = `${bounceIn.value}%`;
+    $('pg-response-val').textContent = `${state.response.toFixed(2)}s`;
+    rebuildSpring();
+  };
+  bounceIn.addEventListener('input', onSpringInput);
+  responseIn.addEventListener('input', onSpringInput);
+
+  // ---------------------------------------------------------------- //
+  // Tabs                                                               //
+  // ---------------------------------------------------------------- //
+  function setMode(mode: 'curve' | 'spring') {
+    state.mode = mode;
+    const curve = mode === 'curve';
+    $('pg-tab-thumb').style.transform = curve ? 'translateX(0)' : 'translateX(100%)';
+    $('pg-tab-curve').setAttribute('aria-selected', String(curve));
+    $('pg-tab-spring').setAttribute('aria-selected', String(!curve));
+    $('pg-tab-curve').classList.toggle('text-ink', curve);
+    $('pg-tab-curve').classList.toggle('text-mute', !curve);
+    $('pg-tab-spring').classList.toggle('text-ink', !curve);
+    $('pg-tab-spring').classList.toggle('text-mute', curve);
+    $('pg-bez').classList.toggle('hidden', !curve);
+    $('pg-spring-line').classList.toggle('hidden', curve);
+    $('pg-presets').classList.toggle('hidden', !curve);
+    $('pg-spring-ctl').classList.toggle('hidden', curve);
+    $('pg-readout').classList.toggle('sm:block', curve);
+    copyBtn.style.visibility = curve ? 'visible' : 'hidden';
+    restart();
+  }
+  $('pg-tab-curve').addEventListener('click', () => setMode('curve'));
+  $('pg-tab-spring').addEventListener('click', () => setMode('spring'));
+
+  // ---------------------------------------------------------------- //
+  // Preview loop                                                       //
+  // ---------------------------------------------------------------- //
+  const ball = $('pg-ball');
+  const trace = $('pg-trace');
+  const demoScale = $('pg-demo-scale');
+  const demoRot = $('pg-demo-rot');
+  const demoFade = $('pg-demo-fade-fill');
+  let t0 = performance.now();
+  let running = false;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function restart() {
+    t0 = performance.now();
+  }
+
+  function frame(now: number) {
+    if (!running) return;
+    const dur = state.mode === 'curve' ? 1400 : state.springDur * 1000;
+    const hold = 450;
+    let t = ((now - t0) % (dur + hold)) / dur;
+    if (t > 1) t = 1;
+    const v = state.mode === 'curve' ? bezierAt(t, state.bez) : state.springAt(t * state.springDur);
+
+    const track = ball.parentElement!;
+    const w = track.clientWidth - ball.clientWidth;
+    // Vertical centering comes from the -translate-y-1/2 class (CSS translate).
+    ball.style.transform = `translateX(${v * w}px)`;
+    demoScale.style.transform = `scale(${0.5 + v * 0.9})`;
+    demoRot.style.transform = `rotate(${v * 180}deg)`;
+    demoFade.style.width = `${Math.min(1, Math.max(0, v)) * 100}%`;
+
+    trace.setAttribute('opacity', t > 0 && t < 1 ? '1' : '0');
+    trace.setAttribute('cx', String(X(t)));
+    trace.setAttribute('cy', String(Y(v * (state.mode === 'spring' ? state.springScale : 1))));
+
+    requestAnimationFrame(frame);
+  }
+
+  // Only animate while visible (and never for reduced motion).
+  if (!reduced) {
+    const vis = new IntersectionObserver(([e]) => {
+      const on = e.isIntersecting;
+      if (on && !running) {
+        running = true;
+        restart();
+        requestAnimationFrame(frame);
+      } else if (!on) {
+        running = false;
+      }
+    });
+    vis.observe(svg);
+  } else {
+    // Static end state for reduced motion: park the ball at the track's end.
+    ball.style.right = '0';
+    demoFade.style.width = '100%';
+  }
+
+  drawBezier();
+  onSpringInput();
+  setMode('curve');
+</script>

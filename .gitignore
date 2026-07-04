@@ -36,3 +36,6 @@ docs/research/
 
 # Machine-specific local dev config
 .claude/launch.json
+
+# Astro generated cache (site tooling run from the repo root)
+.astro/

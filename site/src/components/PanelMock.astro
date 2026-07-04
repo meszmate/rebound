@@ -1,0 +1,222 @@
+---
+// A faithful CSS recreation of the Rebound panel's Home board (dark AE theme).
+// Colors mirror the real --rb-* tokens: bg #1e1f23, raised #2f3034, sunken
+// #17181b, borders #3b3c40/#58595c, accent #5496fa, text #e3e5ea.
+import Mark from './Mark.astro';
+
+const headIcons = [
+  'M8 3.5v9M3.5 8h9', // add
+  'M3.5 12.5l.8-2.9 6.4-6.4 2.1 2.1-6.4 6.4-2.9.8Z', // edit board
+  'M3 3h4v4H3zM9 3h4v4H9zM3 9h4v4H3zM9 9h4v4H9z', // browse all
+  'M8 2.5a5.5 5.5 0 1 0 0 11V2.5Z M8 2.5a5.5 5.5 0 1 1 0 11', // theme
+  'M8 5.5A2.5 2.5 0 1 0 8 10.5 2.5 2.5 0 0 0 8 5.5ZM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4', // settings
+];
+
+// Six align glyphs: [axis line, box offset] — drawn as a hairline + small rect.
+const alignGlyphs = [
+  { line: 'M4 3v10', rect: { x: 5.5, y: 6, w: 6, h: 4 } }, // left
+  { line: 'M8 3v10', rect: { x: 5, y: 6, w: 6, h: 4 } }, // center h
+  { line: 'M12 3v10', rect: { x: 4.5, y: 6, w: 6, h: 4 } }, // right
+  { line: 'M3 4h10', rect: { x: 6, y: 5.5, w: 4, h: 6 } }, // top
+  { line: 'M3 8h10', rect: { x: 6, y: 5, w: 4, h: 6 } }, // middle
+  { line: 'M3 12h10', rect: { x: 6, y: 4.5, w: 4, h: 6 } }, // bottom
+];
+
+const miniTiles = [
+  { name: 'Easy Ease', curve: 'M4 22 C 12 22, 20 4, 44 4', ease: 'cubic-bezier(0.33,0,0.67,1)' },
+  { name: 'Ease Out', curve: 'M4 22 C 10 6, 22 4, 44 4', ease: 'cubic-bezier(0.165,0.84,0.44,1)' },
+  { name: 'Recoil', curve: 'M4 22 C 10 -2, 18 1, 28 5 C 34 7, 38 4, 44 5', ease: 'cubic-bezier(0.34,1.56,0.64,1)' },
+];
+---
+
+<div
+  class="overflow-hidden rounded-xl border border-[#0c0d0f] bg-[#1e1f23] text-left shadow-[0_1px_0_rgb(255_255_255/0.06)_inset,0_30px_80px_-24px_rgb(16_17_20/0.5)]"
+>
+  <!-- AE panel tab bar -->
+  <div class="flex items-center gap-px border-b border-[#111214] bg-[#17181b] px-2 pt-1.5">
+    <div class="rounded-t-md bg-[#1e1f23] px-3.5 py-1.5 text-[11px] font-medium text-[#e3e5ea]">
+      Rebound <span class="ml-1 text-[#6e727a]">≡</span>
+    </div>
+    <div class="px-3.5 py-1.5 text-[11px] text-[#6e727a]">Effects &amp; Presets</div>
+  </div>
+
+  <div class="p-2">
+    <!-- Home head row -->
+    <div class="flex items-center gap-1 px-1.5 py-1.5">
+      <span class="flex items-center gap-1.5 text-[#5496fa]">
+        <Mark class="h-4 w-[1.15rem]" />
+        <span class="text-xs font-bold tracking-[-0.01em] text-[#e3e5ea]">Rebound</span>
+      </span>
+      <span class="flex-1"></span>
+      {
+        headIcons.map((d, i) => (
+          <span
+            class:list={[
+              'grid h-6 w-6 place-items-center rounded-[5px]',
+              i === 3 ? 'text-[#5496fa]' : 'text-[#989ca4]',
+            ]}
+          >
+            <svg viewBox="0 0 16 16" class="h-[15px] w-[15px]" fill="none" aria-hidden="true">
+              <path d={d} stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        ))
+      }
+    </div>
+
+    <!-- Board grid -->
+    <div class="grid grid-cols-6 grid-rows-[repeat(3,minmax(84px,1fr))] gap-1.5 pt-0.5">
+      <!-- Hero Ease widget: live curve editor -->
+      <div
+        class="relative col-span-3 row-span-3 flex flex-col overflow-hidden rounded-[7px] border border-[#3b3c40] bg-[#2f3034] shadow-[0_1px_2px_rgb(0_0_0/0.22)]"
+      >
+        <div class="relative flex-1 bg-[#17181b]">
+          <svg viewBox="0 0 280 170" class="absolute inset-0 h-full w-full" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g stroke="#2c2d31" stroke-width="1">
+              <line x1="85" y1="12" x2="85" y2="158"></line>
+              <line x1="150" y1="12" x2="150" y2="158"></line>
+              <line x1="215" y1="12" x2="215" y2="158"></line>
+            </g>
+            <line x1="16" y1="38" x2="264" y2="38" stroke="#3b3c40" stroke-width="1"></line>
+            <line x1="16" y1="136" x2="264" y2="136" stroke="#3b3c40" stroke-width="1"></line>
+            <line
+              x1="16"
+              y1="136"
+              x2="264"
+              y2="38"
+              stroke="#3b3c40"
+              stroke-width="1"
+              stroke-dasharray="3 3"></line>
+            <!-- ease curve (Quart-out-ish) -->
+            <path
+              d="M 16 136 C 52 38, 150 38, 264 38"
+              fill="none"
+              stroke="#5496fa"
+              stroke-width="2"
+              stroke-linecap="round"></path>
+            <!-- tangent arms + handles -->
+            <line x1="16" y1="136" x2="52" y2="38" stroke="#6e727a" stroke-width="1"></line>
+            <line x1="264" y1="38" x2="150" y2="38" stroke="#6e727a" stroke-width="1"></line>
+            <circle cx="16" cy="136" r="2.5" fill="#6e727a"></circle>
+            <circle cx="264" cy="38" r="2.5" fill="#6e727a"></circle>
+            <circle cx="52" cy="38" r="5" fill="#5496fa" stroke="#17181b" stroke-width="2"></circle>
+            <circle cx="150" cy="38" r="5" fill="#5496fa" stroke="#17181b" stroke-width="2"></circle>
+            <!-- dot riding the curve (CSS offset-path so reduced-motion applies) -->
+            <circle r="3.5" fill="#5496fa" class="pm-ride"></circle>
+          </svg>
+          <span
+            class="absolute top-2 left-2.5 rounded-[3px] bg-black px-1.5 py-0.5 font-mono text-[9px] text-white [font-variant-numeric:tabular-nums]"
+            >Influence 33%</span
+          >
+        </div>
+        <div class="flex items-center gap-2 border-t border-[#3b3c40] bg-[#17181b] px-2.5 py-1.5">
+          <span class="min-w-0 flex-1 truncate text-[10px] whitespace-nowrap text-[#6e727a]"
+            >6 keys · 2 properties</span
+          >
+          <span
+            class="rounded-[5px] border border-[#58595c] bg-[#37383b] px-2 py-0.5 text-[10px] text-[#e3e5ea]"
+            >Read</span
+          >
+          <span class="rounded-[5px] bg-[#5496fa] px-2.5 py-0.5 text-[10px] font-semibold text-white"
+            >Apply</span
+          >
+        </div>
+      </div>
+
+      <!-- Align widget: 3x2 flat cells -->
+      <div
+        class="col-span-2 row-span-2 grid grid-cols-3 grid-rows-2 gap-px overflow-hidden rounded-[7px] border border-[#3b3c40] bg-[#494a4e] shadow-[0_1px_2px_rgb(0_0_0/0.22)]"
+      >
+        {
+          alignGlyphs.map((g) => (
+            <span class="grid place-items-center bg-[#37383b] text-[#989ca4]">
+              <svg viewBox="0 0 16 16" class="h-4 w-4" fill="none" aria-hidden="true">
+                <path d={g.line} stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                <rect
+                  x={g.rect.x}
+                  y={g.rect.y}
+                  width={g.rect.w}
+                  height={g.rect.h}
+                  rx="1"
+                  fill="currentColor"
+                  opacity="0.75"
+                />
+              </svg>
+            </span>
+          ))
+        }
+      </div>
+
+      <!-- Colours widget: 2x2 swatches -->
+      <div
+        class="col-span-1 row-span-2 grid grid-cols-2 grid-rows-2 gap-px overflow-hidden rounded-[7px] border border-[#3b3c40] bg-[#494a4e] shadow-[0_1px_2px_rgb(0_0_0/0.22)]"
+      >
+        <span class="bg-[#f2f3f5]"></span>
+        <span class="bg-[#9aa1ad]"></span>
+        <span class="bg-[#5496fa]"></span>
+        <span class="bg-[#1b1c1f]"></span>
+      </div>
+
+      <!-- Mini easing tiles with traveling dots -->
+      {
+        miniTiles.map((t) => (
+          <div class="col-span-1 row-span-1 flex flex-col items-center justify-center gap-1 rounded-[7px] border border-[#3b3c40] bg-[#2f3034] px-1 py-2 shadow-[0_1px_2px_rgb(0_0_0/0.22)]">
+            <span class="relative block h-[26px] w-[48px]">
+              <svg viewBox="0 0 48 26" class="h-full w-full" aria-hidden="true">
+                <line x1="4" y1="22" x2="44" y2="22" stroke="#58595c" stroke-width="1.5" />
+                <path d={t.curve} fill="none" stroke="#5496fa" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <span
+                class="pm-dot absolute top-1/2 left-0 h-1.5 w-1.5 rounded-full bg-[#5496fa] shadow-[0_0_0_3px_rgb(84_150_250/0.22)]"
+                style={`animation-timing-function: ${t.ease};`}
+              />
+            </span>
+            <span class="text-[9px] whitespace-nowrap text-[#989ca4]">{t.name}</span>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</div>
+
+<style>
+  .pm-ride {
+    offset-path: path('M 16 136 C 52 38, 150 38, 264 38');
+    animation: pm-ride 2.6s infinite;
+  }
+  @keyframes pm-ride {
+    0% {
+      offset-distance: 0%;
+      animation-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+    }
+    55%,
+    100% {
+      offset-distance: 100%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pm-ride {
+      animation: none;
+      offset-distance: 100%;
+    }
+  }
+
+  @keyframes pm-travel {
+    0% {
+      transform: translate(2px, -50%);
+    }
+    55%,
+    100% {
+      transform: translate(38px, -50%);
+    }
+  }
+  .pm-dot {
+    animation: pm-travel 2.6s infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pm-dot {
+      animation: none;
+      transform: translate(38px, -50%);
+    }
+  }
+</style>

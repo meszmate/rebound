@@ -1,17 +1,55 @@
 ---
-
+import Base from '../layouts/Base.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import PanelMock from '../components/PanelMock.astro';
+import Playground from '../components/Playground.astro';
+import Boards from '../components/Boards.astro';
+import ImportSection from '../components/ImportSection.astro';
+import Tools from '../components/Tools.astro';
+import Craft from '../components/Craft.astro';
+import Pricing from '../components/Pricing.astro';
+import Download from '../components/Download.astro';
+import Faq from '../components/Faq.astro';
+import Footer from '../components/Footer.astro';
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<Base
+  title="Rebound: easing, springs and motion tools for After Effects"
+  description="A motion-design panel for After Effects: one curve editor for easing and real spring physics, batch-aware tools for timing and layout, and one-click import from Figma, Illustrator and Photoshop as native, editable layers. Free for non-commercial use."
+>
+  <Nav />
+  <main>
+    <Hero />
+
+    <!-- Panel showcase: a full-width band so the hero doesn't float -->
+    <section
+      class="relative border-y border-line-soft bg-gradient-to-b from-paper to-mist/70 py-14 sm:py-16"
+      aria-label="The Rebound panel"
+    >
+      <div
+        class="pointer-events-none absolute inset-0 [background-image:radial-gradient(rgb(16_17_20/0.04)_1px,transparent_1px)] [background-size:22px_22px]"
+        aria-hidden="true"
+      >
+      </div>
+      <div class="relative mx-auto max-w-5xl px-5 sm:px-8">
+        <div data-reveal style="--reveal-delay: 0.1s">
+          <PanelMock />
+        </div>
+        <p class="mt-5 text-center text-[0.8125rem] text-faint" data-reveal>
+          The Home board: a live curve editor, one-click eases, and the tools you use most.
+        </p>
+      </div>
+    </section>
+
+    <Playground />
+    <Boards />
+    <ImportSection />
+    <Tools />
+    <Craft />
+    <Pricing />
+    <Faq />
+    <Download />
+  </main>
+  <Footer />
+</Base>

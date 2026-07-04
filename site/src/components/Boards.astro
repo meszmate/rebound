@@ -1,0 +1,374 @@
+---
+// The Home board, demonstrated instead of described: a scripted loop drags a
+// tile, resizes the ease widget by its corner grip, and switches the tile
+// size, with the rest of the board reflowing live. Colors mirror the real
+// panel tokens.
+---
+
+<section id="boards" class="scroll-mt-20 bg-[#141518] py-24 sm:py-32">
+  <div class="mx-auto grid max-w-6xl items-center gap-12 px-5 sm:px-8 lg:grid-cols-[1fr_1.35fr] lg:gap-16">
+    <div>
+      <p class="text-sm font-medium text-[#5496fa]" data-reveal>The Home board</p>
+      <h2
+        class="mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] text-white sm:text-[2.5rem] sm:leading-[1.1]"
+        data-reveal
+        style="--reveal-delay: 0.06s"
+      >
+        A home screen you can rearrange completely.
+      </h2>
+      <p
+        class="mt-4 text-pretty text-[1.0625rem] leading-relaxed text-[#9aa0a8]"
+        data-reveal
+        style="--reveal-delay: 0.12s"
+      >
+        Pin tools and live widgets, drag and resize them, keep a board per job.
+      </p>
+      <ul class="mt-8 space-y-3 text-sm text-[#9aa0a8]" data-reveal style="--reveal-delay: 0.18s">
+        {
+          [
+            'Boards with tabs, one per kind of work',
+            'Curve editor, anchor grid, align pad and swatches as live widgets',
+            'Three tile sizes, up to six columns, never scrolls',
+            'Layouts persist and travel in share bundles',
+          ].map((f) => (
+            <li class="flex gap-2.5">
+              <svg class="mt-1 h-3.5 w-3.5 shrink-0 text-[#5496fa]" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3.5 8.5 6.5 11.5 12.5 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              {f}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+
+    <div data-reveal style="--reveal-delay: 0.16s">
+      <div
+        id="bd-demo"
+        class="relative overflow-hidden rounded-xl border border-[#2c2d31] bg-[#1e1f23] shadow-[0_1px_0_rgb(255_255_255/0.06)_inset,0_30px_80px_-24px_rgb(0_0_0/0.8)]"
+      >
+        <div class="p-2.5">
+          <!-- Board tabs + Done -->
+          <div class="flex items-center gap-1.5 px-1 pb-2">
+            <span class="rounded-[5px] border border-[#5496fa] bg-[rgb(84_150_250/0.12)] px-2.5 py-1 text-[10px] font-medium text-[#5496fa]">Easing</span>
+            <span class="rounded-[5px] border border-[#3b3c40] bg-[#17181b] px-2.5 py-1 text-[10px] text-[#989ca4]">Layout</span>
+            <span class="rounded-[5px] border border-dashed border-[#58595c] px-2.5 py-1 text-[10px] text-[#6e727a]">+</span>
+            <span class="flex-1"></span>
+            <span class="rounded-[5px] bg-[#5496fa] px-2.5 py-1 text-[10px] font-semibold text-white">Done</span>
+          </div>
+
+          <!-- Edit bar -->
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-y border-[#2c2d31] px-1 py-2">
+            <span class="flex items-center gap-1.5 text-[10px] text-[#6e727a]">
+              Board <span class="h-3.5 w-3.5 rounded-[3px] bg-[#5496fa]"></span>
+            </span>
+            <span class="flex items-center gap-1 text-[10px] text-[#6e727a]">
+              Columns
+              {['3', '4', '5', '6'].map((c) => (
+                <span class:list={['grid h-[17px] w-[19px] place-items-center rounded-[3px] border text-[9px]', c === '4' ? 'border-[#5496fa] text-[#5496fa]' : 'border-[#58595c] text-[#989ca4]']}>{c}</span>
+              ))}
+            </span>
+            <span class="flex items-center gap-1 text-[10px] text-[#6e727a]">
+              Size
+              <span id="bd-size-s" class="grid h-[17px] w-[19px] place-items-center rounded-[3px] border border-[#58595c] text-[9px] text-[#989ca4]">S</span>
+              <span id="bd-size-m" class="grid h-[17px] w-[19px] place-items-center rounded-[3px] border border-[#5496fa] text-[9px] text-[#5496fa]">M</span>
+              <span id="bd-size-l" class="grid h-[17px] w-[19px] place-items-center rounded-[3px] border border-[#58595c] text-[9px] text-[#989ca4]">L</span>
+            </span>
+          </div>
+
+          <!-- Animated tile field (fixed height so the page never shifts) -->
+          <div id="bd-grid" class="relative mt-2" style="height: 298px;">
+            <!-- Ease widget -->
+            <div data-tile="ease" class="bd-tile flex flex-col overflow-hidden">
+              <div class="relative flex-1 bg-[#17181b]">
+                <svg viewBox="0 0 150 88" class="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden="true">
+                  <line x1="10" y1="70" x2="140" y2="20" stroke="#3b3c40" stroke-width="1" stroke-dasharray="3 3"></line>
+                  <path d="M 10 70 C 34 20, 80 20, 140 20" fill="none" stroke="#5496fa" stroke-width="2" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+                </svg>
+              </div>
+              <div class="flex items-center justify-end gap-1.5 border-t border-[#3b3c40] bg-[#17181b] px-2 py-1">
+                <span class="rounded-[4px] border border-[#58595c] bg-[#37383b] px-1.5 text-[9px] text-[#e3e5ea]">Read</span>
+                <span class="rounded-[4px] bg-[#5496fa] px-2 text-[9px] font-semibold text-white">Apply</span>
+              </div>
+              <span id="bd-grip" class="absolute right-0 bottom-0 h-3 w-3 rounded-br-[6px] border-r-[3px] border-b-[3px] border-[#5496fa]" aria-hidden="true"></span>
+            </div>
+
+            <!-- Align widget -->
+            <div data-tile="align" class="bd-tile grid grid-cols-3 grid-rows-2 gap-px !bg-[#494a4e] p-px">
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <span class="grid place-items-center bg-[#37383b]">
+                  <svg viewBox="0 0 16 16" class="h-3 w-3" fill="none" aria-hidden="true">
+                    <path d={['M4 3v10', 'M8 3v10', 'M12 3v10', 'M3 4h10', 'M3 8h10', 'M3 12h10'][i]} stroke="#989ca4" stroke-width="1.3" stroke-linecap="round" />
+                    <rect x={i < 3 ? 5.5 : 6} y={i < 3 ? 6 : 5.5} width={i < 3 ? 6 : 4} height={i < 3 ? 4 : 6} rx="1" fill="#989ca4" opacity="0.7" />
+                  </svg>
+                </span>
+              ))}
+            </div>
+
+            <!-- Colours widget -->
+            <div data-tile="colours" class="bd-tile grid grid-cols-2 grid-rows-2 gap-px !bg-[#494a4e] p-px">
+              <span class="bg-[#f2f3f5]"></span><span class="bg-[#9aa1ad]"></span>
+              <span class="bg-[#5496fa]"></span><span class="bg-[#1b1c1f]"></span>
+            </div>
+
+            <!-- Anchor widget -->
+            <div data-tile="anchor" class="bd-tile grid grid-cols-3 grid-rows-3 gap-[2px] !bg-[rgb(0_0_0/0.3)] p-[2px]">
+              {[...Array(9)].map(() => <span class="rounded-[1px] bg-[#5496fa]" />)}
+            </div>
+
+            {/* mini curve tiles */}
+            {
+              [
+                { id: 'easyease', label: 'Easy Ease', curve: 'M4 22 C 12 22, 20 4, 44 4' },
+                { id: 'wiggle', label: 'Wiggle', curve: 'M4 14 Q 9 6, 14 14 T 24 14 T 34 14 T 44 14' },
+              ].map((t) => (
+                <div data-tile={t.id} class="bd-tile flex flex-col items-center justify-center gap-1">
+                  <svg viewBox="0 0 48 26" class="h-[20px] w-[40px]" aria-hidden="true">
+                    <line x1="4" y1="22" x2="44" y2="22" stroke="#58595c" stroke-width="1.5" />
+                    <path d={t.curve} fill="none" stroke="#5496fa" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                  <span class="text-[9px] whitespace-nowrap text-[#989ca4]">{t.label}</span>
+                </div>
+              ))
+            }
+
+            {/* icon tiles */}
+            {
+              [
+                { id: 'stagger', label: 'Stagger', icon: 'M3 5h6M5 8h6M7 11h6' },
+                { id: 'addnull', label: 'Add Null', icon: 'M8 4v8M4 8h8' },
+                { id: 'trim', label: 'Trim Paths', icon: 'M3 8h4m2 0h4M8 3v4m0 2v4' },
+              ].map((t) => (
+                <div data-tile={t.id} class="bd-tile flex flex-col items-center justify-center gap-1">
+                  <span class="grid h-6 w-6 place-items-center rounded-lg bg-[rgb(84_150_250/0.14)]">
+                    <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" aria-hidden="true">
+                      <path d={t.icon} stroke="#5496fa" stroke-width="1.3" stroke-linecap="round" opacity="0.8" />
+                    </svg>
+                  </span>
+                  <span class="text-[9px] whitespace-nowrap text-[#989ca4]">{t.label}</span>
+                </div>
+              ))
+            }
+
+            <!-- Empty slot ghost (appears when the resize frees cells) -->
+            <div data-tile="ghost" class="bd-tile !border-[#3b3c40] !bg-transparent grid place-items-center text-[15px] text-[#58595c]">+</div>
+
+            <!-- Scripted cursor -->
+            <div id="bd-cursor" class="pointer-events-none absolute z-10" aria-hidden="true">
+              <svg viewBox="0 0 20 20" class="h-5 w-5 drop-shadow-[0_1px_2px_rgb(0_0_0/0.6)]">
+                <path d="M4 2l0 13 3.4-2.9 2.3 5 2.4-1.1-2.3-4.9 4.6-.5z" fill="#fff" stroke="#101114" stroke-width="1.2" stroke-linejoin="round"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="mt-4 text-center text-[0.8125rem] text-[#6e727a]">
+        Edit mode, on a loop: drag, resize by the corner, switch tile size.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .bd-tile {
+    position: absolute;
+    overflow: hidden;
+    border-radius: 7px;
+    border: 1px dashed #58595c;
+    background: #2f3034;
+    transition:
+      left 0.55s cubic-bezier(0.3, 1.2, 0.35, 1),
+      top 0.55s cubic-bezier(0.3, 1.2, 0.35, 1),
+      width 0.55s cubic-bezier(0.3, 1.2, 0.35, 1),
+      height 0.55s cubic-bezier(0.3, 1.2, 0.35, 1),
+      box-shadow 0.25s ease,
+      transform 0.25s ease;
+  }
+  .bd-tile.is-lift {
+    z-index: 5;
+    transform: scale(1.05);
+    box-shadow: 0 10px 24px rgb(0 0 0 / 0.5);
+    border-style: solid;
+    border-color: #5496fa;
+  }
+  #bd-cursor {
+    transition:
+      left 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+      top 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+      transform 0.15s ease;
+  }
+  #bd-cursor.is-press {
+    transform: scale(0.82);
+  }
+  #bd-grid {
+    transition: opacity 0.35s ease;
+  }
+  #bd-grid.bd-fade {
+    opacity: 0;
+  }
+</style>
+
+<script>
+  const grid = document.getElementById('bd-grid')!;
+  const cursor = document.getElementById('bd-cursor')!;
+  const grip = document.getElementById('bd-grip')!;
+  const tiles = new Map<string, HTMLElement>();
+  grid.querySelectorAll<HTMLElement>('[data-tile]').forEach((el) => tiles.set(el.dataset.tile!, el));
+
+  const GAP = 6;
+  const COLS = 4;
+
+  type Slot = [number, number, number, number]; // col, row, w, h
+  type Layout = Record<string, Slot>;
+
+  // ease widget 2x2 top-left; an empty ghost row sits below, as in real edit mode
+  const S0: Layout = {
+    ease: [0, 0, 2, 2], align: [2, 0, 1, 1], colours: [3, 0, 1, 1],
+    easyease: [2, 1, 1, 1], stagger: [3, 1, 1, 1],
+    addnull: [0, 2, 1, 1], wiggle: [1, 2, 1, 1], trim: [2, 2, 1, 1], anchor: [3, 2, 1, 1],
+    ghost: [0, 3, 4, 1],
+  };
+  // after dragging the anchor widget to the front of the last row
+  const S1: Layout = {
+    ...S0,
+    anchor: [0, 2, 1, 1], addnull: [1, 2, 1, 1], wiggle: [2, 2, 1, 1], trim: [3, 2, 1, 1],
+  };
+  // after resizing the ease widget to 3x2
+  const S2: Layout = {
+    ease: [0, 0, 3, 2], align: [3, 0, 1, 1], colours: [3, 1, 1, 1],
+    anchor: [0, 2, 1, 1], addnull: [1, 2, 1, 1], wiggle: [2, 2, 1, 1], trim: [3, 2, 1, 1],
+    easyease: [0, 3, 1, 1], stagger: [1, 3, 1, 1], ghost: [2, 3, 2, 1],
+  };
+
+  let current: Layout = S0;
+  let cellH = 70;
+
+  const cw = () => (grid.clientWidth - (COLS - 1) * GAP) / COLS;
+  const px = (c: number) => c * (cw() + GAP);
+  const py = (r: number) => r * (cellH + GAP);
+
+  function apply(layout: Layout, ch: number, instant = false) {
+    current = layout;
+    cellH = ch;
+    tiles.forEach((el, id) => {
+      el.style.opacity = layout[id] ? '' : '0';
+    });
+    for (const [id, [c, r, w, h]] of Object.entries(layout)) {
+      const el = tiles.get(id);
+      if (!el) continue;
+      if (instant) el.style.transition = 'none';
+      el.style.left = `${px(c)}px`;
+      el.style.top = `${py(r)}px`;
+      el.style.width = `${w * cw() + (w - 1) * GAP}px`;
+      el.style.height = `${h * ch + (h - 1) * GAP}px`;
+    }
+    if (instant) {
+      void grid.offsetWidth;
+      grid.style.transition = '';
+      tiles.forEach((el) => (el.style.transition = ''));
+    }
+  }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  function moveCursor(x: number, y: number, ms: number) {
+    cursor.style.transitionDuration = `${ms}ms, ${ms}ms, 150ms`;
+    cursor.style.left = `${x}px`;
+    cursor.style.top = `${y}px`;
+    return sleep(ms);
+  }
+
+  const slotCenter = (s: Slot): [number, number] => [
+    px(s[0]) + (s[2] * cw() + (s[2] - 1) * GAP) / 2,
+    py(s[1]) + (s[3] * cellH + (s[3] - 1) * GAP) / 2,
+  ];
+
+  // position of an element (e.g. the size buttons) in grid coordinates
+  function elCenter(el: HTMLElement): [number, number] {
+    const a = el.getBoundingClientRect();
+    const g = grid.getBoundingClientRect();
+    return [a.left - g.left + a.width / 2, a.top - g.top + a.height / 2];
+  }
+
+  const press = () => cursor.classList.add('is-press');
+  const release = () => cursor.classList.remove('is-press');
+
+  let running = false;
+  let generation = 0;
+
+  async function play() {
+    const gen = ++generation;
+    const live = () => running && gen === generation;
+    // Always restart from a clean first state (a pause can interrupt mid-fade).
+    grid.classList.remove('bd-fade');
+    release();
+    tiles.get('anchor')!.classList.remove('is-lift');
+    apply(S0, 70, true);
+    cursor.style.transitionDuration = '0ms, 0ms, 150ms';
+    cursor.style.left = '84%';
+    cursor.style.top = '88%';
+    while (live()) {
+      await sleep(900);
+      if (!live()) return;
+
+      // 1. drag the anchor widget to the front of its row
+      let [x, y] = slotCenter(S0.anchor);
+      await moveCursor(x, y, 650);
+      press();
+      tiles.get('anchor')!.classList.add('is-lift');
+      await sleep(250);
+      if (!live()) return;
+      [x, y] = slotCenter(S1.anchor);
+      apply(S1, 70);
+      await moveCursor(x, y, 560);
+      tiles.get('anchor')!.classList.remove('is-lift');
+      release();
+      await sleep(1100);
+      if (!live()) return;
+
+      // 2. resize the ease widget by its corner grip
+      let [gx, gy] = elCenter(grip);
+      await moveCursor(gx, gy, 600);
+      press();
+      await sleep(200);
+      apply(S2, 70);
+      [gx, gy] = [px(2) + cw(), py(1) + cellH];
+      await moveCursor(gx, gy, 560);
+      release();
+      await sleep(2200);
+      if (!live()) return;
+
+      // fade back to the start instead of snapping
+      grid.classList.add('bd-fade');
+      await sleep(380);
+      if (!live()) return;
+      apply(S0, 70, true);
+      cursor.style.transitionDuration = '0ms, 0ms, 150ms';
+      cursor.style.left = '84%';
+      cursor.style.top = '88%';
+      grid.classList.remove('bd-fade');
+      await sleep(500);
+    }
+  }
+
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  apply(S0, 70, true);
+  cursor.style.left = '84%';
+  cursor.style.top = '90%';
+
+  if (!reduced) {
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting && !running) {
+        running = true;
+        play();
+      } else if (!e.isIntersecting) {
+        running = false;
+      }
+    });
+    io.observe(grid);
+  } else {
+    cursor.style.display = 'none';
+  }
+
+  window.addEventListener('resize', () => apply(current, cellH, true), { passive: true });
+</script>

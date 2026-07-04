@@ -1,0 +1,96 @@
+---
+const faqs = [
+  {
+    q: 'Is Rebound really free?',
+    a: 'Yes. The full panel, every tool included, is free for non-commercial use: personal projects, learning, experiments, portfolio pieces, student work. Work that makes money needs a commercial license, available on aescripts + aeplugins.',
+  },
+  {
+    q: 'What counts as commercial use?',
+    a: 'Anything you are paid for or that generates revenue: client work, work for your employer, monetized channels, paid templates. If you are unsure, ask. The answer is usually quick.',
+  },
+  {
+    q: 'Is it open source?',
+    a: 'No. Rebound is proprietary software, an original clean-room implementation built on public techniques like CSS cubic-bezier timing, the Penner equations and spring physics. Free for non-commercial use is a license choice, not an open-source one.',
+  },
+  {
+    q: 'Which versions of After Effects does it support?',
+    a: 'After Effects 2019 (16.0) and newer, on macOS and Windows. Rebound is a CEP extension. A few import details use newer AE APIs (per-run text styling needs AE 24.3 or newer) and degrade gracefully on older builds.',
+  },
+  {
+    q: 'Does anything leave my machine?',
+    a: 'No. There is no account and no telemetry. The Figma, Illustrator and Photoshop bridge runs over a local loopback receiver on your machine, or through a plain .rbir file on disk. Nothing is uploaded anywhere.',
+  },
+  {
+    q: 'How does the import actually work?',
+    a: 'The Figma plugin sends your selection to the panel over a local receiver while After Effects is open; the Illustrator and Photoshop exporters run from File ▸ Scripts. Every path produces the same portable .rbir document, rebuilds your design as native editable layers, and ends with a fidelity report of what transferred.',
+  },
+  {
+    q: 'What happens with fonts?',
+    a: 'Text imports as real, editable After Effects text. If a font is not installed, the import report flags it and offers a one-click replacement. Nothing substitutes silently.',
+  },
+];
+---
+
+<section id="faq" class="scroll-mt-20 border-t border-line-soft py-24 sm:py-32">
+  <div class="mx-auto grid max-w-6xl gap-x-16 gap-y-10 px-5 sm:px-8 lg:grid-cols-[1fr_1.9fr]">
+    <div class="lg:sticky lg:top-24 lg:self-start">
+      <p class="text-sm font-medium text-live" data-reveal>FAQ</p>
+      <h2
+        class="mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-[2.5rem] sm:leading-[1.1]"
+        data-reveal
+        style="--reveal-delay: 0.06s"
+      >
+        Common questions.
+      </h2>
+      <p class="mt-4 text-[0.9375rem] text-mute" data-reveal style="--reveal-delay: 0.12s">
+        Something else? Ask on the&#32;<a
+          href="https://aescripts.com/rebound/"
+          class="text-ink underline decoration-line underline-offset-4 transition-colors hover:decoration-ink"
+          >aescripts page</a
+        >.
+      </p>
+    </div>
+
+    <div>
+      {
+        faqs.map((f, i) => (
+          <details
+            class="rb-faq group border-t border-line-soft last:border-b"
+            data-reveal
+            style={`--reveal-delay: ${Math.min(i * 0.04, 0.2)}s`}
+          >
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-[1.0625rem] font-medium tracking-[-0.01em] text-ink transition-colors hover:text-ink-soft">
+              {f.q}
+              <span class="rb-faq-icon grid h-7 w-7 shrink-0 place-items-center rounded-full border border-line text-mute transition-colors group-hover:border-[rgb(16_17_20/0.2)]">
+                <svg viewBox="0 0 12 12" class="h-3 w-3" fill="none" aria-hidden="true">
+                  <path d="M6 1.5v9M1.5 6h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                </svg>
+              </span>
+            </summary>
+            <p class="max-w-2xl pb-6 text-[0.9375rem] leading-relaxed text-mute">{f.a}</p>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Animate <details> open/close where supported (Chromium 131+); harmless elsewhere. */
+  :global(html) {
+    interpolate-size: allow-keywords;
+  }
+  details.rb-faq::details-content {
+    opacity: 0;
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size 0.45s var(--ease-out-quart),
+      opacity 0.3s ease,
+      content-visibility 0.45s allow-discrete;
+  }
+  details.rb-faq[open]::details-content {
+    opacity: 1;
+    block-size: auto;
+  }
+</style>

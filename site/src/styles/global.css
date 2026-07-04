@@ -1,0 +1,177 @@
+@import '@fontsource-variable/inter';
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', Menlo, monospace;
+
+  /* Ink on paper — the mono brand palette */
+  --color-ink: #101114;
+  --color-ink-soft: #3d434d;
+  --color-mute: #697180;
+  --color-faint: #9aa1ad;
+  --color-paper: #fcfcfd;
+  --color-mist: #f4f5f7;
+  --color-line: rgb(16 17 20 / 0.08);
+  --color-line-soft: rgb(16 17 20 / 0.05);
+
+  /* Live blue — reserved for interactive/live elements only */
+  --color-live: #3e74e8;
+  --color-live-soft: rgb(62 116 232 / 0.12);
+
+  /* AE panel (dark mockup) */
+  --color-panel: #26282c;
+  --color-panel-deep: #1e2023;
+  --color-panel-line: rgb(255 255 255 / 0.09);
+  --color-panel-text: #e8eaed;
+  --color-panel-mute: #9aa0a8;
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.44, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(62 116 232 / 0.18);
+}
+
+/* ------------------------------------------------------------------ */
+/* Scroll reveal                                                       */
+/* ------------------------------------------------------------------ */
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.7s var(--ease-out-quart),
+    transform 0.7s var(--ease-out-quart);
+  transition-delay: var(--reveal-delay, 0s);
+}
+
+[data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Hero mark draw-on                                                   */
+/* ------------------------------------------------------------------ */
+
+@keyframes rb-ball-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.4);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(3px) scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rb-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.rb-mark-animate .rb-mark-ball {
+  animation: rb-ball-drop 0.55s var(--ease-out-quart) both;
+}
+
+.rb-mark-animate .rb-mark-path {
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
+  animation: rb-draw 1.15s var(--ease-out-quart) 0.38s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-mark-animate .rb-mark-path {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .rb-mark-animate .rb-mark-ball {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Marquee                                                             */
+/* ------------------------------------------------------------------ */
+
+@keyframes rb-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.rb-marquee-track {
+  animation: rb-marquee 46s linear infinite;
+}
+
+.rb-marquee:hover .rb-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-marquee-track {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Details / FAQ                                                       */
+/* ------------------------------------------------------------------ */
+
+details.rb-faq summary::-webkit-details-marker {
+  display: none;
+}
+
+details.rb-faq .rb-faq-icon {
+  transition: transform 0.35s var(--ease-out-quart);
+}
+
+details.rb-faq[open] .rb-faq-icon {
+  transform: rotate(45deg);
+}

@@ -1,0 +1,57 @@
+---
+import Mark from './Mark.astro';
+
+const links = [
+  { href: '#playground', label: 'Playground' },
+  { href: '#boards', label: 'Home board' },
+  { href: '#import', label: 'Import' },
+  { href: '#tools', label: 'Tools' },
+  { href: '#pricing', label: 'Pricing' },
+  { href: '#faq', label: 'FAQ' },
+];
+---
+
+<header
+  id="site-nav"
+  class="fixed inset-x-0 top-0 z-50 border-b border-transparent transition-all duration-500 [transition-timing-function:var(--ease-out-quart)]"
+>
+  <nav class="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+    <a href="#top" class="group flex items-center gap-2.5 text-ink" aria-label="Rebound home">
+      <Mark class="h-7 w-8 transition-transform duration-500 [transition-timing-function:var(--ease-spring)] group-hover:-rotate-3 group-hover:scale-105" />
+      <span class="text-[1.0625rem] font-semibold tracking-[-0.02em]">Rebound</span>
+    </a>
+
+    <div class="hidden items-center gap-1 md:flex">
+      {
+        links.map((l) => (
+          <a
+            href={l.href}
+            class="rounded-full px-3.5 py-1.5 text-sm font-medium text-mute transition-colors duration-200 hover:bg-mist hover:text-ink"
+          >
+            {l.label}
+          </a>
+        ))
+      }
+    </div>
+
+    <a
+      href="#download"
+      class="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-medium text-paper transition-all duration-300 [transition-timing-function:var(--ease-out-quart)] hover:-translate-y-px hover:shadow-[0_6px_16px_-6px_rgb(16_17_20/0.45)] active:scale-[0.97]"
+    >
+      Download
+      <span class="hidden text-paper/50 sm:inline">free</span>
+    </a>
+  </nav>
+</header>
+
+<script>
+  const nav = document.getElementById('site-nav')!;
+  const update = () => {
+    const scrolled = window.scrollY > 12;
+    nav.classList.toggle('border-line', scrolled);
+    nav.classList.toggle('bg-paper/80', scrolled);
+    nav.classList.toggle('backdrop-blur-xl', scrolled);
+  };
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+</script>

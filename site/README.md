@@ -1,43 +1,41 @@
-# Astro Starter Kit: Minimal
+# Rebound: marketing site
 
-```sh
-npm create astro@latest -- --template minimal
-```
+The public site for Rebound, the easing / springs / motion-design panel for
+After Effects. A single static landing page built with **Astro 7** and
+**Tailwind CSS v4**, no client framework: interactions are small vanilla
+scripts bundled per component.
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Design language
 
-## 🚀 Project Structure
+- **Mono brand.** The full "bounce" monogram (see the Branding Figma file) in
+  ink on a whitish, hairline-divided layout. No gradient chip, no boxed cards
+  where a divider will do.
+- **Blue = live.** The brand accent is reserved for interactive/live elements
+  (curve handles, the trace dot, eyebrow labels); everything static stays ink.
+- **Real product, faithfully.** The hero panel and the Figma-plugin mockups
+  mirror the actual `--rb-*` panel tokens (`#1e1f23` / `#2f3034` / `#17181b` /
+  accent `#5496fa`) and the real Relay UI states.
 
-Inside of your Astro project, you'll see the following folders and files:
+## Notable pieces
 
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
+- `src/components/Playground.astro`: a live cubic-bezier editor (drag,
+  keyboard-nudge, presets, copy CSS) plus a damped-harmonic-oscillator spring
+  mode. Same math family as the panel.
+- `src/components/PanelMock.astro`: CSS recreation of the panel's Home board.
+- `src/components/Boards.astro`: scripted edit-mode demo (a cursor drags a
+  tile, resizes the ease widget, switches tile size; the board reflows live).
+- `src/components/ImportSection.astro`: Figma / Illustrator / Photoshop
+  switcher with per-app source cards and fidelity reports.
+- `src/layouts/Base.astro`: meta/OG + the scroll-reveal observer.
+- `public/og.png`: exported from the Branding Figma file's social banner.
 
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
+All motion honors `prefers-reduced-motion`.
 
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
+## Commands
 
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+| Command           | Action                                    |
+| :---------------- | :---------------------------------------- |
+| `npm install`     | Install dependencies                      |
+| `npm run dev`     | Dev server at `localhost:4321`            |
+| `npm run build`   | Production build to `./dist/`             |
+| `npm run preview` | Preview the production build              |
