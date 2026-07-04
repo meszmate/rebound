@@ -34,6 +34,16 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var STROKE_DEFAULTS = [
+    { name: 'Thin ink', state: { width: 2, hex: '#1a1c20' } },
+    { name: 'Bold red', state: { width: 8, hex: '#f4453a' } },
+    { name: 'Sky line', state: { width: 4, hex: '#1fa6e0' } },
+    { name: 'Heavy violet', state: { width: 12, hex: '#9b3fd6' } }
+  ];
+  R.toolPresets.declare('stroke', { defaults: STROKE_DEFAULTS });
+
   R.tools.register({
     id: 'stroke',
     title: 'Stroke',
@@ -150,12 +160,7 @@
             R.dom.svg('line', { x1: 12, y1: 20, x2: 108, y2: 20, stroke: state.hex || '#888888', 'stroke-width': w, 'stroke-linecap': 'round' })
           ]);
         },
-        defaults: [
-          { name: 'Thin ink', state: { width: 2, hex: '#1a1c20' } },
-          { name: 'Bold red', state: { width: 8, hex: '#f4453a' } },
-          { name: 'Sky line', state: { width: 4, hex: '#1fa6e0' } },
-          { name: 'Heavy violet', state: { width: 12, hex: '#9b3fd6' } }
-        ]
+        defaults: STROKE_DEFAULTS
       },
       // Selecting a stroked shape loads its current stroke into the fields.
       selectionRead: {

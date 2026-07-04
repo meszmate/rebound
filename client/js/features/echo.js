@@ -28,6 +28,16 @@
     return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var ECHO_DEFAULTS = [
+    { name: 'Subtle trail', state: { echoTime: -0.03, numEchoes: 4, decay: 0.5 } },
+    { name: 'Long smear', state: { echoTime: -0.08, numEchoes: 16, decay: 0.85 } },
+    { name: 'Strobe', state: { echoTime: -0.12, numEchoes: 6, decay: 1 } },
+    { name: 'Ghost fade', state: { echoTime: -0.05, numEchoes: 10, decay: 0.65 } }
+  ];
+  R.toolPresets.declare('echo', { defaults: ECHO_DEFAULTS });
+
   R.tools.register({
     id: 'echo',
     title: 'Echo',
@@ -91,12 +101,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return echoSvg(st, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Subtle trail', state: { echoTime: -0.03, numEchoes: 4, decay: 0.5 } },
-          { name: 'Long smear', state: { echoTime: -0.08, numEchoes: 16, decay: 0.85 } },
-          { name: 'Strobe', state: { echoTime: -0.12, numEchoes: 6, decay: 1 } },
-          { name: 'Ghost fade', state: { echoTime: -0.05, numEchoes: 10, decay: 0.65 } }
-        ]
+        defaults: ECHO_DEFAULTS
       },
       destroy: off
     };

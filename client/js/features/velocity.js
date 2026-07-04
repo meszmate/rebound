@@ -25,6 +25,16 @@
     };
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var VELOCITY_DEFAULTS = [
+    { name: 'Easy Ease', state: { inInfluence: 33.33, outInfluence: 33.33, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: true, applyIn: true, applyOut: true } },
+    { name: 'Soft', state: { inInfluence: 75, outInfluence: 75, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: true, applyIn: true, applyOut: true } },
+    { name: 'Snappy out', state: { inInfluence: 90, outInfluence: 15, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: false, applyIn: true, applyOut: true } },
+    { name: 'In side only', state: { inInfluence: 80, outInfluence: 33.33, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: false, applyIn: true, applyOut: false } }
+  ];
+  R.toolPresets.declare('velocity', { defaults: VELOCITY_DEFAULTS });
+
   R.tools.register({
     id: 'velocity',
     title: 'Velocity',
@@ -172,12 +182,7 @@
         toolId: 'velocity',
         get: getState,
         set: applyState,
-        defaults: [
-          { name: 'Easy Ease', state: { inInfluence: 33.33, outInfluence: 33.33, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: true, applyIn: true, applyOut: true } },
-          { name: 'Soft', state: { inInfluence: 75, outInfluence: 75, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: true, applyIn: true, applyOut: true } },
-          { name: 'Snappy out', state: { inInfluence: 90, outInfluence: 15, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: false, applyIn: true, applyOut: true } },
-          { name: 'In side only', state: { inInfluence: 80, outInfluence: 33.33, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, linked: false, applyIn: true, applyOut: false } }
-        ]
+        defaults: VELOCITY_DEFAULTS
       },
       // Selecting a keyframe segment shows its live in/out influence + speed,
       // read from the cached selection summary (no host round-trip).

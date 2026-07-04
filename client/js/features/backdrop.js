@@ -33,6 +33,17 @@
     return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var BACKDROP_DEFAULTS = [
+    { name: 'Blue dots', state: { pattern: 'dots', color: '#39C2FF', transparent: false, bg: '#0E1116', spacing: 16, size: 5, opacity: 70 } },
+    { name: 'Blueprint grid', state: { pattern: 'grid', color: '#3A6EA5', transparent: false, bg: '#0B1A2B', spacing: 14, size: 4, opacity: 60 } },
+    { name: 'Diagonal lines', state: { pattern: 'lines', color: '#FFFFFF', transparent: false, bg: '#15161A', spacing: 12, size: 4, opacity: 14, angle: 45 } },
+    { name: 'Checker', state: { pattern: 'checker', color: '#222', transparent: false, bg: '#1A1B1F', spacing: 20, size: 20, opacity: 100 } },
+    { name: 'Rings', state: { pattern: 'rings', color: '#FF5C8A', transparent: true, spacing: 22, size: 16, opacity: 40 } }
+  ];
+  R.toolPresets.declare('backdrop', { defaults: BACKDROP_DEFAULTS });
+
   R.tools.register({
     id: 'backdrop',
     title: 'Backdrop',
@@ -141,13 +152,7 @@
       presets: {
         toolId: 'backdrop', get: getState, set: applyState,
         thumbFor: function (s, opts) { return patternSvg(s, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Blue dots', state: { pattern: 'dots', color: '#39C2FF', transparent: false, bg: '#0E1116', spacing: 16, size: 5, opacity: 70 } },
-          { name: 'Blueprint grid', state: { pattern: 'grid', color: '#3A6EA5', transparent: false, bg: '#0B1A2B', spacing: 14, size: 4, opacity: 60 } },
-          { name: 'Diagonal lines', state: { pattern: 'lines', color: '#FFFFFF', transparent: false, bg: '#15161A', spacing: 12, size: 4, opacity: 14, angle: 45 } },
-          { name: 'Checker', state: { pattern: 'checker', color: '#222', transparent: false, bg: '#1A1B1F', spacing: 20, size: 20, opacity: 100 } },
-          { name: 'Rings', state: { pattern: 'rings', color: '#FF5C8A', transparent: true, spacing: 22, size: 16, opacity: 40 } }
-        ]
+        defaults: BACKDROP_DEFAULTS
       },
       destroy: function () { for (var i = 0; i < pickers.length; i++) pickers[i].destroy(); off(); }
     };

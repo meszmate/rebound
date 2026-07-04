@@ -36,7 +36,9 @@
     var overlay = el('div.rb-modal-overlay.is-entering');
     var box = el('div.rb-modal' + (opts.className ? '.' + opts.className.replace(/^\./, '') : ''), {
       role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tabindex: '-1',
-      style: { width: 'min(' + (opts.width || 360) + 'px, calc(100vw - 32px))' }
+      // A number is clamped to the viewport; a string is used as-is (e.g. the
+      // Add browser's full-panel sheet passes 'min(720px, 100%)').
+      style: { width: (typeof opts.width === 'string') ? opts.width : 'min(' + (opts.width || 360) + 'px, calc(100vw - 32px))' }
     });
 
     var head = el('div.rb-modal-head', null, [

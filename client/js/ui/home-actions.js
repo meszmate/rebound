@@ -89,10 +89,12 @@
   //    click applies (Align buttons, the Library preset grid, Palette + Colour
   //    swatches, Tag labels, Keyframe interpolation, Shape primitives), each built
   //    in the tool's own ctx.widget branch.
-  // A control-panel tool (sliders/toggles + Apply, e.g. Velocity, Copy Ease, Smooth,
-  // the physics rigs) is apply-and-forget and stays a one-click tile, never a widget
-  // that would have to scroll to show its controls.
-  var WIDGET_TOOLS = ['ease', 'anchor', 'gradient', 'align', 'library', 'palette', 'color', 'tags', 'keys', 'shapes'];
+  // A control-panel tool (sliders/toggles + Apply, e.g. Velocity, Copy Ease, Smooth)
+  // is apply-and-forget and stays a one-click tile, never a widget that would have
+  // to scroll to show its controls. The curve-physics designers (Spring, Recoil,
+  // Bounce) DO qualify: their live preview + curve graph + two sliders are the
+  // whole tool, so designing a spring right on the board works.
+  var WIDGET_TOOLS = ['ease', 'anchor', 'gradient', 'align', 'library', 'palette', 'color', 'tags', 'keys', 'shapes', 'spring', 'recoil', 'bounce'];
   function widgetActions() {
     return (R.tools.list() || []).filter(function (t) {
       return typeof t.mount === 'function' && WIDGET_TOOLS.indexOf(t.id) !== -1;
@@ -107,11 +109,13 @@
   // to a keyboard shortcut, not just the whole tool.
   function expressionActions() { return (R.userExpressions && R.userExpressions.homeActions) ? R.userExpressions.homeActions() : []; }
   function presetActions() { return (R.presets && R.presets.homeActions) ? R.presets.homeActions() : []; }
-  // Per-tool gallery presets that expose presets.apply (e.g. Recoil): each is an
-  // apply action with a Keyframes/Expression choice. Providers are registered by
-  // the preset gallery when a tool with apply support mounts.
+  // Per-tool presets from the static registry: every declared built-in preset
+  // and every user-saved preset (of any tool) is a pinnable action at load,
+  // WITHOUT the tool ever having been opened. One-click apply where the tool
+  // declared a builder (Spring, Bounce, Recoil...), open-with-preset-loaded for
+  // everything else. R.presetProviders stays for ad hoc providers.
   function toolPresetActions() {
-    var out = [];
+    var out = (R.toolPresets && R.toolPresets.actions) ? R.toolPresets.actions() : [];
     (R.presetProviders || []).forEach(function (p) { try { out = out.concat(p() || []); } catch (e) { /* skip */ } });
     return out;
   }
@@ -192,7 +196,10 @@
   function run(action, ctx) {
     if (!action) return Promise.reject(new Error('Unknown action'));
     if (action.kind === 'open' || action.kind === 'widget') {
-      if (ctx && ctx.openTool) ctx.openTool(action.toolId);
+      // A preset-carrying open action loads its state into the tool's controls,
+      // so the pin means "the tool, set up exactly like this".
+      if (action.presetState && R.shell && R.shell.openToolWithPreset) R.shell.openToolWithPreset(action.toolId, action.presetState);
+      else if (ctx && ctx.openTool) ctx.openTool(action.toolId);
       return Promise.resolve({ opened: action.toolId });
     }
     var args = defaultArgs(action);

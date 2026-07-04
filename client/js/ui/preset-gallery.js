@@ -98,6 +98,17 @@
           }
         }, ['×']));
       }
+      // Hover pin: put THIS preset on the Home board as its own tile (one click
+      // applies it, or opens the tool with it loaded), without the Add browser.
+      if (R.toolPresets && R.shell && R.shell.pinToHome) {
+        node.appendChild(el('span.rb-tile-pin', {
+          title: 'Add ' + p.name + ' to Home', 'aria-label': 'Add ' + p.name + ' to Home',
+          onclick: function (e) {
+            e.stopPropagation();
+            R.shell.pinToHome(R.toolPresets.actionIdFor(toolId, p.name));
+          }
+        }, ['+']));
+      }
       return node;
     }
 

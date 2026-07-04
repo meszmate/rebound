@@ -11,6 +11,16 @@
   var el = R.dom.el;
   var ui = R.ui;
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var VIGNETTE_DEFAULTS = [
+    { name: 'Subtle', state: { amount: 35, feather: 200, scale: 120 } },
+    { name: 'Heavy', state: { amount: 85, feather: 100, scale: 80 } },
+    { name: 'Wide', state: { amount: 50, feather: 250, scale: 140 } },
+    { name: 'Tight', state: { amount: 70, feather: 80, scale: 70 } }
+  ];
+  R.toolPresets.declare('vignette', { defaults: VIGNETTE_DEFAULTS });
+
   R.tools.register({
     id: 'vignette',
     title: 'Vignette',
@@ -92,12 +102,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (state, opts) { return vigSwatch(state, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Subtle', state: { amount: 35, feather: 200, scale: 120 } },
-          { name: 'Heavy', state: { amount: 85, feather: 100, scale: 80 } },
-          { name: 'Wide', state: { amount: 50, feather: 250, scale: 140 } },
-          { name: 'Tight', state: { amount: 70, feather: 80, scale: 70 } }
-        ]
+        defaults: VIGNETTE_DEFAULTS
       },
       destroy: off
     };

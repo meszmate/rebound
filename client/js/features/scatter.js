@@ -89,6 +89,17 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var SCATTER_DEFAULTS = [
+    { name: 'Grid', state: { pattern: 'grid', count: 24, width: 600, height: 400, radius: 250, jitter: 0, minDist: 0, seed: 1, scaleVary: 0, rotateVary: 0 } },
+    { name: 'Confetti', state: { pattern: 'random', count: 40, width: 700, height: 500, radius: 250, jitter: 0, minDist: 0, seed: 4, scaleVary: 40, rotateVary: 180 } },
+    { name: 'Spaced field', state: { pattern: 'random', count: 30, width: 700, height: 500, radius: 250, jitter: 0, minDist: 90, seed: 2, scaleVary: 15, rotateVary: 0 } },
+    { name: 'Sunflower', state: { pattern: 'fibonacci', count: 60, width: 600, height: 400, radius: 260, jitter: 0, minDist: 0, seed: 1, scaleVary: 0, rotateVary: 0 } },
+    { name: 'Loose grid', state: { pattern: 'grid', count: 36, width: 640, height: 420, radius: 250, jitter: 40, minDist: 0, seed: 6, scaleVary: 20, rotateVary: 25 } }
+  ];
+  R.toolPresets.declare('scatter', { defaults: SCATTER_DEFAULTS });
+
   R.tools.register({
     id: 'scatter',
     title: 'Scatter',
@@ -185,13 +196,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (s, opts) { return scatterSvg(s, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Grid', state: { pattern: 'grid', count: 24, width: 600, height: 400, radius: 250, jitter: 0, minDist: 0, seed: 1, scaleVary: 0, rotateVary: 0 } },
-          { name: 'Confetti', state: { pattern: 'random', count: 40, width: 700, height: 500, radius: 250, jitter: 0, minDist: 0, seed: 4, scaleVary: 40, rotateVary: 180 } },
-          { name: 'Spaced field', state: { pattern: 'random', count: 30, width: 700, height: 500, radius: 250, jitter: 0, minDist: 90, seed: 2, scaleVary: 15, rotateVary: 0 } },
-          { name: 'Sunflower', state: { pattern: 'fibonacci', count: 60, width: 600, height: 400, radius: 260, jitter: 0, minDist: 0, seed: 1, scaleVary: 0, rotateVary: 0 } },
-          { name: 'Loose grid', state: { pattern: 'grid', count: 36, width: 640, height: 420, radius: 250, jitter: 40, minDist: 0, seed: 6, scaleVary: 20, rotateVary: 25 } }
-        ]
+        defaults: SCATTER_DEFAULTS
       },
       destroy: off
     };

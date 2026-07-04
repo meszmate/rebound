@@ -45,6 +45,17 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var TRIMPATHS_DEFAULTS = [
+    { name: 'Quick Write-on', state: { direction: 'start-end', durationFrames: 12, ease: 'smooth' } },
+    { name: 'Slow Draw', state: { direction: 'start-end', durationFrames: 48, ease: 'smooth' } },
+    { name: 'Reverse', state: { direction: 'end-start', durationFrames: 24, ease: 'smooth' } },
+    { name: 'Mechanical', state: { direction: 'start-end', durationFrames: 24, ease: 'linear' } },
+    { name: 'Center Burst', state: { direction: 'center', durationFrames: 18, ease: 'smooth' } }
+  ];
+  R.toolPresets.declare('trimpaths', { defaults: TRIMPATHS_DEFAULTS });
+
   R.tools.register({
     id: 'trimpaths',
     title: 'Trim Paths',
@@ -129,13 +140,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (state, opts) { return trimThumb(state, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Quick Write-on', state: { direction: 'start-end', durationFrames: 12, ease: 'smooth' } },
-          { name: 'Slow Draw', state: { direction: 'start-end', durationFrames: 48, ease: 'smooth' } },
-          { name: 'Reverse', state: { direction: 'end-start', durationFrames: 24, ease: 'smooth' } },
-          { name: 'Mechanical', state: { direction: 'start-end', durationFrames: 24, ease: 'linear' } },
-          { name: 'Center Burst', state: { direction: 'center', durationFrames: 18, ease: 'smooth' } }
-        ]
+        defaults: TRIMPATHS_DEFAULTS
       },
       destroy: off
     };

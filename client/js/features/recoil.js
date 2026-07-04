@@ -66,7 +66,6 @@
     { name: 'Snappy', state: { overshoot: 18, bounce: 2.2, friction: 6 } },
     { name: 'Big Overshoot', state: { overshoot: 32, bounce: 1.8, friction: 3.5 } }
   ];
-  function slugify(s) { return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
   function userHandleLength() {
     var s = (R.disk && R.disk.read) ? (R.disk.read('settings', {}) || {}) : {};
     return (s.handleLength > 0) ? s.handleLength : 45;
@@ -83,26 +82,18 @@
   R.recoilApply = recoilApplyBuild;
   // Every recoil preset (built-in + your saved ones) is an applyable Home action
   // with a Keyframes / Expression choice: pin it to Home or bind it to a key and
-  // pressing it APPLIES that overshoot to the selected keyframes. Registered at
-  // load so the actions exist without opening the tool.
-  R.presetProviders = R.presetProviders || [];
-  R.presetProviders.push(function () {
-    var modes = [{ value: 'keys', label: 'Keyframes' }, { value: 'expression', label: 'Expression' }];
-    var user = [];
-    try { var d = R.disk.read('presets:recoil', null); if (d && d.items) user = d.items; } catch (e) { /* none */ }
-    // Apple is the generic "Recoil" tile (home-actions apply-recoil); skip it here
-    // so it is not listed twice.
-    return RECOIL_DEFAULTS.filter(function (p) { return p.name !== 'Apple'; }).concat(user).map(function (p) {
-      var st = p.state;
-      return {
-        id: 'toolpreset-recoil-' + slugify(p.name), label: 'Recoil: ' + p.name, toolId: 'recoil',
-        group: 'Presets', kind: 'apply', display: 'visual', curve: 'overshoot',
-        desc: 'Overshoot the selected keyframes the ' + p.name + ' way (' + p.state.overshoot + '% past, settles on the 2nd).',
-        config: [{ arg: 'mode', label: 'Apply as', type: 'select', options: modes }],
-        args: { mode: 'keys' },
-        build: function (args) { return recoilApplyBuild(st, (args && args.mode) || 'keys'); }
-      };
-    });
+  // pressing it APPLIES that overshoot to the selected keyframes. Declared at
+  // load so the actions exist without opening the tool. Apple is skipped: it is
+  // the curated apply-recoil tile, so it would be listed twice.
+  R.toolPresets.declare('recoil', {
+    defaults: RECOIL_DEFAULTS,
+    skip: ['Apple'],
+    previewFor: function (s) { return { type: 'fn', fn: overshootCurve(s.overshoot, s.bounce, s.friction) }; },
+    applyBuild: function (s, args) { return recoilApplyBuild(s, (args && args.mode) || 'keys'); },
+    modes: true,
+    describe: function (p) {
+      return 'Overshoot the selected keyframes the ' + p.name + ' way (' + p.state.overshoot + '% past, settles on the 2nd).';
+    }
   });
 
   R.tools.register({

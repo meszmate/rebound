@@ -30,6 +30,16 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var FOLLOW_DEFAULTS = [
+    { name: 'Tight Trail', state: { delayFrames: 2, cascade: false } },
+    { name: 'Loose Trail', state: { delayFrames: 8, cascade: false } },
+    { name: 'Cascade', state: { delayFrames: 3, cascade: true } },
+    { name: 'Long Cascade', state: { delayFrames: 6, cascade: true } }
+  ];
+  R.toolPresets.declare('follow', { defaults: FOLLOW_DEFAULTS });
+
   R.tools.register({
     id: 'follow',
     title: 'Follow',
@@ -94,12 +104,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return followSvg(st, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Tight Trail', state: { delayFrames: 2, cascade: false } },
-          { name: 'Loose Trail', state: { delayFrames: 8, cascade: false } },
-          { name: 'Cascade', state: { delayFrames: 3, cascade: true } },
-          { name: 'Long Cascade', state: { delayFrames: 6, cascade: true } }
-        ]
+        defaults: FOLLOW_DEFAULTS
       },
       destroy: off
     };

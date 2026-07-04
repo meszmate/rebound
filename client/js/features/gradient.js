@@ -25,6 +25,17 @@
 
   var DEFAULT = { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#1e63ff' }, { pos: 1, color: '#16e0c0' }] };
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var GRADIENT_DEFAULTS = [
+    { name: 'Ocean', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#1e63ff' }, { pos: 1, color: '#16e0c0' }] } },
+    { name: 'Sunset', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#ff5e3a' }, { pos: 0.5, color: '#ff2d75' }, { pos: 1, color: '#ffd166' }] } },
+    { name: 'Grape', state: { type: 'radial', angle: 0, stops: [{ pos: 0, color: '#f72fb0' }, { pos: 1, color: '#7b2ff7' }] } },
+    { name: 'Spectrum', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#e5534b' }, { pos: 0.33, color: '#e8a838' }, { pos: 0.66, color: '#22b07d' }, { pos: 1, color: '#4990e2' }] } },
+    { name: 'Mono Fade', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#ffffff' }, { pos: 1, color: '#222222' }] } }
+  ];
+  R.toolPresets.declare('gradient', { defaults: GRADIENT_DEFAULTS });
+
   R.tools.register({
     id: 'gradient',
     title: 'Gradient',
@@ -95,13 +106,7 @@
         thumbFor: function (state, opts) {
           return el('div', { style: { height: ((opts && opts.height) || 38) + 'px', borderRadius: 'var(--rb-radius-1)', background: R.ui.gradientCss(state) } });
         },
-        defaults: [
-          { name: 'Ocean', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#1e63ff' }, { pos: 1, color: '#16e0c0' }] } },
-          { name: 'Sunset', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#ff5e3a' }, { pos: 0.5, color: '#ff2d75' }, { pos: 1, color: '#ffd166' }] } },
-          { name: 'Grape', state: { type: 'radial', angle: 0, stops: [{ pos: 0, color: '#f72fb0' }, { pos: 1, color: '#7b2ff7' }] } },
-          { name: 'Spectrum', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#e5534b' }, { pos: 0.33, color: '#e8a838' }, { pos: 0.66, color: '#22b07d' }, { pos: 1, color: '#4990e2' }] } },
-          { name: 'Mono Fade', state: { type: 'linear', angle: 0, stops: [{ pos: 0, color: '#ffffff' }, { pos: 1, color: '#222222' }] } }
-        ]
+        defaults: GRADIENT_DEFAULTS
       },
       // Selecting a gradient-filled shape loads its current gradient.
       selectionRead: {

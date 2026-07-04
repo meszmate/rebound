@@ -62,6 +62,19 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var GRIDS_DEFAULTS = [
+    { name: 'Thirds', state: { preset: 'thirds', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
+    { name: '12-col', state: { preset: 'columns', count: 12, rows: 0, gutter: 20, margin: 60, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
+    { name: 'Modular 6x4', state: { preset: 'columns', count: 6, rows: 4, gutter: 24, margin: 48, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
+    { name: 'Golden', state: { preset: 'golden', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: true, colorName: 'white' } },
+    { name: 'Title-safe', state: { preset: 'safe', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'white' } },
+    { name: 'TikTok safe', state: { preset: 'social', platform: 'tiktok', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
+    { name: 'Reels safe', state: { preset: 'social', platform: 'reels', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'magenta' } }
+  ];
+  R.toolPresets.declare('grids', { defaults: GRIDS_DEFAULTS });
+
   R.tools.register({
     id: 'grids',
     title: 'Grids',
@@ -200,15 +213,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return gridSvg(st, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Thirds', state: { preset: 'thirds', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
-          { name: '12-col', state: { preset: 'columns', count: 12, rows: 0, gutter: 20, margin: 60, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
-          { name: 'Modular 6x4', state: { preset: 'columns', count: 6, rows: 4, gutter: 24, margin: 48, lineWidth: 2, crosshair: false, colorName: 'cyan' } },
-          { name: 'Golden', state: { preset: 'golden', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: true, colorName: 'white' } },
-          { name: 'Title-safe', state: { preset: 'safe', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'white' } },
-          { name: 'TikTok safe', state: { preset: 'social', platform: 'tiktok', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'magenta' } },
-          { name: 'Reels safe', state: { preset: 'social', platform: 'reels', count: 12, rows: 0, gutter: 20, margin: 0, lineWidth: 2, crosshair: false, colorName: 'magenta' } }
-        ]
+        defaults: GRIDS_DEFAULTS
       },
       destroy: off
     };

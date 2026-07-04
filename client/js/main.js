@@ -52,11 +52,21 @@
     var backBtn = el('button.rb-btn.is-ghost.is-icon', {
       'aria-label': 'Back to category', title: 'Back (Esc)', onclick: back
     }, [icon('<path d="M15 6l-6 6 6 6"/>')]);
+    // Pin the open tool to the Home board, right from its header: the launcher
+    // tile lands on the user's active board, one click away next time.
+    var pinToolBtn = el('button.rb-btn.is-ghost.is-icon', {
+      'aria-label': 'Add this tool to Home', title: 'Add this tool to Home',
+      onclick: function () {
+        var id = appStore.get().activeTool;
+        if (id && R.shell.pinToHome) R.shell.pinToHome('open-' + id);
+      }
+    }, [icon('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M12 12v6M9 15h6"/>')]);
     detailEl = el('div.rb-detail.rb-hidden', null, [
       el('div.rb-detail-bar', null, [
         backBtn,
         breadcrumbEl,
         el('span.rb-rail-spacer'),
+        pinToolBtn,
         el('span.rb-kbd-hint', { title: 'Run this tool’s main action' }, [
           el('span.rb-kbd', { text: ctrlSymbol() + '⏎' }),
           el('span.rb-kbd-hint-label', { text: 'Apply' })
@@ -565,6 +575,28 @@
   // up before acting on it.
   R.shell = R.shell || {};
   R.shell.openTool = openToolById;
+  // Open a tool WITH a preset state loaded into its controls: the runner for
+  // pinned tool presets (kind 'open' + presetState), so clicking "Spring: Bouncy"
+  // lands in the Spring tool already set to Bouncy.
+  R.shell.openToolWithPreset = function (id, state) {
+    openToolById(id);
+    var m = mounted[id];
+    if (m && m.api && m.api.presets && typeof m.api.presets.set === 'function') {
+      try { m.api.presets.set(state); } catch (e) { R.log.warn('Preset load failed for ' + id, e); }
+    }
+  };
+  // Pin any catalog action to the user's active Home board from anywhere in the
+  // panel (the tool header's pin, a preset tile's pin): the one shared path, so
+  // the toast and persistence behave identically everywhere.
+  R.shell.pinToHome = function (actionId) {
+    var action = R.homeActions.byId(actionId);
+    if (!action || !homeScreenApi || !homeScreenApi.addItem || !homeScreenApi.addItem(actionId)) {
+      R.ui.toast('Could not add that to Home', { kind: 'error' });
+      return false;
+    }
+    R.ui.toast(action.label + ' added to Home', { kind: 'success' });
+    return true;
+  };
 
   function sectionMeta(sid) {
     var list = R.toolMeta.SECTIONS;

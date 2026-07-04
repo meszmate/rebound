@@ -31,6 +31,16 @@
     return svg('svg', { viewBox: '0 0 160 80', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var BAKE_DEFAULTS = [
+    { name: 'Every frame', state: { range: 'work', stepFrames: 1, includeExpressions: false } },
+    { name: 'Coarse sample', state: { range: 'work', stepFrames: 4, includeExpressions: false } },
+    { name: 'Layer span', state: { range: 'layer', stepFrames: 1, includeExpressions: false } },
+    { name: 'With expressions', state: { range: 'work', stepFrames: 1, includeExpressions: true } }
+  ];
+  R.toolPresets.declare('bake', { defaults: BAKE_DEFAULTS });
+
   R.tools.register({
     id: 'bake',
     title: 'Bake',
@@ -122,12 +132,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return bakeSvg(st, (opts && opts.height) || 30); },
-        defaults: [
-          { name: 'Every frame', state: { range: 'work', stepFrames: 1, includeExpressions: false } },
-          { name: 'Coarse sample', state: { range: 'work', stepFrames: 4, includeExpressions: false } },
-          { name: 'Layer span', state: { range: 'layer', stepFrames: 1, includeExpressions: false } },
-          { name: 'With expressions', state: { range: 'work', stepFrames: 1, includeExpressions: true } }
-        ]
+        defaults: BAKE_DEFAULTS
       },
       destroy: off
     };

@@ -33,6 +33,16 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var SEQUENCE_DEFAULTS = [
+    { name: 'Butt joined', state: { order: 'selection', overlapFrames: 0, trim: false } },
+    { name: 'Crossfade', state: { order: 'selection', overlapFrames: 12, trim: false } },
+    { name: 'Spaced out', state: { order: 'selection', overlapFrames: -10, trim: false } },
+    { name: 'Top-down trim', state: { order: 'topdown', overlapFrames: 0, trim: true } }
+  ];
+  R.toolPresets.declare('sequence', { defaults: SEQUENCE_DEFAULTS });
+
   R.tools.register({
     id: 'sequence',
     title: 'Sequence',
@@ -100,12 +110,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return seqSvg(st, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Butt joined', state: { order: 'selection', overlapFrames: 0, trim: false } },
-          { name: 'Crossfade', state: { order: 'selection', overlapFrames: 12, trim: false } },
-          { name: 'Spaced out', state: { order: 'selection', overlapFrames: -10, trim: false } },
-          { name: 'Top-down trim', state: { order: 'topdown', overlapFrames: 0, trim: true } }
-        ]
+        defaults: SEQUENCE_DEFAULTS
       },
       destroy: off
     };

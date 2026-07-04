@@ -111,6 +111,20 @@
     return svg('svg', { viewBox: '0 0 160 110', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var PINRIG_DEFAULTS = [
+    { name: 'Blueprint', state: over({ accent: '#39C2FF', pins: true, bbox: true, grid: true, circles: true, edges: true, dotgrid: false, pinShape: 'ring', pinFill: false }) },
+    { name: 'Construction', state: over({ accent: '#7CE0A0', pins: true, bbox: false, margin: true, grid: true, edges: false, dotgrid: false, infographic: true, pinShape: 'cross', pinFill: false, pinPlacement: 'corners' }) },
+    { name: 'Minimal', state: over({ accent: '#FF9F1C', pins: true, bbox: true, edges: false, dotgrid: false, pinShape: 'dot', pinPlacement: 'corners' }) },
+    { name: 'Infographic', state: over({ accent: '#FF5C8A', pins: true, bbox: false, edges: true, angles: true, dotgrid: true, infographic: true, pinShape: 'diamond', pinFill: true, fillColor: '#FF5C8A', strokeColor: '#0E1116' }) },
+    { name: 'Type build', state: over({ accent: '#C792EA', label: '#EBDDFF', pins: false, bbox: true, dotgrid: false, typography: true, typeAscender: true, typeDescender: true, edges: false }) },
+    { name: 'Null-style controller', state: over({ accent: '#39C2FF', pins: true, bbox: true, dotgrid: false, edges: false, ctrlShape: 'target', ctrlSize: 24, ctrlLabel: true, pinShape: 'dot', pinPlacement: 'corners' }) },
+    { name: 'Star pins', state: over({ accent: '#FFD24D', pins: true, bbox: false, edges: false, dotgrid: false, pinShape: 'star', pinFill: true, fillColor: '#FFD24D', strokeColor: '#0E1116', pinPlacement: 'midpoints' }) },
+    { name: 'Dotted backdrop', state: over({ accent: '#39C2FF', pins: false, bbox: true, edges: false, dotgrid: true }) }
+  ];
+  R.toolPresets.declare('pinrig', { defaults: PINRIG_DEFAULTS });
+
   R.tools.register({
     id: 'pinrig',
     title: 'Pin Rig',
@@ -502,16 +516,7 @@
       presets: {
         toolId: 'pinrig', get: getState, set: applyState,
         thumbFor: function (s, opts) { return overlaySvg(mergeDefaults(s), (opts && opts.height) || 40); },
-        defaults: [
-          { name: 'Blueprint', state: over({ accent: '#39C2FF', pins: true, bbox: true, grid: true, circles: true, edges: true, dotgrid: false, pinShape: 'ring', pinFill: false }) },
-          { name: 'Construction', state: over({ accent: '#7CE0A0', pins: true, bbox: false, margin: true, grid: true, edges: false, dotgrid: false, infographic: true, pinShape: 'cross', pinFill: false, pinPlacement: 'corners' }) },
-          { name: 'Minimal', state: over({ accent: '#FF9F1C', pins: true, bbox: true, edges: false, dotgrid: false, pinShape: 'dot', pinPlacement: 'corners' }) },
-          { name: 'Infographic', state: over({ accent: '#FF5C8A', pins: true, bbox: false, edges: true, angles: true, dotgrid: true, infographic: true, pinShape: 'diamond', pinFill: true, fillColor: '#FF5C8A', strokeColor: '#0E1116' }) },
-          { name: 'Type build', state: over({ accent: '#C792EA', label: '#EBDDFF', pins: false, bbox: true, dotgrid: false, typography: true, typeAscender: true, typeDescender: true, edges: false }) },
-          { name: 'Null-style controller', state: over({ accent: '#39C2FF', pins: true, bbox: true, dotgrid: false, edges: false, ctrlShape: 'target', ctrlSize: 24, ctrlLabel: true, pinShape: 'dot', pinPlacement: 'corners' }) },
-          { name: 'Star pins', state: over({ accent: '#FFD24D', pins: true, bbox: false, edges: false, dotgrid: false, pinShape: 'star', pinFill: true, fillColor: '#FFD24D', strokeColor: '#0E1116', pinPlacement: 'midpoints' }) },
-          { name: 'Dotted backdrop', state: over({ accent: '#39C2FF', pins: false, bbox: true, edges: false, dotgrid: true }) }
-        ]
+        defaults: PINRIG_DEFAULTS
       },
       destroy: function () { for (var i = 0; i < pickers.length; i++) pickers[i].destroy(); off(); }
     };

@@ -31,6 +31,16 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var SQUASH_DEFAULTS = [
+    { name: 'Impact', state: { mode: 'oneshot', amount: 45, follow: true, wobbles: 3, decay: 7, pivot: 'base', axis: 'vertical', volume: 100 } },
+    { name: 'Jelly', state: { mode: 'oneshot', amount: 35, follow: true, wobbles: 5, decay: 3, pivot: 'base', axis: 'vertical', volume: 100 } },
+    { name: 'Clean hit', state: { mode: 'oneshot', amount: 40, follow: false, decay: 9, pivot: 'base', axis: 'vertical', volume: 100 } },
+    { name: 'Smart', state: { mode: 'smart', sensitivity: 80, max: 50, smoothing: 3, pivot: 'center', axis: 'auto', volume: 100 } }
+  ];
+  R.toolPresets.declare('squash', { defaults: SQUASH_DEFAULTS });
+
   R.tools.register({
     id: 'squash',
     title: 'Squash',
@@ -168,12 +178,7 @@
       presets: {
         toolId: 'squash', get: getState, set: applyState,
         thumbFor: function (s, opts) { return squashThumb(s, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Impact', state: { mode: 'oneshot', amount: 45, follow: true, wobbles: 3, decay: 7, pivot: 'base', axis: 'vertical', volume: 100 } },
-          { name: 'Jelly', state: { mode: 'oneshot', amount: 35, follow: true, wobbles: 5, decay: 3, pivot: 'base', axis: 'vertical', volume: 100 } },
-          { name: 'Clean hit', state: { mode: 'oneshot', amount: 40, follow: false, decay: 9, pivot: 'base', axis: 'vertical', volume: 100 } },
-          { name: 'Smart', state: { mode: 'smart', sensitivity: 80, max: 50, smoothing: 3, pivot: 'center', axis: 'auto', volume: 100 } }
-        ]
+        defaults: SQUASH_DEFAULTS
       },
       destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
     };

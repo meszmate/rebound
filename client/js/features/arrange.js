@@ -27,6 +27,16 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var ARRANGE_DEFAULTS = [
+    { name: 'Auto square', state: { columns: 0, gapX: 16, gapY: 16 } },
+    { name: 'Tight grid', state: { columns: 0, gapX: 4, gapY: 4 } },
+    { name: 'Single row', state: { columns: 0, gapX: 24, gapY: 24 } },
+    { name: 'Four columns', state: { columns: 4, gapX: 16, gapY: 16 } }
+  ];
+  R.toolPresets.declare('arrange', { defaults: ARRANGE_DEFAULTS });
+
   R.tools.register({
     id: 'arrange',
     title: 'Arrange',
@@ -91,12 +101,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return arrangeSvg(st, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Auto square', state: { columns: 0, gapX: 16, gapY: 16 } },
-          { name: 'Tight grid', state: { columns: 0, gapX: 4, gapY: 4 } },
-          { name: 'Single row', state: { columns: 0, gapX: 24, gapY: 24 } },
-          { name: 'Four columns', state: { columns: 4, gapX: 16, gapY: 16 } }
-        ]
+        defaults: ARRANGE_DEFAULTS
       },
       destroy: off
     };

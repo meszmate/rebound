@@ -10,6 +10,16 @@
   var svg = R.dom.svg;
   var ui = R.ui;
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var RADIAL_DEFAULTS = [
+    { name: 'Full ring', state: { count: 8, radius: 200, startAngle: 0, arc: 360, orient: false } },
+    { name: 'Dense circle', state: { count: 24, radius: 300, startAngle: 0, arc: 360, orient: true } },
+    { name: 'Half arc', state: { count: 6, radius: 250, startAngle: 0, arc: 180, orient: true } },
+    { name: 'Tight orbit', state: { count: 12, radius: 80, startAngle: -90, arc: 360, orient: false } }
+  ];
+  R.toolPresets.declare('radial', { defaults: RADIAL_DEFAULTS });
+
   R.tools.register({
     id: 'radial',
     title: 'Radial',
@@ -98,12 +108,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (state, opts) { return ringSvg(state, (opts && opts.height) || 40); },
-        defaults: [
-          { name: 'Full ring', state: { count: 8, radius: 200, startAngle: 0, arc: 360, orient: false } },
-          { name: 'Dense circle', state: { count: 24, radius: 300, startAngle: 0, arc: 360, orient: true } },
-          { name: 'Half arc', state: { count: 6, radius: 250, startAngle: 0, arc: 180, orient: true } },
-          { name: 'Tight orbit', state: { count: 12, radius: 80, startAngle: -90, arc: 360, orient: false } }
-        ]
+        defaults: RADIAL_DEFAULTS
       },
       destroy: off
     };

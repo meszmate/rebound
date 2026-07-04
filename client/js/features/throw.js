@@ -141,6 +141,16 @@
     return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var THROW_DEFAULTS = [
+    { name: 'Bouncy ball', state: { angle: 70, strength: 900, gravity: 2000, drag: 0.2, duration: 2.6, bounce: true, elasticity: 0.75, friction: 0.1, bounds: 'floor', spin: 'off', squash: true, squashStrength: 18 } },
+    { name: 'Dead drop', state: { angle: 80, strength: 500, gravity: 1800, drag: 0.4, duration: 1.6, bounce: true, elasticity: 0.25, friction: 0.5, bounds: 'floor', spin: 'off', squash: false } },
+    { name: 'Roll out', state: { angle: 25, strength: 1100, gravity: 1600, drag: 0.2, duration: 2.4, bounce: true, elasticity: 0.5, friction: 0.4, bounds: 'floor', spin: 'roll', spinAmount: 1, squash: false } },
+    { name: 'Lob', state: { angle: 62, strength: 760, gravity: 1500, drag: 0.4, duration: 1.7, bounce: false, spin: 'follow', spinAmount: 1, squash: false } }
+  ];
+  R.toolPresets.declare('throw', { defaults: THROW_DEFAULTS });
+
   R.tools.register({
     id: 'throw',
     title: 'Throw',
@@ -299,12 +309,7 @@
       presets: {
         toolId: 'throw', get: getState, set: applyState,
         thumbFor: function (s, opts) { return throwSvg(s, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Bouncy ball', state: { angle: 70, strength: 900, gravity: 2000, drag: 0.2, duration: 2.6, bounce: true, elasticity: 0.75, friction: 0.1, bounds: 'floor', spin: 'off', squash: true, squashStrength: 18 } },
-          { name: 'Dead drop', state: { angle: 80, strength: 500, gravity: 1800, drag: 0.4, duration: 1.6, bounce: true, elasticity: 0.25, friction: 0.5, bounds: 'floor', spin: 'off', squash: false } },
-          { name: 'Roll out', state: { angle: 25, strength: 1100, gravity: 1600, drag: 0.2, duration: 2.4, bounce: true, elasticity: 0.5, friction: 0.4, bounds: 'floor', spin: 'roll', spinAmount: 1, squash: false } },
-          { name: 'Lob', state: { angle: 62, strength: 760, gravity: 1500, drag: 0.4, duration: 1.7, bounce: false, spin: 'follow', spinAmount: 1, squash: false } }
-        ]
+        defaults: THROW_DEFAULTS
       },
       destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
     };

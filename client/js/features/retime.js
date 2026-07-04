@@ -50,6 +50,17 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var RETIME_DEFAULTS = [
+    { name: '2x faster', state: { mode: 'scale', factor: 0.5, anchor: 'first' } },
+    { name: 'Half speed', state: { mode: 'scale', factor: 2, anchor: 'first' } },
+    { name: 'Tighten', state: { mode: 'scale', factor: 0.75, anchor: 'first' } },
+    { name: 'Loosen', state: { mode: 'scale', factor: 1.5, anchor: 'first' } },
+    { name: 'Faster from playhead', state: { mode: 'scale', factor: 0.5, anchor: 'playhead' } }
+  ];
+  R.toolPresets.declare('retime', { defaults: RETIME_DEFAULTS });
+
   R.tools.register({
     id: 'retime',
     title: 'Retime',
@@ -142,13 +153,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return retimeSvg({ factor: st.mode === 'duration' ? st.duration : st.factor, anchor: st.anchor }, (opts && opts.height) || 38); },
-        defaults: [
-          { name: '2x faster', state: { mode: 'scale', factor: 0.5, anchor: 'first' } },
-          { name: 'Half speed', state: { mode: 'scale', factor: 2, anchor: 'first' } },
-          { name: 'Tighten', state: { mode: 'scale', factor: 0.75, anchor: 'first' } },
-          { name: 'Loosen', state: { mode: 'scale', factor: 1.5, anchor: 'first' } },
-          { name: 'Faster from playhead', state: { mode: 'scale', factor: 0.5, anchor: 'playhead' } }
-        ]
+        defaults: RETIME_DEFAULTS
       },
       destroy: off
     };

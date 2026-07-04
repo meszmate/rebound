@@ -67,6 +67,15 @@
    the actual rows fill the panel height exactly -- the board fits without
    scrolling. These are the CAP (used when there is plenty of room) and the
    pre-fit fallback; keep them in sync with the `base` map in home-screen.js. */
+/* Edit mode: rows stop stretching and the board scrolls instead of squeezing.
+   Fixed row heights keep the resize math and the FLIP glides steady, and
+   growing an item can always make room by extending the board downward. */
+.rb-home.is-editing .rb-home-grid {
+  grid-auto-rows: var(--rb-home-cell, 70px);
+  align-content: start;
+  overflow-y: auto;
+}
+
 .rb-home-grid.is-sm { --rb-home-cell: 54px; }
 .rb-home-grid.is-md { --rb-home-cell: 70px; }
 .rb-home-grid.is-lg { --rb-home-cell: 88px; }
@@ -235,6 +244,9 @@
   border: 1px solid var(--rb-border-strong); color: var(--rb-text);
   font-size: 13px; cursor: pointer; z-index: 4; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
+/* On a very narrow tile the cog (top-left) and remove (top-right) would touch:
+   drop the cog to the free bottom-left corner (the grip owns bottom-right). */
+.rb-home-tile.is-tight .rb-home-cog { top: auto; bottom: 4px; }
 .rb-home-cog:hover { color: var(--rb-accent-text); background: var(--rb-accent); border-color: var(--rb-accent); }
 
 /* Customizer dialog. */
@@ -333,18 +345,31 @@
 .rb-home-empty-btn { margin-top: 6px; height: 30px; padding: 0 16px; font-size: calc(var(--rb-font-size) + 1px); }
 
 /* ---- Action browser ------------------------------------------------------ */
-.rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
-.rb-home-browser-tools { display: flex; align-items: center; gap: 10px; }
-.rb-home-browser-tools .rb-search { flex: 1 1 auto; }
-.rb-home-browser-tools .rb-search input { width: 100%; height: 32px; }
-.rb-home-browser-list { display: flex; flex-direction: column; gap: 2px; max-height: 62vh; overflow: auto; padding-right: 2px; }
-/* One plain-language line at the top so the three item types are clear at a glance. */
-.rb-home-browser-intro {
+/* The Add browser is a full-height sheet: the search and category chips stay
+   put and only the result list scrolls, so it reads as one browsable catalog
+   instead of a cramped dialog. */
+.rb-modal-browser { height: 100%; display: flex; flex-direction: column; }
+.rb-modal-browser .rb-modal-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.rb-home-browser { display: flex; flex-direction: column; gap: var(--rb-gap-2); flex: 1 1 auto; min-height: 0; }
+.rb-home-browser-list { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-height: 0; overflow: auto; padding-right: 2px; }
+/* A real search field (the topbar pill is 22px; here it is the primary control). */
+.rb-home-bsearch { flex: none; height: 34px; padding: 0 12px; gap: 8px; border-radius: 10px; }
+.rb-home-bsearch input { font-size: calc(var(--rb-font-size) + 1px); }
+.rb-home-bsearch .rb-search-icon, .rb-home-bsearch .rb-search-icon svg { width: 15px; height: 15px; }
+/* Category chips: one row, scrollable when narrow, each with a live count. */
+.rb-home-bchips { flex: none; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.rb-home-bchips::-webkit-scrollbar { display: none; }
+.rb-home-bchip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; padding: 0 11px; cursor: pointer; font: inherit;
   font-size: calc(var(--rb-font-size) - 1px); color: var(--rb-text-muted);
-  line-height: 1.5; padding: 8px 10px; border-radius: var(--rb-radius-2);
-  background: var(--rb-bg-sunken); border: 1px solid var(--rb-border);
+  background: var(--rb-bg-raised); border: 1px solid var(--rb-border); border-radius: 999px;
+  transition: background var(--rb-transition), color var(--rb-transition), border-color var(--rb-transition);
 }
-.rb-home-browser-intro b { color: var(--rb-text); font-weight: 600; }
+.rb-home-bchip:hover { border-color: var(--rb-border-strong); color: var(--rb-text); }
+.rb-home-bchip-n { font-size: calc(var(--rb-font-size) - 3px); color: var(--rb-text-faint); }
+.rb-home-bchip.is-on { background: var(--rb-accent); border-color: var(--rb-accent); color: var(--rb-on-accent, #fff); }
+.rb-home-bchip.is-on .rb-home-bchip-n { color: inherit; opacity: 0.85; }
 .rb-home-browser-head { padding: 14px 2px 6px; }
 .rb-home-browser-head:first-child { padding-top: 2px; }
 .rb-home-browser-head-top { display: flex; align-items: center; gap: 8px; }
@@ -357,10 +382,15 @@
   background: var(--rb-control); border-radius: 999px; padding: 1px 7px; line-height: 1.5;
 }
 .rb-home-browser-hint { font-size: calc(var(--rb-font-size) - 2px); color: var(--rb-text-faint); margin-top: 2px; line-height: 1.4; }
+/* Preset groups: a quiet tool label above each tool's preset cards. */
+.rb-home-browser-toolhead {
+  display: flex; align-items: center; gap: 6px; padding: 10px 2px 6px;
+  font-size: calc(var(--rb-font-size) - 1px); font-weight: 600; color: var(--rb-text-muted);
+}
 
 /* Big explanatory cards: an animated example of the tool, name + kind badge, a
    plain-language description, and a clear Add / Added toggle. */
-.rb-home-browser-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 10px; }
+.rb-home-browser-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
 .rb-home-card {
   display: flex; flex-direction: column; overflow: hidden;
   border: 1px solid var(--rb-card-border); border-radius: var(--rb-card-radius);
@@ -370,9 +400,13 @@
 .rb-home-card:hover { border-color: var(--rb-border-strong); box-shadow: var(--rb-card-shadow); }
 .rb-home-card.is-pinned { border-color: var(--rb-accent); }
 .rb-home-card-vis {
-  height: 96px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  height: 84px; display: flex; align-items: center; justify-content: center; overflow: hidden;
   background: var(--rb-bg-sunken); border-bottom: 1px solid var(--rb-border);
 }
+/* A preset's REAL curve, drawn by curveChip: scale it into whatever box hosts
+   it (browser card visual or a board tile), overriding the SVG's px size. */
+.rb-home-tilevis.is-chip { display: flex; align-items: center; justify-content: center; }
+.rb-home-tilevis.is-chip svg.rb-curve-chip { width: 72%; height: 86%; max-height: none; }
 .rb-home-card-vis svg { width: 100%; height: 100%; max-height: 92px; }
 .rb-home-card-vis.is-icon .rb-home-ico { width: 40px; height: 40px; }
 .rb-home-card-vis.is-icon .rb-home-ico svg { width: 24px; height: 24px; }
@@ -433,17 +467,23 @@
    content's edges instead of a header bar that steals space. */
 .rb-home-wctrls {
   position: absolute; top: 5px; right: 5px; z-index: 6; display: flex; gap: 4px;
+  /* Never overflow the card: wrap right-aligned instead of running over the title. */
+  flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; max-width: calc(100% - 10px);
   opacity: 0; transform: translateY(-3px); pointer-events: none;
   transition: opacity var(--rb-transition), transform var(--rb-transition);
 }
 .rb-home-wtitle {
   position: absolute; top: 5px; left: 5px; z-index: 6; display: inline-flex; align-items: center; gap: 5px;
-  max-width: 58%; padding: 3px 10px 3px 6px; border-radius: 999px;
+  /* Leave room for the hover cluster (collapse / open / maximize). */
+  max-width: calc(100% - 100px); padding: 3px 10px 3px 6px; border-radius: 999px;
   background: rgba(var(--rb-bg-rgb), 0.72); color: var(--rb-text-muted);
   font-size: calc(var(--rb-font-size) - 1px);
   opacity: 0; transform: translateY(-3px); pointer-events: none;
   transition: opacity var(--rb-transition), transform var(--rb-transition);
 }
+/* Edit mode shows the full cluster (colour, Auto, collapse, open, maximize,
+   remove), so the title gets whatever is left of the row. */
+.rb-home-widget.is-editmode .rb-home-wtitle { max-width: calc(100% - 196px); }
 .rb-home-wtitle-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The chrome shows only in edit mode, not on hover: during normal use the widget
    is purely the tool, with nothing floating over it to block clicks. In edit mode
@@ -466,6 +506,17 @@
 .rb-home-wbtn-auto { width: auto; padding: 0 8px; font-size: calc(var(--rb-font-size) - 2px); font-weight: 600; }
 .rb-home-wbtn-edit { display: none; }
 .rb-home-widget.is-editmode .rb-home-wbtn-edit { display: inline-flex; }
+
+/* Overlap guard tiers (classes measured from real widths in home-screen.js):
+   as a widget narrows, shed the secondary controls before they can pile onto
+   the title chip or each other. Tight drops the colour pair; extra-tight also
+   drops maximize and the title, leaving collapse / open / remove, which fit
+   even a one-column widget. */
+.rb-home-widget.is-editmode.is-tight .rb-home-wcolor,
+.rb-home-widget.is-editmode.is-tight .rb-home-wbtn-auto { display: none; }
+.rb-home-widget.is-editmode.is-tight .rb-home-wtitle { max-width: calc(100% - 126px); }
+.rb-home-widget.is-xtight .rb-home-wbtn-max { display: none; }
+.rb-home-widget.is-xtight .rb-home-wtitle { display: none; }
 /* Cap an embedded tool so it stays a manageable panel and scrolls inside rather
    than dominating the board. Maximize lifts the cap. */
 .rb-home-widget-body { padding: var(--rb-gap-2); max-height: 280px; overflow-y: auto; }
@@ -943,9 +994,29 @@
   border-right: 3px solid var(--rb-accent); border-bottom: 3px solid var(--rb-accent); border-radius: 0 0 3px 0;
   transition: width var(--rb-dur-fast, 0.15s) ease, height var(--rb-dur-fast, 0.15s) ease;
 }
-.rb-home-resize:hover::after { right: 3px; bottom: 3px; width: 15px; height: 15px; }
-/* While dragging a resize, highlight the item so the snap target is obvious. */
-.rb-home-tile.is-resizing, .rb-home-widget.is-resizing { border-color: var(--rb-accent); box-shadow: 0 0 0 2px rgba(var(--rb-accent-rgb), 0.3); }
+.rb-home-resize:hover::after,
+.rb-home-tile.is-resizing .rb-home-resize::after,
+.rb-home-widget.is-resizing .rb-home-resize::after { right: 3px; bottom: 3px; width: 15px; height: 15px; }
+/* While dragging a resize, lift the item so the snap target is obvious; the
+   item under the pointer is never FLIP-animated, so this is rock steady. */
+.rb-home-tile.is-resizing, .rb-home-widget.is-resizing {
+  border-color: var(--rb-accent);
+  border-style: solid;
+  box-shadow: 0 0 0 2px rgba(var(--rb-accent-rgb), 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+}
+
+/* Live "2 × 1" readout while resizing, same voice as the curve editor's chips. */
+.rb-home-sizetip {
+  position: absolute; z-index: 95; left: 0; top: 0;
+  padding: 2px 7px; border-radius: var(--rb-radius-1, 3px);
+  background: #000; color: #fff;
+  font-size: calc(var(--rb-font-size, 11px) - 1px);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  pointer-events: none; opacity: 0;
+  transition: opacity var(--rb-dur-fast, 0.15s) ease;
+}
+.rb-home-sizetip.is-on { opacity: 1; }
 
 /* ---- Big tooltip --------------------------------------------------------- */
 .rb-home-tip {

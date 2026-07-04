@@ -31,6 +31,27 @@
 .rb-tile:hover .rb-tile-del { opacity: 1; }
 .rb-tile-del:hover { color: var(--rb-danger); background: var(--rb-bg); }
 
+/* Hover pin (Add to Home) on every preset tile; sits opposite the delete x so
+   the two never collide. */
+.rb-tile-pin {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  line-height: 15px;
+  text-align: center;
+  border-radius: 50%;
+  color: var(--rb-text-faint);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--rb-transition), color var(--rb-transition), background var(--rb-transition);
+}
+.rb-tile:hover .rb-tile-pin { opacity: 1; }
+.rb-tile-pin:hover { color: var(--rb-accent); background: var(--rb-bg); }
+
 
 /* Save tile */
 .rb-pg-save {

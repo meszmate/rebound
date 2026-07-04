@@ -43,6 +43,16 @@
     return svg('svg', { viewBox: '0 0 120 30', width: '100%', height: h }, segs);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var RENAME_DEFAULTS = [
+    { name: 'Sequence', state: { base: 'Layer ', prefix: '', suffix: '', find: '', replace: '', number: true, start: 1, padding: 2 } },
+    { name: 'Underscore', state: { base: '', prefix: '', suffix: '', find: ' ', replace: '_', number: false, start: 1, padding: 2 } },
+    { name: 'Prefix BG', state: { base: '', prefix: 'BG_', suffix: '', find: '', replace: '', number: false, start: 1, padding: 2 } },
+    { name: 'Versioned', state: { base: '', prefix: '', suffix: '_v01', find: '', replace: '', number: false, start: 1, padding: 2 } }
+  ];
+  R.toolPresets.declare('rename', { defaults: RENAME_DEFAULTS });
+
   R.tools.register({
     id: 'rename',
     title: 'Rename',
@@ -158,12 +168,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (s, opts) { return renameThumb(s, (opts && opts.height) || 30); },
-        defaults: [
-          { name: 'Sequence', state: { base: 'Layer ', prefix: '', suffix: '', find: '', replace: '', number: true, start: 1, padding: 2 } },
-          { name: 'Underscore', state: { base: '', prefix: '', suffix: '', find: ' ', replace: '_', number: false, start: 1, padding: 2 } },
-          { name: 'Prefix BG', state: { base: '', prefix: 'BG_', suffix: '', find: '', replace: '', number: false, start: 1, padding: 2 } },
-          { name: 'Versioned', state: { base: '', prefix: '', suffix: '_v01', find: '', replace: '', number: false, start: 1, padding: 2 } }
-        ]
+        defaults: RENAME_DEFAULTS
       },
       destroy: off
     };

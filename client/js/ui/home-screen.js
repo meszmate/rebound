@@ -316,13 +316,24 @@
     var fitPending = 0;
     function fitToHeight() {
       if (!grid || !ids.length) return;
+      var cap = FIT_BASE[board] || 70;
+      if (editing) {
+        // Edit mode: no shrink-fit. Rows hold the size cap and the board
+        // scrolls, so growing an item extends the board downward instead of
+        // squeezing every row. Stable row heights are also what keep the
+        // resize math and the glides steady while editing.
+        grid.style.setProperty('--rb-home-cell', cap + 'px');
+        grid.style.setProperty('--rb-home-ico', Math.max(15, Math.min(40, Math.round(cap * 0.4))) + 'px');
+        grid.style.overflowY = 'auto';
+        syncTight();
+        return;
+      }
       var gcs = window.getComputedStyle(grid);
       var rows = (gcs.gridTemplateRows || '').split(' ')
         .map(parseFloat).filter(function (n) { return !isNaN(n); }).length;
       var avail = grid.clientHeight;
       if (!rows || avail <= 0) return; // not laid out yet (e.g. pre-mount)
       var rgap = parseFloat(gcs.rowGap || gcs.gap) || 6;
-      var cap = FIT_BASE[board] || 70;
       // The height each row actually gets when the board fills the panel. With few
       // items this exceeds the cap (rows stretch via 1fr); with many it is small.
       var rowH = Math.floor((avail - (rows - 1) * rgap) / rows);
@@ -339,10 +350,29 @@
       // Icon chip tracks the REAL row height (~40%), clamped so it neither dominates
       // a tall tile nor vanishes in a short one.
       grid.style.setProperty('--rb-home-ico', Math.max(15, Math.min(40, Math.round(rowH * 0.4))) + 'px');
+      syncTight();
     }
     function scheduleFit() {
       if (fitPending) return;
       fitPending = window.requestAnimationFrame(function () { fitPending = 0; fitToHeight(); });
+    }
+
+    // Overlap guard: the floating chrome (title chip, control cluster, tile cog
+    // and remove button) piles up when an item gets narrow. Shed the secondary
+    // controls by MEASURED width, not by span, so the guard also holds while a
+    // resize drag or a column change is in flight.
+    function syncTight() {
+      Array.prototype.forEach.call(grid.querySelectorAll('.rb-home-widget'), function (w) {
+        var wd = w.clientWidth;
+        if (!wd) return;
+        w.classList.toggle('is-tight', wd < 210);
+        w.classList.toggle('is-xtight', wd < 150);
+      });
+      Array.prototype.forEach.call(grid.querySelectorAll('.rb-home-tile'), function (t) {
+        var wd = t.clientWidth;
+        if (!wd) return;
+        t.classList.toggle('is-tight', wd < 64);
+      });
     }
 
     // The tallest an item may be made, by type, so nothing can be dragged into a
@@ -350,75 +380,134 @@
     // gradient bar) earn more height; picker widgets and one-click tiles stay
     // compact (a curve tile gets one extra row to show its shape). Width is always
     // capped at the column count by the grid itself.
-    var MAX_ROWS = { wgtBig: 6, wgt: 4, tileVisual: 3, tile: 2 };
+    var MAX_ROWS = { wgtBig: 8, wgt: 5, tileVisual: 3, tile: 2 };
     function maxRowsFor(id) {
       var a = instAction(id);
       if (!a) return MAX_ROWS.tile;
       if (a.kind === 'widget') {
-        return (a.toolId === 'ease' || a.toolId === 'anchor' || a.toolId === 'gradient') ? MAX_ROWS.wgtBig : MAX_ROWS.wgt;
+        var big = { ease: 1, anchor: 1, gradient: 1, spring: 1, recoil: 1, bounce: 1 };
+        return big[a.toolId] ? MAX_ROWS.wgtBig : MAX_ROWS.wgt;
       }
       return (displayFor(a, meta[id] || {}) === 'visual') ? MAX_ROWS.tileVisual : MAX_ROWS.tile;
     }
 
-    // A corner drag-resize handle (edit mode). Tiles ('both') snap to whole grid
-    // cells, so a tile is always a clean 1x1 / 2x1 / 2x2 rectangle. Widgets
-    // ('widget') snap their WIDTH to columns but take a free pixel HEIGHT, so you
-    // can drag a widget taller or shorter and its content fills that height.
+    // A corner drag-resize handle (edit mode). Tiles ('both') and widgets snap
+    // to whole grid cells, so an item is always a clean rectangle of cells.
+    //
+    // All metrics are re-read on EVERY move. Snapping to a new span can change
+    // the grid's row count, and on a fit-to-height board every 1fr row then
+    // re-stretches -- so a cell height or an anchor captured once at pointerdown
+    // goes stale the moment the first snap lands. Resizing used to oscillate
+    // ("jumps everywhere") precisely because of that staleness.
     function attachResize(node, id, mode) {
       var handle = el('span.rb-home-resize', { title: 'Drag to resize' });
-      handle.addEventListener('pointerdown', function (e) {
-        if (!editing) return; // resizing only happens in edit mode
+      // Only cross into a neighbouring span when the pointer is clearly (58%)
+      // inside it, so the cell boundary can never flicker between two sizes.
+      function stepTo(cur, f, max) {
+        if (cur === null) return Math.max(1, Math.min(max, Math.round(f)));
+        while (cur < max && f > cur + 0.58) cur++;
+        while (cur > 1 && f < cur - 0.58) cur--;
+        return cur;
+      }
+      // CEF (After Effects) can drop POINTER events while still delivering MOUSE
+      // events (the curve editor documents the same quirk on its handles), and in
+      // edit mode the card is an HTML5 draggable, which steals the grip gesture
+      // and turns a resize into a reorder. So: cancel any native drag born on the
+      // handle, bind BOTH event families (a flag dedupes the pair), disable the
+      // card's draggable for the duration, and stream moves from the document so
+      // nothing depends on pointer capture support.
+      handle.addEventListener('dragstart', function (ev) { ev.preventDefault(); ev.stopPropagation(); });
+      var active = false;
+      function startResize(e) {
+        if (!editing || active) return; // paired mousedown+pointerdown: one drag
+        active = true;
         e.preventDefault(); e.stopPropagation();
-        var gcs = window.getComputedStyle(grid);
-        var gap = parseFloat(gcs.columnGap || gcs.gap) || 8;
-        var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
-        var cellW = (grid.clientWidth - (cols - 1) * gap) / cols;
-        var cellH = rowTrackPx(gcs);
-        var rect = node.getBoundingClientRect();
-        var left = rect.left, top = rect.top, drafted = null, lastC = null, lastR = null;
+        var drafted = null, lastC = null, lastR = null, done = false;
+        var wasDraggable = node.getAttribute('draggable');
+        node.setAttribute('draggable', 'false'); // a resize is never a reorder
         node.classList.add('is-resizing');
-        try { handle.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        // Pin the item's origin cell for the whole drag. Without an explicit
+        // start, dense auto-placement RELOCATES a grown item to the next spot it
+        // fits (the "it just moves down instead of resizing" bug); pinned, the
+        // item grows in place and the siblings reflow around it.
+        var gcs0 = window.getComputedStyle(grid);
+        var gap0 = parseFloat(gcs0.columnGap || gcs0.gap) || 8;
+        var rgap0 = parseFloat(gcs0.rowGap || gcs0.gap) || 8;
+        var cellW0 = (grid.clientWidth - (cols - 1) * gap0) / cols;
+        var rect0 = node.getBoundingClientRect();
+        var gRect0 = grid.getBoundingClientRect();
+        var startCol = Math.max(1, Math.round((rect0.left - gRect0.left) / (cellW0 + gap0)) + 1);
+        var startRow = Math.max(1, Math.round((rect0.top - gRect0.top + grid.scrollTop) / (rowTrackPx(gcs0) + rgap0)) + 1);
+        var maxC = cols - startCol + 1; // never grow into implicit columns
         function mv(ev) {
-          var c = Math.max(1, Math.min(cols, Math.round((ev.clientX - left) / (cellW + gap))));
-          if (mode === 'widget') {
-            // Snap height to whole grid rows (like tiles), so the widget reserves
-            // its grid track and never overflows it into the items below. Capped
-            // per type so a widget can't be dragged into a stretched shape.
-            var rW = Math.max(1, Math.min(maxRowsFor(id), Math.round((ev.clientY - top) / (cellH + rgap))));
-            if (c !== lastC || rW !== lastR) {
-              var p1 = captureRects();
-              node.style.gridColumn = (c < cols) ? ('span ' + c) : '1 / -1';
-              node.style.gridRow = 'span ' + rW;
-              node.style.height = '';
-              flip(p1, true);
-              lastC = c; lastR = rW;
-            }
-            node.classList.add('is-sized');
-            drafted = { c: c, r: rW };
-          } else {
-            var r = Math.max(1, Math.min(maxRowsFor(id), Math.round((ev.clientY - top) / (cellH + rgap))));
-            if (c !== lastC || r !== lastR) {    // snap changed: glide everything to the new layout
-              var p2 = captureRects();
-              node.style.gridColumn = 'span ' + c;
-              node.style.gridRow = 'span ' + r;
-              flip(p2, true);
-              lastC = c; lastR = r;
-            }
-            drafted = { c: c, r: r };
-          }
+          // A release outside the panel never delivers mouseup in CEP; end the
+          // drag on the first buttonless move instead of resizing forever.
+          if (ev.buttons === 0) { up(); return; }
+          var gcs = window.getComputedStyle(grid);
+          var gap = parseFloat(gcs.columnGap || gcs.gap) || 8;
+          var rgap = parseFloat(gcs.rowGap || gcs.gap) || 8;
+          var cellW = (grid.clientWidth - (cols - 1) * gap) / cols;
+          var cellH = rowTrackPx(gcs);
+          // Auto-scroll the board when the drag reaches its edges, so an item
+          // can be grown past the fold.
+          var gr = grid.getBoundingClientRect();
+          if (ev.clientY > gr.bottom - 28) grid.scrollTop += 14;
+          else if (ev.clientY < gr.top + 28 && grid.scrollTop > 0) grid.scrollTop -= 14;
+          // The resized item is excluded from FLIP, so its rect is layout truth.
+          var rect = node.getBoundingClientRect();
+          var c = stepTo(lastC, (ev.clientX - rect.left) / (cellW + gap), maxC);
+          var r = stepTo(lastR, (ev.clientY - rect.top) / (cellH + rgap), maxRowsFor(id));
+          if (c === lastC && r === lastR) return;
+          var prev = captureRects();
+          node.style.gridColumn = startCol + ' / span ' + c;
+          node.style.gridRow = startRow + ' / span ' + r;
+          if (mode === 'widget') { node.style.height = ''; node.classList.add('is-sized'); }
+          flip(prev, true); // glide everything ELSE to the new layout
+          syncTight();
+          lastC = c; lastR = r;
+          drafted = { c: c, r: r };
+          showSizeHint(node, c, r);
         }
         function up() {
-          handle.removeEventListener('pointermove', mv);
-          handle.removeEventListener('pointerup', up);
+          if (done) return; // mouseup and pointerup both land here; run once
+          done = true;
+          active = false;
+          document.removeEventListener('pointermove', mv);
+          document.removeEventListener('mousemove', mv);
+          document.removeEventListener('pointerup', up);
+          document.removeEventListener('mouseup', up);
+          document.removeEventListener('pointercancel', up);
+          if (wasDraggable !== null) node.setAttribute('draggable', wasDraggable);
           node.classList.remove('is-resizing');
+          hideSizeHint();
           if (drafted) {
             if (mode !== 'widget' && drafted.c === 1 && drafted.r === 1) delete spans[id]; else spans[id] = drafted;
+            // Re-order the ids to match the board the user is LOOKING at, so the
+            // re-render (which replays placement from order) keeps the grown item
+            // where it was left instead of letting auto-flow move it again.
+            var order = {};
+            ids.forEach(function (x, i) { order[x] = i; });
+            var pos = {};
+            Array.prototype.forEach.call(grid.querySelectorAll('[data-id]'), function (n) {
+              var r2 = n.getBoundingClientRect();
+              pos[n.getAttribute('data-id')] = { top: Math.round(r2.top), left: Math.round(r2.left) };
+            });
+            ids.sort(function (a, b) {
+              var pa = pos[a], pb = pos[b];
+              if (!pa || !pb) return order[a] - order[b];
+              return (pa.top - pb.top) || (pa.left - pb.left) || (order[a] - order[b]);
+            });
             persist(); render();
           }
         }
-        handle.addEventListener('pointermove', mv);
-        handle.addEventListener('pointerup', up);
-      });
+        document.addEventListener('pointermove', mv);
+        document.addEventListener('mousemove', mv);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('mouseup', up);
+        document.addEventListener('pointercancel', up);
+      }
+      handle.addEventListener('pointerdown', startResize);
+      handle.addEventListener('mousedown', startResize);
       handle.addEventListener('dblclick', function (e) { e.preventDefault(); e.stopPropagation(); delete spans[id]; persist(); render(); });
       node.appendChild(handle);
     }
@@ -449,6 +538,20 @@
       tip.style.left = x + 'px'; tip.style.top = y + 'px';
     }
     function hideTip() { window.clearTimeout(tipTimer); tip.classList.remove('is-on'); }
+
+    // Live size readout while resizing, in the same voice as the curve editor's
+    // drag chips ("Influence 33%"): a small black pill hugging the corner grip.
+    var sizeTip = el('div.rb-home-sizetip');
+    function showSizeHint(node, c, r) {
+      sizeTip.textContent = c + ' × ' + r;
+      sizeTip.classList.add('is-on');
+      var rct = node.getBoundingClientRect(), rootR = root.getBoundingClientRect();
+      var w = sizeTip.offsetWidth, h = sizeTip.offsetHeight;
+      var x = Math.max(4, Math.min(rootR.width - w - 4, rct.right - rootR.left - w - 8));
+      var y = Math.max(4, Math.min(rootR.height - h - 4, rct.bottom - rootR.top - h - 30));
+      sizeTip.style.left = x + 'px'; sizeTip.style.top = y + 'px';
+    }
+    function hideSizeHint() { sizeTip.classList.remove('is-on'); }
     function attachTip(node, title, desc) {
       node.addEventListener('mouseenter', function () { if (editing) return; window.clearTimeout(tipTimer); tipTimer = window.setTimeout(function () { showTip(node, title, desc); }, 320); });
       node.addEventListener('mouseleave', hideTip);
@@ -514,7 +617,7 @@
     if (opts.openSettings) actions.push(iconBtn(ICON_GEAR, 'Settings', opts.openSettings));
     var head = el('div.rb-home-head', null, [brand, el('span.rb-grow')].concat(actions));
 
-    var root = el('div.rb-home', null, [head, tabsBar, hint, grid, tip]);
+    var root = el('div.rb-home', null, [head, tabsBar, hint, grid, tip, sizeTip]);
     grid.classList.add('is-' + board);
     grid.style.setProperty('--rb-home-cols', cols);
     syncBoardBtns();
@@ -547,7 +650,13 @@
       return out;
     }
     function runAction(action) {
-      if (action.kind === 'open') { opts.openTool(action.toolId); return; }
+      if (action.kind === 'open') {
+        // A pinned tool preset opens the tool WITH that preset loaded into its
+        // controls, so the tile means "the tool, set up exactly like this".
+        if (action.presetState && R.shell && R.shell.openToolWithPreset) R.shell.openToolWithPreset(action.toolId, action.presetState);
+        else opts.openTool(action.toolId);
+        return;
+      }
       // build() computes {method, args} at click time (e.g. sampling a live
       // curve, honouring config like keyframes-vs-expression); otherwise use the
       // static invoke. Either way config overrides flow through mergedArgs.
@@ -653,6 +762,15 @@
     function tileVisual(action, m) {
       var curve = (m && m.args && m.args.type && TYPE_CURVE[m.args.type]) || action.curve;
       if (curve) return easingVisual(curve);
+      // A preset action carries its REAL curve (spring, bounce, overshoot...):
+      // draw that exact shape, not a generic stand-in.
+      if (action.curveDef && R.ui.curveChip) {
+        try {
+          var box = el('div.rb-home-tilevis.is-chip');
+          box.appendChild(R.ui.curveChip(action.curveDef, { width: 100, height: 52, pad: 8 }));
+          return box;
+        } catch (eChip) { /* fall through to the demo/icon */ }
+      }
       var d = R.toolDemos && R.toolDemos[action.toolId];
       if (d && d.svg) { var w = el('div.rb-home-tilevis'); w.innerHTML = d.svg; return w; }
       return null;
@@ -888,11 +1006,11 @@
 
       // No persistent header: the tool fills the widget, and the chrome appears
       // only in edit mode so it never blocks the tool during use.
-      var collapseBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Collapse / expand',
+      var collapseBtn = el('button.rb-home-wbtn.rb-home-wbtn-collapse', { type: 'button', title: 'Collapse / expand',
         onclick: function (e) { e.stopPropagation(); toggleCollapse(action.id); } }, [collapsedOf(action.id) ? '▸' : '▾']);
-      var prefsBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Open the full tool (all settings)',
+      var prefsBtn = el('button.rb-home-wbtn.rb-home-wbtn-open', { type: 'button', title: 'Open the full tool (all settings)',
         onclick: function (e) { e.stopPropagation(); opts.openTool(action.toolId); } }, ['↗']);
-      var maxBtn = el('button.rb-home-wbtn', { type: 'button', title: 'Maximize / restore',
+      var maxBtn = el('button.rb-home-wbtn.rb-home-wbtn-max', { type: 'button', title: 'Maximize / restore',
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
       var removeBtn = el('button.rb-home-wbtn.rb-home-wbtn-x.rb-home-wbtn-edit', { type: 'button', title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']);
       var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour' });
@@ -904,6 +1022,9 @@
       var controls = el('div.rb-home-wctrls', null, [wColor, wColorAuto, collapseBtn, prefsBtn, maxBtn, removeBtn]);
       var titleChip = el('div.rb-home-wtitle', null, [iconSpan(action.toolId, 'rb-home-ico-sm'), el('span.rb-home-wtitle-name', { text: action.label })]);
       var shield = el('div.rb-home-widget-shield', { title: 'Editing - turn off Edit to use this widget' });
+      // A shield that silently swallows the click reads as "the widget is
+      // broken". Say why, so a blocked curve-handle drag is never a mystery.
+      shield.addEventListener('click', function () { opts.toast('Turn off Edit to use this widget', { kind: 'info' }); });
 
       var card = el('div.rb-home-widget', { 'data-id': action.id }, [titleChip, controls, shield, host, footer]);
       wireDrag(card, action.id);
@@ -985,8 +1106,19 @@
       if (document.documentElement.classList.contains('rb-tiles-static')) return;
       if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       var dur = fast ? '0.13s' : 'var(--rb-dur-medium, 0.26s)';
-      Array.prototype.forEach.call(grid.querySelectorAll('[data-id]'), function (n) {
+      var nodes = grid.querySelectorAll('[data-id]');
+      // `prev` holds the VISUAL rects (an in-flight glide included), which is the
+      // right place to animate FROM. But the destination must be the true LAYOUT
+      // rect, so clear any in-flight transform before measuring -- measuring a
+      // mid-transition rect compounds the deltas and sends tiles flying when
+      // snaps arrive faster than the previous glide finishes.
+      Array.prototype.forEach.call(nodes, function (n) {
+        if (n.style.transform) { n.style.transition = 'none'; n.style.transform = ''; }
+      });
+      void grid.offsetWidth;
+      Array.prototype.forEach.call(nodes, function (n) {
         if (n.classList.contains('is-dragging')) return; // the dragged item follows the cursor
+        if (n.classList.contains('is-resizing')) return; // never animate the item under the pointer
         var was = prev[n.getAttribute('data-id')];
         if (!was) return;
         var now = n.getBoundingClientRect();
@@ -1057,34 +1189,35 @@
       introAll = false;
     }
 
-    // ---- Browser (searchable, filterable by kind) ----
+    // ---- Add browser: a full-height sheet, searchable, grouped by what a pin
+    // does. The chips filter one group; search cuts across everything.
     function openBrowser() {
       if (!R.ui.modal) return;
       var query = '';
-      var kind = 'all';
+      var section = 'all';
       var listEl = el('div.rb-home-browser-list');
+      var chipsEl = el('div.rb-home-bchips');
 
-      var kindCtl = R.ui.segmented([
-        { value: 'all', label: 'All' },
-        { value: 'widget', label: 'Widgets' },
-        { value: 'apply', label: 'Actions' },
-        { value: 'open', label: 'Tools' }
-      ], { value: kind, onChange: function (v) { kind = v; renderList(); } });
-
-      var search = el('input', { type: 'text', spellcheck: 'false', placeholder: 'Search actions, presets, expressions, tools…',
-        oninput: function () { query = this.value.toLowerCase(); renderList(); } });
+      var search = el('input', { type: 'text', spellcheck: 'false', 'aria-label': 'Search everything',
+        placeholder: 'Search everything: spring, wiggle, align…',
+        oninput: function () { query = this.value.toLowerCase(); renderChips(); renderList(); } });
+      var searchIcon = el('span.rb-search-icon');
+      searchIcon.innerHTML = R.toolMeta ? R.toolMeta.svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>') : '';
+      var searchWrap = el('div.rb-search.rb-home-bsearch', null, [searchIcon, search]);
 
       // Self-explaining sections: each tells the user, in plain language, what the
       // items are and what one click does, so widget-vs-action-vs-tool is obvious.
       var SECTIONS = [
-        { id: 'widget', title: 'Live widgets', hint: 'A whole tool embedded on your board, drag the curve, anchor or swatches right here. Best for tools you use constantly.' },
-        { id: 'quick', title: 'Quick actions', hint: 'One click runs a command on your selection, ease, align, add a shape and more.' },
-        { id: 'ease', title: 'Easing presets', hint: 'One click eases the selected keyframes with this exact curve. Save your own in the Library.' },
-        { id: 'expr', title: 'Expressions', hint: 'One click writes this expression onto the selected property. Save your own in the Expressions tool.' },
-        { id: 'script', title: 'Your scripts', hint: 'Scripts and expressions you saved yourself, one click runs them.' },
-        { id: 'tool', title: 'All tools', hint: 'Opens the full tool in the panel, with every option.' }
+        { id: 'widget', title: 'Live widgets', chip: 'Widgets', hint: 'A whole tool embedded on your board, drag the curve, anchor or swatches right here. Best for tools you use constantly.' },
+        { id: 'quick', title: 'Quick actions', chip: 'Actions', hint: 'One click runs a command on your selection, ease, align, add a shape and more.' },
+        { id: 'preset', title: 'Tool presets', chip: 'Presets', hint: 'Every preset from every tool, including yours. One click applies it, or opens its tool with the preset loaded.' },
+        { id: 'ease', title: 'Easing presets', chip: 'Easing', hint: 'One click eases the selected keyframes with this exact curve. Save your own in the Library.' },
+        { id: 'expr', title: 'Expressions', chip: 'Expressions', hint: 'One click writes this expression onto the selected property. Save your own in the Expressions tool.' },
+        { id: 'script', title: 'Your scripts', chip: 'Scripts', hint: 'Scripts and expressions you saved yourself, one click runs them.' },
+        { id: 'tool', title: 'All tools', chip: 'Tools', hint: 'Opens the full tool in the panel, with every option.' }
       ];
       function sectionOf(a) {
+        if (a.id.indexOf('toolpreset-') === 0) return 'preset';
         if (a.kind === 'widget') return 'widget';
         if (a.kind === 'open') return 'tool';
         if (a.group === 'Expressions') return 'expr';
@@ -1093,18 +1226,51 @@
         return 'quick';
       }
 
-      function renderList() {
-        R.dom.clear(listEl);
-        var actions = R.homeActions.all().filter(function (a) {
-          if (kind !== 'all' && a.kind !== kind) return false;
+      function matching() {
+        return R.homeActions.all().filter(function (a) {
           return !query || (a.label + ' ' + a.group + ' ' + (a.desc || '')).toLowerCase().indexOf(query) !== -1;
         });
-        if (!actions.length) { listEl.appendChild(el('div.rb-empty', { text: 'No matches.' })); return; }
+      }
+
+      function grouped() {
         var bySec = {};
-        actions.forEach(function (a) { var s = sectionOf(a); (bySec[s] = bySec[s] || []).push(a); });
+        matching().forEach(function (a) { var s = sectionOf(a); (bySec[s] = bySec[s] || []).push(a); });
+        // Presets read best grouped by their tool (Spring together, Bounce
+        // together...), regardless of built-in vs saved order in the catalog.
+        if (bySec.preset) {
+          bySec.preset.sort(function (a, b) { return a.toolId < b.toolId ? -1 : a.toolId > b.toolId ? 1 : 0; });
+        }
+        return bySec;
+      }
+
+      function renderChips() {
+        var bySec = grouped();
+        R.dom.clear(chipsEl);
+        var total = 0;
+        SECTIONS.forEach(function (s) { total += (bySec[s.id] || []).length; });
+        function chip(id, label, n) {
+          var c = el('button.rb-home-bchip' + (section === id ? '.is-on' : ''), {
+            type: 'button',
+            onclick: function () { section = id; renderChips(); renderList(); }
+          }, [el('span', { text: label }), el('span.rb-home-bchip-n', { text: String(n) })]);
+          chipsEl.appendChild(c);
+        }
+        chip('all', 'All', total);
+        SECTIONS.forEach(function (s) {
+          var n = (bySec[s.id] || []).length;
+          if (n) chip(s.id, s.chip, n);
+        });
+      }
+
+      function renderList() {
+        R.dom.clear(listEl);
+        var bySec = grouped();
+        var any = false;
         SECTIONS.forEach(function (sec) {
+          if (section !== 'all' && section !== sec.id) return;
           var items = bySec[sec.id];
           if (!items || !items.length) return;
+          any = true;
           listEl.appendChild(el('div.rb-home-browser-head', null, [
             el('div.rb-home-browser-head-top', null, [
               el('span.rb-home-browser-head-t', { text: sec.title }),
@@ -1112,10 +1278,36 @@
             ]),
             el('div.rb-home-browser-hint', { text: sec.hint })
           ]));
+          if (sec.id === 'preset') {
+            // Presets grouped under their tool, with the preset's own name on
+            // the card: "Spring — Smooth / Snappy / Bouncy", not five cards all
+            // truncating "Spring: ...".
+            var byTool = [];
+            var idx = {};
+            items.forEach(function (a) {
+              if (idx[a.toolId] == null) { idx[a.toolId] = byTool.length; byTool.push({ toolId: a.toolId, items: [] }); }
+              byTool[idx[a.toolId]].items.push(a);
+            });
+            byTool.forEach(function (g) {
+              var t = R.tools.get(g.toolId);
+              listEl.appendChild(el('div.rb-home-browser-toolhead', null, [
+                iconSpan(g.toolId, 'rb-home-ico-sm'),
+                el('span', { text: (t && t.title) || g.toolId })
+              ]));
+              var gEl = el('div.rb-home-browser-grid');
+              g.items.forEach(function (a) { gEl.appendChild(browserCard(a, { shortName: true })); });
+              listEl.appendChild(gEl);
+            });
+            return;
+          }
           var gridEl = el('div.rb-home-browser-grid');
           items.forEach(function (a) { gridEl.appendChild(browserCard(a)); });
           listEl.appendChild(gridEl);
         });
+        if (!any) {
+          listEl.appendChild(el('div.rb-empty', { text: 'Nothing matches “' + query + '”.' }));
+        }
+        listEl.scrollTop = 0;
       }
 
       // A big, explanatory card: an animated example of what the tool does (its
@@ -1123,10 +1315,11 @@
       // badge, a plain-language description, and an Add button. Adding is additive:
       // it pins ANOTHER instance every click, and a chip shows how many are on the
       // board (remove instances from the board itself).
-      function browserCard(a) {
+      function browserCard(a, copts) {
         var badge = a.kind === 'apply' ? el('span.rb-home-badge', { text: '1-click', title: 'One click runs this on your selection' })
           : a.kind === 'widget' ? el('span.rb-home-badge.is-widget', { text: 'widget', title: 'Embeds the whole tool on your board' })
-            : el('span.rb-home-badge.is-open', { text: 'open', title: 'Opens the full tool in the panel' });
+            : a.presetState ? el('span.rb-home-badge.is-open', { text: 'preset', title: 'Opens the tool with this preset loaded' })
+              : el('span.rb-home-badge.is-open', { text: 'open', title: 'Opens the full tool in the panel' });
         var vis = tileVisual(a, {});
         var visWrap = el('div.rb-home-card-vis', null, [vis || iconSpan(a.toolId, 'rb-home-ico')]);
         if (!vis) visWrap.classList.add('is-icon');
@@ -1135,13 +1328,16 @@
         // line, so prefer that (tags stripped to plain text).
         var demo = R.toolDemos && R.toolDemos[a.toolId];
         var cap = demo && demo.caption ? demo.caption.replace(/<[^>]+>/g, '') : '';
-        var descText = (a.kind === 'apply') ? (a.desc || cap) : (cap || a.desc || '');
+        // A preset card explains ITS preset (never the tool's generic demo line);
+        // a plain tool/widget card reads better with the demo caption.
+        var descText = (a.kind === 'apply' || a.presetState) ? (a.desc || cap) : (cap || a.desc || '');
         var countChip = el('span.rb-home-card-count');
         var addBtn = el('button.rb-home-card-add', { type: 'button' });
+        var nameText = (copts && copts.shortName && a.presetName) ? a.presetName : a.label;
         var card = el('div.rb-home-card', { title: a.label }, [
           visWrap,
           el('div.rb-home-card-body', null, [
-            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: a.label }), countChip, badge]),
+            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: nameText }), countChip, badge]),
             el('div.rb-home-card-desc', { text: descText }),
             addBtn
           ])
@@ -1157,27 +1353,31 @@
         sync();
         return card;
       }
+      renderChips();
       renderList();
 
       var doneBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: function () { handle.close('confirm'); } }, ['Done']);
       var handle = R.ui.modal({
-        title: 'Add to Home', width: 640, className: 'rb-modal-home',
-        body: el('div.rb-home-browser', null, [
-          el('div.rb-home-browser-intro', null, [
-            el('span', null, [el('b', { text: 'Widgets' }), ' embed a whole tool on your board. ']),
-            el('span', null, [el('b', { text: 'Actions' }), ' run one command on your selection. ']),
-            el('span', null, [el('b', { text: 'Tools' }), ' open the full panel.'])
-          ]),
-          el('div.rb-home-browser-tools', null, [el('div.rb-search.rb-grow', null, [search]), kindCtl.el]),
-          listEl
-        ]),
+        title: 'Add to Home', width: 'min(720px, 100%)', className: 'rb-modal-browser',
+        body: el('div.rb-home-browser', null, [searchWrap, chipsEl, listEl]),
         footer: [doneBtn], initialFocus: search
       });
     }
 
     syncEdit();
     render();
-    return { el: root, refresh: render };
+    // addItem: pin an action from OUTSIDE the Home (the tool header, a preset
+    // tile's pin). Rendering while hidden is fine: fitToHeight bails on a
+    // zero-height grid and the ResizeObserver re-fits when the board shows.
+    return {
+      el: root,
+      refresh: render,
+      addItem: function (actionId) {
+        if (!R.homeActions.byId(actionId)) return false;
+        addItem(actionId);
+        return true;
+      }
+    };
   }
 
   R.homeScreen = { create: create };

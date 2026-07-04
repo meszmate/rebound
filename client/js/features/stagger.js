@@ -63,6 +63,17 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var STAGGER_DEFAULTS = [
+    { name: 'Tight cascade', state: { intervalFrames: 2, order: 'index', anchor: 'playhead' } },
+    { name: 'Wide cascade', state: { intervalFrames: 8, order: 'index', anchor: 'first' } },
+    { name: 'Reverse fan', state: { intervalFrames: 4, order: 'reverse', anchor: 'playhead' } },
+    { name: 'Random scatter', state: { intervalFrames: 4, order: 'random', seed: 7, anchor: 'playhead' } },
+    { name: 'By label', state: { intervalFrames: 5, order: 'label', anchor: 'first' } }
+  ];
+  R.toolPresets.declare('stagger', { defaults: STAGGER_DEFAULTS });
+
   R.tools.register({
     id: 'stagger',
     title: 'Stagger',
@@ -149,13 +160,7 @@
           var o = st.order != null ? st.order : (st.reverse ? 'reverse' : 'index');
           return staggerSvg({ intervalFrames: st.intervalFrames, order: o, seed: st.seed || 1 }, (opts && opts.height) || 38);
         },
-        defaults: [
-          { name: 'Tight cascade', state: { intervalFrames: 2, order: 'index', anchor: 'playhead' } },
-          { name: 'Wide cascade', state: { intervalFrames: 8, order: 'index', anchor: 'first' } },
-          { name: 'Reverse fan', state: { intervalFrames: 4, order: 'reverse', anchor: 'playhead' } },
-          { name: 'Random scatter', state: { intervalFrames: 4, order: 'random', seed: 7, anchor: 'playhead' } },
-          { name: 'By label', state: { intervalFrames: 5, order: 'label', anchor: 'first' } }
-        ]
+        defaults: STAGGER_DEFAULTS
       },
       destroy: off
     };

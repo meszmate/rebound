@@ -55,6 +55,16 @@
   // users want, and the only thing that read as "doing nothing" was the toggle.
   function sampleAt(st, p) { return pointAtLen(p * DTOTAL); }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var PATHFOLLOW_DEFAULTS = [
+    { name: 'Glide', state: { speed: 'arclen', ease: 'both', duration: 2, orient: false, reverse: false, loop: false } },
+    { name: 'March', state: { speed: 'arclen', ease: 'linear', duration: 3, orient: true, reverse: false, loop: false } },
+    { name: 'Loop', state: { speed: 'arclen', ease: 'linear', duration: 2, orient: true, loop: true, loopCount: 3, pingpong: false } },
+    { name: 'Ping-pong', state: { speed: 'arclen', ease: 'both', duration: 1.6, orient: false, loop: true, loopCount: 4, pingpong: true } }
+  ];
+  R.toolPresets.declare('pathfollow', { defaults: PATHFOLLOW_DEFAULTS });
+
   R.tools.register({
     id: 'pathfollow',
     title: 'Path Follow',
@@ -201,12 +211,7 @@
     return {
       presets: {
         toolId: 'pathfollow', get: getState, set: applyState,
-        defaults: [
-          { name: 'Glide', state: { speed: 'arclen', ease: 'both', duration: 2, orient: false, reverse: false, loop: false } },
-          { name: 'March', state: { speed: 'arclen', ease: 'linear', duration: 3, orient: true, reverse: false, loop: false } },
-          { name: 'Loop', state: { speed: 'arclen', ease: 'linear', duration: 2, orient: true, loop: true, loopCount: 3, pingpong: false } },
-          { name: 'Ping-pong', state: { speed: 'arclen', ease: 'both', duration: 1.6, orient: false, loop: true, loopCount: 4, pingpong: true } }
-        ]
+        defaults: PATHFOLLOW_DEFAULTS
       },
       destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
     };

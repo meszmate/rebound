@@ -12,6 +12,30 @@
   var el = R.dom.el;
   var ui = R.ui;
 
+  // Built-in presets and the state->curve mapping live at module level so every
+  // spring preset is a pinnable, one-click Home action at load (R.toolPresets),
+  // without the tool ever having been opened.
+  var SPRING_DEFAULTS = [
+    { name: 'Smooth', state: { mode: 'simple', response: 0.5, bounce: 0, velocity: 0 } },
+    { name: 'Snappy', state: { mode: 'simple', response: 0.42, bounce: 0.15, velocity: 0 } },
+    { name: 'Bouncy', state: { mode: 'simple', response: 0.5, bounce: 0.3, velocity: 0 } },
+    { name: 'Gentle', state: { mode: 'simple', response: 0.7, bounce: 0.1, velocity: 0 } },
+    { name: 'Heavy', state: { mode: 'physical', mass: 2.4, stiffness: 180, damping: 26, velocity: 0 } }
+  ];
+  function springCurveOf(s) {
+    return s.mode === 'physical'
+      ? { type: 'spring', mass: s.mass, stiffness: s.stiffness, damping: s.damping, velocity: s.velocity || 0 }
+      : { type: 'spring', response: s.response, bounce: s.bounce, velocity: s.velocity || 0 };
+  }
+  R.toolPresets.declare('spring', {
+    defaults: SPRING_DEFAULTS,
+    previewFor: springCurveOf,
+    applyBuild: function (s, args) {
+      return R.toolPresets.curveApplyBuild(springCurveOf(s), (args && args.mode) || 'keys');
+    },
+    modes: true
+  });
+
   R.tools.register({
     id: 'spring',
     title: 'Spring',
@@ -187,19 +211,8 @@
         toolId: 'spring',
         get: getState,
         set: applyState,
-        previewFor: function (s) {
-          var c = s.mode === 'physical'
-            ? { type: 'spring', mass: s.mass, stiffness: s.stiffness, damping: s.damping, velocity: s.velocity || 0 }
-            : { type: 'spring', response: s.response, bounce: s.bounce, velocity: s.velocity || 0 };
-          return R.easing.sampler.toFunction(c);
-        },
-        defaults: [
-          { name: 'Smooth', state: { mode: 'simple', response: 0.5, bounce: 0, velocity: 0 } },
-          { name: 'Snappy', state: { mode: 'simple', response: 0.42, bounce: 0.15, velocity: 0 } },
-          { name: 'Bouncy', state: { mode: 'simple', response: 0.5, bounce: 0.3, velocity: 0 } },
-          { name: 'Gentle', state: { mode: 'simple', response: 0.7, bounce: 0.1, velocity: 0 } },
-          { name: 'Heavy', state: { mode: 'physical', mass: 2.4, stiffness: 180, damping: 26, velocity: 0 } }
-        ]
+        previewFor: springCurveOf,
+        defaults: SPRING_DEFAULTS
       },
       destroy: function () { off(); preview.destroy(); editor.destroy(); if (editorResizer) editorResizer.destroy(); }
     };

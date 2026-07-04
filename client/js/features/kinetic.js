@@ -33,6 +33,16 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var KINETIC_DEFAULTS = [
+    { name: 'Scale Pulse', state: { target: 'scale', sensitivity: 50, max: 50 } },
+    { name: 'Big Scale', state: { target: 'scale', sensitivity: 120, max: 100 } },
+    { name: 'Spin React', state: { target: 'rotation', sensitivity: 80, max: 90 } },
+    { name: 'Speed Fade', state: { target: 'opacity', sensitivity: 60, max: 70 } }
+  ];
+  R.toolPresets.declare('kinetic', { defaults: KINETIC_DEFAULTS });
+
   R.tools.register({
     id: 'kinetic',
     title: 'Kinetic',
@@ -110,12 +120,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return kineticSvg(st, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Scale Pulse', state: { target: 'scale', sensitivity: 50, max: 50 } },
-          { name: 'Big Scale', state: { target: 'scale', sensitivity: 120, max: 100 } },
-          { name: 'Spin React', state: { target: 'rotation', sensitivity: 80, max: 90 } },
-          { name: 'Speed Fade', state: { target: 'opacity', sensitivity: 60, max: 70 } }
-        ]
+        defaults: KINETIC_DEFAULTS
       },
       destroy: off
     };

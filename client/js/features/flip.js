@@ -32,6 +32,16 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var FLIP_DEFAULTS = [
+    { name: 'Horizontal', state: { axis: 'horizontal', pivot: 'anchor' } },
+    { name: 'Vertical', state: { axis: 'vertical', pivot: 'anchor' } },
+    { name: 'Both', state: { axis: 'both', pivot: 'anchor' } },
+    { name: 'Mirror across selection', state: { axis: 'horizontal', pivot: 'selection' } }
+  ];
+  R.toolPresets.declare('flip', { defaults: FLIP_DEFAULTS });
+
   R.tools.register({
     id: 'flip',
     title: 'Flip',
@@ -97,12 +107,7 @@
         get: function () { return { axis: axis, pivot: pivot }; },
         set: applyState,
         thumbFor: function (st, opts) { return flipSvg(st.axis, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Horizontal', state: { axis: 'horizontal', pivot: 'anchor' } },
-          { name: 'Vertical', state: { axis: 'vertical', pivot: 'anchor' } },
-          { name: 'Both', state: { axis: 'both', pivot: 'anchor' } },
-          { name: 'Mirror across selection', state: { axis: 'horizontal', pivot: 'selection' } }
-        ]
+        defaults: FLIP_DEFAULTS
       },
       destroy: off
     };

@@ -25,6 +25,16 @@
     return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var LEAN_DEFAULTS = [
+    { name: 'Subtle', state: { amount: 4, smoothing: 6 } },
+    { name: 'Natural', state: { amount: 8, smoothing: 4 } },
+    { name: 'Aggressive', state: { amount: 20, smoothing: 2 } },
+    { name: 'Smooth Bank', state: { amount: 12, smoothing: 12 } }
+  ];
+  R.toolPresets.declare('lean', { defaults: LEAN_DEFAULTS });
+
   R.tools.register({
     id: 'lean',
     title: 'Lean',
@@ -89,12 +99,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return leanSvg(st, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Subtle', state: { amount: 4, smoothing: 6 } },
-          { name: 'Natural', state: { amount: 8, smoothing: 4 } },
-          { name: 'Aggressive', state: { amount: 20, smoothing: 2 } },
-          { name: 'Smooth Bank', state: { amount: 12, smoothing: 12 } }
-        ]
+        defaults: LEAN_DEFAULTS
       },
       destroy: off
     };

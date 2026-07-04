@@ -31,6 +31,16 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var DRIFT_DEFAULTS = [
+    { name: 'Subtle', state: { type: 'smooth', amount: 8, frequency: 1 } },
+    { name: 'Organic', state: { type: 'smooth', amount: 20, frequency: 2 } },
+    { name: 'Lively', state: { type: 'smooth', amount: 60, frequency: 4 } },
+    { name: 'Stepped', state: { type: 'hold', amount: 40, frequency: 6 } }
+  ];
+  R.toolPresets.declare('drift', { defaults: DRIFT_DEFAULTS });
+
   R.tools.register({
     id: 'drift',
     title: 'Drift',
@@ -106,12 +116,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return driftSvg(st, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Subtle', state: { type: 'smooth', amount: 8, frequency: 1 } },
-          { name: 'Organic', state: { type: 'smooth', amount: 20, frequency: 2 } },
-          { name: 'Lively', state: { type: 'smooth', amount: 60, frequency: 4 } },
-          { name: 'Stepped', state: { type: 'hold', amount: 40, frequency: 6 } }
-        ]
+        defaults: DRIFT_DEFAULTS
       },
       destroy: off
     };

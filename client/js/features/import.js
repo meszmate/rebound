@@ -626,7 +626,7 @@
       precompToggle ? precompToggle.el : null,
       el('div.rb-faint', { text: 'Off: one comp, frames become editable groups (like Overlord & AEUX). On: each frame is its own trimmed precomp.' }),
       autoPrecompToggle ? autoPrecompToggle.el : null,
-      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each frame OR group with at least the threshold below becomes its own comp — so importing a full board doesn’t flood the timeline. Smaller groups stay flat. Importing a single frame is unaffected.' }),
+      el('div.rb-faint', { text: 'On (default): a big design lands as a few editable precomps — each frame OR group with at least the threshold below becomes its own comp — so importing a full board doesn’t flood the timeline. Smaller groups stay flat. Off: no automatic precomps at all; even a clipping frame builds flat (its hidden overflow becomes visible and the report notes it).' }),
       thresholdField ? thresholdField.el : null,
       el('div.rb-faint', { text: 'Precomp any frame/group with this many descendants or more. Lower = finer, more precomps (e.g. 20 groups each card); higher = only whole screens. Default 40.' }),
       labelByFrameToggle ? labelByFrameToggle.el : null,

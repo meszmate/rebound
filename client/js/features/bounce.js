@@ -10,6 +10,56 @@
   var el = R.dom.el;
   var ui = R.ui;
 
+  // Preview the REAL motion: a gravitational ball-bounce (rise to target, then
+  // a series of decreasing rebounds settling onto it), not a spring overshoot.
+  // Parametric in elasticity (how much each rebound keeps) and max bounces.
+  // Module-level (it is pure) so the presets are pinnable Home actions at load.
+  function makeBounce(elas, bounces) {
+    var e = Math.max(0.15, Math.min(0.85, elas));
+    var n = Math.max(1, Math.min(8, Math.round(bounces)));
+    var widths = [1.0];
+    var drops = [];
+    // First rebound dips a modest amount below the target; each later rebound
+    // keeps a fraction `e` of the previous depth, so it visibly settles.
+    var base = 0.2 + 0.12 * e;
+    for (var k = 1; k <= n; k++) { var d = base * Math.pow(e, k - 1); drops.push(d); widths.push(2.4 * Math.sqrt(d)); }
+    var total = 0, i;
+    for (i = 0; i < widths.length; i++) total += widths[i];
+    var nw = widths.map(function (x) { return x / total; });
+    var starts = [0];
+    for (i = 1; i < nw.length; i++) starts.push(starts[i - 1] + nw[i - 1]);
+    return function (t) {
+      if (t <= 0) return 0;
+      if (t >= 1) return 1;
+      if (t < starts[1]) { var u = t / nw[0]; return u * u * (3 - 2 * u); } // smooth rise to target
+      for (var s = 1; s <= n; s++) {
+        var s0 = starts[s];
+        var s1 = (s < n) ? starts[s + 1] : 1;
+        if (t < s1 || s === n) {
+          var u2 = (t - s0) / (s1 - s0);
+          return 1 - drops[s - 1] * 4 * u2 * (1 - u2); // dip below target and return
+        }
+      }
+      return 1;
+    };
+  }
+
+  var BOUNCE_DEFAULTS = [
+    { name: 'Rubber Ball', state: { elasticity: 0.8, maxBounces: 6 } },
+    { name: 'Heavy Drop', state: { elasticity: 0.4, maxBounces: 3 } },
+    { name: 'Floaty', state: { elasticity: 0.9, maxBounces: 8 } },
+    { name: 'Single Bounce', state: { elasticity: 0.6, maxBounces: 2 } }
+  ];
+  function bounceCurveOf(s) { return { type: 'fn', fn: makeBounce(s.elasticity, s.maxBounces) }; }
+  R.toolPresets.declare('bounce', {
+    defaults: BOUNCE_DEFAULTS,
+    previewFor: bounceCurveOf,
+    applyBuild: function (s, args) {
+      return R.toolPresets.curveApplyBuild(bounceCurveOf(s), (args && args.mode) || 'keys');
+    },
+    modes: true
+  });
+
   R.tools.register({
     id: 'bounce',
     title: 'Bounce',
@@ -22,39 +72,6 @@
   function mount(ctx) {
     var elasticity = 0.7;
     var maxBounces = 4;
-
-    // Preview the REAL motion: a gravitational ball-bounce (rise to target, then
-    // a series of decreasing rebounds settling onto it), not a spring overshoot.
-    // Parametric in elasticity (how much each rebound keeps) and max bounces.
-    function makeBounce(elas, bounces) {
-      var e = Math.max(0.15, Math.min(0.85, elas));
-      var n = Math.max(1, Math.min(8, Math.round(bounces)));
-      var widths = [1.0];
-      var drops = [];
-      // First rebound dips a modest amount below the target; each later rebound
-      // keeps a fraction `e` of the previous depth, so it visibly settles.
-      var base = 0.2 + 0.12 * e;
-      for (var k = 1; k <= n; k++) { var d = base * Math.pow(e, k - 1); drops.push(d); widths.push(2.4 * Math.sqrt(d)); }
-      var total = 0, i;
-      for (i = 0; i < widths.length; i++) total += widths[i];
-      var nw = widths.map(function (x) { return x / total; });
-      var starts = [0];
-      for (i = 1; i < nw.length; i++) starts.push(starts[i - 1] + nw[i - 1]);
-      return function (t) {
-        if (t <= 0) return 0;
-        if (t >= 1) return 1;
-        if (t < starts[1]) { var u = t / nw[0]; return u * u * (3 - 2 * u); } // smooth rise to target
-        for (var s = 1; s <= n; s++) {
-          var s0 = starts[s];
-          var s1 = (s < n) ? starts[s + 1] : 1;
-          if (t < s1 || s === n) {
-            var u2 = (t - s0) / (s1 - s0);
-            return 1 - drops[s - 1] * 4 * u2 * (1 - u2); // dip below target and return
-          }
-        }
-        return 1;
-      };
-    }
     function previewCurve() {
       return { type: 'fn', fn: makeBounce(elasticity, maxBounces) };
     }
@@ -126,13 +143,8 @@
         toolId: 'bounce',
         get: getState,
         set: applyState,
-        previewFor: function (s) { return makeBounce(s.elasticity, s.maxBounces); },
-        defaults: [
-          { name: 'Rubber Ball', state: { elasticity: 0.8, maxBounces: 6 } },
-          { name: 'Heavy Drop', state: { elasticity: 0.4, maxBounces: 3 } },
-          { name: 'Floaty', state: { elasticity: 0.9, maxBounces: 8 } },
-          { name: 'Single Bounce', state: { elasticity: 0.6, maxBounces: 2 } }
-        ]
+        previewFor: bounceCurveOf,
+        defaults: BOUNCE_DEFAULTS
       },
       destroy: function () { off(); preview.destroy(); editor.destroy(); if (editorResizer) editorResizer.destroy(); }
     };

@@ -56,6 +56,16 @@
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var MOTION_DEFAULTS = [
+    { name: 'Slow Spin', state: { mode: 'spin', spinSpeed: 45, orbitRadius: 150, orbitSpeed: 60 } },
+    { name: 'Fast Spin', state: { mode: 'spin', spinSpeed: 360, orbitRadius: 150, orbitSpeed: 60 } },
+    { name: 'Wide Orbit', state: { mode: 'orbit', spinSpeed: 90, orbitRadius: 400, orbitSpeed: 45 } },
+    { name: 'Tight Orbit', state: { mode: 'orbit', spinSpeed: 90, orbitRadius: 80, orbitSpeed: 180 } }
+  ];
+  R.toolPresets.declare('motion', { defaults: MOTION_DEFAULTS });
+
   R.tools.register({
     id: 'motion',
     title: 'Motion',
@@ -165,12 +175,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return motionSvg(st, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Slow Spin', state: { mode: 'spin', spinSpeed: 45, orbitRadius: 150, orbitSpeed: 60 } },
-          { name: 'Fast Spin', state: { mode: 'spin', spinSpeed: 360, orbitRadius: 150, orbitSpeed: 60 } },
-          { name: 'Wide Orbit', state: { mode: 'orbit', spinSpeed: 90, orbitRadius: 400, orbitSpeed: 45 } },
-          { name: 'Tight Orbit', state: { mode: 'orbit', spinSpeed: 90, orbitRadius: 80, orbitSpeed: 180 } }
-        ]
+        defaults: MOTION_DEFAULTS
       },
       destroy: off
     };

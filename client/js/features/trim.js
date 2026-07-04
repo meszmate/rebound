@@ -26,6 +26,16 @@
     return svg('svg', { viewBox: '0 0 160 70', width: '100%', height: h }, kids);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var TRIM_DEFAULTS = [
+    { name: 'Both ends', state: { trimIn: true, trimOut: true, paddingFrames: 0 } },
+    { name: 'In only', state: { trimIn: true, trimOut: false, paddingFrames: 0 } },
+    { name: 'Out only', state: { trimIn: false, trimOut: true, paddingFrames: 0 } },
+    { name: 'Padded', state: { trimIn: true, trimOut: true, paddingFrames: 2 } }
+  ];
+  R.toolPresets.declare('trim', { defaults: TRIM_DEFAULTS });
+
   R.tools.register({
     id: 'trim',
     title: 'Trim',
@@ -97,12 +107,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (st, opts) { return trimSvg(st, (opts && opts.height) || 30); },
-        defaults: [
-          { name: 'Both ends', state: { trimIn: true, trimOut: true, paddingFrames: 0 } },
-          { name: 'In only', state: { trimIn: true, trimOut: false, paddingFrames: 0 } },
-          { name: 'Out only', state: { trimIn: false, trimOut: true, paddingFrames: 0 } },
-          { name: 'Padded', state: { trimIn: true, trimOut: true, paddingFrames: 2 } }
-        ]
+        defaults: TRIM_DEFAULTS
       },
       destroy: off
     };

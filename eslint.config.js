@@ -109,7 +109,9 @@ const nodeGlobals = {
 };
 
 export default [
-  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*', 'tools/wf/**', 'plugins/figma/dist/**'] },
+  // site/ is its own Astro project with its own tooling; the root lint stays
+  // scoped to the plugin worlds.
+  { ignores: ['client/js/lib/**', 'dist/**', 'coverage/**', 'node_modules/**', 'tools/_*', 'tools/wf/**', 'plugins/figma/dist/**', 'site/**', '.astro/**'] },
   js.configs.recommended,
 
   // Browser / CEP panel code.

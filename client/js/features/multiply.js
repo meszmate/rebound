@@ -10,6 +10,16 @@
   var svg = R.dom.svg;
   var ui = R.ui;
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var MULTIPLY_DEFAULTS = [
+    { name: 'Trail', state: { copies: 8, offsetX: 20, offsetY: 0, rotation: 0, scale: 0, opacity: -10, delayFrames: 2 } },
+    { name: 'Echo fade', state: { copies: 6, offsetX: 0, offsetY: 0, rotation: 0, scale: -5, opacity: -15, delayFrames: 0 } },
+    { name: 'Spiral', state: { copies: 12, offsetX: 12, offsetY: 12, rotation: 15, scale: -3, opacity: 0, delayFrames: 1 } },
+    { name: 'Cascade', state: { copies: 10, offsetX: 30, offsetY: 30, rotation: 0, scale: 0, opacity: -8, delayFrames: 3 } }
+  ];
+  R.toolPresets.declare('multiply', { defaults: MULTIPLY_DEFAULTS });
+
   R.tools.register({
     id: 'multiply',
     title: 'Multiply',
@@ -117,12 +127,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (state, opts) { return stackSvg(state, (opts && opts.height) || 40); },
-        defaults: [
-          { name: 'Trail', state: { copies: 8, offsetX: 20, offsetY: 0, rotation: 0, scale: 0, opacity: -10, delayFrames: 2 } },
-          { name: 'Echo fade', state: { copies: 6, offsetX: 0, offsetY: 0, rotation: 0, scale: -5, opacity: -15, delayFrames: 0 } },
-          { name: 'Spiral', state: { copies: 12, offsetX: 12, offsetY: 12, rotation: 15, scale: -3, opacity: 0, delayFrames: 1 } },
-          { name: 'Cascade', state: { copies: 10, offsetX: 30, offsetY: 30, rotation: 0, scale: 0, opacity: -8, delayFrames: 3 } }
-        ]
+        defaults: MULTIPLY_DEFAULTS
       },
       destroy: off
     };

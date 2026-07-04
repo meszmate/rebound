@@ -40,6 +40,15 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var PINS_DEFAULTS = [
+    { name: 'Cyan dots', state: { style: 'dot', size: 28, label: 9 } },
+    { name: 'Big dots', state: { style: 'dot', size: 60, label: 4 } },
+    { name: 'Nulls', state: { style: 'null', size: 40, label: 1 } }
+  ];
+  R.toolPresets.declare('pins', { defaults: PINS_DEFAULTS });
+
   R.tools.register({
     id: 'pins',
     title: 'Puppet Rig',
@@ -128,11 +137,7 @@
       presets: {
         toolId: 'pins', get: getState, set: applyState,
         thumbFor: function (s, opts) { return pinsSvg(s, (opts && opts.height) || 34); },
-        defaults: [
-          { name: 'Cyan dots', state: { style: 'dot', size: 28, label: 9 } },
-          { name: 'Big dots', state: { style: 'dot', size: 60, label: 4 } },
-          { name: 'Nulls', state: { style: 'null', size: 40, label: 1 } }
-        ]
+        defaults: PINS_DEFAULTS
       },
       destroy: off
     };

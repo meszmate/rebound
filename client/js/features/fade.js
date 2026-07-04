@@ -35,6 +35,17 @@
     ]);
   }
 
+  // Built-in presets, module-level so each is a pinnable Home action at load
+  // (R.toolPresets), without the tool ever having been opened.
+  var FADE_DEFAULTS = [
+    { name: 'Quick', state: { doIn: true, doOut: true, inFrames: 6, outFrames: 6, ease: 'smooth' } },
+    { name: 'Smooth', state: { doIn: true, doOut: true, inFrames: 12, outFrames: 12, ease: 'smooth' } },
+    { name: 'Slow', state: { doIn: true, doOut: true, inFrames: 24, outFrames: 24, ease: 'smooth' } },
+    { name: 'Linear cut', state: { doIn: true, doOut: true, inFrames: 8, outFrames: 8, ease: 'linear' } },
+    { name: 'Fade in only', state: { doIn: true, doOut: false, inFrames: 16, outFrames: 12, ease: 'smooth' } }
+  ];
+  R.toolPresets.declare('fade', { defaults: FADE_DEFAULTS });
+
   R.tools.register({
     id: 'fade',
     title: 'Fade',
@@ -120,13 +131,7 @@
         get: getState,
         set: applyState,
         thumbFor: function (state, opts) { return fadeThumb(state, (opts && opts.height) || 38); },
-        defaults: [
-          { name: 'Quick', state: { doIn: true, doOut: true, inFrames: 6, outFrames: 6, ease: 'smooth' } },
-          { name: 'Smooth', state: { doIn: true, doOut: true, inFrames: 12, outFrames: 12, ease: 'smooth' } },
-          { name: 'Slow', state: { doIn: true, doOut: true, inFrames: 24, outFrames: 24, ease: 'smooth' } },
-          { name: 'Linear cut', state: { doIn: true, doOut: true, inFrames: 8, outFrames: 8, ease: 'linear' } },
-          { name: 'Fade in only', state: { doIn: true, doOut: false, inFrames: 16, outFrames: 12, ease: 'smooth' } }
-        ]
+        defaults: FADE_DEFAULTS
       },
       destroy: off
     };
