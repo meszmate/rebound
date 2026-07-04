@@ -135,6 +135,35 @@ describe('anchor.move position compensation (real host code, mock AE tree)', () 
     close(L._ch[MATCH.position].value, [615, 360]);
   });
 
+  it('a repeated click reports "already", not a success that shows nothing', () => {
+    const L = makeLayer({ threeD: true });
+    const first = move(L, 0.5, 1);
+    expect(first.moved).toBe(1);
+    const second = move(L, 0.5, 1);
+    expect(second.moved).toBe(0);
+    expect(second.already).toEqual(['Shape Layer 1']);
+    expect(second.skipped).toEqual([]);
+    close(L._ch[MATCH.position].value, [640, 385, 0]); // untouched by the no-op
+  });
+
+  it('an anchor that silently refuses the new value is reported, position restored', () => {
+    const L = makeLayer({ threeD: true });
+    L._ch[MATCH.anchor].setValue = function () { /* an override keeps the old value */ };
+    const res = move(L, 0.5, 1);
+    expect(res.moved).toBe(0);
+    expect(res.skipped.length).toBe(1);
+    expect(res.skipped[0]).toContain('anchor did not hold');
+    close(L._ch[MATCH.position].value, [640, 360, 0]); // compensation rolled back
+  });
+
+  it('a real move reports its pixel distance in details', () => {
+    const L = makeLayer({ threeD: true });
+    const res = move(L, 0.5, 1);
+    expect(res.details.length).toBe(1);
+    expect(res.details[0].distance).toBeCloseTo(25, 6);
+    expect(res.details[0].rect).toEqual({ left: -50, top: -25, width: 100, height: 50 });
+  });
+
   it('an expression-driven anchor is skipped with a reason, nothing shifts', () => {
     const L = makeLayer({ threeD: true });
     L._ch[MATCH.anchor].expressionEnabled = true;

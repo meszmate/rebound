@@ -252,11 +252,22 @@
       .then(function (res) {
         res = res || {};
         var n = res.moved || 0;
+        // Ground truth for support/debugging: what the host actually did.
+        if (res.details && R.log) R.log.info('anchor.move ' + pct, res.details);
         // The layer intentionally stays put (Position is compensated); the visible
-        // change is the anchor crosshair. A brief confirmation, repeats collapse.
-        if (n > 0) ctx.toast('Anchor → ' + pct, { kind: 'success' });
-        else if (res.skipped && res.skipped.length) ctx.toast('Anchor not moved · ' + res.skipped.join(' · '), { kind: 'info' });
-        else ctx.toast('Select a layer first', { kind: 'info' });
+        // change is the anchor crosshair. The toast reports what REALLY happened:
+        // a real move (with the distance, so "nothing changed" is checkable), a
+        // truthful "already there" for a repeated click, or the skip reasons.
+        if (n > 0) {
+          var d = res.details && res.details.length ? res.details[0].distance : 0;
+          ctx.toast('Anchor → ' + pct + (d ? ' · moved ' + Math.round(d) + 'px' : ''), { kind: 'success' });
+        } else if (res.already && res.already.length && (!res.skipped || !res.skipped.length)) {
+          ctx.toast('Anchor already at ' + pct + ' (the crosshair sits there now; the layer stays put by design)', { kind: 'info' });
+        } else if (res.skipped && res.skipped.length) {
+          ctx.toast('Anchor not moved · ' + res.skipped.join(' · '), { kind: 'info' });
+        } else {
+          ctx.toast('Select a layer first', { kind: 'info' });
+        }
         if (ctx.refreshSelection) ctx.refreshSelection();
       })
       .catch(function (err) { ctx.toast(err && err.message ? err.message : 'Anchor failed', { kind: 'error' }); });

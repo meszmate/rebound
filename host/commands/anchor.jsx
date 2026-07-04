@@ -169,6 +169,8 @@
     var time = comp.time;
     var moved = 0;
     var skipped = [];
+    var already = [];   // layers whose anchor was ALREADY at the target point
+    var details = [];   // per-layer ground truth, so "succeeded but nothing changed" is diagnosable
 
     R.beginUndo('Rebound: Move Anchor');
     try {
@@ -209,6 +211,14 @@
         if (is3d) a1.push(a0[2]);
 
         var dA = [a1[0] - a0[0], a1[1] - a0[1], 0];
+        var dist = Math.sqrt(dA[0] * dA[0] + dA[1] * dA[1]);
+        // Already at the target (a repeated click): a truthful no-op, reported
+        // as such instead of a "success" that visibly does nothing.
+        if (dist < 0.01) {
+          already.push(layer.name);
+          details.push({ layer: layer.name, from: a0, to: a1, distance: 0, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } });
+          continue;
+        }
         var delta = compensate(layer, tr, dA, time);
 
         // Atomic: move the anchor, then compensate Position. If either step
@@ -227,13 +237,23 @@
           skipped.push(layer.name + ' (position: ' + brief(ep) + ')');
           continue;
         }
+        // Read the anchor BACK: if AE quietly kept a different value (an
+        // override this code did not predict), report it instead of "success".
+        var aNow = null;
+        try { aNow = anchorProp.value; } catch (eRb) { aNow = null; }
+        if (aNow && (Math.abs(aNow[0] - a1[0]) > 0.01 || Math.abs(aNow[1] - a1[1]) > 0.01)) {
+          skipped.push(layer.name + ' (anchor did not hold: set ' + Math.round(a1[0]) + ',' + Math.round(a1[1]) + ' but reads ' + Math.round(aNow[0]) + ',' + Math.round(aNow[1]) + ')');
+          try { offsetPosition(tr, posProp, [-delta[0], -delta[1], -(delta[2] || 0)]); } catch (eU) {}
+          continue;
+        }
+        details.push({ layer: layer.name, from: a0, to: a1, distance: dist, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } });
         moved++;
       }
     } finally {
       R.endUndo();
     }
 
-    return { moved: moved, skipped: skipped };
+    return { moved: moved, skipped: skipped, already: already, details: details };
   }
 
   // Center the layer(s) at the composition centre (this DOES move the layer).
