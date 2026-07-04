@@ -37,6 +37,16 @@ All notable changes to Rebound are documented here. The format follows
   valid keyTimes.
 
 ### Fixed
+- **The Anchor tool works on 3D layers.** Position compensation mapped the
+  anchor delta through scale and Z rotation only, so on a 3D layer with any X/Y
+  rotation or orientation the compensation landed in the wrong plane and the
+  layer visibly jumped instead of holding still ("center works, bottom center
+  doesn't" — center is a no-op when the anchor already sits there). The delta
+  now runs the full AE transform chain (scale, rotation Z, Y, X, then
+  orientation) for 3D layers; 2D behaviour is unchanged. An expression-driven
+  anchor is now also skipped with a visible reason instead of silently losing
+  the setValue to the expression while Position still shifted. Locked by a new
+  mock-AE test over the real host code (test/host-anchor.test.mjs).
 - **"Precomp large frames & groups" off now really means no automatic precomps.**
   A small clipping frame whose content pokes past its edge (the crop-by-frame
   pattern: Figma hides the overflow, so the frame looks tiny and tidy) was

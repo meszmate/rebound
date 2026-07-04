@@ -42,23 +42,54 @@
     return null;
   }
 
-  function rotate2d(v, deg) {
-    var r = (deg * Math.PI) / 180;
-    var c = Math.cos(r);
-    var s = Math.sin(r);
-    return [v[0] * c - v[1] * s, v[0] * s + v[1] * c];
+  // Right-handed rotations in AE's axes (x right, y DOWN, z away from viewer).
+  // rotZ matches the long-validated 2D rotate: positive Z turns x toward y
+  // (clockwise on screen, exactly what AE's Rotation does).
+  function rotX(v, deg) {
+    var r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+    return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c];
+  }
+  function rotY(v, deg) {
+    var r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+    return [v[2] * s + v[0] * c, v[1], v[2] * c - v[0] * s];
+  }
+  function rotZ(v, deg) {
+    var r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r);
+    return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
   }
 
-  // Compensation delta in parent space for an anchor change dA (layer space).
-  function compensate(tr, dA, time) {
+  // Guarded property reads: a channel that is missing (or refuses to evaluate)
+  // counts as zero, so a 2D layer's absent 3D channels never throw.
+  function val1(tr, name, time) {
+    try { var p = tr.property(name); return p ? p.valueAtTime(time, false) : 0; } catch (e) { return 0; }
+  }
+  function valV(tr, name, time) {
+    try { var p = tr.property(name); var v = p ? p.valueAtTime(time, false) : null; return v || [0, 0, 0]; } catch (e) { return [0, 0, 0]; }
+  }
+
+  // Compensation delta in parent space for an anchor change dA (layer space):
+  // delta = R * S * dA using the layer's own transform at `time`. A 2D layer
+  // uses the Z rotation alone (the long-standing behaviour). A 3D layer applies
+  // the FULL chain in AE's transform order (SDK: anchor, scale, rotation Z, Y,
+  // X, then orientation, then position), with orientation's Euler angles
+  // applied X, Y, Z — otherwise a rotated/oriented 3D layer visibly jumps when
+  // the anchor moves, because the XY delta was compensated in the wrong plane.
+  function compensate(layer, tr, dA, time) {
     var scale = tr.property(M.scale).valueAtTime(time, false);
-    var sx = scale[0] / 100;
-    var sy = scale[1] / 100;
-    var scaled = [dA[0] * sx, dA[1] * sy];
-    var rotProp = tr.property(M.rotation);
-    var deg = rotProp ? rotProp.valueAtTime(time, false) : 0;
-    var rot = rotate2d(scaled, deg);
-    return [rot[0], rot[1], dA.length > 2 ? dA[2] * (scale[2] ? scale[2] / 100 : 1) : 0];
+    var sz = (scale.length > 2 && typeof scale[2] === 'number') ? scale[2] : 100;
+    var v = [dA[0] * scale[0] / 100, dA[1] * scale[1] / 100, (dA[2] || 0) * sz / 100];
+    var zdeg = val1(tr, M.rotation, time);
+    var is3d = false;
+    try { is3d = layer.threeDLayer === true; } catch (e3d) { is3d = false; }
+    if (!is3d) return rotZ(v, zdeg);
+    v = rotZ(v, zdeg);
+    v = rotY(v, val1(tr, M.rotationY, time));
+    v = rotX(v, val1(tr, M.rotationX, time));
+    var o = valV(tr, M.orientation, time);
+    v = rotX(v, o[0]);
+    v = rotY(v, o[1]);
+    v = rotZ(v, o[2]);
+    return v;
   }
 
   // Short, readable form of an AE/JS error for a skipped-layer note. Avoids regex
@@ -151,6 +182,15 @@
           skipped.push(layer.name + ' (animated anchor)');
           continue;
         }
+        // An expression-driven anchor would silently swallow setValue (the
+        // expression keeps winning) while Position still gets offset — the layer
+        // would shift with no visible anchor change. Skip it with a reason.
+        var aExpr = false;
+        try { aExpr = anchorProp.expressionEnabled && anchorProp.expression !== ''; } catch (eAX) { aExpr = false; }
+        if (aExpr) {
+          skipped.push(layer.name + ' (anchor expression)');
+          continue;
+        }
         if (posProp.expressionEnabled && posProp.expression !== '') {
           skipped.push(layer.name + ' (position expression)');
           continue;
@@ -168,8 +208,8 @@
         var a1 = [rect.left + gx * rect.width, rect.top + gy * rect.height];
         if (is3d) a1.push(a0[2]);
 
-        var dA = [a1[0] - a0[0], a1[1] - a0[1], is3d ? 0 : 0];
-        var delta = compensate(tr, dA, time);
+        var dA = [a1[0] - a0[0], a1[1] - a0[1], 0];
+        var delta = compensate(layer, tr, dA, time);
 
         // Atomic: move the anchor, then compensate Position. If either step
         // fails, restore the anchor so the layer never ends up half-moved, and
