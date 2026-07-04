@@ -309,6 +309,27 @@
     return !!node.clipsContent && frameContentOverflows(node);
   }
 
+  // Has the user allowed the importer to create precomps at all? With BOTH
+  // "Precomp frames" and "Precomp large frames & groups" off, the answer is no:
+  // even a clipping frame then builds flat (its overflow stays visible, noted in
+  // the report) instead of silently becoming a comp anyway. Figma frames clip by
+  // default and crop-by-frame hides the overflow in Figma, so "small tidy frame
+  // still turned into a precomp" reads as the toggle being ignored. Masks are
+  // exempt: a track matte without a pixel layer is broken output, not a comp
+  // the user can trade away.
+  function precompsAllowed() {
+    var o = R.importer.opts || {};
+    return !!(o.precompFrames || o.autoPrecompThreshold > 0);
+  }
+
+  // The shared "clips, but the user said no comps" report note.
+  function noteUnclipped(node, report) {
+    note(report, 'approximated', {
+      name: node.name,
+      detail: 'clips overflowing content, but precomps are turned off; left unclipped in the flat build (turn "Precomp large frames & groups" back on to clip 1:1)'
+    });
+  }
+
   // Clip a precomp layer to its comp bounds (or rounded corners) so overflowing
   // children are hidden, matching a Figma frame's clipsContent. roundFrameCorners
   // already adds a rounded mask when cornerRadii are present; only add a plain
@@ -537,9 +558,9 @@
     if (node.blendMode && node.blendMode !== 'NORMAL' && node.blendMode !== 'PASS_THROUGH') {
       note(report, 'approximated', { name: node.name, detail: 'frame blend mode is applied per layer, not as a group' });
     }
-    // No clip note here: a clipping frame whose content overflows is routed to a
-    // precomp (which clips) before it ever reaches buildFrameFlat, so a frame that
-    // lands here either does not clip or has nothing overflowing to clip.
+    // No clip note here: a clipping frame whose content overflows is either routed
+    // to a precomp (which clips) before reaching buildFrameFlat, or, when the user
+    // turned every precomp off, the router already noted the unclipped overflow.
     report.framesBuilt++;
     return container;
   }
@@ -551,13 +572,18 @@
     var baseX = px + (off.x - origin.x), baseY = py + (off.y - origin.y);
     // A clipping top-level frame whose content overflows is clipped 1:1 by building
     // it as a precomp placed at its comp position; everything else stays flat.
+    // Unless the user turned every precomp off: then it stays flat too, unclipped.
     if (frameShouldClip(frame)) {
-      var pc;
-      try { pc = buildNestedFrame(comp, frame, report, baseX, baseY); }
-      catch (e) { pc = buildFrameFlat(comp, frame, baseX, baseY, report); }
-      registerLayer(frame, pc);
-      if (R.importer.mask) R.importer.mask.collect(frame, pc, report);
-      return pc;
+      if (!precompsAllowed()) {
+        noteUnclipped(frame, report);
+      } else {
+        var pc;
+        try { pc = buildNestedFrame(comp, frame, report, baseX, baseY); }
+        catch (e) { pc = buildFrameFlat(comp, frame, baseX, baseY, report); }
+        registerLayer(frame, pc);
+        if (R.importer.mask) R.importer.mask.collect(frame, pc, report);
+        return pc;
+      }
     }
     return buildFrameFlat(comp, frame, baseX, baseY, report);
   }
@@ -591,9 +617,13 @@
       // becomes a few editable precomps instead of thousands of flat layers. A
       // small frame (a button) stays flat/editable. Top-level frames build flat
       // (they never reach buildNode), so importing ONE screen stays flat.
+      // The clip case defers to the user: with every precomp toggle off it builds
+      // flat too (unclipped, reported), instead of comping "anyway".
+      var wantsClip = frameShouldClip(node);
       var needPrecomp = frameIsBig(node) ||
         (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) ||
-        node.isMask || frameShouldClip(node);
+        node.isMask || (wantsClip && precompsAllowed());
+      if (wantsClip && !needPrecomp) noteUnclipped(node, report);
       if (needPrecomp) {
         try {
           result = buildNestedFrame(comp, node, report);
@@ -1086,5 +1116,14 @@
   }
 
   R.importer.build = build;
+  // CI seam: the pure precomp-decision helpers, so the exporter->host contract
+  // tests can lock "toggle off means flat" without an After Effects binary.
+  R.importer.decide = {
+    countLayers: countLayers,
+    frameIsBig: frameIsBig,
+    frameWantsPrecomp: frameWantsPrecomp,
+    frameShouldClip: frameShouldClip,
+    precompsAllowed: precompsAllowed
+  };
   R.register('import.build', build, 'Rebound: Import');
 })();
