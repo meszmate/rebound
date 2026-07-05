@@ -40,6 +40,11 @@
     title: 'Velocity',
     group: 'Easing',
     order: 3,
+    quick: {
+      desc: 'Set 33.33% ease influence on both sides of the selected keyframes.',
+      method: 'velocity.apply',
+      args: { inInfluence: 33.33, outInfluence: 33.33, inSpeed: 0, outSpeed: 0, setInfluence: true, setSpeed: false, applyIn: true, applyOut: true }
+    },
     keywords: ['velocity', 'speed', 'influence', 'ease', 'keyframe', 'temporal'],
     mount: mount
   });

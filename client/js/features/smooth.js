@@ -20,6 +20,16 @@
     title: 'Smooth',
     group: 'Easing',
     order: 2,
+    quick: {
+      desc: 'Ease the selected keyframes at 60% smoothness so motion flows through them.',
+      method: 'smooth.apply',
+      args: { amount: 60, sides: 'inout', autoBezier: false, roving: false },
+      config: [{ arg: 'sides', label: 'Apply to', type: 'select', options: [
+        { value: 'inout', label: 'In & Out' },
+        { value: 'in', label: 'In' },
+        { value: 'out', label: 'Out' }
+      ] }]
+    },
     keywords: ['smooth', 'roving', 'auto bezier', 'flowing', 'curve', 'keyframe', 'velocity', 'influence', 'ease'],
     mount: mount
   });

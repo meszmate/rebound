@@ -45,6 +45,11 @@
     title: 'Follow',
     group: 'Physics',
     order: 4,
+    quick: {
+      desc: 'Make each selected layer trail the first layer by a four frame delay.',
+      method: 'follow.apply',
+      args: { delayFrames: 4, cascade: false }
+    },
     keywords: ['follow', 'follow through', 'trail', 'delay', 'lag', 'chain', 'cascade', 'lead'],
     mount: mount
   });

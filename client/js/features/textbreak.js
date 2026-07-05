@@ -44,6 +44,18 @@
     title: 'Text Break',
     group: 'Shapes',
     order: 3,
+    // One-click Home tile: the tool's primary apply with its defaults; the
+    // per-tile customizer can retarget the mode (words/characters/lines).
+    quick: {
+      desc: 'Break the selected text layer into per-word layers (positions kept).',
+      method: 'textbreak.apply',
+      args: { mode: 'words', deleteOriginal: false, position: true },
+      config: [{ arg: 'mode', label: 'Break into', type: 'select', options: [
+        { value: 'words', label: 'Words' },
+        { value: 'characters', label: 'Characters' },
+        { value: 'lines', label: 'Lines' }
+      ] }]
+    },
     keywords: ['text', 'break', 'split', 'lines', 'words', 'characters', 'letters', 'explode', 'custom', 'kinetic'],
     mount: mount
   });

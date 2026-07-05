@@ -47,6 +47,18 @@
     title: 'Flip',
     group: 'Layout',
     order: 1,
+    // One-click Home tile: the tool's primary apply with its defaults; the
+    // per-tile customizer can retarget the axis.
+    quick: {
+      desc: 'Flip the selected layers horizontally in place about each layer anchor.',
+      method: 'flip.apply',
+      args: { axis: 'horizontal', pivot: 'anchor' },
+      config: [{ arg: 'axis', label: 'Axis', type: 'select', options: [
+        { value: 'horizontal', label: 'Horizontal' },
+        { value: 'vertical', label: 'Vertical' },
+        { value: 'both', label: 'Both' }
+      ] }]
+    },
     keywords: ['flip', 'mirror', 'reflect', 'reverse', 'horizontal', 'vertical'],
     mount: mount
   });

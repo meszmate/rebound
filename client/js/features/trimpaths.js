@@ -61,6 +61,16 @@
     title: 'Trim Paths',
     group: 'Shapes',
     order: 0,
+    quick: {
+      desc: 'Add an animated Trim Paths write-on to the selected shape layers at the playhead.',
+      method: 'trimpaths.apply',
+      args: { direction: 'start-end', durationFrames: 24, ease: 'smooth', replace: true },
+      config: [{ arg: 'direction', label: 'Direction', type: 'select', options: [
+        { value: 'start-end', label: 'Start to End' },
+        { value: 'end-start', label: 'End to Start' },
+        { value: 'center', label: 'Center out' }
+      ] }]
+    },
     keywords: ['trim', 'paths', 'write on', 'write-on', 'reveal', 'stroke', 'draw', 'shape'],
     mount: mount
   });

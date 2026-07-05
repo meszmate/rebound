@@ -33,6 +33,12 @@
     title: 'Precompose',
     group: 'Layout',
     order: 5,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Nest the selected layers into a new comp named Precomp, moving all attributes.',
+      method: 'precompose.apply',
+      args: { name: 'Precomp', moveAttributes: true, open: false }
+    },
     keywords: ['precompose', 'precomp', 'nest', 'group', 'composition', 'collapse', 'wrap'],
     mount: mount
   });

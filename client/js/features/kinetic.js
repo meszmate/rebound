@@ -48,6 +48,18 @@
     title: 'Kinetic',
     group: 'Physics',
     order: 6,
+    // One-click Home tile: the tool's primary apply with its defaults; the
+    // per-tile customizer can retarget the driven property.
+    quick: {
+      desc: 'Drive scale on every selected layer except the first from the lead layer motion.',
+      method: 'kinetic.apply',
+      args: { target: 'scale', sensitivity: 50, max: 50 },
+      config: [{ arg: 'target', label: 'Target', type: 'select', options: [
+        { value: 'scale', label: 'Scale' },
+        { value: 'rotation', label: 'Rotation' },
+        { value: 'opacity', label: 'Opacity' }
+      ] }]
+    },
     keywords: ['kinetic', 'motion', 'velocity', 'speed', 'react', 'energy', 'drive'],
     mount: mount
   });

@@ -42,6 +42,12 @@
     title: 'Arrange',
     group: 'Layout',
     order: 2,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Pack the selected layers into an automatic near-square grid with 16 px gaps.',
+      method: 'arrange.apply',
+      args: { columns: 0, gapX: 16, gapY: 16 }
+    },
     keywords: ['arrange', 'grid', 'tile', 'pack', 'layout', 'columns', 'rows'],
     mount: mount
   });

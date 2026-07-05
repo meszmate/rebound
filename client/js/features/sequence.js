@@ -48,6 +48,16 @@
     title: 'Sequence',
     group: 'Timing',
     order: 4,
+    quick: {
+      desc: 'Line the selected layers up end to end in time, each starting when the previous ends.',
+      method: 'sequence.apply',
+      args: { order: 'selection', overlapFrames: 0, trim: false },
+      config: [{ arg: 'order', label: 'Order', type: 'select', options: [
+        { value: 'selection', label: 'Selection' },
+        { value: 'topdown', label: 'Top-down' },
+        { value: 'reverse', label: 'Reverse' }
+      ] }]
+    },
     keywords: ['sequence', 'end to end', 'chain', 'overlap', 'timing', 'order', 'butt'],
     mount: mount
   });

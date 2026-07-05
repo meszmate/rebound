@@ -40,6 +40,12 @@
     title: 'Lean',
     group: 'Physics',
     order: 5,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Tilt each selected layer into its own motion with a natural 8 degree lean.',
+      method: 'lean.apply',
+      args: { amount: 8, smoothing: 4 }
+    },
     keywords: ['lean', 'tilt', 'banking', 'velocity', 'rotation', 'motion', 'physics'],
     mount: mount
   });

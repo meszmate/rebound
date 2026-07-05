@@ -79,6 +79,18 @@
     title: 'Stagger',
     group: 'Timing',
     order: 0,
+    quick: {
+      desc: 'Cascade the selected layers in time, four frames apart from the playhead.',
+      method: 'stagger.apply',
+      args: { intervalFrames: 4, order: 'index', seed: 1, anchor: 'playhead' },
+      config: [{ arg: 'order', label: 'Order', type: 'select', options: [
+        { value: 'index', label: 'Top' },
+        { value: 'reverse', label: 'Bottom' },
+        { value: 'random', label: 'Random' },
+        { value: 'name', label: 'Name' },
+        { value: 'label', label: 'Label' }
+      ] }]
+    },
     keywords: ['stagger', 'offset', 'cascade', 'sequence', 'sequencer', 'delay', 'timing', 'random', 'order', 'label'],
     mount: mount
   });

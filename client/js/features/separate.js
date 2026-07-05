@@ -34,6 +34,11 @@
     title: 'Separate',
     group: 'Transform',
     order: 3,
+    quick: {
+      desc: 'Split Position into separate X and Y properties on the selected layers.',
+      method: 'separate.apply',
+      args: { separate: true }
+    },
     keywords: ['separate', 'dimensions', 'position', 'split', 'join', 'combine', 'xyz', 'axis'],
     mount: mount
   });

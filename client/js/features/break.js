@@ -32,6 +32,12 @@
     title: 'Break',
     group: 'Shapes',
     order: 2,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Split each selected shape layer into one layer per top-level group, keeping the original.',
+      method: 'break.apply',
+      args: { deleteOriginal: false }
+    },
     keywords: ['break', 'split', 'separate', 'explode', 'group', 'shape', 'ungroup', 'apart'],
     mount: mount
   });

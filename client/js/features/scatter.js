@@ -105,6 +105,16 @@
     title: 'Scatter',
     group: 'Generators',
     order: 2,
+    quick: {
+      desc: 'Duplicate the selected layer into a 24-copy grid around its position.',
+      method: 'scatter.apply',
+      args: { pattern: 'grid', count: 24, width: 600, height: 400, radius: 250, jitter: 0, minDist: 0, seed: 1, scaleVary: 0, rotateVary: 0 },
+      config: [{ arg: 'pattern', label: 'Pattern', type: 'select', options: [
+        { value: 'grid', label: 'Grid' },
+        { value: 'fibonacci', label: 'Fibonacci' },
+        { value: 'random', label: 'Random' }
+      ] }]
+    },
     keywords: ['scatter', 'distribute', 'array', 'random', 'fibonacci', 'phyllotaxis', 'grid', 'poisson', 'spread', 'duplicate'],
     mount: mount
   });

@@ -71,6 +71,18 @@
     title: 'Motion',
     group: 'Physics',
     order: 3,
+    // One-click Home tile: the tool's primary apply with its defaults; the
+    // per-tile customizer can retarget the mode.
+    quick: {
+      desc: 'Spin each selected layer continuously at 90 degrees per second.',
+      method: 'motion.apply',
+      args: { mode: 'spin', spinSpeed: 90, orbitRadius: 150, orbitSpeed: 60 },
+      config: [{ arg: 'mode', label: 'Mode', type: 'select', options: [
+        { value: 'orbit', label: 'Orbit' },
+        { value: 'spin', label: 'Spin' },
+        { value: 'lookat', label: 'Look At' }
+      ] }]
+    },
     keywords: ['motion', 'orbit', 'spin', 'rotate', 'look at', 'auto', 'rig', 'circle', 'aim'],
     mount: mount
   });

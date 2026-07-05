@@ -156,6 +156,11 @@
     title: 'Throw',
     group: 'Physics',
     order: 10,
+    quick: {
+      desc: 'Bake a physics toss into the selected layers, with gravity, drag, and bounces that settle.',
+      method: 'throw.apply',
+      args: { angle: 45, strength: 700, gravity: 1400, drag: 0.5, duration: 1.8, autoDur: true, bounce: true, elasticity: 0.6, friction: 0.25, bounds: 'floor', useLayerFloor: false, spin: 'off', spinAmount: 1, squash: false, squashStrength: 28, windAngle: 0, windStrength: 0, stretch: false, stretchAmt: 50, motionBlur: false }
+    },
     keywords: ['throw', 'dynamic', 'toss', 'momentum', 'gravity', 'bounce', 'restitution', 'friction', 'roll', 'spin', 'physics', 'arc'],
     mount: mount
   });

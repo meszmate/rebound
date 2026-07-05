@@ -25,6 +25,12 @@
     title: 'Radial',
     group: 'Generators',
     order: 1,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Duplicate each selected layer into a full ring of 8 copies at a 200 px radius.',
+      method: 'radial.apply',
+      args: { count: 8, radius: 200, startAngle: 0, arc: 360, orient: false }
+    },
     keywords: ['radial', 'ring', 'circle', 'array', 'around', 'duplicate', 'clone', 'orbit', 'arc'],
     mount: mount
   });

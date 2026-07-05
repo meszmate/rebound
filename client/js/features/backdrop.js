@@ -49,6 +49,24 @@
     title: 'Backdrop',
     group: 'Generators',
     order: 5,
+    // One-click Home tile: the tool's primary Make background with its defaults;
+    // the per-tile customizer can retarget the pattern.
+    quick: {
+      desc: 'Add a transparent dots texture background layer to the composition.',
+      method: 'backdrop.make',
+      args: { pattern: 'dots', color: '#39C2FF', transparent: true, bg: '#101216', spacing: 18, size: 6, opacity: 60, angle: 0,
+        echo: false, echoTime: -0.03, echoes: 6, echoDecay: 0.7,
+        rblur: false, rblurAmount: 12, rblurType: 'spin',
+        ca: false, caAmount: 6 },
+      config: [{ arg: 'pattern', label: 'Pattern', type: 'select', options: [
+        { value: 'dots', label: 'Dots' },
+        { value: 'grid', label: 'Grid' },
+        { value: 'lines', label: 'Lines' },
+        { value: 'cross', label: 'Cross' },
+        { value: 'checker', label: 'Checker' },
+        { value: 'rings', label: 'Rings' }
+      ] }]
+    },
     keywords: ['backdrop', 'background', 'texture', 'pattern', 'dots', 'grid', 'lines', 'checker', 'echo', 'radial blur', 'chromatic aberration', 'effect'],
     mount: mount
   });

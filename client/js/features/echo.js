@@ -43,6 +43,12 @@
     title: 'Echo',
     group: 'Generators',
     order: 3,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Add an optical Echo trail to each selected layer with 8 echoes and 0.7 decay.',
+      method: 'echo.apply',
+      args: { echoTime: -0.05, numEchoes: 8, decay: 0.7 }
+    },
     keywords: ['echo', 'trail', 'ghost', 'streak', 'smear', 'motion trail', 'afterimage', 'optical'],
     mount: mount
   });

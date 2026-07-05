@@ -36,6 +36,15 @@
     title: 'Link',
     group: 'Transform',
     order: 4,
+    quick: {
+      desc: 'Parent the selected layers to the last selected layer.',
+      method: 'link.apply',
+      args: { target: 'last' },
+      config: [{ arg: 'target', label: 'Target', type: 'select', options: [
+        { value: 'last', label: 'Last selected' },
+        { value: 'first', label: 'First selected' }
+      ] }]
+    },
     keywords: ['link', 'parent', 'pick whip', 'pickwhip', 'unlink', 'unparent', 'attach'],
     mount: mount
   });

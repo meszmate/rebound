@@ -37,6 +37,20 @@ All notable changes to Rebound are documented here. The format follows
   valid keyTimes.
 
 ### Added
+- **Every tool with a sensible default is now a ONE-CLICK Home tile.** Tools
+  declare their primary action (`quick` in the tool registration: the exact
+  host call their Apply button makes, with the tool's own defaults), and the
+  catalog turns each into a pinnable 1-click action — 27 new ones, including
+  Text Break (break the selected text into word layers, retargetable to
+  characters/lines per tile), Stagger, Sequence, Smooth, Squash, Fade, Echo,
+  Flip, Motion, Retime, Scatter, Trim Paths, Vignette, Stroke, Velocity,
+  Precompose, Auto-Crop and more. They show under Quick actions in the Add
+  browser, are keyboard-bindable, and carry per-tile option selects where the
+  tool has one obvious main choice. A new contract test loads every feature
+  module and asserts each one-click method really exists on the host, so a
+  typo can never fail silently at click time. Tools whose primary action has
+  no meaningful static default (Clone's capture-then-stamp, Rename's empty
+  pattern, Multiply's all-zero offsets) stay open/preset-only on purpose.
 - **Board reordering and resizing are fully reactive, animated interactions.**
   Reordering no longer uses HTML5 drag-and-drop (the source of every CEF drag
   bug and impossible to animate): press a card in edit mode and move five

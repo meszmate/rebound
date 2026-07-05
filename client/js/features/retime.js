@@ -66,6 +66,16 @@
     title: 'Retime',
     group: 'Timing',
     order: 7,
+    quick: {
+      desc: 'Rescale the selected keyframes to half their spacing (2x faster), holding the first key.',
+      method: 'retime.apply',
+      args: { mode: 'scale', factor: 0.5, duration: 1, anchor: 'first' },
+      config: [{ arg: 'anchor', label: 'Anchor', type: 'select', options: [
+        { value: 'first', label: 'First' },
+        { value: 'playhead', label: 'Playhead' },
+        { value: 'last', label: 'Last' }
+      ] }]
+    },
     keywords: ['retime', 'rescale', 'speed', 'slow', 'fast', 'stretch', 'duration', 'timing', 'keyframe', 'dependener'],
     mount: mount
   });

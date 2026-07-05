@@ -30,6 +30,12 @@
     title: 'Auto Crop',
     group: 'Transform',
     order: 5,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Mask each selected layer to its visible content bounds with no margin.',
+      method: 'autocrop.apply',
+      args: { padding: 0, extents: false }
+    },
     keywords: ['autocrop', 'crop', 'trim', 'bounds', 'content', 'mask', 'fit'],
     mount: mount
   });

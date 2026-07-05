@@ -49,6 +49,11 @@
     title: 'Stroke',
     group: 'Color',
     order: 2,
+    quick: {
+      desc: 'Add a 4 px near-black stroke to the selected shape layers.',
+      method: 'stroke.apply',
+      args: { rgb: [26 / 255, 28 / 255, 32 / 255], width: 4 }
+    },
     keywords: ['stroke', 'outline', 'border', 'shape', 'line', 'color', 'width'],
     mount: mount
   });

@@ -26,6 +26,11 @@
     title: 'Vignette',
     group: 'Generators',
     order: 2,
+    quick: {
+      desc: 'Darken the edges of the comp with a soft elliptical vignette layer.',
+      method: 'vignette.apply',
+      args: { amount: 60, feather: 150, scale: 100, replace: true }
+    },
     keywords: ['vignette', 'darken', 'edges', 'falloff', 'adjustment', 'mask', 'feather', 'corners'],
     mount: mount
   });

@@ -46,6 +46,15 @@
     title: 'Squash',
     group: 'Physics',
     order: 9,
+    quick: {
+      desc: 'Squash and stretch the selected layers with a one-shot impact at the playhead.',
+      method: 'squash.apply',
+      args: { mode: 'oneshot', amount: 35, pivot: 'base', axis: 'vertical', volume: 100, follow: true, wobbles: 2.5, decay: 6, sensitivity: 60, max: 40, smoothing: 3 },
+      config: [{ arg: 'mode', label: 'Mode', type: 'select', options: [
+        { value: 'oneshot', label: 'One-shot' },
+        { value: 'smart', label: 'Smart' }
+      ] }]
+    },
     keywords: ['squash', 'stretch', 'smart', 'jiggle', 'wobble', 'follow through', 'bounce', 'impact', 'volume', 'deform', 'physics'],
     mount: mount
   });

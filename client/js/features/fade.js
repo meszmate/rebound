@@ -51,6 +51,12 @@
     title: 'Fade',
     group: 'Timing',
     order: 3,
+    // One-click Home tile: the tool's primary apply with its defaults.
+    quick: {
+      desc: 'Fade each selected layer in and out over 12 frames with a smooth ease.',
+      method: 'fade.apply',
+      args: { inFrames: 12, outFrames: 12, doIn: true, doOut: true, ease: 'smooth' }
+    },
     keywords: ['fade', 'opacity', 'in', 'out', 'dissolve', 'transition', 'timing'],
     mount: mount
   });

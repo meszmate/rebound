@@ -103,6 +103,28 @@
     });
   }
 
+  // Tool-declared one-click defaults: any tool may carry a `quick` spec in its
+  // R.tools.register call ({ desc, method, args, config?, display?, curve? }) —
+  // its primary action with sensible defaults, runnable as a single tile click
+  // (e.g. Text Break: break the selected text into word layers). This is what
+  // makes EVERY tool pinnable as a 1-click action, not just the curated set.
+  function quickActions() {
+    return (R.tools.list() || []).filter(function (t) {
+      return t.quick && t.quick.method;
+    }).map(function (t) {
+      var q = t.quick;
+      var a = {
+        id: 'quick-' + t.id, label: t.title, toolId: t.id, group: t.group || 'Tools',
+        kind: 'apply', desc: q.desc || ('One click runs ' + t.title + ' with its defaults.'),
+        invoke: { method: q.method, args: q.args || {} }
+      };
+      if (q.config) a.config = q.config;
+      if (q.display) a.display = q.display;
+      if (q.curve) a.curve = q.curve;
+      return a;
+    });
+  }
+
   function scriptActions() { return (R.userScripts && R.userScripts.homeActions) ? R.userScripts.homeActions() : []; }
   // Specific saved/built-in expressions and easing presets, each as a one-click
   // action: so any single preset or expression can be pinned to a board AND bound
@@ -122,6 +144,7 @@
 
   function all() {
     return applyActions()
+      .concat(quickActions())
       .concat(scriptActions())
       .concat(expressionActions())
       .concat(presetActions())
