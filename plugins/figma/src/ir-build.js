@@ -532,6 +532,23 @@
       paragraphSpacing: node.paragraphSpacing,
       boxSize: [node.width, node.height]
     };
+    // EXACT landing for point text: where the glyph INK actually renders inside
+    // the node's box. Figma's line-height gap sits ABOVE the first line's cap
+    // (roughly 10% of the font size at lineHeight AUTO), so box-top != ink-top;
+    // a host that lands AE's ink on the box top places every label visibly high.
+    // With this offset the host maps ink-to-ink instead. Rendered bounds are an
+    // AABB and include strokes/shadows/blurs, so only an (effectively) unrotated
+    // node with no stroke and no effects can use them; everything else keeps the
+    // box-top fallback.
+    try {
+      var rbInk = node.absoluteRenderBounds;
+      var abInk = node.absoluteBoundingBox;
+      var noStroke = !node.strokes || node.strokes === figma.mixed || node.strokes.length === 0;
+      var noFx = !node.effects || node.effects.length === 0;
+      if (rbInk && abInk && noStroke && noFx && Math.abs(node.rotation || 0) < 0.1) {
+        text.inkOffset = { x: rbInk.x - abInk.x, y: rbInk.y - abInk.y };
+      }
+    } catch (eInk) { /* host falls back to box-top placement */ }
     // First-line indent: fires the host's paragraphIndent path.
     if ('paragraphIndent' in node) text.paragraphIndent = node.paragraphIndent;
     // Truncation: honor a numeric maxLines so the host can cap the visible lines.

@@ -233,6 +233,37 @@ describe('figma exporter -> IR', () => {
     expect(node.text.runs[0].fontSize).toBe(16);
   });
 
+  it('measures the text ink offset (renderBounds) so the host can land ink-to-ink', async () => {
+    // Figma's line-height gap sits above the first line's cap: box top != ink
+    // top. The exporter ships the renderer-measured offset; without it the host
+    // lands AE ink on the box top and every label imports a few pixels high.
+    const t = textNode();
+    t.absoluteRenderBounds = { x: 41.2, y: 63.4, width: 117, height: 17 };
+    const ir = await buildIR([t]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.text.inkOffset.x).toBeCloseTo(1.2, 5);
+    expect(node.text.inkOffset.y).toBeCloseTo(3.4, 5);
+  });
+
+  it('omits the ink offset when renderBounds are polluted or unusable', async () => {
+    // Strokes/effects bleed into absoluteRenderBounds, and a rotated node's
+    // AABB is not its box, so all three cases must fall back (no inkOffset).
+    const withFx = textNode();
+    withFx.absoluteRenderBounds = { x: 41, y: 63, width: 117, height: 17 };
+    withFx.effects = [{ type: 'DROP_SHADOW', color: { r: 0, g: 0, b: 0, a: 0.3 }, offset: { x: 0, y: 4 }, radius: 8, spread: 0, visible: true }];
+    const withStroke = textNode();
+    withStroke.absoluteRenderBounds = { x: 41, y: 63, width: 117, height: 17 };
+    withStroke.strokes = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 1, visible: true }];
+    const rotated = textNode();
+    rotated.absoluteRenderBounds = { x: 41, y: 63, width: 117, height: 17 };
+    rotated.rotation = 15;
+    const none = textNode(); // no renderBounds at all (hidden / older API)
+    for (const n of [withFx, withStroke, rotated, none]) {
+      const ir = await buildIR([n]);
+      expect(ir.document.frames[0].children[0].text.inkOffset).toBeUndefined();
+    }
+  });
+
   it('carries a shadow blend mode through to the IR (and omits the default)', async () => {
     const withBlend = await buildIR([shadowRect('MULTIPLY')]);
     expect(withBlend.document.frames[0].children[0].effects[0].blendMode).toBe('MULTIPLY');

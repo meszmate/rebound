@@ -37,6 +37,16 @@ All notable changes to Rebound are documented here. The format follows
   valid keyTimes.
 
 ### Fixed
+- **Imported text no longer sits a few pixels high next to its neighbours.**
+  Figma positions a text node by its box, but the glyphs do not start at the
+  box top: the line-height gap sits above the first line's cap (about 10% of
+  the font size at auto line height). The importer landed After Effects' text
+  ink on the box top, so every point-text label imported visibly high — e.g. a
+  wordmark no longer vertically centred beside its logo. The exporter now
+  ships the renderer-measured ink offset (absoluteRenderBounds relative to the
+  box) and the host lands ink on ink, exact for every justification at once.
+  Guarded: strokes, effects and rotation pollute the rendered bounds, so those
+  nodes keep the previous box-top placement. Locked by exporter tests.
 - **The Anchor tool works on 3D layers.** Position compensation mapped the
   anchor delta through scale and Z rotation only, so on a 3D layer with any X/Y
   rotation or orientation the compensation landed in the wrong plane and the

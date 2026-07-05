@@ -908,19 +908,31 @@
     if (!isBox) {
       var boxW = t.width || 0;
       var placed = false;
+      // The source's true ink offset within its box (exporter-measured from the
+      // renderer). When present, ink lands on ink: the line-height gap above the
+      // first line's cap is reproduced instead of collapsed, so a label next to
+      // an icon sits exactly as designed, not a few pixels high.
+      var ink = (node.text && node.text.inkOffset) || null;
+      if (ink && !(isFinite(ink.x) && isFinite(ink.y))) ink = null;
       try {
         var comp0 = layer.containingComp;
         var rect = layer.sourceRectAtTime(comp0 ? comp0.time : 0, false);
         if (rect && isFinite(rect.left) && isFinite(rect.top) && (rect.width > 0 || rect.height > 0)) {
-          // Vertical: laid-out ink top -> node box top (all justifications).
-          y = y - rect.top;
-          // Horizontal: land the ink's JUSTIFICATION-relevant edge on the box's, so
-          // a centre/right-aligned label sits centred / right within its Figma box
-          // instead of hugging the left. For an auto-width node (box == ink) all
-          // three reduce to ink-left -> box-left, so this never moves plain labels.
-          if (align === 'CENTER') x = x + boxW / 2 - rect.left - rect.width / 2;
-          else if (align === 'RIGHT') x = x + boxW - rect.left - rect.width;
-          else x = x - rect.left; // LEFT: ink left -> box left
+          if (ink) {
+            // Ink-to-ink, exact for every justification at once.
+            x = x + ink.x - rect.left;
+            y = y + ink.y - rect.top;
+          } else {
+            // Vertical: laid-out ink top -> node box top (all justifications).
+            y = y - rect.top;
+            // Horizontal: land the ink's JUSTIFICATION-relevant edge on the box's, so
+            // a centre/right-aligned label sits centred / right within its Figma box
+            // instead of hugging the left. For an auto-width node (box == ink) all
+            // three reduce to ink-left -> box-left, so this never moves plain labels.
+            if (align === 'CENTER') x = x + boxW / 2 - rect.left - rect.width / 2;
+            else if (align === 'RIGHT') x = x + boxW - rect.left - rect.width;
+            else x = x - rect.left; // LEFT: ink left -> box left
+          }
           placed = true;
         }
       } catch (eRect) {}
