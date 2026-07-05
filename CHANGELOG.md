@@ -36,6 +36,19 @@ All notable changes to Rebound are documented here. The format follows
   outright (console errors, static demo); the lag is now a `begin` offset with
   valid keyTimes.
 
+### Added
+- **Board reordering and resizing are fully reactive, animated interactions.**
+  Reordering no longer uses HTML5 drag-and-drop (the source of every CEF drag
+  bug and impossible to animate): press a card in edit mode and move five
+  pixels and it LIFTS (elevation, accent ring), follows the cursor one-to-one,
+  siblings glide out of the way live as you cross them, the board auto-scrolls
+  at its edges, and release settles the card into its slot with a small
+  spring. A press without movement stays a plain click. Resizing now follows
+  the cursor pixel-for-pixel: the card itself tracks the pointer while a
+  dashed ghost previews the snapped slot it will settle into, neighbours glide
+  around the snap as before, and release animates the card from its live size
+  into the slot. Lost-mouseup (release outside the panel) ends both cleanly.
+
 ### Fixed
 - **Import layout audit: eleven placement bugs fixed across the pipeline.** A
   systematic three-slice audit (text, transform/shape/image, containers) of the

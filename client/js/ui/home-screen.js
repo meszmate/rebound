@@ -410,22 +410,21 @@
         return cur;
       }
       // CEF (After Effects) can drop POINTER events while still delivering MOUSE
-      // events (the curve editor documents the same quirk on its handles), and in
-      // edit mode the card is an HTML5 draggable, which steals the grip gesture
-      // and turns a resize into a reorder. So: cancel any native drag born on the
-      // handle, bind BOTH event families (a flag dedupes the pair), disable the
-      // card's draggable for the duration, and stream moves from the document so
-      // nothing depends on pointer capture support.
-      handle.addEventListener('dragstart', function (ev) { ev.preventDefault(); ev.stopPropagation(); });
+      // events (the curve editor documents the same quirk on its handles), so
+      // bind BOTH event families (a flag dedupes the pair) and stream moves from
+      // the document so nothing depends on pointer capture support. Reordering
+      // is pointer-based too (wireDrag), so nothing can steal the grip gesture.
       var active = false;
       function startResize(e) {
         if (!editing || active) return; // paired mousedown+pointerdown: one drag
         active = true;
         e.preventDefault(); e.stopPropagation();
         var drafted = null, lastC = null, lastR = null, done = false;
-        var wasDraggable = node.getAttribute('draggable');
-        node.setAttribute('draggable', 'false'); // a resize is never a reorder
         node.classList.add('is-resizing');
+        // Snap preview: a dashed ghost marks the slot the item will settle into
+        // while the card itself follows the cursor pixel-for-pixel.
+        var snapGhost = el('div.rb-home-snapghost');
+        grid.appendChild(snapGhost);
         // Pin the item's origin cell for the whole drag. Without an explicit
         // start, dense auto-placement RELOCATES a grown item to the next spot it
         // fits (the "it just moves down instead of resizing" bug); pinned, the
@@ -439,6 +438,12 @@
         var startCol = Math.max(1, Math.round((rect0.left - gRect0.left) / (cellW0 + gap0)) + 1);
         var startRow = Math.max(1, Math.round((rect0.top - gRect0.top + grid.scrollTop) / (rowTrackPx(gcs0) + rgap0)) + 1);
         var maxC = cols - startCol + 1; // never grow into implicit columns
+        function placeGhost(c, r, cellW, cellH, gap, rgap) {
+          snapGhost.style.left = ((startCol - 1) * (cellW + gap)) + 'px';
+          snapGhost.style.top = ((startRow - 1) * (cellH + rgap)) + 'px';
+          snapGhost.style.width = (c * cellW + (c - 1) * gap) + 'px';
+          snapGhost.style.height = (r * cellH + (r - 1) * rgap) + 'px';
+        }
         function mv(ev) {
           // A release outside the panel never delivers mouseup in CEP; end the
           // drag on the first buttonless move instead of resizing forever.
@@ -453,15 +458,21 @@
           var gr = grid.getBoundingClientRect();
           if (ev.clientY > gr.bottom - 28) grid.scrollTop += 14;
           else if (ev.clientY < gr.top + 28 && grid.scrollTop > 0) grid.scrollTop -= 14;
-          // The resized item is excluded from FLIP, so its rect is layout truth.
+          // The resized item is excluded from FLIP and the live px override
+          // below never moves its left/top edge, so its rect is layout truth.
           var rect = node.getBoundingClientRect();
+          // REACTIVE: the card follows the cursor exactly; the grid snap runs
+          // underneath and the dashed ghost previews where it will settle.
+          node.style.width = Math.max(36, ev.clientX - rect.left) + 'px';
+          node.style.height = Math.max(30, ev.clientY - rect.top) + 'px';
           var c = stepTo(lastC, (ev.clientX - rect.left) / (cellW + gap), maxC);
           var r = stepTo(lastR, (ev.clientY - rect.top) / (cellH + rgap), maxRowsFor(id));
+          placeGhost(c, r, cellW, cellH, gap, rgap);
           if (c === lastC && r === lastR) return;
           var prev = captureRects();
           node.style.gridColumn = startCol + ' / span ' + c;
           node.style.gridRow = startRow + ' / span ' + r;
-          if (mode === 'widget') { node.style.height = ''; node.classList.add('is-sized'); }
+          if (mode === 'widget') node.classList.add('is-sized');
           flip(prev, true); // glide everything ELSE to the new layout
           syncTight();
           lastC = c; lastR = r;
@@ -477,9 +488,25 @@
           document.removeEventListener('pointerup', up);
           document.removeEventListener('mouseup', up);
           document.removeEventListener('pointercancel', up);
-          if (wasDraggable !== null) node.setAttribute('draggable', wasDraggable);
-          node.classList.remove('is-resizing');
           hideSizeHint();
+          try { if (snapGhost.parentNode) snapGhost.parentNode.removeChild(snapGhost); } catch (eG) { /* already gone */ }
+          // Settle: capture the live cursor-driven size, clear the override so
+          // the item returns to its snapped slot, and animate the difference.
+          var liveRect = node.getBoundingClientRect();
+          node.style.width = '';
+          node.style.height = '';
+          node.classList.remove('is-resizing');
+          var settleMs = 0;
+          var target = node.getBoundingClientRect();
+          if (node.animate && (Math.abs(liveRect.width - target.width) > 1 || Math.abs(liveRect.height - target.height) > 1)) {
+            try {
+              node.animate([
+                { width: liveRect.width + 'px', height: liveRect.height + 'px' },
+                { width: target.width + 'px', height: target.height + 'px' }
+              ], { duration: 200, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+              settleMs = 210;
+            } catch (eSA) { settleMs = 0; }
+          }
           if (drafted) {
             if (mode !== 'widget' && drafted.c === 1 && drafted.r === 1) delete spans[id]; else spans[id] = drafted;
             // Re-order the ids to match the board the user is LOOKING at, so the
@@ -497,7 +524,10 @@
               if (!pa || !pb) return order[a] - order[b];
               return (pa.top - pb.top) || (pa.left - pb.left) || (order[a] - order[b]);
             });
-            persist(); render();
+            persist();
+            // The re-render replays placement identically; run it after the
+            // settle animation so the snap glide is never cut short.
+            if (settleMs) window.setTimeout(render, settleMs); else render();
           }
         }
         document.addEventListener('pointermove', mv);
@@ -684,16 +714,95 @@
     }
     function countOf(actionId) { var n = 0; ids.forEach(function (id) { if (actionIdOf(id) === actionId) n++; }); return n; }
 
+    // Pointer-based reorder, replacing HTML5 drag-and-drop entirely. Native DnD
+    // in CEF is the source of a whole bug class (stolen grip gestures, no drag
+    // image control, zero animation during the drag) — with pointer events the
+    // card LIFTS after a 5px threshold, follows the cursor 1:1, siblings glide
+    // out of the way live, and release settles it into its slot with a small
+    // spring. A press without movement stays a plain click (customizer etc.).
     function wireDrag(node, id) {
-      node.addEventListener('dragstart', function (e) { if (!editing) { e.preventDefault(); return; } dragId = id; dragNode = node; lastOverId = id; node.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* ignore */ } } });
-      node.addEventListener('dragend', function () { node.classList.remove('is-dragging'); if (dragId) persist(); dragId = null; dragNode = null; lastOverId = null; });
-      node.addEventListener('dragover', function (e) {
-        if (!editing || !dragId) return;
-        e.preventDefault();
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-        if (id !== dragId && id !== lastOverId) { lastOverId = id; liveReorder(node, id); }
-      });
-      node.addEventListener('drop', function (e) { if (!editing) return; e.preventDefault(); });
+      var pressed = false;
+      function startDrag(e) {
+        if (!editing || pressed || dragId) return;
+        if (e.button != null && e.button !== 0) return;
+        // Controls keep their own gestures (resize grip, per-card buttons).
+        if (e.target && e.target.closest && e.target.closest('.rb-home-resize, .rb-home-cog, .rb-home-remove, .rb-home-wbtn, .rb-home-wcolor, input, select')) return;
+        pressed = true;
+        var sx = e.clientX, sy = e.clientY;
+        var lifted = false;
+        function lift() {
+          lifted = true;
+          dragId = id; dragNode = node; lastOverId = id;
+          node.classList.add('is-dragging');
+          // Hit-test what is UNDER the card while it follows the cursor.
+          node.style.pointerEvents = 'none';
+          document.body.classList.add('rb-home-grabbing');
+          hideTip();
+        }
+        function mv(ev) {
+          // A release outside the panel never delivers mouseup in CEP.
+          if (ev.buttons === 0) { up(); return; }
+          var dx = ev.clientX - sx, dy = ev.clientY - sy;
+          if (!lifted) {
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return; // still a click
+            lift();
+          }
+          node.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(1.03)';
+          // Auto-scroll at the board edges, same feel as resize.
+          var gr = grid.getBoundingClientRect();
+          if (ev.clientY > gr.bottom - 28) grid.scrollTop += 14;
+          else if (ev.clientY < gr.top + 28 && grid.scrollTop > 0) grid.scrollTop -= 14;
+          var under = document.elementFromPoint(ev.clientX, ev.clientY);
+          var over = under && under.closest ? under.closest('[data-id]') : null;
+          if (over && over.parentNode === grid) {
+            var overId = over.getAttribute('data-id');
+            if (overId && overId !== id && overId !== lastOverId) { lastOverId = overId; liveReorder(over, overId); }
+          } else {
+            lastOverId = null; // left the last target; allow re-entering it
+          }
+        }
+        function up() {
+          if (!pressed) return;
+          pressed = false;
+          document.removeEventListener('pointermove', mv);
+          document.removeEventListener('mousemove', mv);
+          document.removeEventListener('pointerup', up);
+          document.removeEventListener('mouseup', up);
+          document.removeEventListener('pointercancel', up);
+          if (!lifted) return; // plain click: leave it to the click handlers
+          // Swallow the click that follows this release so ending a drag never
+          // opens the customizer (or trips the widget shield toast).
+          var swallow = function (ce) { ce.stopPropagation(); ce.preventDefault(); };
+          node.addEventListener('click', swallow, true);
+          window.setTimeout(function () { node.removeEventListener('click', swallow, true); }, 0);
+          dragId = null; dragNode = null; lastOverId = null;
+          document.body.classList.remove('rb-home-grabbing');
+          node.style.pointerEvents = '';
+          // Settle: the card's DOM slot IS its new home, so spring the follow
+          // transform back to identity.
+          var followed = node.style.transform;
+          node.classList.remove('is-dragging');
+          node.style.transform = '';
+          if (followed && node.animate) {
+            try {
+              node.animate([
+                { transform: followed },
+                { transform: 'scale(1.01)', offset: 0.72 },
+                { transform: 'none' }
+              ], { duration: 300, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+            } catch (eA) { /* settle without the spring */ }
+          }
+          persist();
+        }
+        document.addEventListener('pointermove', mv);
+        document.addEventListener('mousemove', mv);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('mouseup', up);
+        document.addEventListener('pointercancel', up);
+      }
+      // Both families: CEF drops pointerdown on <button> in some builds.
+      node.addEventListener('pointerdown', startDrag);
+      node.addEventListener('mousedown', startDrag);
     }
     // Live, animated rearrange: move the dragged item next to the hovered one and
     // glide the rest into place, without a full re-render (so the drag continues).
@@ -817,7 +926,6 @@
       attachTip(node, label, action.desc || (action.kind === 'open' ? 'Opens the full tool' : 'One-click action'));
       if (editing) {
         node.classList.add('is-editmode');
-        node.setAttribute('draggable', 'true');
         node.appendChild(el('span.rb-home-cog', { title: 'Customize tile', onclick: function (e) { e.stopPropagation(); customizeTile(action); } }, ['✎']));
         node.appendChild(el('span.rb-home-remove', { title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']));
         wireDrag(node, action.id);
@@ -1067,7 +1175,6 @@
       card.classList.toggle('is-editmode', editing);
       card.classList.toggle('is-collapsed', collapsedOf(action.id));
       card.classList.toggle('is-maximized', maximizedId === action.id);
-      card.setAttribute('draggable', editing ? 'true' : 'false');
       // Width snaps to columns (full by default); height is a whole-row span, so
       // the widget always reserves its grid track (never overflows onto the items
       // below). Legacy pixel heights are migrated to a row span on sight.

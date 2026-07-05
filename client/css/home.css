@@ -48,6 +48,7 @@
    uniform cells. Items span whole cells (1x1, 2x1, 2x2...), so the board always
    stays aligned. Dense flow backfills gaps left by wider/taller tiles. */
 .rb-home-grid {
+  position: relative; /* the resize snap-ghost positions in grid content space */
   display: grid;
   grid-template-columns: repeat(var(--rb-home-cols, 4), minmax(0, 1fr));
   /* Rows stretch to fill the panel height: each row is at least one cell tall but
@@ -281,7 +282,17 @@
 
 /* ---- Edit mode ----------------------------------------------------------- */
 .rb-home.is-editing .rb-home-tile.is-editmode { border-style: dashed; cursor: grab; }
-.rb-home-tile.is-dragging { opacity: 0.4; }
+.rb-home.is-editing .rb-home-widget { cursor: grab; }
+/* Pointer-drag lift: the card follows the cursor (inline transform) above the
+   board, solid and elevated, while its siblings glide around underneath. */
+.rb-home-tile.is-dragging, .rb-home-widget.is-dragging {
+  opacity: 0.98;
+  z-index: 60;
+  border-color: var(--rb-accent);
+  box-shadow: 0 0 0 2px rgba(var(--rb-accent-rgb), 0.28), 0 18px 40px rgba(0, 0, 0, 0.45);
+  transition: none !important; /* the follow transform must never be eased */
+}
+body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
 .rb-home-tile.is-droptarget { border-color: var(--rb-accent); box-shadow: 0 0 0 2px rgba(var(--rb-accent-rgb), 0.35); }
 
 .rb-home-remove {
@@ -879,7 +890,6 @@
   display: block; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 4;
   background: rgba(var(--rb-bg-rgb), 0.3); cursor: grab;
 }
-.rb-home-widget.is-dragging { opacity: 0.4; }
 .rb-home-widget.is-droptarget { border-color: var(--rb-accent); box-shadow: 0 0 0 2px rgba(var(--rb-accent-rgb), 0.35); }
 
 /* The category rail is the browse sidebar: hidden everywhere except the browse
@@ -998,12 +1008,24 @@
 .rb-home-tile.is-resizing .rb-home-resize::after,
 .rb-home-widget.is-resizing .rb-home-resize::after { right: 3px; bottom: 3px; width: 15px; height: 15px; }
 /* While dragging a resize, lift the item so the snap target is obvious; the
-   item under the pointer is never FLIP-animated, so this is rock steady. */
+   item under the pointer is never FLIP-animated, so this is rock steady. The
+   card follows the cursor pixel-for-pixel (inline width/height), floating over
+   its neighbours until it settles into the snapped slot. */
 .rb-home-tile.is-resizing, .rb-home-widget.is-resizing {
   border-color: var(--rb-accent);
   border-style: solid;
   box-shadow: 0 0 0 2px rgba(var(--rb-accent-rgb), 0.3), 0 12px 28px rgba(0, 0, 0, 0.35);
-  z-index: 6;
+  z-index: 55;
+}
+/* The dashed slot preview under a live resize: where the card will settle. */
+.rb-home-snapghost {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  border: 1.5px dashed rgba(var(--rb-accent-rgb), 0.6);
+  border-radius: var(--rb-card-radius);
+  background: rgba(var(--rb-accent-rgb), 0.07);
+  transition: left 0.12s ease, top 0.12s ease, width 0.12s ease, height 0.12s ease;
 }
 
 /* Live "2 × 1" readout while resizing, same voice as the curve editor's chips. */
