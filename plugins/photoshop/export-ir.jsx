@@ -510,6 +510,24 @@
     // Point type auto-sizes; paragraph type keeps its box.
     var autoResize = 'NONE';
     try { if (ti.kind === TextType.POINTTEXT) autoResize = 'WIDTH_AND_HEIGHT'; } catch (eK) {}
+    // PARAGRAPH text: layer.bounds is the RENDERED-INK box, not the authored
+    // text box. Rebuilding the AE box at ink size re-wraps lines the design
+    // never wrapped, re-justifies inside the wrong box, and (glyph-tight
+    // height + AE's ascent-based first baseline) can push the last line out of
+    // the box entirely. Use the REAL authored box: textItem.position (its
+    // top-left) and textItem.width/height. Point text keeps the ink bounds
+    // (its position is a baseline anchor, not a box).
+    if (autoResize === 'NONE') {
+      try {
+        var pbx = ti.position[0].as ? ti.position[0].as('px') : ti.position[0];
+        var pby = ti.position[1].as ? ti.position[1].as('px') : ti.position[1];
+        var pbw = ti.width.as ? ti.width.as('px') : ti.width;
+        var pbh = ti.height.as ? ti.height.as('px') : ti.height;
+        if (isFinite(pbx) && isFinite(pby) && pbw > 0 && pbh > 0) {
+          node.transform = { x: round(pbx), y: round(pby), width: round(pbw), height: round(pbh) };
+        }
+      } catch (ePB) { /* keep the ink bounds */ }
+    }
     node.text = { characters: ti.contents, runs: runs, textAlignHorizontal: justifyToIR(ti), autoResize: autoResize, boxSize: [node.transform.width, node.transform.height] };
     node.fills = [];
     node.layerStyles = readLayerStyles(layer.name);

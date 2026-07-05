@@ -73,7 +73,17 @@
         inTangent: [-tx * k, -ty * k]
       });
     }
-    if (reverse) pts.reverse();
+    if (reverse) {
+      pts.reverse();
+      // Reversing a bezier path swaps each vertex's role: what curved TOWARD the
+      // next point now curves toward the previous. Without the swap the inner
+      // ring edge renders with inverted curvature (S-shaped lobes).
+      for (var r = 0; r < pts.length; r++) {
+        var tmp = pts[r].inTangent;
+        pts[r].inTangent = pts[r].outTangent;
+        pts[r].outTangent = tmp;
+      }
+    }
     return pts;
   }
 
@@ -88,15 +98,31 @@
     var a1 = (arc.endAngle === undefined ? 360 : arc.endAngle) * d2r;
     var inner = arc.innerRadius || 0;
     if (inner < 0) inner = 0; if (inner > 1) inner = 1;
+    // A wedge's radial edges are STRAIGHT: the vertices bordering them must not
+    // keep their arc tangents (a ~0.55r control handle bows the "straight" edge
+    // visibly). Zero the tangent on the straight-edge side of each junction.
+    // A full-circle sweep has zero-length closing edges, so leave its seam
+    // curvature intact there.
+    var fullCircle = Math.abs(Math.abs(a1 - a0) - Math.PI * 2) < 1e-6;
     var verts;
     if (inner > 0) {
       // Ring wedge: outer edge forward, inner edge back, closed across the ends.
       var outer = arcVertices(cx, cy, rx, ry, a0, a1, false);
       var innr = arcVertices(cx, cy, rx * inner, ry * inner, a0, a1, true);
+      if (!fullCircle && outer.length && innr.length) {
+        outer[outer.length - 1].outTangent = [0, 0]; // outer end -> inner start
+        innr[0].inTangent = [0, 0];
+        innr[innr.length - 1].outTangent = [0, 0];   // inner end -> outer start (close)
+        outer[0].inTangent = [0, 0];
+      }
       verts = outer.concat(innr);
     } else {
       // Pie: arc plus the centre point so AE closes the wedge to the middle.
       verts = arcVertices(cx, cy, rx, ry, a0, a1, false);
+      if (!fullCircle && verts.length) {
+        verts[verts.length - 1].outTangent = [0, 0]; // arc end -> centre
+        verts[0].inTangent = [0, 0];                 // centre -> arc start (close)
+      }
       verts.push({ x: cx, y: cy, inTangent: [0, 0], outTangent: [0, 0] });
     }
     return { vertices: verts, closed: true, windingRule: 'NONZERO' };

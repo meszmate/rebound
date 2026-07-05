@@ -309,6 +309,20 @@
     return !!node.clipsContent && frameContentOverflows(node);
   }
 
+  // A container's own rotation, from its IR matrix ([a,b,c,d,tx,ty]). The precomp
+  // paths re-base children by TRANSLATION only, so a rotated container's children
+  // would land in the precomp rotated about its top-left (wrong content, wrong
+  // clip box). Anything rotated must take the flat route, which is
+  // rotation-correct (children carry their own full matrices there).
+  function nodeRotationDeg(node) {
+    var m = node.transform && node.transform.matrix;
+    if (m && m.length === 6) return Math.atan2(m[1], m[0]) * 180 / Math.PI;
+    return (node.transform && node.transform.rotation) || 0;
+  }
+  function isRotated(node) {
+    return Math.abs(nodeRotationDeg(node)) > 0.1;
+  }
+
   // Has the user allowed the importer to create precomps at all? With BOTH
   // "Precomp frames" and "Precomp large frames & groups" off, the answer is no:
   // even a clipping frame then builds flat (its overflow stays visible, noted in
@@ -573,8 +587,11 @@
     // A clipping top-level frame whose content overflows is clipped 1:1 by building
     // it as a precomp placed at its comp position; everything else stays flat.
     // Unless the user turned every precomp off: then it stays flat too, unclipped.
+    // A rotated frame stays flat as well (the precomp's clip box cannot rotate).
     if (frameShouldClip(frame)) {
-      if (!precompsAllowed()) {
+      if (isRotated(frame)) {
+        note(report, 'approximated', { name: frame.name, detail: 'rotated frame: clipping needs a precomp, which cannot rotate its clip box; left unclipped in the flat build' });
+      } else if (!precompsAllowed()) {
         noteUnclipped(frame, report);
       } else {
         var pc;
@@ -618,12 +635,22 @@
       // small frame (a button) stays flat/editable. Top-level frames build flat
       // (they never reach buildNode), so importing ONE screen stays flat.
       // The clip case defers to the user: with every precomp toggle off it builds
-      // flat too (unclipped, reported), instead of comping "anyway".
+      // flat too (unclipped, reported), instead of comping "anyway". A ROTATED
+      // frame also stays flat (except as a mask, where a matte has no
+      // alternative): the precomp re-basing is translation-only, so a rotated
+      // frame's content and clip box would land wrong; the flat build carries
+      // each child's full matrix and is rotation-correct.
       var wantsClip = frameShouldClip(node);
-      var needPrecomp = frameIsBig(node) ||
+      var rotated = isRotated(node);
+      var needPrecomp = (!rotated && (frameIsBig(node) ||
         (R.importer.opts && R.importer.opts.precompFrames && frameWantsPrecomp(node)) ||
-        node.isMask || (wantsClip && precompsAllowed());
-      if (wantsClip && !needPrecomp) noteUnclipped(node, report);
+        (wantsClip && precompsAllowed()))) ||
+        node.isMask;
+      if (wantsClip && !needPrecomp) {
+        if (rotated) note(report, 'approximated', { name: node.name, detail: 'rotated frame: clipping needs a precomp, which cannot rotate its clip box; left unclipped in the flat build' });
+        else noteUnclipped(node, report);
+      }
+      if (rotated && node.isMask) note(report, 'approximated', { name: node.name, detail: 'rotated frame used as a mask; the matte precomp cannot rotate its content, silhouette may drift' });
       if (needPrecomp) {
         try {
           result = buildNestedFrame(comp, node, report);
@@ -658,12 +685,14 @@
         var goff = { x: (node.transform && node.transform.x) || 0, y: (node.transform && node.transform.y) || 0 };
         try { gresult = buildNestedFrame(comp, node, report, undefined, undefined, goff); }
         catch (eg) { gresult = buildGroup(comp, node, report); }
-      } else if (frameIsBig(node)) {
+      } else if (frameIsBig(node) && !isRotated(node)) {
         // Auto-precomp a genuinely LARGE group too (same threshold as frames). A
         // single huge frame is often flat frames + deep GROUPS; precomping only
         // frames left those groups flooding one timeline. Now a big group folds
         // into its own editable precomp. Re-base its frame-local children to
-        // group-local space in the precomp (the proven mask-group path).
+        // group-local space in the precomp (the proven mask-group path). A
+        // ROTATED big group stays a flat group: the re-basing is translation-
+        // only, so its precomp would rotate content about the wrong pivot.
         var gbo = { x: (node.transform && node.transform.x) || 0, y: (node.transform && node.transform.y) || 0 };
         try { gresult = buildNestedFrame(comp, node, report, undefined, undefined, gbo); }
         catch (egb) { gresult = buildGroup(comp, node, report); }
@@ -815,7 +844,9 @@
     if (R.importer.layerStyle) R.importer.layerStyle.collect(pcLayer, styleNode, report);
   }
 
-  function buildFrame(target, frame, report) {
+  // place: { bounds, px, py } — the selection's canvas bounds plus where its
+  // top-left lands in the target comp, so multi-frame imports keep their layout.
+  function buildFrame(target, frame, report, place) {
     var fps = target ? target.frameRate : 30;
     var dur = target ? target.duration : 10;
     var par = target ? target.pixelAspect : 1;
@@ -838,6 +869,20 @@
 
     if (target) {
       var pcLayer = target.layers.add(comp);
+      // Land the precomp at the frame's canvas position (top-left anchored, the
+      // same convention as every other precomp placement). AE's default centres
+      // every added layer, which stacked multi-frame imports onto one point and
+      // threw the board layout away.
+      try {
+        var offP = frame.offset || { x: 0, y: 0 };
+        var bP = place && place.bounds ? place.bounds : { x: offP.x, y: offP.y };
+        var trP = pcLayer.property(util.MATCH.transform);
+        trP.property(util.MATCH.anchor).setValue([0, 0]);
+        trP.property(util.MATCH.position).setValue([
+          ((place && place.px) || 0) + (offP.x - bP.x),
+          ((place && place.py) || 0) + (offP.y - bP.y)
+        ]);
+      } catch (ePl) {}
       decorateFrameLayer(pcLayer, frame, report);
       report.placedInComp = true;
     }
@@ -1070,7 +1115,15 @@
     if (R.importer.opts.precompFrames) {
       // Opt-in: each top-level frame is its own trimmed comp, nested into the
       // active comp as a precomp layer when one is open.
-      for (var i = 0; i < frames.length; i++) buildFrame(target, frames[i], report);
+      // Preserve the canvas layout: frames keep their relative offsets, centred
+      // as a group in the target comp (the same px/py rule as the flat build).
+      var pBounds = framesBounds(frames);
+      var pPlace = { bounds: pBounds, px: 0, py: 0 };
+      if (target) {
+        pPlace.px = Math.round((target.width - pBounds.w) / 2);
+        pPlace.py = Math.round((target.height - pBounds.h) / 2);
+      }
+      for (var i = 0; i < frames.length; i++) buildFrame(target, frames[i], report, pPlace);
     } else {
       // Default flat build: drop everything into ONE comp as editable layers.
       // Use the active comp if there is one, else create a single comp sized to
@@ -1123,7 +1176,8 @@
     frameIsBig: frameIsBig,
     frameWantsPrecomp: frameWantsPrecomp,
     frameShouldClip: frameShouldClip,
-    precompsAllowed: precompsAllowed
+    precompsAllowed: precompsAllowed,
+    isRotated: isRotated
   };
   R.register('import.build', build, 'Rebound: Import');
 })();

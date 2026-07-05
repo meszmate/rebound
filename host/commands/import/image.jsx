@@ -57,15 +57,23 @@
     // of tw px == (tw / fw) * 100 percent.
     setParam(tile, 'ADBE Tile-0002', fw ? (tw / fw) * 100 : 100); // Tile Width (%)
     setParam(tile, 'ADBE Tile-0003', fh ? (th / fh) * 100 : 100); // Tile Height (%)
-    // Output Width/Height are a percentage of the layer's source size; the tiles
-    // fill that output region. Size it to the layer box (in layer pixels) plus one
-    // extra tile of margin so a partial tile shows at the far edges rather than
-    // clipping the pattern short.
+    // Output Width/Height are a percentage of the layer's source size, expanded
+    // SYMMETRICALLY about the layer's CENTRE (fw/2), while the node box spans
+    // [0..w] from the layer ORIGIN. Cover the farther of the two half-spans
+    // (plus one tile of margin) so the pattern reaches the box's far edge; a
+    // box-sized mask below crops the symmetric spill on the near side.
     var lw = w || fw, lh = h || fh;
-    setParam(tile, 'ADBE Tile-0004', fw ? ((lw + tw) / fw) * 100 : 200); // Output Width
-    setParam(tile, 'ADBE Tile-0005', fh ? ((lh + th) / fh) * 100 : 200); // Output Height
+    var halfW = Math.max(lw - fw / 2, fw / 2);
+    var halfH = Math.max(lh - fh / 2, fh / 2);
+    setParam(tile, 'ADBE Tile-0004', fw ? ((2 * halfW + tw) / fw) * 100 : 200); // Output Width
+    setParam(tile, 'ADBE Tile-0005', fh ? ((2 * halfH + th) / fh) * 100 : 200); // Output Height
     setParam(tile, 'ADBE Tile-0006', 0);           // Mirror Edges (off)
     setParam(tile, 'ADBE Tile-0007', 0);           // Phase
+    // Crop the expanded output to the node box (layer space = local space at 1:1).
+    try {
+      var atomT = layer.property('ADBE Mask Parade').addProperty('ADBE Mask Atom');
+      atomT.property('ADBE Mask Shape').setValue(rectShape(0, 0, lw, lh));
+    } catch (eMk) { /* older builds: the spill shows, as before */ }
     return true;
   }
 
@@ -113,18 +121,15 @@
   }
 
   // Crop a footage layer to the node box for a COVER (FILL/CROP) placement.
-  // The mask lives in LAYER space (pre-transform: anchor [0,0] = footage top-left,
-  // no scale, no position applied). The box edges are known in COMP space as
-  // [boxX, boxX+w] x [boxY, boxY+h], where boxX/boxY is the layer Position BEFORE
-  // the centering offset (cpos). Given the layer's final signed scale magnitudes
-  // (sclX = sgnX*sc, sclY = sgnY*sc) and final Position (posX,posY = cpos+off),
-  // a layer-space point lx maps to comp X = posX + lx*sclX, so the inverse is
-  // layerX = (compX - posX)/sclX. Convert both comp-space box corners back to
-  // layer space and take min/max so the rect is correct for either flip sign
-  // (a negative scale swaps which corner is min). Returns true if added.
-  function cropToBox(layer, sclX, sclY, posX, posY, boxX, boxY, w, h) {
-    if (!(w > 0) || !(h > 0)) return false;
-    if (!sclX || !sclY || !isFinite(sclX) || !isFinite(sclY)) return false;
+  // The mask lives in LAYER space (pre-transform), where the placement model is
+  // simply local = s * layerPoint + (cx, cy): the box's layer-space preimage is
+  // therefore [(0-cx)/s .. (w-cx)/s] x [(0-cy)/s .. (h-cy)/s], rotation- and
+  // flip-invariant (the layer's own transform carries those). No comp-space
+  // round trip — the old comp-space inverse silently assumed rotation 0, so a
+  // flipped image (decomposed as rotation 180 + negative Y scale) landed its
+  // crop a full box away. Returns true if the mask was added.
+  function cropToBox(layer, s, cx, cy, w, h) {
+    if (!(w > 0) || !(h > 0) || !(s > 0) || !isFinite(s)) return false;
     var parade;
     try { parade = layer.property('ADBE Mask Parade'); } catch (eP) { parade = null; }
     if (!parade) return false;
@@ -132,14 +137,7 @@
     try { atom = parade.addProperty('ADBE Mask Atom'); } catch (eA) { return false; }
     if (!atom) return false;
     try {
-      // Comp-space box corners -> layer space via the signed inverse transform.
-      var lx0 = (boxX - posX) / sclX, lx1 = (boxX + w - posX) / sclX;
-      var ly0 = (boxY - posY) / sclY, ly1 = (boxY + h - posY) / sclY;
-      var minX = lx0 < lx1 ? lx0 : lx1, maxX = lx0 < lx1 ? lx1 : lx0;
-      var minY = ly0 < ly1 ? ly0 : ly1, maxY = ly0 < ly1 ? ly1 : ly0;
-      var mw = maxX - minX, mh = maxY - minY;
-      if (!(mw > 0) || !(mh > 0)) return false;
-      var shape = rectShape(minX, minY, mw, mh);
+      var shape = rectShape((0 - cx) / s, (0 - cy) / s, w / s, h / s);
       atom.property('ADBE Mask Shape').setValue(shape);
       return true;
     } catch (eS) { return false; }
@@ -172,17 +170,30 @@
     var fw = footage.width, fh = footage.height;
     var tr = layer.property('ADBE Transform Group');
 
-    // transform.apply may have set a mirrored (negative-axis) scale from the
-    // node's affine matrix. The box-fit values below would otherwise overwrite
-    // that with a positive scale, dropping the flip. Recover the per-axis signs
-    // here and fold them into every scale we set so flips/mirrors survive.
-    var sgnX = 1, sgnY = 1;
-    if (t.matrix && t.matrix.length === 6) {
-      try {
-        var dM = R.ir.N.decomposeMatrix(t.matrix);
-        if (isFinite(dM.scaleX) && dM.scaleX < 0) sgnX = -1;
-        if (isFinite(dM.scaleY) && dM.scaleY < 0) sgnY = -1;
-      } catch (eM) { sgnX = 1; sgnY = 1; }
+    // ALL box-fitting below happens in NODE-LOCAL space, where the content
+    // always covers the box un-mirrored and un-rotated (Figma mirrors/rotates
+    // the whole node, fill included, via its matrix): local = s*layerPoint + c.
+    // The layer's own transform (set by transform.apply from the matrix, which
+    // may express a flip as rotation 180 + negative Y scale) then carries that
+    // local placement into the comp. Consequences:
+    //   - the centering offset c must be mapped through the matrix's LINEAR
+    //     part before being added to Position (it rotates/flips with the node);
+    //   - the fit scale composes onto the decomposed signed scale, not onto a
+    //     hand-managed sign (which broke whenever the flip lived in rotation);
+    //   - the crop mask is computed directly in layer space (rotation-invariant).
+    var L = (t.matrix && t.matrix.length === 6) ? t.matrix : [1, 0, 0, 1, 0, 0];
+    function mapVec(vx, vy) { return [L[0] * vx + L[2] * vy, L[1] * vx + L[3] * vy]; }
+    var dScaleX = 1, dScaleY = 1;
+    try {
+      var dM = R.ir.N.decomposeMatrix(L);
+      if (isFinite(dM.scaleX) && dM.scaleX) dScaleX = dM.scaleX;
+      if (isFinite(dM.scaleY) && dM.scaleY) dScaleY = dM.scaleY;
+    } catch (eM) { dScaleX = 1; dScaleY = 1; }
+    function placeLocal(s, cx, cy) {
+      var pos = tr.property('ADBE Position').value;
+      var off = mapVec(cx, cy);
+      tr.property('ADBE Position').setValue([pos[0] + off[0], pos[1] + off[1]]);
+      tr.property('ADBE Scale').setValue([dScaleX * s * 100, dScaleY * s * 100]);
     }
 
     // Without the footage's natural size we cannot compute a fit scale; leaving
@@ -192,26 +203,28 @@
       R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image natural size unavailable; left at 100% (placement may be off scale)' });
     }
     if (fw && fh) {
-      if (node.scaleMode === 'FIT') {
-        // Contain: uniform scale, centred in the box by a position offset so the
-        // anchor stays at the content origin (rotation pivot stays consistent).
+      var rInk = node.rasterInk;
+      if (rInk && num(rInk.width) && rInk.width > 0 && num(rInk.height) && rInk.height > 0) {
+        // An exporter-rasterised node: the PNG bakes the node's own effects, so
+        // its render box (rasterInk, local px) is LARGER than the node box.
+        // Place that box exactly and do not cover/crop — cropping would cut the
+        // baked shadow off at the node edge and cover-scaling would shrink the
+        // content by the shadow's extent.
+        try { placeLocal(rInk.width / fw, rInk.x || 0, rInk.y || 0); } catch (eR) {}
+      } else if (node.scaleMode === 'FIT') {
+        // Contain: uniform scale, centred in the box.
         var s = Math.min(w / fw, h / fh);
-        var offx = (w - fw * s) / 2, offy = (h - fh * s) / 2;
-        try {
-          var pos = tr.property('ADBE Position').value;
-          tr.property('ADBE Position').setValue([pos[0] + offx, pos[1] + offy]);
-          tr.property('ADBE Scale').setValue([sgnX * s * 100, sgnY * s * 100]);
-        } catch (e) {}
+        try { placeLocal(s, (w - fw * s) / 2, (h - fh * s) / 2); } catch (e) {}
       } else if (node.scaleMode === 'TILE') {
         // TILE: keep the layer at 1:1 (no box stretch) and repeat the footage
         // across it with the native Motion Tile effect, which sizes each tile in
         // layer pixels. If the effect is unavailable, fall back to the old fill
         // behaviour so nothing breaks.
-        try { tr.property('ADBE Scale').setValue([sgnX * 100, sgnY * 100]); } catch (eTs) {}
+        try { placeLocal(1, 0, 0); } catch (eTs) {}
         var tiled = false;
         try { tiled = tileLayer(layer, node, fw, fh, w, h); } catch (eT) { tiled = false; }
         if (!tiled) {
-          try { tr.property('ADBE Scale').setValue([sgnX * w / fw * 100, sgnY * h / fh * 100]); } catch (eF) {}
+          try { tr.property('ADBE Scale').setValue([dScaleX * w / fw * 100, dScaleY * h / fh * 100]); } catch (eF) {}
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image tile rendered as fill (Motion Tile unavailable)' });
         } else {
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image tile reproduced natively via the Motion Tile effect (single repeating tile, not a stretched image)' });
@@ -219,39 +232,17 @@
       } else {
         // FILL / CROP / default: COVER. Figma FILL scales the image uniformly so
         // it fully covers the box (not a per-axis stretch, which distorts an
-        // image whose aspect != the box) and centre-crops the overflow. Uniform
-        // scale magnitude sc = max(w/fw, h/fh); centre via a position offset
-        // (anchor stays at the content origin so rotation pivots consistently),
-        // with the sgnX/sgnY flip folded into the Scale value.
-        //
-        // The offset that centres the content in the box differs by axis sign,
-        // because a flip reflects the content around the layer's Position:
-        //   Scale +sc: comp X = posX + x*sc, content spans [posX, posX+fw*sc],
-        //     centred when posX = boxX + (w - fw*sc)/2  => off = (w - fw*sc)/2
-        //   Scale -sc: comp X = posX - x*sc, content spans [posX - fw*sc, posX],
-        //     centred when posX = boxX + w/2 + fw*sc/2  => off = w/2 + fw*sc/2
-        // (boxX = the Position BEFORE the offset = cpos). Same derivation per axis.
+        // image whose aspect != the box) and centre-crops the overflow with a
+        // layer-space mask.
         var sc = Math.max(w / fw, h / fh);
-        var coffx = (sgnX < 0) ? (w / 2 + fw * sc / 2) : (w - fw * sc) / 2;
-        var coffy = (sgnY < 0) ? (h / 2 + fh * sc / 2) : (h - fh * sc) / 2;
+        var ccx = (w - fw * sc) / 2, ccy = (h - fh * sc) / 2;
         var cropped = false;
         try {
-          var cpos = tr.property('ADBE Position').value;
-          var boxX = cpos[0], boxY = cpos[1];
-          var posX = boxX + coffx, posY = boxY + coffy;
-          tr.property('ADBE Position').setValue([posX, posY]);
-          tr.property('ADBE Scale').setValue([sgnX * sc * 100, sgnY * sc * 100]);
-          // Crop the cover overflow to the box with a layer mask. The box edges
-          // are [boxX, boxX+w] x [boxY, boxY+h] in comp space; cropToBox inverts
-          // the (possibly negative) final transform to place the rect in layer
-          // space, so it is correct for both flip signs. A clipping-frame precomp
-          // around this node would also clip, so the mask is at worst redundant;
-          // for a non-clipped placement it is what stops the overflow showing.
-          cropped = cropToBox(layer, sgnX * sc, sgnY * sc, posX, posY, boxX, boxY, w, h);
+          placeLocal(sc, ccx, ccy);
+          cropped = cropToBox(layer, sc, ccx, ccy, w, h);
         } catch (e2) { cropped = false; }
         // If the mask could not be added, flag once so the visible overflow is
-        // diagnosable. Use the box-vs-content overflow (fw*sc > w or fh*sc > h)
-        // rather than the offset sign, which is positive in the flip case.
+        // diagnosable.
         if (!cropped && (fw * sc - w > 0.5 || fh * sc - h > 0.5)) {
           R.importer.util.note(report, 'approximated', { name: node.name, detail: 'image fill could not be cropped to its box; the covered overflow may be visible' });
         }

@@ -387,6 +387,7 @@
     // the per-paragraph marker, and record insertions as { at, len } pairs.
     var inserts = [];
     var newChars = '';
+    var softBreaks = []; // newChars indices of '\n's that were U+2028/U+2029 in Figma
     var prevEnd = 0;      // index in `chars` consumed so far
     var paraStart = 0;
     var orderCount = 0;   // running count of consecutive ORDERED paras at SAME level
@@ -419,7 +420,13 @@
       newChars += chars.slice(prevEnd, paraStart);
       if (marker) inserts.push({ at: paraStart, len: marker.length });
       newChars += marker + chars.slice(paraStart, p); // item text, without the break char
-      if (!atEnd) newChars += '\n';                   // normalised hard line break (length-preserving: 1 char -> 1 char)
+      if (!atEnd) {
+        // Figma applies paragraphSpacing only at TRUE paragraph breaks ('\n'),
+        // not between list items joined by U+2028/U+2029 — record which
+        // normalised breaks were soft so the host does not space list items.
+        if (ch !== '\n') softBreaks.push(newChars.length);
+        newChars += '\n';                             // normalised hard line break (length-preserving: 1 char -> 1 char)
+      }
       prevEnd = atEnd ? p : p + 1;
       paraStart = prevEnd;
     }
@@ -466,7 +473,7 @@
     // to the left of the text block and wrapped lines align under the text.
     var hang = (typeof dominantFontSize === 'number' && dominantFontSize > 0) ? dominantFontSize * 1.4 : 0;
 
-    return { characters: newChars, runs: newRuns, hang: hang };
+    return { characters: newChars, runs: newRuns, hang: hang, softBreaks: softBreaks };
   }
 
   // The fontSize that covers the most characters (drives the hanging-indent size).
@@ -536,19 +543,53 @@
     // the node's box. Figma's line-height gap sits ABOVE the first line's cap
     // (roughly 10% of the font size at lineHeight AUTO), so box-top != ink-top;
     // a host that lands AE's ink on the box top places every label visibly high.
-    // With this offset the host maps ink-to-ink instead. Rendered bounds are an
-    // AABB and include strokes/shadows/blurs, so only an (effectively) unrotated
-    // node with no stroke and no effects can use them; everything else keeps the
-    // box-top fallback.
+    // With this offset the host maps ink-to-ink instead; width/height let it
+    // anchor the JUSTIFICATION edge (a right-aligned label whose AE ink width
+    // differs — substituted font, faux bold — must stay right-anchored).
+    // Rendered bounds are a WORLD AABB and include strokes/shadows/blurs, so the
+    // gate checks the node's ABSOLUTE transform (node.rotation is only parent-
+    // relative; a rotated/mirrored ANCESTOR poisons the AABB just the same) and
+    // requires no stroke / no effects; everything else keeps the box fallback.
     try {
       var rbInk = node.absoluteRenderBounds;
       var abInk = node.absoluteBoundingBox;
       var noStroke = !node.strokes || node.strokes === figma.mixed || node.strokes.length === 0;
       var noFx = !node.effects || node.effects.length === 0;
-      if (rbInk && abInk && noStroke && noFx && Math.abs(node.rotation || 0) < 0.1) {
-        text.inkOffset = { x: rbInk.x - abInk.x, y: rbInk.y - abInk.y };
+      var atInk = node.absoluteTransform;
+      var upright = false;
+      if (atInk && atInk[0]) {
+        var mInk = [atInk[0][0], atInk[1][0], atInk[0][1], atInk[1][1], atInk[0][2], atInk[1][2]];
+        var decInk = N.decomposeMatrix(mInk);
+        var detInk = mInk[0] * mInk[3] - mInk[1] * mInk[2];
+        upright = Math.abs(decInk.rotationDeg || 0) < 0.1 && detInk > 0;
+      }
+      if (rbInk && abInk && noStroke && noFx && upright) {
+        text.inkOffset = { x: rbInk.x - abInk.x, y: rbInk.y - abInk.y, width: rbInk.width, height: rbInk.height };
       }
     } catch (eInk) { /* host falls back to box-top placement */ }
+    // Resolved AUTO line height, where it is measurable without touching the
+    // document: Figma's AUTO is font-metric based (~1.21em for Inter), AE's
+    // autoLeading is a flat 120%, so baselines 2..N drift ~1% of the font size
+    // per line. For auto-sized text (WIDTH_AND_HEIGHT: no soft wrap, lines =
+    // hard breaks) the node height IS lineCount * resolvedLineHeight (plus
+    // paragraph spacing), so the exact px leading falls out of arithmetic.
+    try {
+      if (node.textAutoResize === 'WIDTH_AND_HEIGHT') {
+        var allAuto = true;
+        for (var rl = 0; rl < runs.length; rl++) {
+          var lhR = runs[rl].lineHeight;
+          if (lhR && lhR.unit && lhR.unit !== 'AUTO') { allAuto = false; break; }
+        }
+        if (allAuto) {
+          var hardBreaks = (node.characters.match(/\n|\u2028|\u2029/g) || []).length;
+          var paraBreaks = (node.characters.match(/\n/g) || []).length;
+          var lines = hardBreaks + 1;
+          var spacing = (typeof node.paragraphSpacing === 'number' ? node.paragraphSpacing : 0) * paraBreaks;
+          var resolved = (node.height - spacing) / lines;
+          if (isFinite(resolved) && resolved > 0) text.lineHeightResolved = resolved;
+        }
+      }
+    } catch (eLH) { /* keep AUTO -> AE autoLeading */ }
     // First-line indent: fires the host's paragraphIndent path.
     if ('paragraphIndent' in node) text.paragraphIndent = node.paragraphIndent;
     // Truncation: honor a numeric maxLines so the host can cap the visible lines.
@@ -563,6 +604,7 @@
       if (listed) {
         text.characters = listed.characters;
         text.runs = listed.runs;
+        if (listed.softBreaks && listed.softBreaks.length) text.softBreaks = listed.softBreaks;
         if (listed.hang > 0) {
           // Host applyParagraph maps indentLeft->startIndent, firstLineIndent->
           // firstLineIndent (AE 24.0+); a negative first-line indent hangs the marker.
@@ -756,16 +798,29 @@
   }
 
   // Rasterise a node to a 2x PNG and return it as an IMAGE node, so anything we
-  // cannot rebuild vectorially still comes across pixel-exact.
+  // cannot rebuild vectorially still comes across pixel-exact. The render BAKES
+  // the node's own effects (a drop shadow / outside stroke grows the PNG past
+  // the node box), so: (a) effects are NOT re-emitted (the host would double
+  // them), (b) the true render box is shipped as rasterInk (local px, relative
+  // to the node box) so the host places the inflated raster exactly instead of
+  // cover-cropping the baked shadow away. Render bounds are an AABB, so only an
+  // (effectively) unrotated node gets the exact box; others keep the cover fit.
   async function rasterizeNodeToImage(node, base, assets) {
     try {
       var bytes = await node.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 2 } });
       var hash = 'figraster-' + String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
-      assets[hash] = { hash: hash, mime: 'image/png', width: Math.round(node.width * 2), height: Math.round(node.height * 2), bytesBase64: figma.base64Encode(bytes) };
+      var pngW = node.width, pngH = node.height;
+      try {
+        var rbR = node.absoluteRenderBounds, abR = node.absoluteBoundingBox;
+        if (rbR && abR && Math.abs(node.rotation || 0) < 0.1) {
+          base.rasterInk = { x: rbR.x - abR.x, y: rbR.y - abR.y, width: rbR.width, height: rbR.height };
+          pngW = rbR.width; pngH = rbR.height;
+        }
+      } catch (eRB) { /* cover fit fallback */ }
+      assets[hash] = { hash: hash, mime: 'image/png', width: Math.round(pngW * 2), height: Math.round(pngH * 2), bytesBase64: figma.base64Encode(bytes) };
       base.type = 'IMAGE';
       base.imageHash = hash;
       base.scaleMode = 'FILL';
-      base.effects = mapEffects(node.effects);
       return base;
     } catch (e) {
       return null;
@@ -1116,13 +1171,25 @@
     STATS = { collapsed: 0, merged: 0, dropped: 0 };
     var assets = {};
     var frames = [];
+    var frameNodes = [];
     var loose = [];
     for (var i = 0; i < selection.length; i++) {
       var node = selection[i];
-      if (isFrameLike(node)) frames.push(await frameToIR(node, assets));
+      if (isFrameLike(node)) frameNodes.push(node);
       else loose.push(node);
     }
-    if (loose.length) frames.push(await looseFrame(loose, assets));
+    if (frameNodes.length && loose.length) {
+      // MIXED selection (frames + loose elements): wrap EVERYTHING in the one
+      // synthetic Selection frame so the whole selection lands under a single
+      // parent in After Effects. Splitting it (frames standalone, loose in the
+      // wrapper) left one element outside the "Selection" container the user
+      // expects to hold what they selected. All-frame selections still export
+      // one top frame each (a multi-screen board should stay separate comps).
+      frames.push(await looseFrame(selection, assets));
+    } else {
+      for (var f = 0; f < frameNodes.length; f++) frames.push(await frameToIR(frameNodes[f], assets));
+      if (loose.length) frames.push(await looseFrame(loose, assets));
+    }
 
     return {
       irVersion: IR_VERSION,

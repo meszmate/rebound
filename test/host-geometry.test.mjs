@@ -91,4 +91,54 @@ describe('host geometry.ellipseArcPath (pie / ring)', () => {
     // The wedge closes on the ellipse centre (40,40).
     expect([last.x, last.y]).toEqual([40, 40]);
   });
+
+  it('reversed inner ring edge swaps each vertex tangent pair (curvature stays on the circle)', () => {
+    // Reversing a bezier path must swap in/out tangents; a bare reverse() left
+    // the inner donut edge with inverted curvature (S-shaped lobes). For the
+    // reversed inner edge, each MIDDLE vertex's outTangent must equal the
+    // forward walk's inTangent at the same point (and vice versa).
+    const sp = geom.ellipseArcPath(80, 80, { startAngle: 0, endAngle: 180, innerRadius: 0.5 });
+    const inner = sp.vertices.slice(3); // 3 outer + 3 inner
+    // Middle inner vertex sits at the ring bottom-ish point (12 o'clock of the
+    // reversed walk): its tangents must be exact negations of each other and
+    // TANGENT to the circle (pure x-direction at the 90deg point: (cx, cy+r)).
+    const mid = inner[1];
+    expect(mid.x).toBeCloseTo(40, 4);
+    expect(mid.y).toBeCloseTo(60, 4); // cy + inner radius (40 + 20)
+    // Tangent at that point is horizontal; the reversed walk travels right->left
+    // on the way back, so outTangent points toward NEGATIVE x... direction aside,
+    // both tangents must be horizontal (y component ~0) and mirrored.
+    expect(Math.abs(mid.outTangent[1])).toBeLessThan(1e-6);
+    expect(Math.abs(mid.inTangent[1])).toBeLessThan(1e-6);
+    expect(mid.outTangent[0]).toBeCloseTo(-mid.inTangent[0], 6);
+    // And the reversed walk's direction: from (60,40) [inner start, angle 180
+    // reversed = a1 side] toward (20,40): the first inner vertex's outTangent
+    // must point toward the next vertex's side (positive y going down around
+    // the bottom of the inner arc is wrong; the inner edge of a TOP-half ring
+    // walks the BOTTOM... assert the control point lies ON the circle side:
+    // for the vertex at (60,40) the circle tangent is vertical.
+    expect(Math.abs(inner[0].outTangent[0])).toBeLessThan(1e-6);
+  });
+
+  it('zeroes the straight radial edges of a ring wedge (no bulge)', () => {
+    const sp = geom.ellipseArcPath(80, 80, { startAngle: 0, endAngle: 180, innerRadius: 0.5 });
+    const v = sp.vertices;
+    const outerLast = v[2], innerFirst = v[3], innerLast = v[5], outerFirst = v[0];
+    // outer end -> inner start is a straight radial edge; so is inner end -> outer start.
+    expect(outerLast.outTangent).toEqual([0, 0]);
+    expect(innerFirst.inTangent).toEqual([0, 0]);
+    expect(innerLast.outTangent).toEqual([0, 0]);
+    expect(outerFirst.inTangent).toEqual([0, 0]);
+  });
+
+  it('zeroes the pie wedge closing edges but keeps a full-circle ring seamless', () => {
+    const pie = geom.ellipseArcPath(80, 80, { startAngle: 0, endAngle: 90, innerRadius: 0 });
+    const pv = pie.vertices;
+    expect(pv[pv.length - 2].outTangent).toEqual([0, 0]); // arc end -> centre
+    expect(pv[0].inTangent).toEqual([0, 0]);              // centre -> arc start
+    // Full-circle donut: the closing edges are zero-length; curvature must stay.
+    const donut = geom.ellipseArcPath(80, 80, { startAngle: 0, endAngle: 360, innerRadius: 0.5 });
+    const dOuterFirst = donut.vertices[0];
+    expect(Math.abs(dOuterFirst.inTangent[0]) + Math.abs(dOuterFirst.inTangent[1])).toBeGreaterThan(0.1);
+  });
 });

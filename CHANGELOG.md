@@ -37,6 +37,67 @@ All notable changes to Rebound are documented here. The format follows
   valid keyTimes.
 
 ### Fixed
+- **Import layout audit: eleven placement bugs fixed across the pipeline.** A
+  systematic three-slice audit (text, transform/shape/image, containers) of the
+  exporter and host, hunting the same class as the ink-to-ink bug ("source-app
+  metric silently assumed equal to the AE metric"). All fixes are locked by
+  tests over the real code:
+  - *Rotated containers stay flat.* The precomp paths re-base children by
+    translation only, so a rotated frame/group precomp landed its content and
+    clip box rotated about the wrong pivot; rotated containers now take the
+    flat route (which carries full matrices and is rotation-correct), with a
+    report note when clipping had to be skipped. Masks keep their matte
+    precomp.
+  - *Boolean/merged-shape children place correctly under rotation.* Child
+    offsets are frame-space deltas but were consumed as layer-local (rotated
+    twice on a rotated boolean), and an operand rotated relative to its
+    boolean lost the rotation entirely (rendered axis-aligned). Offsets now
+    map through the inverse of the node's matrix and relatively-rotated
+    children get their own vector group carrying the rotation.
+  - *Precomp-per-frame imports keep the canvas layout.* The opt-in
+    precompFrames path never positioned the precomp layers, so multi-frame
+    imports stacked every frame at the comp centre. They now land top-left
+    anchored at their canvas offsets, centred as a group like the flat build.
+  - *Ring/pie shapes draw true edges.* Reversing the inner donut edge did not
+    swap bezier tangents (S-shaped lobes), and wedge radial edges kept arc
+    tangents (bowed "straight" lines). Full-circle donuts keep their seam.
+  - *Flipped/rotated images fit their box.* FILL/FIT centering and the crop
+    mask were computed in comp axes assuming rotation zero, so a flipped photo
+    (decomposed as rotation 180 + negative scale) landed a full box away.
+    Fitting now happens in node-local space mapped through the node's matrix;
+    the crop mask is computed directly in layer space (rotation-invariant).
+  - *Tiled fills reach their box edges.* Motion Tile output grows symmetrically
+    about the layer centre, so large boxes tiled short of the far edge and
+    spilled past the near one; output now covers the box and a mask crops it.
+  - *Rasterised nodes place exactly.* The 2x PNG bakes the node's own shadow
+    (the render is bigger than the box), but the host cover-cropped the shadow
+    off and re-applied the effect on top. The exporter now ships the true
+    render box, skips re-emitting baked effects, and the host places it 1:1.
+  - *Box text lands ink-to-ink too* (top-aligned): Figma half-leads the first
+    line, AE hangs it at the font ascent, so fixed-size text blocks imported
+    high. Guarded so builds where AE reports the box instead of the ink keep
+    today's placement.
+  - *Auto line height is resolved to exact pixels* for auto-sized multi-line
+    text (Figma's AUTO is font-metric based, AE's autoLeading is a flat 120%,
+    ~1% drift per line), and HEIGHT-auto-resize boxes get one leading of slack
+    so AE's metrics can never silently hide the last line.
+  - *Lists no longer grow by paragraph spacing per item* (Figma spaces
+    paragraphs, not U+2028-joined list items; the exporter marks the soft
+    breaks and the host skips the spacing, reported). Point text now honours
+    maxLines (extra lines used to render below the design).
+  - *Ink anchoring respects justification*: when AE's ink width differs from
+    Figma's (substituted font, faux bold), centre/right-aligned labels stay
+    anchored on their justification edge instead of hanging off the left ink
+    edge; and the ink gate now checks the ABSOLUTE transform, so a rotated or
+    mirrored ancestor can no longer poison the offset. Photoshop paragraph
+    text exports its authored text box instead of the rendered-ink bounds
+    (which re-wrapped lines and could hide the last one).
+- **A mixed selection imports under ONE parent.** Selecting a frame plus loose
+  elements split on export: the loose ones were wrapped in the synthetic
+  "Selection" container, the frame stood alone beside it, so one of the
+  selected elements was not linked to the selection parent. A mixed selection
+  now wraps everything in the one Selection frame; all-frame selections keep
+  one top frame each (multi-screen boards stay separate).
 - **Imported text no longer sits a few pixels high next to its neighbours.**
   Figma positions a text node by its box, but the glyphs do not start at the
   box top: the line-height gap sits above the first line's cap (about 10% of

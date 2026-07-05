@@ -191,17 +191,63 @@
     return 1;                           // Merge
   }
 
+  // Child placement within a merged/boolean layer, done in the NODE'S OWN local
+  // space. The child's IR transform is frame-local (translation dx,dy plus its
+  // linear part); the layer itself already gets the node's rotation/flip via
+  // transform.apply — so a raw frame-space delta would be rotated twice. Map the
+  // delta through the inverse of the node's linear part, and expose the child's
+  // rotation RELATIVE to the node (what the child does beyond the node), which
+  // used to be dropped entirely: a rotated boolean operand rendered axis-aligned.
+  // IR matrix layout is [a,b,c,d,tx,ty]: (x,y) -> (a*x + c*y + tx, b*x + d*y + ty).
+  function childPlacement(node, c) {
+    var mn = node.transform && node.transform.matrix;
+    var ct = c.transform || {};
+    var dx = (ct.x || 0) - ((node.transform && node.transform.x) || 0);
+    var dy = (ct.y || 0) - ((node.transform && node.transform.y) || 0);
+    var out = { d: [dx, dy], rot: 0 };
+    if (!mn || mn.length !== 6) return out;
+    var det = mn[0] * mn[3] - mn[1] * mn[2];
+    if (Math.abs(det) < 1e-9) return out;
+    out.d = [(mn[3] * dx - mn[2] * dy) / det, (-mn[1] * dx + mn[0] * dy) / det];
+    var mc = c.transform && c.transform.matrix;
+    if (mc && mc.length === 6) {
+      // First basis column of inv(Ln)*Lc gives the relative rotation.
+      var ra = (mn[3] * mc[0] - mn[2] * mc[1]) / det;
+      var rb = (-mn[1] * mc[0] + mn[0] * mc[1]) / det;
+      var deg = Math.atan2(rb, ra) * 180 / Math.PI;
+      if (Math.abs(deg) > 0.05) out.rot = deg;
+    }
+    return out;
+  }
+
+  // Add a child's geometry at its place inside the node. The straight path (no
+  // relative rotation) keeps the proven vertex-offset form; a rotated child gets
+  // its own vector group whose transform carries the rotation about the child's
+  // top-left (its Figma pivot), with geometry in child-local space.
+  function addChildGeometry(contents, c, place, name) {
+    if (!place.rot) return { n: addGeometry(contents, c, place.d), grp: null };
+    var grp = contents.addProperty('ADBE Vector Group');
+    var inner = grp.property('ADBE Vectors Group');
+    var n = addGeometry(inner, c, [0, 0]);
+    if (!n) { try { grp.remove(); } catch (e) {} return { n: 0, grp: null }; }
+    try {
+      var gtr = grp.property('ADBE Vector Transform Group');
+      gtr.property('ADBE Vector Anchor').setValue([0, 0]);
+      gtr.property('ADBE Vector Position').setValue(place.d);
+      gtr.property('ADBE Vector Rotation').setValue(place.rot);
+    } catch (eT) {}
+    if (name) { try { grp.name = name; } catch (eN) {} }
+    return { n: n, grp: grp, inner: inner };
+  }
+
   function buildBoolean(comp, node, report) {
     var sl = freshShapeLayer(comp, node);
-    var t = node.transform || {};
-    var bx = t.x || 0, by = t.y || 0;
     var kids = node.children || [];
     var built = 0;
     for (var i = 0; i < kids.length; i++) {
       var c = kids[i];
       if (!c || c.visible === false) continue;
-      var ct = c.transform || {};
-      built += addGeometry(sl.contents, c, [(ct.x || 0) - bx, (ct.y || 0) - by]);
+      built += addChildGeometry(sl.contents, c, childPlacement(node, c), c.name).n;
     }
     if (!built && node.paths && node.paths.length) built = addGeometry(sl.contents, node, [0, 0]);
     if (!built) {
@@ -231,18 +277,26 @@
     var layer = comp.layers.addShape();
     layer.name = node.name || 'Icon';
     var root = layer.property(ROOT);
-    var t = node.transform || {};
-    var bx = t.x || 0, by = t.y || 0;
     var kids = node.children || [];
     var built = 0;
     for (var i = 0; i < kids.length; i++) {
       var c = kids[i];
       if (!c || c.visible === false) continue;
-      var ct = c.transform || {};
+      var place = childPlacement(node, c);
       var grp = root.addProperty(GROUP);
       var contents = grp.property(CONTENTS);
-      var n = addGeometry(contents, c, [(ct.x || 0) - bx, (ct.y || 0) - by]);
+      // Straight children keep the vertex-offset form; a rotated child's group
+      // transform carries the rotation about its own top-left (its Figma pivot).
+      var n = addGeometry(contents, c, place.rot ? [0, 0] : place.d);
       if (!n) { try { grp.remove(); } catch (e) {} continue; }
+      if (place.rot) {
+        try {
+          var gtr = grp.property('ADBE Vector Transform Group');
+          gtr.property('ADBE Vector Anchor').setValue([0, 0]);
+          gtr.property('ADBE Vector Position').setValue(place.d);
+          gtr.property('ADBE Vector Rotation').setValue(place.rot);
+        } catch (eT) {}
+      }
       paint.applyStroke(contents, c, report);
       paint.applyFills(contents, c, report);
       try { grp.name = c.name || 'Path'; } catch (eN) {}

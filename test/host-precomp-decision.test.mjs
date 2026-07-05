@@ -73,12 +73,16 @@ beforeAll(async () => {
   R = $.__rebound;
 });
 
-// The exact expression buildNode uses to route a nested FRAME.
+// The exact expression buildNode uses to route a nested FRAME: a rotated frame
+// never precomps (translation-only re-basing would land its content and clip
+// box wrong), except as a mask where a matte has no alternative.
 function needPrecomp(node) {
   const d = R.importer.decide;
-  return d.frameIsBig(node) ||
+  const rotated = d.isRotated(node);
+  return (!rotated && (d.frameIsBig(node) ||
     (R.importer.opts && R.importer.opts.precompFrames && d.frameWantsPrecomp(node)) ||
-    !!node.isMask || (d.frameShouldClip(node) && d.precompsAllowed());
+    (d.frameShouldClip(node) && d.precompsAllowed()))) ||
+    !!node.isMask;
 }
 
 async function logoIR(logoOpts) {
@@ -123,6 +127,25 @@ describe('nested-frame precomp decision (exporter -> host contract)', () => {
     const logo = await logoIR({ clips: true, overflow: true });
     logo.isMask = true;
     R.importer.opts = ALL_OFF;
+    expect(needPrecomp(logo)).toBe(true);
+  });
+
+  it('a ROTATED crop-by-frame builds flat even under defaults (precomp cannot rotate its clip box)', async () => {
+    const logo = await logoIR({ clips: true, overflow: true });
+    // Simulate a rotated container: the IR matrix carries the rotation.
+    const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
+    logo.transform.matrix = [c, s, -s, c, logo.transform.x, logo.transform.y];
+    R.importer.opts = DEFAULTS;
+    expect(R.importer.decide.isRotated(logo)).toBe(true);
+    expect(needPrecomp(logo)).toBe(false);
+  });
+
+  it('a rotated MASK frame still precomps (a matte needs a pixel layer)', async () => {
+    const logo = await logoIR({ clips: true, overflow: true });
+    const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
+    logo.transform.matrix = [c, s, -s, c, logo.transform.x, logo.transform.y];
+    logo.isMask = true;
+    R.importer.opts = DEFAULTS;
     expect(needPrecomp(logo)).toBe(true);
   });
 

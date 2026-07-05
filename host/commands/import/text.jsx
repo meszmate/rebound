@@ -767,13 +767,25 @@
   // Paragraph-level styling (spacing + indents). These live on the whole-layer
   // TextDocument and, on AE 24.3+, on CharacterRange/ParagraphRange. Every set is
   // feature-detected so older builds that lack the property never throw.
-  function applyParagraph(target, data) {
+  function applyParagraph(target, data, report, node) {
     if (!data) return;
     // Figma paragraphSpacing is space AFTER each paragraph, so it routes to the
     // 'after' slot; 'before' comes only from an explicit spaceBefore.
     var before = (typeof data.spaceBefore === 'number') ? data.spaceBefore : null;
     var after = (data.spaceAfter != null) ? data.spaceAfter
       : (typeof data.paragraphSpacing === 'number' ? data.paragraphSpacing : null);
+    // List items were joined by U+2028 in Figma (SAME paragraph, no spacing
+    // between items) but arrive normalised to '\n' (softBreaks marks them). A
+    // whole-document spaceAfter would then space every ITEM and grow the block
+    // by spacing x items. AE cannot scope spaceAfter per paragraph reliably, so
+    // skip it and say so, which keeps the block's height and positions true.
+    if (after != null && data.softBreaks && data.softBreaks.length) {
+      if (report && !report.__listSpaceNoted) {
+        report.__listSpaceNoted = true;
+        R.importer.util.note(report, 'approximated', { name: (node && node.name) || 'Text', detail: 'paragraph spacing skipped inside a list (Figma spaces paragraphs, not list items)' });
+      }
+      after = null;
+    }
     if (before != null) { try { target.spaceBefore = before; } catch (e1) {} }
     if (after != null) { try { target.spaceAfter = after; } catch (e2) {} }
     if (typeof data.firstLineIndent === 'number') { try { target.firstLineIndent = data.firstLineIndent; } catch (e3) {} }
@@ -889,7 +901,7 @@
     return applied;
   }
 
-  function placeText(layer, node, isBox, fontSize, align) {
+  function placeText(layer, node, isBox, fontSize, align, vAlign) {
     var t = node.transform || {};
     var tr = layer.property('ADBE Transform Group');
     tr.property('ADBE Anchor Point').setValue([0, 0]);
@@ -919,9 +931,15 @@
         var rect = layer.sourceRectAtTime(comp0 ? comp0.time : 0, false);
         if (rect && isFinite(rect.left) && isFinite(rect.top) && (rect.width > 0 || rect.height > 0)) {
           if (ink) {
-            // Ink-to-ink, exact for every justification at once.
-            x = x + ink.x - rect.left;
+            // Ink-to-ink vertically; horizontally anchor the JUSTIFICATION edge.
+            // AE's ink width can genuinely differ from Figma's (substituted
+            // font, faux bold), and a right-aligned label must stay
+            // right-anchored then, not hang off its left ink edge.
             y = y + ink.y - rect.top;
+            var inkW = (typeof ink.width === 'number' && isFinite(ink.width)) ? ink.width : null;
+            if (align === 'CENTER' && inkW != null) x = x + (ink.x + inkW / 2) - (rect.left + rect.width / 2);
+            else if (align === 'RIGHT' && inkW != null) x = x + (ink.x + inkW) - (rect.left + rect.width);
+            else x = x + ink.x - rect.left;
           } else {
             // Vertical: laid-out ink top -> node box top (all justifications).
             y = y - rect.top;
@@ -940,6 +958,26 @@
         y = y + (fontSize || 16) * 0.8;
         if (align === 'CENTER') x = x + boxW / 2;
         else if (align === 'RIGHT') x = x + boxW;
+      }
+    } else {
+      // BOX text, top-aligned: Figma half-leads the first line (its cap sits
+      // (lineHeight - intrinsic)/2 below the box top); AE hangs the first
+      // baseline at the font ascent, so the block imports high whenever the
+      // authored line height exceeds the intrinsic one. Land AE's measured ink
+      // on the source's ink offset, vertical only (horizontal justification
+      // inside the box already matches). CENTER/BOTTOM alignment is symmetric
+      // in both apps (boxVerticalAlignment handles it), so only TOP shifts.
+      // Some AE builds report the BOX rect (top 0) instead of the ink for box
+      // text; a rect hugging the top is skipped so this can never misfire.
+      var inkB = (node.text && node.text.inkOffset) || null;
+      if (inkB && isFinite(inkB.y) && (!vAlign || vAlign === 'TOP')) {
+        try {
+          var compB = layer.containingComp;
+          var rectB = layer.sourceRectAtTime(compB ? compB.time : 0, false);
+          if (rectB && isFinite(rectB.top) && rectB.top > 0.25) {
+            y = y + inkB.y - rectB.top;
+          }
+        } catch (eBoxInk) { /* keep the authored box top */ }
       }
     }
     tr.property('ADBE Position').setValue([x, y]);
@@ -994,6 +1032,35 @@
     }
     var wantBox = data.autoResize !== 'WIDTH_AND_HEIGHT';
 
+    // Figma applies maxLines to POINT text too (an auto-sized node just stops
+    // growing and ellipsises); AE point text has no box to clip at, so extra
+    // lines would render below the design. Point text has only hard breaks, so
+    // cutting at the maxLines-th '\n' is exact. Runs are clamped to the cut.
+    if (!wantBox && typeof data.maxLines === 'number' && data.maxLines > 0) {
+      var cutIdx = -1, seenNl = 0;
+      for (var ci = 0; ci < content.length; ci++) {
+        if (content.charAt(ci) === '\n') { seenNl++; if (seenNl === data.maxLines) { cutIdx = ci; break; } }
+      }
+      if (cutIdx !== -1) {
+        content = content.slice(0, cutIdx) || ' ';
+        var clamped = [];
+        for (var ri = 0; ri < runs.length; ri++) {
+          var rr = runs[ri];
+          if (rr.start >= cutIdx) continue;
+          var nr2 = {};
+          for (var kk in rr) { if (Object.prototype.hasOwnProperty.call(rr, kk)) nr2[kk] = rr[kk]; }
+          if (nr2.end > cutIdx) nr2.end = cutIdx;
+          if (typeof nr2.characters === 'string') nr2.characters = content.slice(nr2.start, nr2.end);
+          clamped.push(nr2);
+        }
+        if (clamped.length) runs = clamped;
+        if (report && !report.__truncateNoted) {
+          report.__truncateNoted = true;
+          R.importer.util.note(report, 'approximated', { name: node.name, detail: 'truncated text: After Effects clips overflow at the box edge without an ellipsis' });
+        }
+      }
+    }
+
     var layer = null;
     if (wantBox) {
       // addBoxText is AE 13.6+, but guard anyway and fall back to point text on
@@ -1013,7 +1080,13 @@
 
     var base = dominantRun(runs, chars);
     applyStyle(td, base, report, node);
-    applyParagraph(td, data);
+    // Exporter-resolved AUTO line height (exact px, measured from the node):
+    // Figma's AUTO is font-metric based while AE's autoLeading is a flat 120%,
+    // so multi-line auto text drifts ~1% of the font size per line without it.
+    if (typeof data.lineHeightResolved === 'number' && data.lineHeightResolved > 0) {
+      try { td.autoLeading = false; td.leading = data.lineHeightResolved; } catch (eLR) {}
+    }
+    applyParagraph(td, data, report, node);
     applyTextStroke(td, node, report);
     justify(td, data.textAlignHorizontal);
 
@@ -1066,6 +1139,23 @@
       }
     }
 
+    // HEIGHT auto-resize: Figma grew the box to EXACTLY fit the text; the box's
+    // bottom edge is a result, not a design constraint. AE hides any line whose
+    // metrics land past the box (fonts with intrinsic line height < 1.2em lay
+    // out taller under autoLeading), which silently swallows the LAST line.
+    // Give the box one extra leading of slack; TOP-aligned content does not
+    // move, and nothing was designed to clip at that edge. Truncating boxes
+    // keep their authored height (there clipping IS the design).
+    if (isBox && data.autoResize === 'HEIGHT' && !truncates &&
+        (!data.textAlignVertical || data.textAlignVertical === 'TOP')) {
+      try {
+        var bszG = td.boxTextSize;
+        var leadG = (typeof data.lineHeightResolved === 'number' && data.lineHeightResolved > 0)
+          ? data.lineHeightResolved : (base.fontSize || 16) * 1.2;
+        if (bszG && bszG.length === 2) td.boxTextSize = [bszG[0], Math.ceil(bszG[1] + leadG)];
+      } catch (eGrow) { /* keep the authored box */ }
+    }
+
     textProp.setValue(td);
 
     if (runs.length > 1) {
@@ -1076,7 +1166,7 @@
       }
     }
 
-    placeText(layer, node, isBox, base.fontSize, data.textAlignHorizontal);
+    placeText(layer, node, isBox, base.fontSize, data.textAlignHorizontal, data.textAlignVertical);
     // Tag the layer with any unresolved family so the resolver can find it.
     if (layerMissing.length) {
       var tags = '';

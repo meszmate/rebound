@@ -254,14 +254,124 @@ describe('figma exporter -> IR', () => {
     const withStroke = textNode();
     withStroke.absoluteRenderBounds = { x: 41, y: 63, width: 117, height: 17 };
     withStroke.strokes = [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 1, visible: true }];
+    // The gate reads the ABSOLUTE transform: node.rotation is parent-relative,
+    // so a rotated ancestor (node.rotation still 0) must also disqualify.
     const rotated = textNode();
     rotated.absoluteRenderBounds = { x: 41, y: 63, width: 117, height: 17 };
-    rotated.rotation = 15;
+    rotated.absoluteTransform = [[0.966, -0.259, 40], [0.259, 0.966, 60]];
+    const mirrored = textNode(); // flipped ancestor: negative determinant
+    mirrored.absoluteRenderBounds = { x: 41, y: 63, width: 117, height: 17 };
+    mirrored.absoluteTransform = [[-1, 0, 40], [0, 1, 60]];
     const none = textNode(); // no renderBounds at all (hidden / older API)
-    for (const n of [withFx, withStroke, rotated, none]) {
+    for (const n of [withFx, withStroke, rotated, mirrored, none]) {
       const ir = await buildIR([n]);
       expect(ir.document.frames[0].children[0].text.inkOffset).toBeUndefined();
     }
+  });
+
+  it('resolves AUTO line height to exact px for auto-sized multi-line text', async () => {
+    // WIDTH_AND_HEIGHT text has no soft wrap: lines = hard breaks + 1, so the
+    // node height IS lineCount * resolvedLineHeight (+ paragraph spacing). AE's
+    // flat 120% autoLeading would drift ~1%/line against Figma's font metrics.
+    const t = textNode();
+    t.characters = 'one\ntwo';
+    t.textAutoResize = 'WIDTH_AND_HEIGHT';
+    t.height = 2 * 19.4;
+    t.paragraphSpacing = 0;
+    t.getStyledTextSegments = () => [{
+      start: 0, end: 7, characters: 'one\ntwo',
+      fontName: { family: 'Inter', style: 'Regular' }, fontSize: 16,
+      fills: [], letterSpacing: { unit: 'PERCENT', value: 0 }, lineHeight: { unit: 'AUTO' },
+      textCase: 'ORIGINAL', textDecoration: 'NONE'
+    }];
+    const ir = await buildIR([t]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.text.lineHeightResolved).toBeCloseTo(19.4, 4);
+    // Paragraph spacing is subtracted before dividing.
+    const t2 = textNode();
+    t2.characters = 'one\ntwo';
+    t2.textAutoResize = 'WIDTH_AND_HEIGHT';
+    t2.paragraphSpacing = 8;
+    t2.height = 2 * 19.4 + 8;
+    t2.getStyledTextSegments = t.getStyledTextSegments;
+    const ir2 = await buildIR([t2]);
+    expect(ir2.document.frames[0].children[0].text.lineHeightResolved).toBeCloseTo(19.4, 4);
+    // Explicit (non-AUTO) line height: nothing to resolve.
+    const t3 = textNode();
+    t3.textAutoResize = 'WIDTH_AND_HEIGHT';
+    t3.getStyledTextSegments = () => [{
+      start: 0, end: 2, characters: 'Hi',
+      fontName: { family: 'Inter', style: 'Regular' }, fontSize: 16,
+      fills: [], letterSpacing: { unit: 'PERCENT', value: 0 }, lineHeight: { unit: 'PIXELS', value: 24 },
+      textCase: 'ORIGINAL', textDecoration: 'NONE'
+    }];
+    const ir3 = await buildIR([t3]);
+    expect(ir3.document.frames[0].children[0].text.lineHeightResolved).toBeUndefined();
+  });
+
+  it('marks list-item separators as soft breaks so the host skips spacing them', async () => {
+    // Figma joins list ITEMS with U+2028 (same paragraph: no paragraphSpacing
+    // between them); the exporter normalises them to \n for AE. Without the
+    // softBreaks markers the host would space every item like a paragraph.
+    const t = textNode();
+    t.characters = 'a b\nc';
+    t.paragraphSpacing = 8;
+    t.getStyledTextSegments = () => [{
+      start: 0, end: 5, characters: 'a b\nc',
+      fontName: { family: 'Inter', style: 'Regular' }, fontSize: 16,
+      fills: [], letterSpacing: { unit: 'PERCENT', value: 0 }, lineHeight: { unit: 'AUTO' },
+      textCase: 'ORIGINAL', textDecoration: 'NONE',
+      listOptions: { type: 'UNORDERED' }, indentation: 0
+    }];
+    const ir = await buildIR([t]);
+    const text = ir.document.frames[0].children[0].text;
+    // Markers injected: '•\ta\n•\tb\n•\tc' — exactly one soft break (after item a).
+    expect(text.characters.split('\n').length).toBe(3);
+    expect(Array.isArray(text.softBreaks)).toBe(true);
+    expect(text.softBreaks.length).toBe(1);
+    expect(text.characters.charAt(text.softBreaks[0])).toBe('\n');
+    // The soft break is the FIRST \n (a|b boundary), not the real paragraph \n.
+    expect(text.softBreaks[0]).toBe(text.characters.indexOf('\n'));
+  });
+
+  it('rasterised nodes ship their render box and do not duplicate baked effects', async () => {
+    // A rastered node's PNG bakes its own shadow (the render grows past the
+    // box). The IR must carry the true render box for exact placement and must
+    // NOT re-emit the effects (the host would double them).
+    const n = rectNode();
+    n.strokeTopWeight = 2; n.strokeRightWeight = 4; n.strokeBottomWeight = 2; n.strokeLeftWeight = 2; // per-side -> raster
+    n.exportAsync = async () => new Uint8Array([1, 2, 3]);
+    n.absoluteRenderBounds = { x: 12, y: 18, width: 116, height: 74 }; // grown by the shadow
+    const ir = await buildIR([n]);
+    const node = ir.document.frames[0].children[0];
+    expect(node.type).toBe('IMAGE');
+    expect(node.rasterInk).toEqual({ x: -8, y: -12, width: 116, height: 74 });
+    expect(node.effects || []).toEqual([]);
+    const asset = ir.document.assets[node.imageHash];
+    expect(asset.width).toBe(232); // 2x the render width, not the node width
+  });
+
+  it('a MIXED selection (frame + loose element) lands under ONE Selection parent', async () => {
+    // Splitting a mixed selection (frame standalone, loose in the wrapper) left
+    // one selected element outside the "Selection" container in AE.
+    const frame = {
+      id: '7:1', name: 'Card', type: 'FRAME', visible: true, opacity: 1, blendMode: 'PASS_THROUGH', isMask: false,
+      width: 60, height: 40, rotation: 0, clipsContent: false,
+      absoluteTransform: [[1, 0, 200], [0, 1, 100]],
+      absoluteBoundingBox: { x: 200, y: 100, width: 60, height: 40 },
+      fills: [], strokes: [], effects: [], cornerRadius: 0, cornerSmoothing: 0, layoutMode: 'NONE',
+      children: [rectNode()]
+    };
+    const mixed = await buildIR([frame, rectNode()]);
+    expect(mixed.document.frames.length).toBe(1);
+    expect(mixed.document.frames[0].name).toBe('Selection');
+    const kids = mixed.document.frames[0].children;
+    expect(kids.length).toBe(2);
+    expect(kids.some((k) => k.type === 'FRAME' && k.name === 'Card')).toBe(true);
+    // An ALL-frames selection still exports one top frame each (multi-screen boards).
+    const twoFrames = await buildIR([frame, { ...frame, id: '7:2', name: 'Card 2' }]);
+    expect(twoFrames.document.frames.length).toBe(2);
+    expect(twoFrames.document.frames.map((f) => f.name)).toEqual(['Card', 'Card 2']);
   });
 
   it('carries a shadow blend mode through to the IR (and omits the default)', async () => {
