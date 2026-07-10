@@ -119,15 +119,19 @@
 
   // ---- Stamp ---------------------------------------------------------------
 
-  function applyKeyAttrs(prop, idx, k, tDims) {
-    var inI = tokenToInterp(k.inI), outI = tokenToInterp(k.outI);
+  function applyKeyAttrs(prop, idx, k, tDims, reverse) {
+    // A reversed stamp plays back-to-front, so each key's in/out sides swap:
+    // the interpolation, ease, and spatial tangent that led in now lead out.
+    var inI = tokenToInterp(reverse ? k.outI : k.inI), outI = tokenToInterp(reverse ? k.inI : k.outI);
     try { prop.setInterpolationTypeAtKey(idx, inI, outI); } catch (e1) { /* edge key */ }
     if (inI === KeyframeInterpolationType.BEZIER || outI === KeyframeInterpolationType.BEZIER) {
       var expLen = util.isSpatial(prop) ? 1 : tDims;
-      try { prop.setTemporalEaseAtKey(idx, rebuildEase(k.inEase, expLen), rebuildEase(k.outEase, expLen)); } catch (e2) { /* linear side */ }
+      var inEase = reverse ? k.outEase : k.inEase, outEase = reverse ? k.inEase : k.outEase;
+      try { prop.setTemporalEaseAtKey(idx, rebuildEase(inEase, expLen), rebuildEase(outEase, expLen)); } catch (e2) { /* linear side */ }
     }
-    if (util.isSpatial(prop) && k.inSpatial && k.outSpatial) {
-      try { prop.setSpatialTangentsAtKey(idx, k.inSpatial, k.outSpatial); } catch (e3) { /* ignore */ }
+    var inSp = reverse ? k.outSpatial : k.inSpatial, outSp = reverse ? k.inSpatial : k.outSpatial;
+    if (util.isSpatial(prop) && inSp && outSp) {
+      try { prop.setSpatialTangentsAtKey(idx, inSp, outSp); } catch (e3) { /* ignore */ }
     }
     try { if (k.auto) prop.setTemporalAutoBezierAtKey(idx, true); } catch (e4) { /* ignore */ }
     try { if (k.cont) prop.setTemporalContinuousAtKey(idx, true); } catch (e5) { /* ignore */ }
@@ -151,7 +155,7 @@
     var count = 0;
     for (i = 0; i < placed.length; i++) {
       var idx = nearestKey(prop, placed[i].nt);
-      if (idx) { applyKeyAttrs(prop, idx, placed[i].k, tDims); count++; }
+      if (idx) { applyKeyAttrs(prop, idx, placed[i].k, tDims, reverse); count++; }
     }
     return count;
   }

@@ -13,11 +13,18 @@
   var util = R.util;
   var M = util.MATCH;
 
+  // A layer's position point in COMP space. Raw Position is PARENT-space for
+  // parented layers (e.g. imported groups), so averaging raw values would land
+  // the unparented control null in the wrong place. The anchor point mapped
+  // through the full parent-chain matrix is exactly the position point in comp
+  // space (and equals raw Position for unparented layers).
   function positionOf(layer, time) {
-    return layer.property(M.transform).property(M.position).valueAtTime(time, false);
+    var anc = [0, 0];
+    try { anc = layer.property(M.transform).property(M.anchor).valueAtTime(time, false); } catch (e) { anc = [0, 0]; }
+    return util.applyMat(util.compMatrix(layer, time), anc[0], anc[1]);
   }
 
-  // Average the selected AVLayers' positions for the selection center.
+  // Average the selected AVLayers' comp-space positions for the selection center.
   function centerOf(layers, time) {
     var sx = 0;
     var sy = 0;

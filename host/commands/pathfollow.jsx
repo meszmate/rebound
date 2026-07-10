@@ -15,6 +15,18 @@
   var R = $.__rebound;
   var util = R.util;
   var M = util.MATCH;
+  var rig = R.rig;
+
+  // Baked keyframes are silently overridden by any enabled expression. Clear
+  // our own (Rebound-marked) rig first; if a USER expression remains, the bake
+  // would be invisible, so the caller must skip and say why.
+  function bakeBlocked(p) {
+    if (!p) return false;
+    try { if (rig && rig.clearExpression) rig.clearExpression(p); } catch (e) {}
+    var ex = '';
+    try { ex = (p.expressionEnabled && p.expression) ? p.expression : ''; } catch (e2) { ex = ''; }
+    return ex !== '';
+  }
 
   function readPos(tg, t0) {
     var pos = tg.property(M.position);
@@ -143,8 +155,15 @@
       var lay = targets[ti];
       if (lay instanceof CameraLayer || lay instanceof LightLayer) { skipped.push(lay.name + ' (camera/light)'); continue; }
       var tg = lay.property(M.transform);
+      var posP = tg.property(M.position);
+      var sepP = false; try { sepP = posP.dimensionsSeparated; } catch (eSep) { sepP = false; }
+      var posBlocked = sepP
+        ? (bakeBlocked(tg.property(M.positionX)) || bakeBlocked(tg.property(M.positionY)))
+        : bakeBlocked(posP);
+      if (posBlocked) { skipped.push(lay.name + ' (position has a user expression)'); continue; }
       var delay = stagger > 0 ? ti * stagger / fps : 0;
       var rotProp = orient ? tg.property(M.rotation) : null;
+      if (rotProp && bakeBlocked(rotProp)) { skipped.push(lay.name + ' (rotation has a user expression, not oriented)'); rotProp = null; }
       var baseRot = rotProp ? rotProp.valueAtTime(t0, false) : 0;
 
       for (var f = 0; f <= frames; f++) {

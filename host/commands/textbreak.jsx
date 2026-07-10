@@ -171,11 +171,23 @@
         continue;
       }
 
+      var doc0;
       var text;
       try {
-        text = documentOf(source).value.text;
+        doc0 = documentOf(source).value;
+        text = doc0.text;
       } catch (e) {
         skipped.push(source.name + ' (no text)');
+        continue;
+      }
+
+      // Box (paragraph) text soft-wraps with no \r/\n in the string, so line
+      // splitting and per-piece measuring would both be wrong, and every piece
+      // would keep the source's text box and re-wrap inside it. Skip honestly.
+      var isBox = false;
+      try { isBox = !!doc0.boxText; } catch (eBox) {}
+      if (isBox) {
+        skipped.push(source.name + ' (box text is not supported yet)');
         continue;
       }
 
@@ -190,7 +202,6 @@
 
       // Capture transform + layout from the un-mutated source.
       var anchorVal = source.property(XFORM).property(ANCHOR).value;
-      var doc0 = documentOf(source).value;
       var fullRect = rectAt(source, t);
 
       var meas = null, leading = 0, blockWidth = 0, justFactor = 0;

@@ -39,7 +39,8 @@
   function mapLine(target) {
     if (target === 'rotation') return 'value + amt;';
     if (target === 'opacity') return 'Math.max(0, Math.min(100, value - amt));';
-    return '[value[0] + amt, value[1] + amt];';
+    // Scale on a 3D layer is three-dimensional: keep Z untouched.
+    return 's2 = [value[0] + amt, value[1] + amt];\n(value.length > 2) ? [s2[0], s2[1], value[2]] : s2;';
   }
 
   function kineticExpression(sourceName, target) {
@@ -75,10 +76,11 @@
       rig.ensureSlider(child, 'Kinetic Max', max);
 
       var prop = child.property(M.transform).property(match);
-      if (rig.setExpression(prop, kineticExpression(source.name, target))) applied++;
+      if (rig.setExpression(prop, kineticExpression(source.name, target), 'kinetic')) applied++;
       else skipped.push(child.name + ' (has an expression)');
     }
 
+    if (!applied) throw new Error('No targets rigged: ' + skipped.join(', '));
     return { applied: applied, skipped: skipped };
   }
 
@@ -96,8 +98,9 @@
       var hit = false;
       for (var c = 0; c < candidates.length; c++) {
         var prop = group.property(candidates[c]);
-        if (prop && rig.clearExpression(prop)) hit = true;
+        if (prop && rig.clearExpression(prop, 'kinetic')) hit = true;
       }
+      rig.removeControls(layer, ['Kinetic Sensitivity', 'Kinetic Max']);
       if (hit) cleared++;
     }
 

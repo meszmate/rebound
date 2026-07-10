@@ -186,7 +186,11 @@
       payload.endOffset = st.endOffset / 100;
       payload.easeLut = easeLut(st.ease);
       ctx.invoke('pathfollow.apply', payload)
-        .then(function (res) { ctx.toast('Sent ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' along the path', { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          ctx.toast('Sent ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' along the path', { kind: 'success' });
+          if (res.skipped && res.skipped.length) ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not follow the path', { kind: 'error' }); });
     }
 

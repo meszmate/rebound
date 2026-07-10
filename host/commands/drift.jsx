@@ -44,7 +44,7 @@
       rig.ensureSlider(layer, 'Drift Amount', args.amount != null ? args.amount : 20);
       rig.ensureSlider(layer, 'Drift Frequency', args.frequency != null ? args.frequency : 2);
 
-      if (rig.setExpression(p, expression(hold))) applied++;
+      if (rig.setExpression(p, expression(hold), 'drift')) applied++;
       else skipped.push(p.name + ' (has an expression)');
     }
 
@@ -60,7 +60,12 @@
     var cleared = 0;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
-      if (p instanceof Property && rig.clearExpression(p)) cleared++;
+      if (!(p instanceof Property)) continue;
+      if (rig.clearExpression(p, 'drift')) {
+        cleared++;
+        var layer = util.layerOfProperty(p);
+        if (layer) rig.removeControls(layer, ['Drift Amount', 'Drift Frequency']);
+      }
     }
     return { cleared: cleared };
   }

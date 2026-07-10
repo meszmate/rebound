@@ -275,7 +275,16 @@
 
   function centerInComp(ctx, x, y) {
     ctx.invoke('anchor.centerInComp', { x: x, y: y })
-      .then(function (res) { ctx.toast('Centered ' + res.moved + ' layer' + (res.moved === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+      .then(function (res) {
+        res = res || {};
+        var n = res.moved || 0;
+        // Like move(): a truthful toast — green only when something moved, and
+        // the skip reasons spelled out instead of a green "Centered 0 layers".
+        var msg = 'Centered ' + n + ' layer' + (n === 1 ? '' : 's');
+        if (res.skipped && res.skipped.length) msg += ' · ' + res.skipped.join(' · ');
+        ctx.toast(msg, { kind: n ? 'success' : 'info' });
+        ctx.refreshSelection();
+      })
       .catch(function (err) { ctx.toast(err.message || 'Could not center', { kind: 'error' }); });
   }
 })(window.Rebound = window.Rebound || {});

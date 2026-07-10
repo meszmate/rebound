@@ -55,7 +55,7 @@
       rig.ensureSlider(layer, 'Bounce Count', args.maxBounces != null ? args.maxBounces : 4);
       rig.ensureCheckbox(layer, 'Bounce Each Key', args.eachKey != null ? args.eachKey : false);
 
-      if (rig.setExpression(p, expression())) applied++;
+      if (rig.setExpression(p, expression(), 'bounce')) applied++;
       else skipped.push(p.name + ' (has an expression)');
     }
 
@@ -71,7 +71,12 @@
     var cleared = 0;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
-      if (p instanceof Property && rig.clearExpression(p)) cleared++;
+      if (!(p instanceof Property)) continue;
+      if (rig.clearExpression(p, 'bounce')) {
+        cleared++;
+        var layer = util.layerOfProperty(p);
+        if (layer) rig.removeControls(layer, ['Bounce Elasticity', 'Bounce Gravity', 'Bounce Count', 'Bounce Each Key']);
+      }
     }
     return { cleared: cleared };
   }

@@ -16,29 +16,17 @@
 
   var XFORM = 'ADBE Transform Group';
   var POSITION = 'ADBE Position';
-  var ANCHOR = 'ADBE Anchor Point';
-  var SCALE = 'ADBE Scale';
 
   function num(v) {
     return (v == null || isNaN(v)) ? 0 : v;
   }
 
-  // Axis-aligned bounding box of a layer in composition space, from its content
-  // rect transformed by Position, Anchor, and Scale (rotation is ignored, like
-  // the viewer's align). Returns null for layers without bounds.
+  // Axis-aligned bounding box of a layer in composition space, via the shared
+  // parent-chain, rotation-aware matrix helpers in host/lib/util.jsx (the same
+  // math align/arrange/flip use). Returns null for layers without bounds.
   function layerBox(layer, time) {
     if (layer instanceof CameraLayer || layer instanceof LightLayer) return null;
-    var rect = layer.sourceRectAtTime(time, false);
-    var tr = layer.property(XFORM);
-    var pos = tr.property(POSITION).valueAtTime(time, false);
-    var anc = tr.property(ANCHOR).valueAtTime(time, false);
-    var scale = tr.property(SCALE).valueAtTime(time, false);
-    var sx = scale[0] / 100, sy = scale[1] / 100;
-    var x1 = pos[0] + (rect.left - anc[0]) * sx;
-    var x2 = pos[0] + (rect.left + rect.width - anc[0]) * sx;
-    var y1 = pos[1] + (rect.top - anc[1]) * sy;
-    var y2 = pos[1] + (rect.top + rect.height - anc[1]) * sy;
-    return { minX: Math.min(x1, x2), maxX: Math.max(x1, x2), minY: Math.min(y1, y2), maxY: Math.max(y1, y2) };
+    return util.bboxOf(layer, time);
   }
 
   function clampSize(v) {

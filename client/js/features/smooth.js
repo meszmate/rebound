@@ -119,7 +119,16 @@
 
     function doApply() {
       ctx.invoke('smooth.apply', { amount: smoothness, sides: sides, autoBezier: autoBezier, roving: roving })
-        .then(function (res) { ctx.toast('Smoothed ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          var rs = res.rovingSkipped || 0;
+          var rovingNote = rs ? ' · roving skipped on ' + rs + ' key' + (rs === 1 ? '' : 's') + ' (roving only applies to Position/Anchor)' : '';
+          if (!res.keys) {
+            ctx.toast('Nothing smoothed' + rovingNote, { kind: 'info' });
+          } else {
+            ctx.toast('Smoothed ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's') + rovingNote, { kind: 'success' });
+          }
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not smooth', { kind: 'error' }); });
     }
 

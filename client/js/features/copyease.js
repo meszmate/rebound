@@ -13,15 +13,26 @@
   var ui = R.ui;
 
   function clampY(v) { return v < -0.3 ? -0.3 : v > 1.3 ? 1.3 : v; }
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
   // A representative ease, and the same ease after the current transform, so the
-  // preview shows what Mirror and Scale do to a copied ease.
-  var SAMPLE = { type: 'bezier', x1: 0.3, y1: 0, x2: 0.6, y2: 1 };
+  // preview shows what Mirror and Scale do to a copied ease. Nonzero y1 and
+  // y2 < 1 so scaling the speed (handle slope) is visible in the preview too.
+  var SAMPLE = { type: 'bezier', x1: 0.35, y1: 0.15, x2: 0.55, y2: 0.8 };
+  // Mirror what the host paste does: Scale multiplies the stored INFLUENCE
+  // (out = 100*x1, in = 100*(1-x2)) and speed. In handle terms that pushes x1
+  // out and pulls x2 in, and stretches the y components with it.
   function transformed(state) {
     var c = { x1: SAMPLE.x1, y1: SAMPLE.y1, x2: SAMPLE.x2, y2: SAMPLE.y2 };
     if (state.mirror) c = { x1: 1 - c.x2, y1: 1 - c.y2, x2: 1 - c.x1, y2: 1 - c.y1 };
     var s = state.scale || 1;
-    return { type: 'bezier', x1: c.x1, y1: clampY(c.y1 * s), x2: c.x2, y2: clampY(1 - (1 - c.y2) * s) };
+    return {
+      type: 'bezier',
+      x1: clamp01(c.x1 * s),
+      y1: clampY(c.y1 * s),
+      x2: 1 - clamp01((1 - c.x2) * s),
+      y2: clampY(1 - (1 - c.y2) * s)
+    };
   }
 
   function copyeaseSvg(result, h) {
@@ -132,7 +143,15 @@
       if (!stored) { ctx.toast('Copy an ease first', { kind: 'error' }); return; }
       ctx.invoke('copyease.paste', { ease: stored, mode: mode, mirror: mirror, scale: scale })
         .then(function (res) {
-          ctx.toast('Pasted onto ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's'), { kind: 'success' });
+          var held = res.skippedHold || 0;
+          if (!res.keys) {
+            ctx.toast(held
+              ? 'Nothing pasted — skipped ' + held + ' held keyframe' + (held === 1 ? '' : 's')
+              : 'Nothing pasted', { kind: 'info' });
+          } else {
+            var note = held ? ' · skipped ' + held + ' held' : '';
+            ctx.toast('Pasted onto ' + res.keys + ' keyframe' + (res.keys === 1 ? '' : 's') + note, { kind: 'success' });
+          }
           ctx.refreshSelection();
         })
         .catch(function (err) {

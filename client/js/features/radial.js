@@ -1,7 +1,8 @@
 /*
  * Rebound, Radial tool.
  * Duplicates each selected layer into a ring of copies arranged around the
- * layer's own position, optionally rotating each copy to face outward.
+ * layer's own position, optionally rotating each copy to face the centre.
+ * Angle convention (shared with the host): 0 deg = 12 o'clock.
  */
 ;(function (R) {
   'use strict';
@@ -135,9 +136,12 @@
       svg('circle', { cx: 62, cy: 62, r: 1.5, fill: 'var(--rb-text-faint)' })
     ];
     for (var i = 0; i < n; i++) {
+      // Same convention as host/commands/radial.jsx: 0 deg = 12 o'clock.
       var a = (startAngle + step * i - 90) * Math.PI / 180;
       var x = 62 + rPx * Math.cos(a), y = 62 + rPx * Math.sin(a);
       if (orient) {
+        // The copy's "up" after the host's (angle - 180) offset points along the
+        // inward radial, so the tick is drawn from the dot toward the centre.
         kids.push(svg('line', { x1: x, y1: y, x2: 62 + (rPx - 7) * Math.cos(a), y2: 62 + (rPx - 7) * Math.sin(a), stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }));
       }
       kids.push(svg('rect', { x: x - 3, y: y - 3, width: 6, height: 6, rx: 1.5, fill: 'var(--rb-accent)' }));

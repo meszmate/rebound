@@ -164,6 +164,37 @@ describe('anchor.move position compensation (real host code, mock AE tree)', () 
     expect(res.details[0].rect).toEqual({ left: -50, top: -25, width: 100, height: 50 });
   });
 
+  it('separated dimensions: a follower expression skips the layer (the unified guard alone is bypassed)', () => {
+    const L = makeLayer();
+    // Separate Dimensions: the unified leader hides (setting it throws) and the
+    // X/Y followers carry the value; X is expression-driven.
+    L._ch[MATCH.position].dimensionsSeparated = true;
+    L._ch[MATCH.position].setValue = () => { throw new Error('After Effects error: a parent property is hidden'); };
+    L._ch[MATCH.positionX] = prop(640);
+    L._ch[MATCH.positionY] = prop(360);
+    L._ch[MATCH.positionX].expressionEnabled = true;
+    L._ch[MATCH.positionX].expression = 'wiggle(1, 5)';
+    const res = move(L, 0.5, 1);
+    expect(res.moved).toBe(0);
+    expect(res.skipped).toEqual(['Shape Layer 1 (position expression)']);
+    close(L._ch[MATCH.anchor].value, [0, 0]);   // untouched: no half-applied state
+    expect(L._ch[MATCH.positionX].value).toBe(640);
+    expect(L._ch[MATCH.positionY].value).toBe(360);
+  });
+
+  it('separated dimensions without expressions still moves: followers offset, anchor set', () => {
+    const L = makeLayer();
+    L._ch[MATCH.position].dimensionsSeparated = true;
+    L._ch[MATCH.position].setValue = () => { throw new Error('After Effects error: a parent property is hidden'); };
+    L._ch[MATCH.positionX] = prop(640);
+    L._ch[MATCH.positionY] = prop(360);
+    const res = move(L, 0.5, 1);
+    expect(res.moved).toBe(1);
+    close(L._ch[MATCH.anchor].value, [0, 25]);
+    expect(L._ch[MATCH.positionX].value).toBe(640);
+    expect(L._ch[MATCH.positionY].value).toBe(385);
+  });
+
   it('an expression-driven anchor is skipped with a reason, nothing shifts', () => {
     const L = makeLayer({ threeD: true });
     L._ch[MATCH.anchor].expressionEnabled = true;
@@ -173,5 +204,40 @@ describe('anchor.move position compensation (real host code, mock AE tree)', () 
     expect(res.skipped).toEqual(['Shape Layer 1 (anchor expression)']);
     close(L._ch[MATCH.anchor].value, [0, 0, 0]);
     close(L._ch[MATCH.position].value, [640, 360, 0]);
+  });
+});
+
+describe('anchor.centerInComp (skip reasons instead of a silent continue)', () => {
+  it('centers a static layer and reports moved', () => {
+    const L = makeLayer();
+    L._ch[MATCH.position].value = [100, 200];
+    comp.selectedLayers = [L];
+    const res = commands['anchor.centerInComp']({});
+    expect(res.moved).toBe(1);
+    expect(res.skipped).toEqual([]);
+    close(L._ch[MATCH.position].value, [640, 360]);
+  });
+
+  it('a keyframed position is skipped WITH a reason (was a bare continue -> "Centered 0 layers")', () => {
+    const L = makeLayer();
+    L._ch[MATCH.position].numKeys = 2;
+    comp.selectedLayers = [L];
+    const res = commands['anchor.centerInComp']({});
+    expect(res.moved).toBe(0);
+    expect(res.skipped).toEqual(['Shape Layer 1 (position animated)']);
+  });
+
+  it('separated dimensions: keyed or expression followers are skipped with a reason', () => {
+    const L = makeLayer();
+    L._ch[MATCH.position].dimensionsSeparated = true;
+    L._ch[MATCH.positionX] = prop(10);
+    L._ch[MATCH.positionY] = prop(20);
+    L._ch[MATCH.positionY].expressionEnabled = true;
+    L._ch[MATCH.positionY].expression = 'wiggle(1, 5)';
+    comp.selectedLayers = [L];
+    const res = commands['anchor.centerInComp']({});
+    expect(res.moved).toBe(0);
+    expect(res.skipped).toEqual(['Shape Layer 1 (position expression)']);
+    expect(L._ch[MATCH.positionX].value).toBe(10); // untouched
   });
 });

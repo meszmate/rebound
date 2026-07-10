@@ -4,9 +4,11 @@
  * For each selected Property, takes its selected keyframes (or every keyframe
  * when none are selected) and mirrors them within their own span [t0, t1]: a
  * key originally at time t is rebuilt at t0 + (t1 - t). Each key keeps its
- * value but has its in/out temporal ease and in/out interpolation type swapped,
- * so the eases that led into a key now lead out of it (the curve plays
- * backwards). A property needs at least two keys to define a span.
+ * value but has its in/out temporal ease, in/out interpolation type, and in/out
+ * spatial tangents swapped, so the eases and motion-path handles that led into
+ * a key now lead out of it (the curve plays backwards). Auto-bezier,
+ * continuous, and roving flags are restored too. A property needs at least two
+ * keys to define a span.
  *
  * The original keys are captured first, then removed from the highest index
  * down (so lower indices stay valid), then re-added. After each re-add the key
@@ -39,8 +41,21 @@
       inEase: prop.keyInTemporalEase(index),
       outEase: prop.keyOutTemporalEase(index),
       inInterp: prop.keyInInterpolationType(index),
-      outInterp: prop.keyOutInterpolationType(index)
+      outInterp: prop.keyOutInterpolationType(index),
+      tempAuto: false,
+      tempCont: false,
+      roving: false
     };
+    try { snap.tempAuto = prop.keyTemporalAutoBezier(index); } catch (eAuto) {}
+    try { snap.tempCont = prop.keyTemporalContinuous(index); } catch (eCont) {}
+    try { snap.roving = prop.keyRoving(index); } catch (eRove) {}
+    // Spatial tangents shape the motion path; only spatial properties have them.
+    try {
+      if (util.isSpatial(prop)) {
+        snap.inSpatial = prop.keyInSpatialTangent(index);
+        snap.outSpatial = prop.keyOutSpatialTangent(index);
+      }
+    } catch (eSpat) {}
     return snap;
   }
 
@@ -57,12 +72,10 @@
     return i;
   }
 
-  // Rebuild one mirrored key and restore its swapped ease / interpolation.
-  function rebuildKey(prop, snap, t0, t1) {
-    var t = t0 + (t1 - snap.time);
-    prop.setValueAtTime(t, snap.value);
-    var idx = indexAtTime(prop, t);
-
+  // Restore a rebuilt key's attributes with its direction swapped: what came
+  // in now goes out (interpolation, temporal ease, and spatial tangents), so
+  // the curve plays backwards. Flags come after tangents, roving last.
+  function restoreKey(prop, idx, snap) {
     // Swap the interpolation direction: what came in now goes out.
     try {
       prop.setInterpolationTypeAtKey(idx, snap.outInterp, snap.inInterp);
@@ -72,6 +85,17 @@
     try {
       prop.setTemporalEaseAtKey(idx, snap.outEase, snap.inEase);
     } catch (eEase) {}
+
+    // Swap the spatial tangents so the motion path keeps its exact shape.
+    if (snap.inSpatial && snap.outSpatial) {
+      try {
+        prop.setSpatialTangentsAtKey(idx, snap.outSpatial, snap.inSpatial);
+      } catch (eSpat) {}
+    }
+
+    try { if (snap.tempAuto) prop.setTemporalAutoBezierAtKey(idx, true); } catch (eAuto) {}
+    try { if (snap.tempCont) prop.setTemporalContinuousAtKey(idx, true); } catch (eCont) {}
+    try { if (snap.roving && idx !== 1 && idx !== prop.numKeys) prop.setRovingAtKey(idx, true); } catch (eRove) {}
   }
 
   function apply() {
@@ -112,9 +136,17 @@
         prop.removeKey(sortedDown[r]);
       }
 
-      // Re-add each captured key at its mirrored time.
+      // Re-add each captured key's value at its mirrored time first, then
+      // restore attributes in a second pass, so a later insertion cannot make
+      // AE recompute tangents on a key that was already restored.
+      var mirrored = [];
       for (var a = 0; a < snaps.length; a++) {
-        rebuildKey(prop, snaps[a], t0, t1);
+        var mt = t0 + (t1 - snaps[a].time);
+        prop.setValueAtTime(mt, snaps[a].value);
+        mirrored.push(mt);
+      }
+      for (var b = 0; b < snaps.length; b++) {
+        restoreKey(prop, indexAtTime(prop, mirrored[b]), snaps[b]);
         keysTouched++;
       }
 

@@ -35,7 +35,10 @@
   function followExpression(parentName) {
     return [
       'd = effect("Follow Delay")("Slider") / thisComp.frameRate;',
-      'thisComp.layer("' + escapeName(parentName) + '").transform.position.valueAtTime(time - d);'
+      'p = thisComp.layer("' + escapeName(parentName) + '").transform.position.valueAtTime(time - d);',
+      // Match the follower's own dimensionality: a 2D follower truncates a 3D
+      // lead, a 3D follower keeps its own Z when the lead is 2D.
+      '(value.length > 2) ? ((p.length > 2) ? p : [p[0], p[1], value[2]]) : [p[0], p[1]];'
     ].join('\n');
   }
 
@@ -59,14 +62,19 @@
       if (child instanceof CameraLayer || child instanceof LightLayer) { skipped.push(child.name + ' (camera/light)'); continue; }
 
       var pos = child.property(M.transform).property(M.position);
+      // With separated dimensions AE drives X/Y Position separately and the
+      // composite property can't hold the rig.
+      var sep = false; try { sep = pos.dimensionsSeparated; } catch (eSep) { sep = false; }
+      if (sep) { skipped.push(child.name + ' (separate dimensions is on)'); continue; }
       var step = cascade ? delayFrames * i : delayFrames;
 
       rig.ensureSlider(child, 'Follow Delay', step);
 
-      if (rig.setExpression(pos, followExpression(parent.name))) applied++;
+      if (rig.setExpression(pos, followExpression(parent.name), 'follow')) applied++;
       else skipped.push(child.name + ' (has an expression)');
     }
 
+    if (!applied) throw new Error('No followers rigged: ' + skipped.join(', '));
     return { applied: applied, skipped: skipped };
   }
 
@@ -80,7 +88,8 @@
       var layer = layers[i];
       if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var pos = layer.property(M.transform).property(M.position);
-      if (rig.clearExpression(pos)) cleared++;
+      if (rig.clearExpression(pos, 'follow')) cleared++;
+      rig.removeControls(layer, ['Follow Delay']);
     }
 
     return { cleared: cleared };

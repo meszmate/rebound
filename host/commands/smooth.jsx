@@ -32,36 +32,47 @@
     var roving = !!args.roving;
 
     var keys = 0;
+    var rovingSkipped = 0;
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
       if (!(p instanceof Property)) continue;
       if (!p.canVaryOverTime) continue;
 
       var spatial = util.isSpatial(p);
-      // Unseparated spatial Position/Anchor take ONE temporal ease (along the
-      // path); everything else is per dimension.
-      var dims = spatial ? 1 : util.dimensionsOf(p);
+      // Temporal-ease dimensionality, NOT value dimensionality: spatial and
+      // COLOR/CUSTOM_VALUE props take ONE ease, plain TwoD/ThreeD take 2/3.
+      var dims = util.temporalDims(p);
       var selected = p.selectedKeys;
 
       for (var k = 0; k < selected.length; k++) {
         var ki = selected[k];
         var changed = false;
 
-        try {
-          p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
-          changed = true;
-        } catch (eInterp) {}
-
         if (autoBezier) {
           // Auto-bezier rounds the tangents automatically and overrides any
-          // manual ease, so it is applied instead of the influence amount.
+          // manual ease, so it is applied instead of the influence amount. It
+          // rounds THROUGH the key, so both sides become bezier by design.
+          try {
+            p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
+          } catch (eInterp) {}
           try { p.setTemporalAutoBezierAtKey(ki, true); changed = true; } catch (eTemporal) {}
           if (spatial) {
             try { p.setSpatialAutoBezierAtKey(ki, true); changed = true; } catch (eSpatial) {}
           }
         } else {
-          // Apply the Smoothness amount as ease influence on the chosen side(s),
-          // preserving the untouched side's existing ease.
+          // Convert ONLY the side(s) being smoothed to BEZIER, so easing the
+          // outgoing side does not destroy a HOLD on the incoming side (and
+          // vice-versa). Then apply the Smoothness amount as ease influence on
+          // the chosen side(s), preserving the untouched side's existing ease.
+          try {
+            var inType = p.keyInInterpolationType(ki);
+            var outType = p.keyOutInterpolationType(ki);
+            p.setInterpolationTypeAtKey(
+              ki,
+              setIn ? KeyframeInterpolationType.BEZIER : inType,
+              setOut ? KeyframeInterpolationType.BEZIER : outType
+            );
+          } catch (eInterp2) {}
           try {
             var arr = easeArray(dims, inf);
             var inE = setIn ? arr : p.keyInTemporalEase(ki);
@@ -72,16 +83,23 @@
         }
 
         if (roving && ki !== 1 && ki !== p.numKeys) {
-          try { p.setRovingAtKey(ki, true); changed = true; } catch (eRoving) {}
+          // Roving only exists for spatial properties (Position/Anchor):
+          // setRovingAtKey throws on everything else, so count the skip and
+          // report it instead of letting the catch swallow it as a success.
+          if (spatial) {
+            try { p.setRovingAtKey(ki, true); changed = true; } catch (eRoving) {}
+          } else {
+            rovingSkipped++;
+          }
         }
 
         if (changed) keys++;
       }
     }
 
-    if (!keys) throw new Error('Select one or more keyframes to smooth.');
+    if (!keys && !rovingSkipped) throw new Error('Select one or more keyframes to smooth.');
 
-    return { keys: keys };
+    return { keys: keys, rovingSkipped: rovingSkipped };
   }
 
   R.register('smooth.apply', apply, 'Rebound: Smooth');

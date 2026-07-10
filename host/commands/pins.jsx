@@ -5,8 +5,9 @@
  * shell; the mesh solver owns the vertex data). So this tool does what Duik /
  * PuppetTools do: the artist places pins with the Puppet Tool, then this BINDS
  * each existing pin to a controller null via the universal expression
- *   L = thisComp.layer("<null>"); L.toWorld(L.anchorPoint);
- * Animate the nulls, the mesh follows. Also makes slider-control rigs and links
+ *   L = thisComp.layer("<null>"); fromWorld(L.toWorld(L.anchorPoint));
+ * (pin Position is LAYER-space, so the controller's world point must be mapped
+ * back with fromWorld). Animate the nulls, the mesh follows. Also makes slider-control rigs and links
  * properties to a slider (expression rigging). Marker-guarded; Unbind clears only
  * our pin expressions.
  */
@@ -30,24 +31,11 @@
     return out;
   }
 
-  function readPos(tg, t0) {
-    var pos = tg.property(M.position);
-    var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
-    if (sep) return [tg.property(M.positionX).valueAtTime(t0, false), tg.property(M.positionY).valueAtTime(t0, false)];
-    var v = pos.valueAtTime(t0, false);
-    return (v instanceof Array) ? v : [v, 0];
-  }
-
+  // A layer-space point in COMP space, through the full parent chain (a pinned
+  // layer inside a parented group used to get its controllers dropped at the
+  // unparented coordinates, away from the pins).
   function layerToComp(pt, ref, t0) {
-    var tg = ref.property(M.transform);
-    var anchor = tg.property(M.anchor).valueAtTime(t0, false);
-    var pos = readPos(tg, t0);
-    var scale = tg.property(M.scale).valueAtTime(t0, false);
-    var rot = tg.property(M.rotation).valueAtTime(t0, false);
-    var lx = (pt[0] - anchor[0]) * (scale[0] / 100);
-    var ly = (pt[1] - anchor[1]) * (scale[1] / 100);
-    var r = rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
-    return [pos[0] + (lx * c - ly * s), pos[1] + (lx * s + ly * c)];
+    return util.applyMat(util.compMatrix(ref, t0), pt[0], pt[1]);
   }
 
   function findPuppet(layer) {
@@ -113,7 +101,9 @@
         var compPt = layerToComp(pinPos.valueAtTime(t0, false), layer, t0);
         var ctrl = makeController(comp, style, size, label, layer.name + ' Pin ' + (p + 1), compPt);
         nulls++;
-        var expr = 'L = thisComp.layer("' + escapeName(ctrl.name) + '");\nL.toWorld(L.anchorPoint);';
+        // Puppet pin Position is in LAYER space; toWorld alone would write the
+        // controller's comp/world coordinates into it, offsetting the mesh.
+        var expr = 'L = thisComp.layer("' + escapeName(ctrl.name) + '");\nfromWorld(L.toWorld(L.anchorPoint));';
         if (rig.setExpression(pinPos, expr)) bound++;
       }
     }

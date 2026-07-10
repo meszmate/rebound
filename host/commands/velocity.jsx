@@ -18,12 +18,15 @@
     return (v == null || isNaN(v)) ? fallback : v;
   }
 
-  function ensureBezier(prop, index) {
-    prop.setInterpolationTypeAtKey(
-      index,
-      KeyframeInterpolationType.BEZIER,
-      KeyframeInterpolationType.BEZIER
-    );
+  // Convert ONLY the side(s) being written to BEZIER, preserving the other
+  // side's interpolation (so editing the out-ease of a key does not destroy a
+  // HOLD on its incoming side, and vice-versa).
+  function ensureBezierSides(prop, index, doIn, doOut) {
+    var inType = prop.keyInInterpolationType(index);
+    var outType = prop.keyOutInterpolationType(index);
+    if (doIn) inType = KeyframeInterpolationType.BEZIER;
+    if (doOut) outType = KeyframeInterpolationType.BEZIER;
+    prop.setInterpolationTypeAtKey(index, inType, outType);
   }
 
   function applyVelocity(args) {
@@ -52,9 +55,9 @@
       var p = props[i];
       if (!(p instanceof Property)) continue;
       if (!p.canVaryOverTime) continue;
-      // Spatial Position/Anchor take a single temporal ease; others per dimension.
-      var dims = util.isSpatial(p) ? 1 : util.dimensionsOf(p);
-      if (dims < 1) continue;
+      // Temporal-ease dimensionality, NOT value dimensionality: spatial and
+      // COLOR/CUSTOM_VALUE props take ONE ease, plain TwoD/ThreeD take 2/3.
+      var dims = util.temporalDims(p);
       var keys = p.selectedKeys;
 
       for (var k = 0; k < keys.length; k++) {
@@ -81,7 +84,7 @@
           }
         }
 
-        ensureBezier(p, ki);
+        ensureBezierSides(p, ki, applyIn, applyOut);
         p.setTemporalEaseAtKey(ki, inArr, outArr);
         keysTouched++;
       }

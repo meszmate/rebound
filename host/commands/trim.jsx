@@ -2,9 +2,10 @@
  * Rebound host, Trim (fit layer in/out points to its keyframe span).
  *
  * For each selected AVLayer, finds the earliest first keyframe and latest last
- * keyframe across its animated transform properties (and any of its selected
- * properties), then sets inPoint/outPoint to that span padded by paddingFrames.
- * Keyframes are never moved. Layers with no keyframes are reported as skipped.
+ * keyframe across all of its keyed properties — transform, effects, time
+ * remap, masks, and shape contents — plus any of its selected properties, then
+ * sets inPoint/outPoint to that span padded by paddingFrames. Keyframes are
+ * never moved. Layers with no keyframes are reported as skipped.
  */
 (function () {
   var R = $.__rebound;
@@ -68,9 +69,20 @@
       var layer = layers[i];
       if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name); continue; }
 
+      // Scan every place a layer can carry keyframes, not just Transform:
+      // effects, time remap, shape contents, and masks all count.
+      var roots = [M.transform, 'ADBE Effect Parade', 'ADBE Time Remapping', 'ADBE Root Vectors Group', 'ADBE Mask Parade'];
       var props = [];
-      var tr = layer.property(M.transform);
-      if (tr) collectKeyed(tr, props);
+      for (var r = 0; r < roots.length; r++) {
+        var root = null;
+        try { root = layer.property(roots[r]); } catch (eRoot) { root = null; }
+        if (!root) continue;
+        if (root.propertyType === PropertyType.PROPERTY) {
+          if (root.canVaryOverTime && root.numKeys > 0) props.push(root);
+        } else {
+          collectKeyed(root, props);
+        }
+      }
       selectedKeyedOnLayer(comp, layer, props);
 
       var span = keySpan(props);

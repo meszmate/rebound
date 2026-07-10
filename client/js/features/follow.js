@@ -84,7 +84,11 @@
 
     function doApply() {
       ctx.invoke('follow.apply', { delayFrames: delayFrames, cascade: cascade })
-        .then(function (res) { ctx.toast(res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' following', { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          ctx.toast(res.applied + ' layer' + (res.applied === 1 ? '' : 's') + ' following', { kind: 'success' });
+          if (res.skipped && res.skipped.length) ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply Follow', { kind: 'error' }); });
     }
     function doRemove() {

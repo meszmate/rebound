@@ -4,9 +4,11 @@
  * For each selected AVLayer, captures its base position as the ring center,
  * then creates 'count' duplicates. Copy k (0..count-1) is placed at
  *   angle = startAngle + arc * k / (arc >= 360 ? count : count - 1)
- *   position = base + [cos(angle) * radius, sin(angle) * radius]
- * (angle in degrees, converted to radians for the trig). With Orient on, each
- * copy's rotation is also advanced by its angle so it faces outward. Only
+ *   position = base + [cos(angle - 90) * radius, sin(angle - 90) * radius]
+ * (angle in degrees, converted to radians for the trig). The -90 makes 0 deg =
+ * 12 o'clock, matching the panel's ring preview exactly. With Orient on, each
+ * copy's rotation is offset by (angle - 180) so upright artwork's "up" points
+ * at the ring centre -- the same convention the preview tick draws. Only
  * static (non-keyframed, non-expression) transforms are written; originals are
  * left untouched.
  */
@@ -90,10 +92,14 @@
 
       for (var k = 0; k < count; k++) {
         var angle = startAngle + arc * k / divisor;
-        var rad = angle * DEG2RAD;
+        // 0 deg = 12 o'clock (the panel preview's convention), so shift the
+        // screen-space angle by -90 before the trig.
+        var rad = (angle - 90) * DEG2RAD;
         var copy = src.duplicate();
         setPosition(copy, cx + Math.cos(rad) * radius, cy + Math.sin(rad) * radius);
-        if (orient) offsetRotation(copy, angle);
+        // Face the centre: rotating upright artwork by (angle - 180) points its
+        // "up" vector along the inward radial, exactly like the preview tick.
+        if (orient) offsetRotation(copy, angle - 180);
         created++;
       }
     }

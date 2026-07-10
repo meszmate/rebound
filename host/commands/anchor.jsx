@@ -143,6 +143,27 @@
     if (fy) offsetScalar(fy, delta[1] || 0);
     if (fz && (delta[2] || 0) !== 0) offsetScalar(fz, delta[2] || 0);
   }
+  // True when Position is separated and any X/Y/Z follower is expression-driven.
+  // Writing those would fight the expression (the layer jumps while the toast
+  // says it stayed put), so callers skip — the unified-Position expression guard
+  // alone is bypassed when dimensions are separated.
+  function sepPosExpression(tr, posProp) {
+    var sep = false;
+    try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
+    if (!sep) return false;
+    var names = [M.positionX, M.positionY, M.positionZ];
+    for (var i = 0; i < names.length; i++) {
+      var p = null;
+      try { p = tr.property(names[i]); } catch (e1) { p = null; }
+      if (p) {
+        var ex = false;
+        try { ex = p.expressionEnabled && p.expression !== ''; } catch (e2) { ex = false; }
+        if (ex) return true;
+      }
+    }
+    return false;
+  }
+
   function offsetPosition(tr, posProp, delta) {
     var sep = false;
     try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
@@ -197,6 +218,10 @@
           skipped.push(layer.name + ' (position expression)');
           continue;
         }
+        if (sepPosExpression(tr, posProp)) {
+          skipped.push(layer.name + ' (position expression)');
+          continue;
+        }
 
         // extents=true grows the box to include masks, strokes, and effects, for
         // a result closer to the visible content bounds than raw geometry.
@@ -243,7 +268,7 @@
         try { aNow = anchorProp.value; } catch (eRb) { aNow = null; }
         if (aNow && (Math.abs(aNow[0] - a1[0]) > 0.01 || Math.abs(aNow[1] - a1[1]) > 0.01)) {
           skipped.push(layer.name + ' (anchor did not hold: set ' + Math.round(a1[0]) + ',' + Math.round(a1[1]) + ' but reads ' + Math.round(aNow[0]) + ',' + Math.round(aNow[1]) + ')');
-          try { offsetPosition(tr, posProp, [-delta[0], -delta[1], -(delta[2] || 0)]); } catch (eU) {}
+          try { if (!sepPosExpression(tr, posProp)) offsetPosition(tr, posProp, [-delta[0], -delta[1], -(delta[2] || 0)]); } catch (eU) {}
           continue;
         }
         details.push({ layer: layer.name, from: a0, to: a1, distance: dist, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } });
@@ -266,15 +291,21 @@
     var axisX = args.x !== false;
     var axisY = args.y !== false;
     var moved = 0;
+    var skipped = [];
 
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
       var tr = layer.property(M.transform);
       var pos = tr.property(M.position);
-      if (pos.numKeys > 0 || (pos.expressionEnabled && pos.expression !== '')) continue;
+      // Skip WITH a reason (a silent continue left the panel toasting a green
+      // "Centered 0 layers" with no explanation).
+      if (pos.numKeys > 0) { skipped.push(layer.name + ' (position animated)'); continue; }
+      if (pos.expressionEnabled && pos.expression !== '') { skipped.push(layer.name + ' (position expression)'); continue; }
       var sep = false; try { sep = pos.dimensionsSeparated; } catch (eSep) { sep = false; }
       if (sep) {
         var px = tr.property(M.positionX), py = tr.property(M.positionY);
+        if ((axisX && px && px.numKeys > 0) || (axisY && py && py.numKeys > 0)) { skipped.push(layer.name + ' (position animated)'); continue; }
+        if (sepPosExpression(tr, pos)) { skipped.push(layer.name + ' (position expression)'); continue; }
         if (axisX && px) px.setValue(cx);
         if (axisY && py) py.setValue(cy);
         moved++;
@@ -286,7 +317,7 @@
       pos.setValue(nv);
       moved++;
     }
-    return { moved: moved };
+    return { moved: moved, skipped: skipped };
   }
 
   // Read the first selected bounded layer's current anchor, normalized to a

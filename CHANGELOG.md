@@ -6,6 +6,13 @@ All notable changes to Rebound are documented here. The format follows
 
 ## [Unreleased]
 
+### Removed
+- **Pin Rig is gone.** The construction-overlay tool (pins, guides,
+  measurements on artwork) never reached the quality bar of the rest of the
+  panel and was removed rather than kept half-good. Saved Home boards that
+  still contain a Pin Rig tile skip it safely. Puppet Rig (pin-to-null
+  binding) is unrelated and stays.
+
 ### Added
 - **Anything in Rebound can now be pinned to the Home board, from anywhere.**
   A new load-time preset registry (`R.toolPresets`) turns every tool's built-in
@@ -64,6 +71,73 @@ All notable changes to Rebound are documented here. The format follows
   into the slot. Lost-mouseup (release outside the panel) ends both cleanly.
 
 ### Fixed
+- **Full tool-quality audit: 36 verified defects fixed across all nine tool
+  groups.** Five parallel reviews of every tool (panel side and host side)
+  hunted logic bugs, AE API misuse, and dishonest success toasts. The
+  headliners, each locked by tests over the real host code (76 new tests):
+  - *Re-applying a rig now actually re-applies it.* Reused Slider/Checkbox
+    controls kept their old value, so changing a setting and hitting Apply
+    again on Drift, Bounce, Motion, Follow, Lean, Kinetic or Squash changed
+    nothing (and Squash's one-shot could never re-trigger). Reused controls
+    now take the new value (keyframed/expressed controls are left alone).
+  - *Gradient paints real colours.* The Gradient tool wrote stop colours to a
+    property AE silently ignores, so every apply produced black-to-white; it
+    now routes through the .ffx preset mechanism the importer uses, moves the
+    gradient above an existing fill (it rendered invisibly behind it), and no
+    longer overwrites your editor stops with fabricated black/white when you
+    click a gradient shape.
+  - *Backdrop renders in your colours.* Fill/stroke colours were written as
+    4-component RGBA (AE wants 3) inside swallowed catches — every pattern was
+    AE-default red; opacity was also written 100x too low, and "Make
+    background" stacked the opaque solid on top of its own pattern.
+  - *3D layers no longer break physics rigs.* Orbit, Kinetic, Squash, Follow
+    and Throw emitted 2-element Position/Scale expressions or baked 2-element
+    keys, erroring on any 3D layer; all now preserve the third component, and
+    composite-Position rigs skip separated dimensions with a clear reason.
+  - *Reverse keeps motion paths.* Reversing dropped spatial tangents and
+    auto/continuous/roving flags, reshaping curved paths; it now captures and
+    restores them (swapped, like the eases). Clone's Reverse also mirrors
+    eases, interpolation and tangents instead of leaving them pointing the
+    wrong way.
+  - *Puppet Rig binds correctly on transformed layers.* The pin expression fed
+    world coordinates into layer-space pin Position (mesh tore on any moved,
+    scaled, rotated or parented layer) — now converted back via fromWorld, and
+    controllers land on the pins through the full parent chain.
+  - *Easing colour keyframes works.* Ease, Copy Ease, Smooth and Velocity
+    sized temporal-ease arrays from value dimensionality (COLOR = 4, paths =
+    0), so easing a fill-colour or path keyframe threw mid-selection; a shared
+    temporalDims helper now feeds all of them (and the Keys tool).
+  - *Fade respects your opacity.* Fades hardcoded 100% (destroying a layer set
+    to 40%), left stale keys behind on re-apply, and mis-ordered keys on short
+    layers; now they ramp to the layer's own opacity, clear the range first,
+    and clamp to the layer duration.
+  - *Parent-aware geometry everywhere.* Align's correct parent-chain,
+    rotation-aware bounds math was hoisted into the shared host lib and now
+    also drives Arrange, Flip, Crop-to-content and Nullify (whose control null
+    landed off-target for parented selections). Flip additionally handles
+    separated dimensions instead of dying half-flipped mid-loop.
+  - *Removes only remove their own rig.* All rigs shared one expression
+    marker, so "Remove Kinetic" also killed a Lean or Squash rig on the same
+    layer; markers are now per-tool (legacy rigs stay removable) and each
+    Remove deletes its own leftover controls instead of orphaning them.
+  - *Honest feedback across the board.* Box text is skipped by Text Break with
+    a reason instead of mangled; single-group layers are no longer "broken"
+    into an identical duplicate; zero-effect applies (Follow/Kinetic with
+    nothing riggable, Bounce Remove with nothing to clear, preset applies that
+    eased 0 segments, Smooth's roving on non-spatial properties) now say so
+    instead of toasting green success; Link skips parent cycles with a reason;
+    Reset survives audio layers and resets parented layers to the true comp
+    center; a disabled user expression is never overwritten by a rig.
+  - Plus: Copy Ease's Scale preview provably never changed (it now shows the
+    influence scaling the host applies); exported one-click ease scripts match
+    the panel's hold-key and per-side guards; Radial's ring is no longer 90
+    degrees off its preview and "face center" faces the center; the Spring
+    settle expression snippet no longer errors outside text animators or
+    teleports the property; Wind at +90 degrees blows up like Throw at +90
+    degrees; Trim sees effect/time-remap/mask/shape keys, not just Transform;
+    the Keys tool's Auto Bezier works on linear keys and its Ease In/Out
+    previews are no longer swapped; saved Scripts travel in Share Center
+    bundles.
 - **Import layout audit: eleven placement bugs fixed across the pipeline.** A
   systematic three-slice audit (text, transform/shape/image, containers) of the
   exporter and host, hunting the same class as the ink-to-ink bug ("source-app

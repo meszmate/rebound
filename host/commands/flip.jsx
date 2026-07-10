@@ -11,36 +11,6 @@
   var util = R.util;
   var M = util.MATCH;
 
-  function bboxOf(layer, time) {
-    var rect = layer.sourceRectAtTime(time, false);
-    var tr = layer.property(M.transform);
-    var pos = tr.property(M.position).valueAtTime(time, false);
-    var anc = tr.property(M.anchor).valueAtTime(time, false);
-    var scale = tr.property(M.scale).valueAtTime(time, false);
-    var sx = scale[0] / 100;
-    var sy = scale[1] / 100;
-    var x1 = pos[0] + (rect.left - anc[0]) * sx;
-    var x2 = pos[0] + (rect.left + rect.width - anc[0]) * sx;
-    var y1 = pos[1] + (rect.top - anc[1]) * sy;
-    var y2 = pos[1] + (rect.top + rect.height - anc[1]) * sy;
-    return {
-      layer: layer,
-      minX: Math.min(x1, x2), maxX: Math.max(x1, x2),
-      minY: Math.min(y1, y2), maxY: Math.max(y1, y2)
-    };
-  }
-
-  function union(boxes) {
-    var u = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
-    for (var i = 0; i < boxes.length; i++) {
-      u.minX = Math.min(u.minX, boxes[i].minX);
-      u.minY = Math.min(u.minY, boxes[i].minY);
-      u.maxX = Math.max(u.maxX, boxes[i].maxX);
-      u.maxY = Math.max(u.maxY, boxes[i].maxY);
-    }
-    return u;
-  }
-
   function isLocked(prop) {
     return (prop.expressionEnabled && prop.expression !== '') || prop.numKeys > 0;
   }
@@ -63,14 +33,15 @@
     var doY = axis === 'vertical' || axis === 'both';
     var bySelection = args.pivot === 'selection';
 
+    var time = comp.time;
     var boxes = [];
     var i;
     for (i = 0; i < layers.length; i++) {
-      if (hasBounds(layers[i])) boxes.push(bboxOf(layers[i], comp.time));
+      if (hasBounds(layers[i])) boxes.push(util.bboxOf(layers[i], time));
     }
     if (!boxes.length) throw new Error('Select one or more layers.');
 
-    var ref = bySelection ? union(boxes) : null;
+    var ref = bySelection ? util.unionBoxes(boxes) : null;
     var cx = ref ? (ref.minX + ref.maxX) / 2 : 0;
     var cy = ref ? (ref.minY + ref.maxY) / 2 : 0;
 
@@ -84,7 +55,35 @@
       var pos = tr.property(M.position);
 
       if (isLocked(scale)) { skipped.push(layer.name + ' (scale animated)'); continue; }
-      if (bySelection && isLocked(pos)) { skipped.push(layer.name + ' (position animated)'); continue; }
+
+      // Separate Dimensions hides the unified Position (setting it throws), so
+      // detect it and drive the X/Y followers; keys or expressions on a follower
+      // count as locked exactly like on the unified property.
+      var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+      var px = sep ? tr.property(M.positionX) : null;
+      var py = sep ? tr.property(M.positionY) : null;
+
+      // Do ALL reads and guards, and compute the mirrored position, BEFORE any
+      // write: a refusal mid-layer used to leave the scale negated but the
+      // position untouched (a half-flipped layer).
+      var newPos = null;
+      if (bySelection) {
+        if (isLocked(pos) || (sep && ((px && isLocked(px)) || (py && isLocked(py))))) {
+          skipped.push(layer.name + ' (position animated)');
+          continue;
+        }
+        var pv = sep ? [px ? px.value : 0, py ? py.value : 0] : pos.value;
+        // Position is parent-space for parented layers; reflect its COMP-space
+        // point across the selection centre, then convert the comp-space move
+        // back into the layer's own Position space.
+        var wp = [pv[0], pv[1]];
+        if (layer.parent) wp = util.applyMat(util.compMatrix(layer.parent, time), pv[0], pv[1]);
+        var dx = doX ? 2 * (cx - wp[0]) : 0;
+        var dy = doY ? 2 * (cy - wp[1]) : 0;
+        var dd = util.compDeltaToParent(layer, dx, dy, time);
+        newPos = [pv[0] + dd[0], pv[1] + dd[1]];
+        if (!sep && pv.length > 2) newPos.push(pv[2]);
+      }
 
       var sv = scale.value;
       var nsv = [sv[0], sv[1]];
@@ -93,13 +92,13 @@
       if (doY) nsv[1] = -nsv[1];
       scale.setValue(nsv);
 
-      if (bySelection) {
-        var pv = pos.value;
-        var npv = [pv[0], pv[1]];
-        if (pv.length > 2) npv.push(pv[2]);
-        if (doX) npv[0] = 2 * cx - pv[0];
-        if (doY) npv[1] = 2 * cy - pv[1];
-        pos.setValue(npv);
+      if (newPos) {
+        if (sep) {
+          if (px) px.setValue(newPos[0]);
+          if (py) py.setValue(newPos[1]);
+        } else {
+          pos.setValue(newPos);
+        }
       }
 
       flipped++;

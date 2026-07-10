@@ -16,6 +16,18 @@
   var R = $.__rebound;
   var util = R.util;
   var M = util.MATCH;
+  var rig = R.rig;
+
+  // Baked keyframes are silently overridden by any enabled expression. Clear
+  // our own (Rebound-marked) rig first; if a USER expression remains, the bake
+  // would be invisible, so the caller must skip and say why.
+  function bakeBlocked(p) {
+    if (!p) return false;
+    try { if (rig && rig.clearExpression) rig.clearExpression(p); } catch (e) {}
+    var ex = '';
+    try { ex = (p.expressionEnabled && p.expression) ? p.expression : ''; } catch (e2) { ex = ''; }
+    return ex !== '';
+  }
 
   // Deterministic integrator. Works in a local frame where the layer starts at
   // (0,0); cfg.floor is the floor distance BELOW the start (positive). Returns
@@ -105,6 +117,10 @@
       var tg = layer.property(M.transform);
       var pos = tg.property(M.position);
       var sep = false; try { sep = pos.dimensionsSeparated; } catch (e) { sep = false; }
+      var posBlocked = sep
+        ? (bakeBlocked(tg.property(M.positionX)) || bakeBlocked(tg.property(M.positionY)))
+        : bakeBlocked(pos);
+      if (posBlocked) { skipped.push(layer.name + ' (position has a user expression)'); continue; }
       var start = readStart(tg, t0, sep);
       var z = (!sep && start.length > 2) ? start[2] : null;
 
@@ -130,8 +146,9 @@
         spin: spin, spinAmount: args.spinAmount != null ? args.spinAmount : 1,
         squash: !!args.squash, squashStrength: args.squashStrength != null ? args.squashStrength : 12,
         radius: radius,
+        // Negated sin matches the throw-angle convention: +90 degrees is up.
         windX: (args.windStrength || 0) * Math.cos((args.windAngle || 0) * Math.PI / 180),
-        windY: (args.windStrength || 0) * Math.sin((args.windAngle || 0) * Math.PI / 180),
+        windY: -(args.windStrength || 0) * Math.sin((args.windAngle || 0) * Math.PI / 180),
         stretchSens: args.stretch ? (args.stretchAmt != null ? args.stretchAmt : 60) : 0,
         stretchMax: (args.stretchAmt != null ? args.stretchAmt : 60) / 100
       };
@@ -149,8 +166,12 @@
       }
       var rotProp = doRot ? tg.property(M.rotation) : null;
       var scaleProp = doScale ? tg.property(M.scale) : null;
+      if (rotProp && bakeBlocked(rotProp)) { skipped.push(layer.name + ' (rotation has a user expression, not baked)'); rotProp = null; }
+      if (scaleProp && bakeBlocked(scaleProp)) { skipped.push(layer.name + ' (scale has a user expression, not baked)'); scaleProp = null; }
       var baseRot = rotProp ? rotProp.valueAtTime(t0, false) : 0;
       var baseScale = scaleProp ? scaleProp.valueAtTime(t0, false) : [100, 100];
+      // 3D Scale is three-dimensional: writing 2-element keys throws mid-bake.
+      var sz = (scaleProp && baseScale.length > 2) ? baseScale[2] : null;
 
       for (var fr = 0; fr <= endFrame; fr++) {
         var t = t0 + fr / fps;
@@ -159,8 +180,10 @@
         else { pos.setValueAtTime(t, z != null ? [px, py, z] : [px, py]); }
         if (rotProp) rotProp.setValueAtTime(t, baseRot + (args.stretch ? frames[fr].va : frames[fr].ang));
         if (scaleProp) {
-          if (args.stretch) { var stv = frames[fr].st; scaleProp.setValueAtTime(t, [baseScale[0] * (1 + stv), baseScale[1] / (1 + stv)]); }
-          else { var s = frames[fr].s; if (s > 0.9) s = 0.9; scaleProp.setValueAtTime(t, [baseScale[0] * (1 / (1 - s)), baseScale[1] * (1 - s)]); }
+          var sv;
+          if (args.stretch) { var stv = frames[fr].st; sv = [baseScale[0] * (1 + stv), baseScale[1] / (1 + stv)]; }
+          else { var s = frames[fr].s; if (s > 0.9) s = 0.9; sv = [baseScale[0] * (1 / (1 - s)), baseScale[1] * (1 - s)]; }
+          scaleProp.setValueAtTime(t, sz != null ? [sv[0], sv[1], sz] : sv);
         }
       }
       if (args.motionBlur) { try { layer.motionBlur = true; } catch (eMB) {} }

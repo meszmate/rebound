@@ -34,7 +34,8 @@
       'inv = 1 / (1 + str);',
       'fo = 1 + (inv - 1) * vol;',
       'fp = 1 + str;',
-      'vert ? [v[0] * fo, v[1] * fp] : [v[0] * fp, v[1] * fo];'
+      's2 = vert ? [v[0] * fo, v[1] * fp] : [v[0] * fp, v[1] * fo];',
+      '(v.length > 2) ? [s2[0], s2[1], v[2]] : s2;'
     ].join('\n');
   }
 
@@ -55,7 +56,8 @@
       'inv = 1 / (1 - s);',
       'fo = 1 + (inv - 1) * vol;',
       'fp = 1 - s;',
-      'vert ? [v[0] * fo, v[1] * fp] : [v[0] * fp, v[1] * fo];'
+      's2 = vert ? [v[0] * fo, v[1] * fp] : [v[0] * fp, v[1] * fo];',
+      '(v.length > 2) ? [s2[0], s2[1], v[2]] : s2;'
     ].join('\n');
   }
 
@@ -113,13 +115,13 @@
         rig.ensureSlider(layer, 'Squash Smooth', args.smoothing != null ? args.smoothing : 3);
       }
 
-      if (rig.setExpression(scaleProp, mode === 'oneshot' ? oneShotExpression() : smartExpression())) applied++;
+      if (rig.setExpression(scaleProp, mode === 'oneshot' ? oneShotExpression() : smartExpression(), 'squash')) applied++;
       else { skipped.push(layer.name + ' (has an expression)'); continue; }
 
       if (pivotBase) {
         var posProp = layer.property(M.transform).property(M.position);
         var sep = false; try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
-        if (!sep) rig.setExpression(posProp, pivotExpression());
+        if (!sep) rig.setExpression(posProp, pivotExpression(), 'squash');
       }
     }
 
@@ -137,8 +139,11 @@
       if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var tg = layer.property(M.transform);
       var hit = false;
-      if (rig.clearExpression(tg.property(M.scale))) hit = true;
-      if (rig.clearExpression(tg.property(M.position))) hit = true;
+      if (rig.clearExpression(tg.property(M.scale), 'squash')) hit = true;
+      if (rig.clearExpression(tg.property(M.position), 'squash')) hit = true;
+      rig.removeControls(layer, ['Squash Volume', 'Squash Axis', 'Squash Pivot', 'Squash BaseSX', 'Squash BaseSY',
+        'Squash Amount', 'Squash Wobbles', 'Squash Decay', 'Squash Follow', 'Squash Trigger',
+        'Squash Sensitivity', 'Squash Max', 'Squash Smooth']);
       if (hit) cleared++;
     }
     return { cleared: cleared };

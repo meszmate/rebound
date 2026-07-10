@@ -5,10 +5,11 @@
  * recurse the vectors tree and add a Gradient Fill operator to every shape
  * group's contents collection. The ramp type is set to linear (1) or radial
  * (2), and the start/end points are spread horizontally so the ramp is visible.
- * The two color stops are written via the encoded "Grad Colors" value (a
- * 2-color, 2-alpha gradient is a stable 12-number array), so the user gets the
- * colors they chose instead of a default black-to-white ramp. Non-shape layers
- * are skipped.
+ * Stop COLOURS cannot be written directly ('ADBE Vector Grad Colors' is
+ * NO_VALUE; setValue is silently ignored), so they go through the shared .ffx
+ * preset trick in $.__rebound.grad (host/lib/grad.jsx). When that path fails,
+ * the failure and its reason are surfaced in the response instead of pretending
+ * success over a black-to-white ramp. Non-shape layers are skipped.
  */
 (function () {
   var R = $.__rebound;
@@ -18,6 +19,7 @@
   var VGROUP = 'ADBE Vector Group';      // a group wrapper ("Rectangle 1")
   var GROUP_CONTENTS = 'ADBE Vectors Group'; // its child container
   var GFILL = 'ADBE Vector Graphic - G-Fill';
+  var FILL = 'ADBE Vector Graphic - Fill';
   var GRAD_TYPE = 'ADBE Vector Grad Type';
   var GRAD_START = 'ADBE Vector Grad Start Pt';
   var GRAD_END = 'ADBE Vector Grad End Pt';
@@ -38,34 +40,48 @@
     return v < 0 ? 0 : v > 1 ? 1 : v;
   }
 
-  // Encode N color stops into the flat Grad Colors array. The shared encoder
-  // (host/lib/grad.jsx) is the single source of truth for this format; here the
-  // stops are opaque, so alpha defaults to 1.
-  function nStopData(stops) {
-    return $.__rebound.grad.encode(stops);
-  }
-
-  // Add a gradient fill to a shape group's contents collection: ramp type,
-  // point spread, and the two chosen color stops. Some builds name the points
-  // differently and the colors array can be version-sensitive, so guard each.
+  // Add a gradient fill to a shape group's contents collection. Type and ramp
+  // endpoints are ordinary scriptable properties (set via grad.applyGradient);
+  // the stop colours are NOT ('ADBE Vector Grad Colors' is NO_VALUE), so they go
+  // through grad.applyGradientColors -- the .ffx preset trick. An APPENDED
+  // operator renders BEHIND an existing Fill, so the new G-Fill is moved to the
+  // top of the collection when a solid Fill is present (or the solid Fill is
+  // removed when the caller explicitly passed replaceFill). Colour failures are
+  // recorded on `state` so apply() can report them honestly.
   // Returns the number of gradient fills added.
-  function addGradientFill(contents, gradType, colorsData, sp, ep) {
+  function addGradientFill(contents, state) {
+    var grad = $.__rebound.grad;
     var gfill = contents.addProperty(GFILL);
-    gfill.property(GRAD_TYPE).setValue(gradType);
-    try {
-      gfill.property(GRAD_START).setValue(sp);
-      gfill.property(GRAD_END).setValue(ep);
-    } catch (e) {}
-    try {
-      gfill.property(GRAD_COLORS).setValue(colorsData);
-    } catch (e2) {}
+
+    // Look for a pre-existing solid Fill (walk backwards so removal is safe).
+    var hasSolidFill = false;
+    for (var i = contents.numProperties; i >= 1; i--) {
+      var child = contents.property(i);
+      if (child !== gfill && child.matchName === FILL) {
+        if (state.replaceFill) {
+          try { child.remove(); } catch (eRm) {}
+        } else {
+          hasSolidFill = true;
+        }
+      }
+    }
+    if (hasSolidFill) {
+      // Render on top of the solid Fill, not invisibly behind it.
+      try { gfill.moveTo(1); gfill = contents.property(1); } catch (eMv) {}
+    }
+
+    grad.applyGradient(gfill, { type: state.gradType, start: state.sp, end: state.ep });
+    if (!grad.applyGradientColors(gfill, state.stops)) {
+      state.colorsFailed = true;
+      if (!state.reason) state.reason = grad.reason();
+    }
     return 1;
   }
 
   // Walk a vectors group. Every nested shape group's contents collection
   // ('ADBE Vectors Group') receives a gradient fill; nested groups recurse.
   // Returns the number of gradient fills added in this subtree.
-  function fillGroups(group, gradType, colorsData, sp, ep) {
+  function fillGroups(group, state) {
     // Snapshot the nested contents collections first; adding a G-Fill mutates
     // a collection while we iterate over its siblings.
     var nested = [];
@@ -83,8 +99,8 @@
 
     var added = 0;
     for (var k = 0; k < nested.length; k++) {
-      added += addGradientFill(nested[k], gradType, colorsData, sp, ep);
-      added += fillGroups(nested[k], gradType, colorsData, sp, ep);
+      added += addGradientFill(nested[k], state);
+      added += fillGroups(nested[k], state);
     }
     return added;
   }
@@ -108,8 +124,6 @@
       stops.push({ pos: 0, color: readColor(args && args.startColor, [0, 0, 0]) });
       stops.push({ pos: 1, color: readColor(args && args.endColor, [1, 1, 1]) });
     }
-    var colorsData = nStopData(stops);
-
     // Ramp endpoints. Prefer the explicit line (normalized 0..1, mapped to a
     // +/-100 box so a line dragged outside the shape extends past it); fall back
     // to rotating a centered line by the angle for older callers.
@@ -127,6 +141,18 @@
     var applied = 0;
     var skipped = 0;
 
+    // Shared walk state: geometry, stops, the explicit replace option, and the
+    // honest record of whether the preset colour path held everywhere.
+    var state = {
+      gradType: gradType,
+      stops: stops,
+      sp: sp,
+      ep: ep,
+      replaceFill: !!(args && args.replaceFill),
+      colorsFailed: false,
+      reason: ''
+    };
+
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
       var root = layer.property(ROOT);
@@ -136,11 +162,16 @@
       }
       // Only count layers where at least one gradient fill was actually added;
       // a shape with no paintable group is a no-op, not a success.
-      if (fillGroups(root, gradType, colorsData, sp, ep) > 0) applied++;
+      if (fillGroups(root, state) > 0) applied++;
       else skipped++;
     }
 
-    return { applied: applied, skipped: skipped };
+    return {
+      applied: applied,
+      skipped: skipped,
+      colorsApplied: !state.colorsFailed,
+      reason: state.colorsFailed ? state.reason : ''
+    };
   }
 
   // ---- Read the current gradient off the selected layer ---------------------
@@ -167,6 +198,8 @@
   // Decode the flat Grad Colors array back to [{ pos, color:[r,g,b] }]. The array
   // is N color stops (4 numbers each: pos,r,g,b) then N alpha stops (2 each), so a
   // well-formed value length is divisible by 6; we take the first 4N as colours.
+  // In practice AE usually can't hand this stream back ('ADBE Vector Grad Colors'
+  // is NO_VALUE), so callers must expect null and NOT fabricate a ramp.
   function decodeStops(data) {
     if (!data || !data.length || data.length % 6 !== 0) return null;
     var n = data.length / 6, stops = [];
@@ -190,7 +223,11 @@
       var sp = [-100, 0], ep = [100, 0], stops = null;
       try { sp = gfill.property(GRAD_START).value; ep = gfill.property(GRAD_END).value; } catch (e) {}
       try { stops = decodeStops(gfill.property(GRAD_COLORS).value); } catch (e2) {}
-      if (!stops || stops.length < 2) stops = [{ pos: 0, color: [0, 0, 0] }, { pos: 1, color: [1, 1, 1] }];
+      // When the colour stream can't be decoded (the usual AE case), say so
+      // instead of fabricating black-to-white: geometry and type are still real,
+      // but stops:null + colorsUnreadable lets the panel keep the user's stops.
+      var colorsUnreadable = false;
+      if (!stops || stops.length < 2) { stops = null; colorsUnreadable = true; }
       return {
         found: true,
         layerName: layers[i].name,
@@ -198,7 +235,8 @@
         angle: Math.atan2(ep[1] - sp[1], ep[0] - sp[0]) * 180 / Math.PI,
         start: { x: sp[0] / 200 + 0.5, y: sp[1] / 200 + 0.5 },
         end: { x: ep[0] / 200 + 0.5, y: ep[1] / 200 + 0.5 },
-        stops: stops
+        stops: stops,
+        colorsUnreadable: colorsUnreadable
       };
     }
     return { found: false };

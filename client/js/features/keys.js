@@ -75,8 +75,8 @@
         case 'linear': return { type: 'bezier', x1: 0, y1: 0, x2: 1, y2: 1 };
         case 'hold': return { type: 'fn', fn: function (t) { return t < 1 ? 0 : 1; } };
         case 'bezier': return { type: 'bezier', x1: 0.4, y1: 0.2, x2: 0.6, y2: 0.8 };
-        case 'easyEaseIn': return { type: 'bezier', x1: outInfluence / 100, y1: 0, x2: 1, y2: 1 };
-        case 'easyEaseOut': return { type: 'bezier', x1: 0, y1: 0, x2: 1 - inInfluence / 100, y2: 1 };
+        case 'easyEaseIn': return { type: 'bezier', x1: 0, y1: 0, x2: 1 - inInfluence / 100, y2: 1 };
+        case 'easyEaseOut': return { type: 'bezier', x1: outInfluence / 100, y1: 0, x2: 1, y2: 1 };
         case 'autoBezier': return { type: 'bezier', x1: 0.33, y1: 0, x2: 0.67, y2: 1 };
         case 'continuous': return { type: 'bezier', x1: 0.25, y1: 0.1, x2: 0.75, y2: 0.9 };
         case 'roving': return { type: 'bezier', x1: 0, y1: 0, x2: 1, y2: 1 };

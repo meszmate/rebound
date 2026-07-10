@@ -70,11 +70,14 @@
       ctx.invoke('gradient.read', {})
         .then(function (res) {
           if (!res || !res.found) { ctx.toast('Select a shape layer with a gradient fill to read', { kind: 'error' }); return; }
-          editor.setValue({
-            type: res.type, angle: res.angle,
-            stops: res.stops.map(function (s) { return { pos: s.pos, color: rgb01ToHex(s.color) }; })
-          });
-          ctx.toast('Read gradient from ' + (res.layerName || 'layer'), { kind: 'info' });
+          // AE can't hand shape gradient stop colours back to scripts; when the
+          // host says so, take the geometry/type but keep the editor's stops.
+          var stops = res.colorsUnreadable
+            ? editor.getValue().stops
+            : res.stops.map(function (s) { return { pos: s.pos, color: rgb01ToHex(s.color) }; });
+          editor.setValue({ type: res.type, angle: res.angle, stops: stops });
+          if (res.colorsUnreadable) ctx.toast('AE cannot read gradient colours back; kept your stops', { kind: 'info' });
+          else ctx.toast('Read gradient from ' + (res.layerName || 'layer'), { kind: 'info' });
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not read gradient', { kind: 'error' }); });
     }
@@ -92,7 +95,11 @@
       })
         .then(function (res) {
           if (!res.applied) ctx.toast('No shape layers to fill', { kind: 'info' });
-          else ctx.toast('Filled ' + res.applied + ' shape layer' + (res.applied === 1 ? '' : 's') + (res.skipped ? ' (' + res.skipped + ' skipped)' : ''), { kind: 'success' });
+          else if (res.colorsApplied === false) {
+            // The gradient exists but its stop colours could not be written
+            // (the .ffx preset path failed) -- warn instead of claiming success.
+            ctx.toast('Gradient added but colours did not apply: ' + (res.reason || 'unknown reason'), { kind: 'warn' });
+          } else ctx.toast('Filled ' + res.applied + ' shape layer' + (res.applied === 1 ? '' : 's') + (res.skipped ? ' (' + res.skipped + ' skipped)' : ''), { kind: 'success' });
           ctx.refreshSelection();
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not add gradient', { kind: 'error' }); });
@@ -108,12 +115,14 @@
         },
         defaults: GRADIENT_DEFAULTS
       },
-      // Selecting a gradient-filled shape loads its current gradient.
+      // Selecting a gradient-filled shape loads its current gradient. When AE
+      // can't hand the stop colours back (colorsUnreadable), leave the editor
+      // alone -- overwriting the user's stops with a fabricated ramp is worse.
       selectionRead: {
         matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
         method: 'gradient.read',
         apply: function (res) {
-          if (!res || !res.found) return;
+          if (!res || !res.found || res.colorsUnreadable) return;
           editor.setValue({ type: res.type, angle: res.angle, stops: res.stops.map(function (s) { return { pos: s.pos, color: rgb01ToHex(s.color) }; }) });
         }
       },

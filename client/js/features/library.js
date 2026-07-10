@@ -261,7 +261,8 @@
       }
       ctx.invoke('ease.apply', { curve: preset.curve, scope: scope, applyToAll: applyToAll })
         .then(function (res) {
-          ctx.toast('Applied ' + preset.name + ' to ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'), { kind: 'success' });
+          R.easing.applyResultToast(ctx, res,
+            'Applied ' + preset.name + ' to ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'));
           ctx.refreshSelection();
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not apply preset', { kind: 'error' }); });

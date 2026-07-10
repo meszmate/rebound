@@ -74,6 +74,12 @@
         skipped.push(source.name + ' (no groups)');
         continue;
       }
+      // One group has nothing to split; duplicating it would just clone the
+      // layer and report a bogus success.
+      if (groups.length < 2) {
+        skipped.push(source.name + ' (single group)');
+        continue;
+      }
 
       for (var g = 0; g < groups.length; g++) {
         var dup = source.duplicate();

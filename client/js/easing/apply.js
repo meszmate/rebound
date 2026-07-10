@@ -37,6 +37,27 @@
       });
   };
 
+  // Honest toast for an ease.apply result, shared by the Ease editor and the
+  // preset library so the wording and kinds match everywhere: reports the
+  // skipped held / zero-length segments, and a result that eased NOTHING is an
+  // 'info' toast ("Nothing eased"), never a green success about 0 segments.
+  // `successText` is the tool-specific message for the eased>0 case (built by
+  // the caller, since each tool words its success differently).
+  R.easing.applyResultToast = function (ctx, res, successText) {
+    var skips = [];
+    if (res.skippedHold) skips.push(res.skippedHold + ' held');
+    if (res.skippedFlat) skips.push(res.skippedFlat + ' zero-length');
+    if (!res.segments) {
+      var n = (res.skippedHold || 0) + (res.skippedFlat || 0);
+      ctx.toast(skips.length
+        ? 'Nothing eased — skipped ' + skips.join(', ') + ' segment' + (n === 1 ? '' : 's')
+        : 'Nothing eased — no segments between the selected keys', { kind: 'info' });
+      return;
+    }
+    var skipNote = skips.length ? ' · skipped ' + skips.join(', ') : '';
+    ctx.toast(successText + skipNote, { kind: 'success' });
+  };
+
   // The universal "undo my easing" action, shared by every easing tool so the
   // behaviour and wording are identical everywhere. ease.reset (host) clears any
   // Rebound remap/overshoot expression AND linearizes the selected keyframes —

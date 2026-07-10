@@ -114,10 +114,11 @@
     for (var t = 0; t < list.length; t++) {
       var prop = list[t].prop;
       var idx = list[t].indices;
-      // Unseparated spatial Position/Anchor take ONE temporal ease (along the
-      // path); everything else is per dimension.
+      // Temporal-ease dimensionality is NOT value dimensionality: spatial
+      // Position/Anchor take ONE ease (along the path), COLOR (4 components)
+      // and CUSTOM_VALUE/SHAPE take ONE, only plain TwoD/ThreeD take 2/3.
       var spatial = util.isSpatial(prop);
-      var dims = spatial ? 1 : util.dimensionsOf(prop);
+      var dims = util.temporalDims(prop);
       var didProp = false;
 
       for (var s = 0; s < idx.length - 1; s++) {
@@ -145,6 +146,9 @@
         var inArr = [];
         for (var d = 0; d < dims; d++) {
           var dv = spatial ? spatialDv : (bVals[d] || 0) - (aVals[d] || 0);
+          // Non-numeric values (SHAPE/CUSTOM_VALUE keys take one ease but their
+          // "value delta" is meaningless) get a speed-0 ease, influence only.
+          if (!isFinite(dv)) dv = 0;
           var avg = dv / dt;
           outArr.push(outEase(curve, avg));
           inArr.push(inEase(curve, avg));
@@ -239,6 +243,11 @@
           }
         }
         var avg = dv / dt;
+        if (!isFinite(avg)) avg = 0;
+        // The ease array may be shorter than the value (COLOR has 4 channels
+        // but ONE temporal ease): clamp the read index to the ease's length.
+        var tDims = util.temporalDims(p);
+        if (dim >= tDims) dim = tDims - 1;
 
         var res = reconstructSegment(p, a, b, avg, dim);
         if (res.flat) { if (!flatFallback) flatFallback = res; continue; }

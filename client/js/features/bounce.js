@@ -92,7 +92,8 @@
 
     var elasticitySlider = ui.slider({ label: 'Elasticity', min: 0, max: 1, step: 0.01, value: elasticity,
       format: function (v) { return Math.round(v * 100) + '%'; }, onInput: function (v) { elasticity = v; updateReadout(); } });
-    var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 24, step: 1, decimals: 0,
+    // Max matches the makeBounce clamp (8): a higher field value silently did nothing.
+    var bouncesField = ui.numberField({ label: 'Max bounces', value: maxBounces, min: 1, max: 8, step: 1, decimals: 0,
       width: '100%', onChange: function (v) { maxBounces = v; updateReadout(); } });
 
     ctx.body.appendChild(el('div.rb-col', null, [
@@ -110,7 +111,12 @@
       title: 'Remove the bounce expression from the selected properties',
       onclick: function () {
         ctx.invoke('bounce.remove', {})
-          .then(function () { ctx.toast('Removed bounce', { kind: 'success' }); ctx.refreshSelection(); })
+          .then(function (res) {
+            var n = (res && res.cleared) || 0;
+            if (n > 0) ctx.toast('Removed bounce from ' + n + ' propert' + (n === 1 ? 'y' : 'ies'), { kind: 'success' });
+            else ctx.toast('Nothing to remove: no bounce expression here. Baked bounce keyframes are plain keys, undo or reshape them with the Ease tool.', { kind: 'info' });
+            ctx.refreshSelection();
+          })
           .catch(function (err) { ctx.toast((err && err.message) || 'Could not remove', { kind: 'error' }); });
       }
     }, ['Remove']));

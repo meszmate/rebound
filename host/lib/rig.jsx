@@ -25,9 +25,15 @@ $.__rebound.rig = (function () {
   }
 
   // Add (or reuse) a named Slider Control on the layer and set its value.
+  // Reused controls get the new value too, so re-applying a rig with changed
+  // panel settings actually changes the rig (a keyframed control is left alone).
   function ensureSlider(layer, name, value) {
     var existing = findByName(layer, name);
-    if (existing) return existing;
+    if (existing) {
+      var sp = existing.property(1);
+      if (sp && sp.numKeys === 0 && !(sp.expressionEnabled && sp.expression !== '')) sp.setValue(value);
+      return existing;
+    }
     var fx = effectParade(layer);
     if (!fx) throw new Error(layer.name + ' cannot hold expression controls.');
     var ctrl = fx.addProperty('ADBE Slider Control');
@@ -39,7 +45,11 @@ $.__rebound.rig = (function () {
   // Add (or reuse) a named Checkbox Control.
   function ensureCheckbox(layer, name, value) {
     var existing = findByName(layer, name);
-    if (existing) return existing;
+    if (existing) {
+      var cp = existing.property(1);
+      if (cp && cp.numKeys === 0 && !(cp.expressionEnabled && cp.expression !== '')) cp.setValue(value ? 1 : 0);
+      return existing;
+    }
     var fx = effectParade(layer);
     if (!fx) throw new Error(layer.name + ' cannot hold expression controls.');
     var ctrl = fx.addProperty('ADBE Checkbox Control');
@@ -50,10 +60,14 @@ $.__rebound.rig = (function () {
 
   // Set an expression, but only if the property has none or already carries our
   // marker. Returns true if written, false if skipped to protect user code.
-  function setExpression(prop, body) {
+  // An optional tag names the tool ("// Rebound:lean") so each tool's Remove
+  // clears only its own rig instead of any Rebound expression on the property.
+  function setExpression(prop, body, tag) {
     if (!prop.canSetExpression) return false;
-    var marked = MARKER + '\n' + body;
-    var current = prop.expressionEnabled ? prop.expression : '';
+    var marked = (tag ? MARKER + ':' + tag : MARKER) + '\n' + body;
+    // A disabled user expression is still the user's code: check the text, not
+    // just expressionEnabled, so parked expressions are never overwritten.
+    var current = prop.expression || '';
     if (current && current !== '' && current.indexOf(MARKER) === -1) {
       return false; // user expression present, don't touch
     }
@@ -62,12 +76,33 @@ $.__rebound.rig = (function () {
   }
 
   // Remove our expression from a property (leaves user expressions alone).
-  function clearExpression(prop) {
-    if (prop.expressionEnabled && prop.expression && prop.expression.indexOf(MARKER) !== -1) {
-      prop.expression = '';
-      return true;
+  // With a tag, only that tool's expression is cleared, plus legacy Rebound
+  // expressions carrying the bare marker with no tool tag (written before tags
+  // existed) so old rigs stay removable.
+  function clearExpression(prop, tag) {
+    if (!(prop.expressionEnabled && prop.expression && prop.expression.indexOf(MARKER) !== -1)) {
+      return false;
     }
-    return false;
+    if (tag) {
+      var mine = prop.expression.indexOf(MARKER + ':' + tag + '\n') !== -1;
+      var legacy = prop.expression.indexOf(MARKER + ':') === -1;
+      if (!mine && !legacy) return false; // another Rebound tool's rig: leave it
+    }
+    prop.expression = '';
+    return true;
+  }
+
+  // Delete a tool's named Slider/Checkbox controls from the layer so Remove
+  // doesn't leave dead effects behind. Returns how many were removed.
+  function removeControls(layer, names) {
+    var removed = 0;
+    for (var i = 0; i < names.length; i++) {
+      var ctrl = findByName(layer, names[i]);
+      if (ctrl) {
+        try { ctrl.remove(); removed++; } catch (e) {}
+      }
+    }
+    return removed;
   }
 
   return {
@@ -76,6 +111,7 @@ $.__rebound.rig = (function () {
     ensureSlider: ensureSlider,
     ensureCheckbox: ensureCheckbox,
     setExpression: setExpression,
-    clearExpression: clearExpression
+    clearExpression: clearExpression,
+    removeControls: removeControls
   };
 })();

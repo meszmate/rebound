@@ -82,8 +82,9 @@
       drag: st.drag, bounce: st.bounce, e: Math.min(0.98, st.elasticity), friction: st.friction,
       bounds: st.bounds, floor: 200, wallMin: -150, wallMax: 150, ceiling: -240,
       spin: st.spin, spinAmount: st.spinAmount, squash: st.squash, squashStrength: st.squashStrength, radius: 16,
+      // Negated sin matches the throw-angle convention: +90 degrees is up.
       windX: (st.windStrength || 0) * Math.cos((st.windAngle || 0) * Math.PI / 180),
-      windY: (st.windStrength || 0) * Math.sin((st.windAngle || 0) * Math.PI / 180),
+      windY: -(st.windStrength || 0) * Math.sin((st.windAngle || 0) * Math.PI / 180),
       stretchSens: st.stretch ? (st.stretchAmt || 60) : 0,
       stretchMax: (st.stretchAmt || 60) / 100
     };
@@ -280,7 +281,11 @@
 
     function doApply() {
       ctx.invoke('throw.apply', st)
-        .then(function (res) { ctx.toast('Threw ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          ctx.toast('Threw ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's'), { kind: 'success' });
+          if (res.skipped && res.skipped.length) ctx.toast('Skipped: ' + res.skipped.join(', '), { kind: 'info' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not throw', { kind: 'error' }); });
     }
 

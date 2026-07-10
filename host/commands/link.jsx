@@ -23,14 +23,27 @@
       : layers[layers.length - 1];
 
     var linked = 0;
+    var skipped = [];
     for (var k = 0; k < layers.length; k++) {
       var layer = layers[k];
       if (layer === parent) continue;
+      // Parenting the chosen parent's own ancestor would create a cycle; AE
+      // throws its raw error mid-loop. Walk up the parent chain and skip any
+      // selected layer that appears in it (guarded against corrupt chains).
+      var anc = parent.parent;
+      var loop = false;
+      var guard = 0;
+      while (anc && guard < 1000) {
+        if (anc === layer) { loop = true; break; }
+        anc = anc.parent;
+        guard++;
+      }
+      if (loop) { skipped.push(layer.name + ' (would create a loop)'); continue; }
       layer.parent = parent;
       linked++;
     }
 
-    return { linked: linked };
+    return { linked: linked, skipped: skipped };
   }
 
   function unlink() {

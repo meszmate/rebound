@@ -31,7 +31,8 @@
       'cx = effect("Orbit Center X")("Slider");',
       'cy = effect("Orbit Center Y")("Slider");',
       'a = degreesToRadians(time * s);',
-      '[cx + Math.cos(a) * r, cy + Math.sin(a) * r];'
+      'p = [cx + Math.cos(a) * r, cy + Math.sin(a) * r];',
+      '(value.length > 2) ? [p[0], p[1], value[2]] : p;'
     ].join('\n');
   }
 
@@ -47,7 +48,7 @@
   function applySpin(layer, args) {
     rig.ensureSlider(layer, 'Spin Speed', num(args.spinSpeed, 90));
     var rot = layer.property(M.transform).property(M.rotation);
-    return rig.setExpression(rot, spinExpression());
+    return rig.setExpression(rot, spinExpression(), 'motion');
   }
 
   function applyOrbit(layer, args, comp) {
@@ -56,14 +57,14 @@
     rig.ensureSlider(layer, 'Orbit Center X', comp.width / 2);
     rig.ensureSlider(layer, 'Orbit Center Y', comp.height / 2);
     var pos = layer.property(M.transform).property(M.position);
-    return rig.setExpression(pos, orbitExpression());
+    return rig.setExpression(pos, orbitExpression(), 'motion');
   }
 
   function applyLookAt(layer, comp) {
     rig.ensureSlider(layer, 'Look Target X', comp.width / 2);
     rig.ensureSlider(layer, 'Look Target Y', comp.height / 2);
     var rot = layer.property(M.transform).property(M.rotation);
-    return rig.setExpression(rot, lookAtExpression());
+    return rig.setExpression(rot, lookAtExpression(), 'motion');
   }
 
   function apply(args) {
@@ -80,8 +81,14 @@
       if (layer instanceof CameraLayer || layer instanceof LightLayer) { skipped.push(layer.name + ' (camera/light)'); continue; }
 
       var ok;
-      if (mode === 'orbit') ok = applyOrbit(layer, args, comp);
-      else if (mode === 'lookat') ok = applyLookAt(layer, comp);
+      if (mode === 'orbit') {
+        // Orbit drives the composite Position; with separated dimensions AE
+        // exposes X/Y Position instead and the composite can't take the rig.
+        var sep = false;
+        try { sep = layer.property(M.transform).property(M.position).dimensionsSeparated; } catch (eSep) { sep = false; }
+        if (sep) { skipped.push(layer.name + ' (separate dimensions is on)'); continue; }
+        ok = applyOrbit(layer, args, comp);
+      } else if (mode === 'lookat') ok = applyLookAt(layer, comp);
       else ok = applySpin(layer, args);
 
       if (ok) applied++;
@@ -102,8 +109,9 @@
       var layer = layers[i];
       if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var transform = layer.property(M.transform);
-      if (rig.clearExpression(transform.property(M.rotation))) cleared++;
-      if (rig.clearExpression(transform.property(M.position))) cleared++;
+      if (rig.clearExpression(transform.property(M.rotation), 'motion')) cleared++;
+      if (rig.clearExpression(transform.property(M.position), 'motion')) cleared++;
+      rig.removeControls(layer, ['Spin Speed', 'Orbit Radius', 'Orbit Speed', 'Orbit Center X', 'Orbit Center Y', 'Look Target X', 'Look Target Y']);
     }
 
     return { cleared: cleared };

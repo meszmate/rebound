@@ -81,9 +81,10 @@
       '  value + v * amp * Math.sin(freq * t * 2 * Math.PI) / Math.exp(decay * t);',
       '} else { value; }'
     ) },
-    { id: 'spring-settle', name: 'Spring settle (entrance)', category: 'physics', desc: 'Decaying spring from an offset; staggers per character on text (textIndex)', code: code(
+    { id: 'spring-settle', name: 'Spring settle (entrance)', category: 'physics', desc: 'Decaying spring offset from the current value; staggers per character on text (textIndex)', code: code(
       'delay = 0.04;',
-      't = time - inPoint - textIndex*delay;',
+      'idx = (typeof textIndex !== "undefined") ? textIndex : 0;',
+      't = time - inPoint - idx*delay;',
       '',
       'if (t < 0) value',
       'else {',
@@ -91,7 +92,7 @@
       '  f = 2.1;',
       '  d = 8;',
       '  s = a*Math.cos(f*t*2*Math.PI)/Math.exp(d*t);',
-      '  [s,s];',
+      '  (value instanceof Array) ? value + (value.length > 2 ? [s, s, 0] : [s, s]) : value + s;',
       '}'
     ) },
     { id: 'smooth', name: 'Smooth', category: 'physics', desc: 'Temporal smoothing of the value', code: 'smooth(0.5, 5)' }

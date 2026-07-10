@@ -21,8 +21,10 @@
     return [
       'amt = effect("Lean Amount")("Slider");',
       'sm = effect("Lean Smooth")("Slider");',
-      'w = sm/thisComp.frameRate;',
-      'vx = (position.valueAtTime(time)[0] - position.valueAtTime(time - w)[0]) / (w==0?0.001:w);',
+      // Floor the sampling window at half a frame: with Smoothing = 0 a zero
+      // window makes the numerator always 0 and the rig is dead.
+      'w = Math.max(sm, 0.5)/thisComp.frameRate;',
+      'vx = (position.valueAtTime(time)[0] - position.valueAtTime(time - w)[0]) / w;',
       'value + vx/1000*amt;'
     ].join('\n');
   }
@@ -47,7 +49,7 @@
       rig.ensureSlider(layer, 'Lean Smooth', smoothing);
 
       var rot = layer.property(M.transform).property(M.rotation);
-      if (rig.setExpression(rot, leanExpression())) applied++;
+      if (rig.setExpression(rot, leanExpression(), 'lean')) applied++;
       else skipped.push(layer.name + ' (has an expression)');
     }
 
@@ -64,7 +66,8 @@
       var layer = layers[i];
       if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
       var rot = layer.property(M.transform).property(M.rotation);
-      if (rig.clearExpression(rot)) cleared++;
+      if (rig.clearExpression(rot, 'lean')) cleared++;
+      rig.removeControls(layer, ['Lean Amount', 'Lean Smooth']);
     }
 
     return { cleared: cleared };

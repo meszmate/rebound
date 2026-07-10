@@ -14,9 +14,10 @@
     return v < 0.1 ? 0.1 : v > 100 ? 100 : v;
   }
 
-  // Unseparated spatial Position/Anchor take one ease; others one per dimension.
+  // Ease-array length is the TEMPORAL dimensionality (spatial and COLOR take
+  // one ease), not the value dimensionality.
   function dimsOf(p) {
-    return util.isSpatial(p) ? 1 : util.dimensionsOf(p);
+    return util.temporalDims(p);
   }
 
   function easeArray(dims, influence) {
@@ -88,6 +89,9 @@
         dims = dimsOf(p);
         p.setTemporalEaseAtKey(ki, p.keyInTemporalEase(ki), easeArray(dims, outInf));
       } else if (type === 'autoBezier') {
+        // Auto bezier only takes on bezier keys; on a linear key the flag
+        // silently no-ops, so force bezier interpolation first.
+        p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
         p.setTemporalAutoBezierAtKey(ki, true);
       } else if (type === 'continuous') {
         p.setInterpolationTypeAtKey(ki, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);

@@ -22,9 +22,13 @@
   }
 
   function grp(root) { return root.addProperty('ADBE Vector Group').property('ADBE Vectors Group'); }
+  // Vector fill/stroke colours are 3-component [r,g,b] (a 4th component throws,
+  // leaving AE's default red/white); opacities are percent (0-100), op is 0..1.
+  // No swallowing catches here: a failed paint write should surface, not ship a
+  // wrong-coloured pattern with a success toast.
   function paint(c, fillRGB, strokeRGB, strokeW, op) {
-    if (fillRGB) { var f = c.addProperty('ADBE Vector Graphic - Fill'); try { f.property('ADBE Vector Fill Color').setValue(fillRGB.concat([1])); } catch (e) {} try { f.property('ADBE Vector Fill Opacity').setValue(op); } catch (e1) {} }
-    if (strokeRGB) { var s = c.addProperty('ADBE Vector Graphic - Stroke'); try { s.property('ADBE Vector Stroke Color').setValue(strokeRGB.concat([1])); } catch (e2) {} try { s.property('ADBE Vector Stroke Width').setValue(strokeW); } catch (e3) {} try { s.property('ADBE Vector Stroke Opacity').setValue(op); } catch (e4) {} }
+    if (fillRGB) { var f = c.addProperty('ADBE Vector Graphic - Fill'); f.property('ADBE Vector Fill Color').setValue(fillRGB); f.property('ADBE Vector Fill Opacity').setValue(op * 100); }
+    if (strokeRGB) { var s = c.addProperty('ADBE Vector Graphic - Stroke'); s.property('ADBE Vector Stroke Color').setValue(strokeRGB); s.property('ADBE Vector Stroke Width').setValue(strokeW); s.property('ADBE Vector Stroke Opacity').setValue(op * 100); }
   }
   function ellipse(root, cx, cy, r, fillRGB, strokeRGB, strokeW, op) { var c = grp(root); var e = c.addProperty('ADBE Vector Shape - Ellipse'); e.property('ADBE Vector Ellipse Size').setValue([r * 2, r * 2]); e.property('ADBE Vector Ellipse Position').setValue([cx, cy]); paint(c, fillRGB, strokeRGB, strokeW, op); }
   function rect(root, x, y, w, h, fillRGB, op) { var c = grp(root); var rc = c.addProperty('ADBE Vector Shape - Rect'); rc.property('ADBE Vector Rect Size').setValue([w, h]); rc.property('ADBE Vector Rect Position').setValue([x + w / 2, y + h / 2]); paint(c, fillRGB, null, 0, op); }
@@ -39,9 +43,10 @@
 
     R.beginUndo('Rebound: Backdrop');
     try {
+      var solid = null;
       if (!args.transparent) {
-        var solid = comp.layers.addSolid(hexToRgb01(args.bg), 'Backdrop BG', comp.width, comp.height, comp.pixelAspect);
-        solid.comment = TAG; solid.moveToEnd();
+        solid = comp.layers.addSolid(hexToRgb01(args.bg), 'Backdrop BG', comp.width, comp.height, comp.pixelAspect);
+        solid.comment = TAG;
       }
       var lay = comp.layers.addShape();
       lay.name = 'Backdrop ' + (args.pattern || 'dots'); lay.comment = TAG;
@@ -72,7 +77,10 @@
         for (y = y0; y < y1; y += sp) for (x = x0; x < x1; x += sp) ellipse(root, x, y, sz * 0.5, color, null, 0, op);
       }
       try { tg.property(M.rotation).setValue(args.angle || 0); } catch (e) {}
+      // Send both to the bottom, pattern first so the solid ends up BELOW it;
+      // the reverse order hides the pattern behind an opaque background.
       lay.moveToEnd();
+      if (solid) solid.moveToEnd();
     } finally { R.endUndo(); }
     return { ok: true };
   }

@@ -78,33 +78,43 @@
     }
 
     var count = 0;
+    var skippedHold = 0;
     for (var i = 0; i < list.length; i++) {
       var prop = list[i];
-      // Spatial Position/Anchor take a single temporal ease; others per dimension.
-      var dims = util.isSpatial(prop) ? 1 : util.dimensionsOf(prop);
+      // Temporal-ease dimensionality, NOT value dimensionality: spatial and
+      // COLOR/CUSTOM_VALUE props take ONE ease, plain TwoD/ThreeD take 2/3.
+      var dims = util.temporalDims(prop);
       var keys = prop.selectedKeys;
 
       for (var k = 0; k < keys.length; k++) {
         var index = keys[k];
+        var inType = prop.keyInInterpolationType(index);
+        var outType = prop.keyOutInterpolationType(index);
+        // A HOLD side is a deliberate stepped stop: pasting an ease onto it
+        // would silently un-hold it, so that side keeps its interpolation and
+        // its current ease. A key held on BOTH sides is skipped entirely.
+        var writeIn = inType !== KeyframeInterpolationType.HOLD;
+        var writeOut = outType !== KeyframeInterpolationType.HOLD;
+        if (!writeIn && !writeOut) { skippedHold++; continue; }
         var curIn = prop.keyInTemporalEase(index);
         var curOut = prop.keyOutTemporalEase(index);
         var inArr = [];
         var outArr = [];
         for (var d = 0; d < dims; d++) {
-          inArr.push(combine(inSource, easeToPlain(curIn[d]), mode, scale));
-          outArr.push(combine(outSource, easeToPlain(curOut[d]), mode, scale));
+          inArr.push(writeIn ? combine(inSource, easeToPlain(curIn[d]), mode, scale) : curIn[d]);
+          outArr.push(writeOut ? combine(outSource, easeToPlain(curOut[d]), mode, scale) : curOut[d]);
         }
         prop.setInterpolationTypeAtKey(
           index,
-          KeyframeInterpolationType.BEZIER,
-          KeyframeInterpolationType.BEZIER
+          writeIn ? KeyframeInterpolationType.BEZIER : inType,
+          writeOut ? KeyframeInterpolationType.BEZIER : outType
         );
         prop.setTemporalEaseAtKey(index, inArr, outArr);
         count++;
       }
     }
 
-    return { keys: count };
+    return { keys: count, skippedHold: skippedHold };
   }
 
   R.register('copyease.copy', copyEase);

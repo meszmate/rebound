@@ -71,13 +71,18 @@
     function doApply() {
       ctx.invoke('break.apply', { deleteOriginal: deleteOriginal })
         .then(function (res) {
+          var skips = (res.skipped && res.skipped.length) ? res.skipped : null;
           if (!res.created) {
-            ctx.toast('No shape layers to break', { kind: 'error' });
+            if (skips) {
+              ctx.toast('Nothing broken · skipped ' + skips.join(', '), { kind: 'info' });
+            } else {
+              ctx.toast('No shape layers to break', { kind: 'error' });
+            }
             return;
           }
           var msg = 'Broke into ' + res.created + ' layer' + (res.created === 1 ? '' : 's');
-          if (res.skipped && res.skipped.length) {
-            msg += ' · skipped ' + res.skipped.length + ' incompatible layer' + (res.skipped.length === 1 ? '' : 's');
+          if (skips) {
+            msg += ' · skipped ' + skips.join(', ');
           }
           ctx.toast(msg, { kind: 'success' });
           ctx.refreshSelection();
