@@ -138,7 +138,6 @@
   loadCmd('commands/throw.jsx');
   loadCmd('commands/pathfollow.jsx');
   loadCmd('commands/pins.jsx');
-  loadCmd('commands/pinrig.jsx');
   loadCmd('commands/backdrop.jsx');
   loadCmd('commands/autocrop.jsx');
   loadCmd('commands/scatter.jsx');

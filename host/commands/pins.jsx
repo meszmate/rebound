@@ -1,5 +1,5 @@
 /*
- * Rebound host, Pin Rig.
+ * Rebound host, Puppet Rig.
  *
  * Native Puppet pins cannot be created by script (addProperty only makes an empty
  * shell; the mesh solver owns the vertex data). So this tool does what Duik /

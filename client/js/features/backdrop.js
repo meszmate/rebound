@@ -3,7 +3,7 @@
  * Generates a procedural background pattern (dots, grid, lines, cross, checker,
  * rings) in any custom color/spacing/size/opacity/angle, and can stamp common
  * stylize effects (Echo, Radial Blur, Chromatic Aberration) onto the selected
- * layers with their key settings. Kept separate from Pin Rig on purpose. The
+ * layers with their key settings. The
  * preview renders the texture live.
  */
 ;(function (R) {

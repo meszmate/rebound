@@ -3,7 +3,7 @@
  * A real picker: a saturation/value square, a hue strip, an optional alpha
  * strip, a hex field, and recent swatches. No native <input type=color> (CEP's
  * is unreliable and unthemeable). Returns { r, g, b } in 0..1 for AE setValue,
- * plus hex and a. Shared by Pin Rig and any tool that needs full theming.
+ * plus hex and a. Shared by any tool that needs full theming.
  */
 ;(function (R) {
   'use strict';

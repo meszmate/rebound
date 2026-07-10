@@ -1,5 +1,5 @@
 /*
- * Rebound, Pin Rig tool.
+ * Rebound, Puppet Rig tool.
  * Native Puppet pins can't be script-created, so the workflow is: the artist
  * places pins with the Puppet Tool, then this binds each pin to a controller
  * null (you animate the nulls, the mesh follows) and builds slider rigs. The
