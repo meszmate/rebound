@@ -48,18 +48,31 @@
     var ghost = el('div.rb-preview-dot.rb-preview-ghost');
     var track = el('div.rb-preview-track');
     var ghostTrack = el('div.rb-preview-track.rb-preview-track-ghost');
+    // Destination ghost: an outlined square at the end of the track, so the
+    // motion always reads as "from here to THERE" even while the dot rests.
+    var dest = el('span.rb-preview-dest', { 'aria-hidden': 'true' });
+    // Loop-duration chip: how long the animated portion of the loop is.
+    var durChip = el('span.rb-preview-durchip');
     var stage = el('div.rb-preview-stage', null, [
       ghostTrack, track,
       el('span.rb-preview-marker.is-start'), el('span.rb-preview-marker.is-end'),
-      ghost, dot
+      dest, ghost, dot, durChip
     ]);
+    function syncDest() {
+      // The ghost target only makes sense for a horizontal position move; the
+      // other properties animate in place at the center.
+      dest.style.display = (property === 'position' && axis !== 'vertical') ? '' : 'none';
+    }
+    function syncDurChip() {
+      durChip.textContent = (Math.round(duration / 10) / 100) + 's loop';
+    }
     if (axis === 'vertical') {
       stage.classList.add('is-vertical');
       stage.appendChild(el('span.rb-preview-floor'));
     }
 
     // Named setters so both the in-stage controls and the public API drive them.
-    function setProperty(p) { property = p; if (propSeg) propSeg.set(p); renderAt(computeState(phase)); }
+    function setProperty(p) { property = p; if (propSeg) propSeg.set(p); syncDest(); renderAt(computeState(phase)); }
     function setSample(s) { sample = s; setSampleNode(); }
     function setSlowmo(f) { slowmo = f; if (speedBtn) speedBtn.textContent = f === 1 ? '1×' : '¼×'; }
     function setGhost(on) { showLinearGhost = on; renderAt(computeState(phase)); }
@@ -240,9 +253,13 @@
 
     function setReadout(text) { readout.textContent = text || ''; }
 
-    // Initial paint + autostart (unless reduced motion).
+    // Initial paint + autostart (unless reduced motion). The idle frame rests
+    // the dot at the START marker (the destination ghost marks the end), so a
+    // parked stage reads as "about to move", not stopped mid-flight.
     setSampleNode();
-    renderAt(reduced ? { mode: 'play', p: 0.62 } : computeState(0));
+    syncDest();
+    syncDurChip();
+    renderAt(computeState(0));
     if (!reduced) play();
 
     function setSampleNode() {
@@ -256,7 +273,7 @@
       el: container,
       setProperty: setProperty,
       setSample: setSample,
-      setDuration: function (ms) { duration = ms; },
+      setDuration: function (ms) { duration = ms; syncDurChip(); },
       setSlowmo: setSlowmo,
       setGhost: setGhost,
       setReadout: setReadout,

@@ -15,14 +15,26 @@
 
   // The ease curve the current fields describe: influence sets the handle
   // x-positions (flatness), speed lifts the handles (slope / overshoot).
-  function velocityCurve(st) {
-    return {
-      type: 'bezier',
-      x1: clamp01((st.outInfluence || 0) / 100),
-      y1: st.setSpeed ? clampY((st.outSpeed || 0) * 0.004) : 0,
-      x2: clamp01(1 - (st.inInfluence || 0) / 100),
-      y2: st.setSpeed ? clampY(1 - (st.inSpeed || 0) * 0.004) : 1
-    };
+  //
+  // With a live segment (avg = its real dv/dt, from the selection summary) the
+  // speed handles are exact — the inverse of the host formula speed =
+  // (y/x) * avg, so y1 = (outSpeed / avg) * x1 and y2 = 1 - (inSpeed / avg) *
+  // (1 - x2). Without one we fall back to a representative sample scale so the
+  // preview still reacts (the old fixed 0.004 factor).
+  function velocityCurve(st, seg) {
+    var x1 = clamp01((st.outInfluence || 0) / 100);
+    var x2 = clamp01(1 - (st.inInfluence || 0) / 100);
+    var y1 = 0, y2 = 1;
+    if (st.setSpeed) {
+      if (seg && Math.abs(seg.avg) > 1e-6) {
+        y1 = clampY(((st.outSpeed || 0) / seg.avg) * x1);
+        y2 = clampY(1 - ((st.inSpeed || 0) / seg.avg) * (1 - x2));
+      } else {
+        y1 = clampY((st.outSpeed || 0) * 0.004);
+        y2 = clampY(1 - (st.inSpeed || 0) * 0.004);
+      }
+    }
+    return { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 };
   }
 
   // Built-in presets, module-level so each is a pinnable Home action at load
@@ -63,20 +75,45 @@
       onChange: function (v) { if (linked) outInfluence.set(v); renderPreview(); } });
     var outInfluence = ui.numberField({ label: 'Influence Out', value: 33.33, min: 0.1, max: 100,
       step: 0.1, decimals: 2, suffix: '%', width: '100%', onChange: function () { renderPreview(); } });
-    var inSpeed = ui.numberField({ label: 'Speed In', value: 0, step: 1, decimals: 2, width: '100%',
+    var inSpeed = ui.numberField({ label: 'Speed In', value: 0, step: 1, decimals: 2, suffix: '/s', width: '100%',
       onChange: function (v) { if (linked) outSpeed.set(v); renderPreview(); } });
-    var outSpeed = ui.numberField({ label: 'Speed Out', value: 0, step: 1, decimals: 2, width: '100%', onChange: function () { renderPreview(); } });
+    var outSpeed = ui.numberField({ label: 'Speed Out', value: 0, step: 1, decimals: 2, suffix: '/s', width: '100%', onChange: function () { renderPreview(); } });
+
+    // The live selection drives the preview scale: with a moving segment the
+    // speed handles are drawn in its real units, otherwise at a sample scale.
+    var lastSel = ctx.getSelection();
+    function currentSegment() {
+      if (!lastSel || !lastSel.hasComp || !lastSel.properties) return null;
+      for (var i = 0; i < lastSel.properties.length; i++) {
+        var p = lastSel.properties[i];
+        if (p && p.segment && Math.abs(p.segment.avg) > 1e-6) return p.segment;
+      }
+      return null;
+    }
+    function setSpeedSuffix(unit) {
+      var text = (unit || '') + '/s';
+      var nodes = [inSpeed.el, outSpeed.el];
+      for (var i = 0; i < nodes.length; i++) {
+        var s = nodes[i].querySelector('.rb-suffix');
+        if (s) s.textContent = text;
+      }
+    }
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     var curveLabel = el('div.rb-faint', { style: { textAlign: 'center', fontSize: '11px', marginTop: '2px' }, text: '' });
     function curState() { return { inInfluence: inInfluence.get(), outInfluence: outInfluence.get(), inSpeed: inSpeed.get(), outSpeed: outSpeed.get(), setInfluence: setInfluence, setSpeed: setSpeed }; }
     function renderPreview() {
-      var c = velocityCurve(curState());
+      var seg = currentSegment();
+      var c = velocityCurve(curState(), seg);
       R.dom.clear(previewHost);
       var chip = R.ui.curveChip(c, { width: 240, height: 92, pad: 8 });
       chip.setAttribute('width', '100%'); chip.style.height = 'auto';
       previewHost.appendChild(chip);
-      curveLabel.textContent = R.ui.curveName(c);
+      var label = R.ui.curveName(c);
+      // Without a selected moving segment the speed handles are only a sketch.
+      if (setSpeed && !seg) label += ' · sample scale';
+      curveLabel.textContent = label;
+      setSpeedSuffix(seg ? seg.unit : '');
     }
 
     var linkToggle = ui.toggle({ label: 'Link in and out', value: linked,
@@ -121,13 +158,23 @@
       title: 'Read the first selected keyframe’s ease into the fields',
       onclick: doRead
     }, ['Read']);
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(R.easing.removeButton(ctx));
     ctx.footer.appendChild(readBtn);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncButtons(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.totalSelectedKeys);
+    }
+    var off = ctx.onSelection(function (sel) {
+      lastSel = sel;
+      scopeText.textContent = describe(sel);
+      syncButtons(sel);
+      renderPreview();
+    });
     scopeText.textContent = describe(ctx.getSelection());
+    syncButtons(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('velocity.apply', {

@@ -71,10 +71,16 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.selectedLayerCount); }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('trim.apply', { trimIn: trimIn, trimOut: trimOut, paddingFrames: paddingFrames })

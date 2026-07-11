@@ -43,10 +43,18 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    // The host reverses selected keys, or a whole selected property when no
+    // keys are selected, so a selected property is what makes Apply valid.
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.properties && sel.properties.length); }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('reverse.apply', {})

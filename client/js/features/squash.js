@@ -75,10 +75,7 @@
     ]);
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stage]);
 
-    var raf = null, start = (window.performance && performance.now) ? performance.now() : 0, running = true;
-    function tick(now) {
-      if (!running) return;
-      var tsec = ((window.performance && performance.now) ? now : Date.now()) / 1000 - start / 1000;
+    var sim = R.ui.miniSim({ el: previewHost, draw: function (tsec) {
       var u = (tsec % P) / P;
       var H = AMP * Math.pow(2 * u - 1, 2);          // height above floor (parabolic bounce)
       var speed = Math.abs(4 * AMP * (2 * u - 1)) / P; // |dH/dt|
@@ -105,9 +102,7 @@
       var near = clamp(1 - H / AMP, 0, 1); // 1 at floor contact
       shadow.setAttribute('rx', r1(BASE * (0.6 + 0.5 * near) * (rx / BASE)));
       shadow.setAttribute('opacity', (0.12 + 0.18 * near).toFixed(2));
-      raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
+    } });
 
     // ---- controls ----------------------------------------------------------
     var modeSeg = ui.segmented([{ value: 'oneshot', label: 'One-shot' }, { value: 'smart', label: 'Smart' }],
@@ -132,8 +127,8 @@
     function syncMode() {
       oneShotBox.style.display = st.mode === 'oneshot' ? '' : 'none';
       smartBox.style.display = st.mode === 'smart' ? '' : 'none';
+      syncRig(); // the primary button label depends on both mode and rig state
     }
-    syncMode();
 
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Volume-preserving squash. One-shot springs and settles on a trigger; Smart reacts to the layer’s motion.' }),
@@ -150,10 +145,57 @@
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, [st.mode === 'oneshot' ? 'Apply at playhead' : 'Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
+    syncMode();
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncButtons(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.selectedLayerCount);
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); syncButtons(sel); syncRig(); });
     scopeText.textContent = describe(ctx.getSelection());
+    syncButtons(ctx.getSelection());
+
+    // ---- rig read-back: selecting a rigged layer loads its values -----------
+    var riggedCount = 0, rigSig = null, rigBusy = false;
+    function syncRig() {
+      applyBtn.textContent = riggedCount > 0 ? 'Update'
+        : (st.mode === 'oneshot' ? 'Apply at playhead' : 'Apply');
+      if (riggedCount > 0) scopeText.textContent = 'Squash on ' + riggedCount + ' layer' + (riggedCount === 1 ? '' : 's');
+    }
+    function readRig(sel) {
+      if (!sel || !sel.hasComp || !sel.selectedLayerCount) { riggedCount = 0; rigSig = null; syncRig(); return; }
+      var sig = (sel.layers || []).map(function (l) { return l.index + ':' + l.name + ':' + l.effectCount; }).join('|');
+      if (sig === rigSig || rigBusy) return;
+      rigBusy = true;
+      ctx.invoke('rig.read', { tag: 'squash', sliders: ['Squash Amount', 'Squash Wobbles', 'Squash Decay', 'Squash Follow',
+        'Squash Sensitivity', 'Squash Max', 'Squash Smooth', 'Squash Volume', 'Squash Axis', 'Squash Pivot'] })
+        .then(function (r) {
+          rigBusy = false;
+          rigSig = sig;
+          riggedCount = (r && r.rigged) || 0;
+          if (riggedCount > 0 && r.values) {
+            var v = r.values, s = {};
+            // Which control set exists on the layer tells the mode apart.
+            if (v['Squash Sensitivity'] != null) { s.mode = 'smart'; s.sensitivity = v['Squash Sensitivity']; }
+            else if (v['Squash Amount'] != null) { s.mode = 'oneshot'; s.amount = v['Squash Amount']; }
+            if (s.mode === 'smart') {
+              if (v['Squash Max'] != null) s.max = v['Squash Max'];
+              if (v['Squash Smooth'] != null) s.smoothing = v['Squash Smooth'];
+            } else if (s.mode === 'oneshot') {
+              if (v['Squash Wobbles'] != null) s.wobbles = v['Squash Wobbles'];
+              if (v['Squash Decay'] != null) s.decay = v['Squash Decay'];
+              if (v['Squash Follow'] != null) s.follow = v['Squash Follow'] === 1;
+            }
+            if (v['Squash Volume'] != null) s.volume = v['Squash Volume'];
+            if (v['Squash Axis'] != null) s.axis = v['Squash Axis'] === 1 ? 'horizontal' : (v['Squash Axis'] === 2 ? 'auto' : 'vertical');
+            if (v['Squash Pivot'] != null) s.pivot = v['Squash Pivot'] === 1 ? 'base' : 'center';
+            applyState(s);
+          }
+          syncRig();
+        })
+        .catch(function () { rigBusy = false; });
+    }
 
     function doApply() {
       ctx.invoke('squash.apply', st)
@@ -189,7 +231,13 @@
         thumbFor: function (s, opts) { return squashThumb(s, (opts && opts.height) || 34); },
         defaults: SQUASH_DEFAULTS
       },
-      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
+      // Selecting an already-rigged layer loads its Squash back into the tool
+      // (the shell only fires this for the visible tool, so no host spam).
+      selectionRead: {
+        matches: function (sel) { return !!(sel && sel.hasComp); },
+        apply: function (res, sel) { readRig(sel); }
+      },
+      destroy: function () { sim.destroy(); off(); }
     };
   }
 

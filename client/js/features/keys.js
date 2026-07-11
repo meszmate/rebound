@@ -8,7 +8,64 @@
   'use strict';
 
   var el = R.dom.el;
+  var svg = R.dom.svg;
   var ui = R.ui;
+
+  // A small inline glyph per interpolation type, echoing AE's keyframe icons:
+  // diamond = linear, half diamond = ease in/out, hourglass = easy ease,
+  // square = hold, circle = auto bezier, circle + line = continuous, dashed
+  // diamond = rove. Rendered before the label in the widget grid and the
+  // full-tool buttons so the types can be told apart at a glance.
+  function glyph(type) {
+    var kids;
+    var stroke = { fill: 'none', stroke: 'currentColor', 'stroke-width': 1.2, 'stroke-linejoin': 'round' };
+    var fill = { fill: 'currentColor' };
+    function shape(name, attrs, base) {
+      var a = { }, k;
+      for (k in base) { if (base.hasOwnProperty(k)) a[k] = base[k]; }
+      for (k in attrs) { if (attrs.hasOwnProperty(k)) a[k] = attrs[k]; }
+      return svg(name, a);
+    }
+    var DIAMOND = 'M7 1.8 L12.2 7 L7 12.2 L1.8 7 Z';
+    switch (type) {
+      case 'linear':
+        kids = [shape('path', { d: DIAMOND }, stroke)];
+        break;
+      case 'hold':
+        kids = [shape('rect', { x: 2.8, y: 2.8, width: 8.4, height: 8.4 }, stroke)];
+        break;
+      case 'bezier':
+        kids = [shape('path', { d: DIAMOND }, stroke), shape('circle', { cx: 7, cy: 7, r: 1.6 }, fill)];
+        break;
+      case 'easyEase':
+        // The AE easy-ease hourglass: two triangles pointing into the key.
+        kids = [shape('path', { d: 'M1.8 7 L6 3.2 L6 10.8 Z' }, fill), shape('path', { d: 'M12.2 7 L8 3.2 L8 10.8 Z' }, fill)];
+        break;
+      case 'easyEaseIn':
+        // The incoming (left) half of the diamond is eased.
+        kids = [shape('path', { d: DIAMOND }, stroke), shape('path', { d: 'M7 1.8 L7 12.2 L1.8 7 Z' }, fill)];
+        break;
+      case 'easyEaseOut':
+        // The outgoing (right) half of the diamond is eased.
+        kids = [shape('path', { d: DIAMOND }, stroke), shape('path', { d: 'M7 1.8 L12.2 7 L7 12.2 Z' }, fill)];
+        break;
+      case 'autoBezier':
+        kids = [shape('circle', { cx: 7, cy: 7, r: 4.6 }, stroke)];
+        break;
+      case 'continuous':
+        kids = [shape('circle', { cx: 7, cy: 7, r: 4.6 }, stroke), shape('line', { x1: 1, y1: 7, x2: 13, y2: 7 }, stroke)];
+        break;
+      case 'roving':
+        kids = [shape('path', { d: DIAMOND, 'stroke-dasharray': '2 2' }, stroke)];
+        break;
+      default:
+        kids = [shape('path', { d: DIAMOND }, stroke)];
+    }
+    return svg('svg', {
+      viewBox: '0 0 14 14', width: 14, height: 14, 'aria-hidden': 'true',
+      style: 'flex: 0 0 auto; vertical-align: -2px; margin-right: 5px;'
+    }, kids);
+  }
 
   R.tools.register({
     id: 'keys',
@@ -56,7 +113,7 @@
       types.forEach(function (t) {
         grid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: 'Set ' + t.label,
           onclick: function () { set(ctx, t.type, { inInfluence: inInfluence, outInfluence: outInfluence, allKeys: allKeys }); } },
-        [el('span.rb-wgt-picktile-name', { text: t.label })]));
+        [glyph(t.type), el('span.rb-wgt-picktile-name', { text: t.label })]));
       });
       ctx.body.appendChild(el('div.rb-wgt', null, [grid]));
       return { destroy: function () {} };
@@ -120,7 +177,7 @@
       body.appendChild(el('div.rb-row.rb-wrap', null, g.types.map(function (t) {
         var b = el('button.rb-btn', { title: t.label, onclick: function () {
           set(ctx, t.type, { inInfluence: inInfluence, outInfluence: outInfluence, allKeys: allKeys });
-        } }, [t.label]);
+        } }, [glyph(t.type), t.label]);
         b.addEventListener('pointerenter', function () { renderCurve(keyCurve(t.type), t.label); });
         b.addEventListener('pointerleave', function () { renderCurve(); });
         return b;

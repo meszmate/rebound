@@ -37,6 +37,20 @@
       });
   };
 
+  // Flow-style modifier override, shared by every apply surface (the Ease
+  // tool's Apply button, its preset tiles, the Library tiles): hold a modifier
+  // while clicking to force the eased side for that one apply, without touching
+  // the tool's In/Out/Both control. Alt = Out only, Shift = In only, both =
+  // In & Out; no modifier (or no event) = the supplied fallback scope.
+  R.easing.scopeForEvent = function (e, fallback) {
+    if (!e) return fallback;
+    var alt = !!e.altKey, shift = !!e.shiftKey;
+    if (alt && shift) return 'inout';
+    if (alt) return 'out';
+    if (shift) return 'in';
+    return fallback;
+  };
+
   // Honest toast for an ease.apply result, shared by the Ease editor and the
   // preset library so the wording and kinds match everywhere: reports the
   // skipped held / zero-length segments, and a result that eased NOTHING is an

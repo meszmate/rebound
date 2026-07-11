@@ -111,6 +111,34 @@
     var pin = el('div.rb-anchor-pin');
     card.appendChild(pin);
 
+    // --- Home widget: outlined, neutral tiles; accent on hover/active only --
+    // The widget stylesheet paints all nine boxes solid accent. CSS is off
+    // limits from here, so widget mounts restyle each tile inline: a neutral
+    // control surface with its position mark in muted ink, turning accent on
+    // hover and on the active anchor point only. Hit areas are unchanged
+    // (same nine buttons, same grid, same handlers).
+    function paintWidgetDot(d, hot) {
+      var on = hot || d.classList.contains('is-active');
+      d.style.background = on ? 'var(--rb-accent)' : 'var(--rb-control)';
+      if (on) d.style.removeProperty('--rb-accent-ink');
+      else d.style.setProperty('--rb-accent-ink', 'var(--rb-text-muted)');
+    }
+    function paintWidgetDots() {
+      if (!ctx.widget) return;
+      for (var i = 0; i < dots.length; i++) paintWidgetDot(dots[i], false);
+    }
+    if (ctx.widget) {
+      // The box/card background shows through the 2px grid gaps as the
+      // divider, so a border colour outlines every tile.
+      box.style.background = 'var(--rb-border)';
+      card.style.background = 'var(--rb-border)';
+      dots.forEach(function (d) {
+        d.addEventListener('mouseenter', function () { paintWidgetDot(d, true); });
+        d.addEventListener('mouseleave', function () { paintWidgetDot(d, false); });
+      });
+      paintWidgetDots();
+    }
+
     var readout = el('div.rb-anchor-readout', { text: '' });
 
     function place() {
@@ -121,6 +149,7 @@
       for (var i = 0; i < POINTS.length; i++) {
         dots[i].classList.toggle('is-active', POINTS[i][0] === target.x && POINTS[i][1] === target.y);
       }
+      paintWidgetDots();
       var off = target.x < 0 || target.x > 1 || target.y < 0 || target.y > 1;
       pin.classList.toggle('is-outside', off);
       var named = labelExact();

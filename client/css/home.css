@@ -367,8 +367,14 @@ body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
 .rb-home-bsearch { flex: none; height: 34px; padding: 0 12px; gap: 8px; border-radius: 10px; }
 .rb-home-bsearch input { font-size: calc(var(--rb-font-size) + 1px); }
 .rb-home-bsearch .rb-search-icon, .rb-home-bsearch .rb-search-icon svg { width: 15px; height: 15px; }
-/* Category chips: one row, scrollable when narrow, each with a live count. */
-.rb-home-bchips { flex: none; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+/* Category chips: one row, scrollable when narrow, each with a live count. An
+   edge fade hints that more chips continue past the right edge (JS maps a
+   plain vertical wheel to horizontal scroll here). */
+.rb-home-bchips {
+  flex: none; display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 26px), transparent 100%);
+}
 .rb-home-bchips::-webkit-scrollbar { display: none; }
 .rb-home-bchip {
   flex: none; display: inline-flex; align-items: center; gap: 6px;
@@ -411,8 +417,16 @@ body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
 .rb-home-card:hover { border-color: var(--rb-border-strong); box-shadow: var(--rb-card-shadow); }
 .rb-home-card.is-pinned { border-color: var(--rb-accent); }
 .rb-home-card-vis {
+  position: relative; /* anchors the "N on board" chip in the corner */
   height: 84px; display: flex; align-items: center; justify-content: center; overflow: hidden;
   background: var(--rb-bg-sunken); border-bottom: 1px solid var(--rb-border);
+}
+/* "N on board" sits on the thumbnail corner, so the title row never truncates
+   the card's name to make room for it. */
+.rb-home-card-vis .rb-home-card-count {
+  position: absolute; top: 5px; right: 5px; z-index: 2;
+  background: rgba(var(--rb-accent-rgb), 0.9); color: var(--rb-on-accent, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 /* A preset's REAL curve, drawn by curveChip: scale it into whatever box hosts
    it (browser card visual or a board tile), overriding the SVG's px size. */
@@ -476,13 +490,27 @@ body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
 /* Floating chrome: the tool fills the whole widget; a title chip (top-left) and a
    controls cluster (top-right) fade in on hover or in edit mode, sitting over the
    content's edges instead of a header bar that steals space. */
+/* One contained pill for the whole control cluster, hugging the tile's
+   top-right corner (4px), never spilling past the tile edge. The buttons
+   inside go borderless: the pill is the surface. */
 .rb-home-wctrls {
-  position: absolute; top: 5px; right: 5px; z-index: 6; display: flex; gap: 4px;
-  /* Never overflow the card: wrap right-aligned instead of running over the title. */
-  flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; max-width: calc(100% - 10px);
+  position: absolute; top: 4px; right: 4px; z-index: 6; display: flex; gap: 2px;
+  align-items: center; flex-wrap: nowrap; justify-content: flex-end;
+  max-width: calc(100% - 8px); overflow: hidden;
+  padding: 2px; border-radius: 999px;
+  background: rgba(var(--rb-bg-raised-rgb), 0.92);
+  border: 1px solid var(--rb-border-strong);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   opacity: 0; transform: translateY(-3px); pointer-events: none;
   transition: opacity var(--rb-transition), transform var(--rb-transition);
 }
+.rb-home-wctrls .rb-home-wbtn {
+  width: 21px; height: 21px;
+  border: 0; background: transparent; box-shadow: none;
+}
+.rb-home-wctrls .rb-home-wbtn:hover { background: var(--rb-control-hover); }
+.rb-home-wctrls .rb-home-wbtn-auto { width: auto; }
+.rb-home-wctrls .rb-home-wcolor { width: 21px; height: 21px; box-shadow: none; border-color: var(--rb-border); }
 .rb-home-wtitle {
   position: absolute; top: 5px; left: 5px; z-index: 6; display: inline-flex; align-items: center; gap: 5px;
   /* Leave room for the hover cluster (collapse / open / maximize). */
@@ -492,15 +520,13 @@ body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
   opacity: 0; transform: translateY(-3px); pointer-events: none;
   transition: opacity var(--rb-transition), transform var(--rb-transition);
 }
-/* Edit mode shows the full cluster (colour, Auto, collapse, open, maximize,
-   remove), so the title gets whatever is left of the row. */
-.rb-home-widget.is-editmode .rb-home-wtitle { max-width: calc(100% - 196px); }
 .rb-home-wtitle-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The chrome shows only in edit mode, not on hover: during normal use the widget
-   is purely the tool, with nothing floating over it to block clicks. In edit mode
-   the shield covers the tool anyway, so the controls overlapping is fine. */
-.rb-home-widget.is-editmode .rb-home-wctrls,
-.rb-home-widget.is-editmode .rb-home-wtitle { opacity: 1; transform: none; }
+   is purely the tool, with nothing floating over it to block clicks. While the
+   control pill is up the title chip hides entirely (the two shared one short
+   row and always collided on narrow widgets). */
+.rb-home-widget.is-editmode .rb-home-wctrls { opacity: 1; transform: none; }
+.rb-home-widget.is-editmode .rb-home-wtitle { display: none; }
 .rb-home-widget.is-editmode .rb-home-wctrls > * { pointer-events: auto; }
 
 .rb-home-wbtn {
@@ -525,7 +551,6 @@ body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
    even a one-column widget. */
 .rb-home-widget.is-editmode.is-tight .rb-home-wcolor,
 .rb-home-widget.is-editmode.is-tight .rb-home-wbtn-auto { display: none; }
-.rb-home-widget.is-editmode.is-tight .rb-home-wtitle { max-width: calc(100% - 126px); }
 .rb-home-widget.is-xtight .rb-home-wbtn-max { display: none; }
 .rb-home-widget.is-xtight .rb-home-wtitle { display: none; }
 /* Cap an embedded tool so it stays a manageable panel and scrolls inside rather
@@ -972,6 +997,11 @@ body.rb-home-grabbing, body.rb-home-grabbing * { cursor: grabbing !important; }
 /* The tip text shares the row with the controls and truncates, instead of taking
    a full 100% line that pushed the Size/Columns/Board groups onto a second row. */
 .rb-home-hint .rb-grow { flex: 1 1 60px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* On a narrow panel the shared row would truncate the whole instruction: give
+   the hint its own line and let it wrap instead. */
+@media (max-width: 430px) {
+  .rb-home-hint .rb-grow { flex: 1 1 100%; white-space: normal; line-height: 1.35; }
+}
 .rb-home-sizectl { display: none; align-items: center; gap: 3px; }
 .rb-home.is-editing .rb-home-sizectl { display: inline-flex; }
 .rb-home-sizectl .rb-faint { font-size: calc(var(--rb-font-size) - 2px); white-space: nowrap; }

@@ -1,7 +1,9 @@
 /*
  * Rebound, Shapes tool.
  * Inserts parametric shape primitives (rectangle, rounded rectangle, ellipse,
- * polygon, star, line) as centered shape layers with a default fill.
+ * polygon, star, line) as centered shape layers with a default fill. The line
+ * is a real two-point open path with a stroke, so Trim Paths write-ons trace
+ * the line itself; its preview glyph is a stroked line to match.
  */
 ;(function (R) {
   'use strict';
@@ -69,18 +71,20 @@
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(shapesSvg(previewKind, 84)); }
 
     var buttonRow = el('div.rb-row.rb-wrap');
+    var kindButtons = [];
     KINDS.forEach(function (item) {
       var b = el('button.rb-btn', {
         title: 'Add a ' + item.label.toLowerCase(),
         onclick: function () { addShape(item.kind, item.label); }
       }, [item.label]);
       b.addEventListener('mouseenter', function () { previewKind = item.kind; renderPreview(); });
+      kindButtons.push(b);
       buttonRow.appendChild(b);
     });
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Drops a parametric shape primitive into the active composition, centered with a default fill.' }),
+      el('div.rb-faint', { text: 'Drops a parametric shape primitive into the active composition, centered with a default fill (the line gets a stroke on an open path instead).' }),
       previewHost,
       buttonRow
     ]));
@@ -88,8 +92,13 @@
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      var noComp = !(sel && sel.hasComp);
+      for (var i = 0; i < kindButtons.length; i++) kindButtons[i].disabled = noComp;
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function addShape(kind, label) {
       ctx.invoke('shapes.add', { kind: kind })

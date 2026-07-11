@@ -173,16 +173,53 @@ describe('flip.apply with Separate Dimensions (no more half-flipped layers)', ()
     close(L2._ch[MATCH.position].value, [100, 100]);
   });
 
-  it('a keyed follower is skipped BEFORE scale is negated (the half-flip regression)', () => {
+  it('a keyed follower is mirrored key-by-key (reflection is a constant delta)', () => {
+    // Flip now supports keyed Position: every key shifts by the same reflection
+    // delta, so nothing is skipped and there is no half-flip either way.
     const L1 = makeLayer({ name: 'A', pos: [100, 100], anchor: [50, 50], sep: true });
-    L1._ch[MATCH.positionX].numKeys = 2;
+    const px = L1._ch[MATCH.positionX];
+    const keys = [{ t: 0, v: 100 }, { t: 1, v: 140 }];
+    px.numKeys = 2;
+    px.keyTime = (k) => keys[k - 1].t;
+    px.keyValue = (k) => keys[k - 1].v;
+    px.setValueAtTime = (t, v) => { keys[t === 0 ? 0 : 1].v = v; };
     const L2 = makeLayer({ name: 'B', pos: [300, 100], anchor: [50, 50] });
     comp.selectedLayers = [L1, L2];
     const res = commands['flip.apply']({ axis: 'horizontal', pivot: 'selection' });
+    expect(res.flipped).toBe(2);
+    expect(res.skipped).toEqual([]);
+    close(L1._ch[MATCH.scale].value, [-100, 100]);
+    // Boxes: A 50..150, B 250..350 -> centre 200; A's x reflects 100 -> 300 (+200).
+    expect(keys[0].v).toBeCloseTo(300, 6);
+    expect(keys[1].v).toBeCloseTo(340, 6);
+  });
+
+  it('KEYFRAMED scale is mirrored key-by-key (used to be skipped as "scale animated")', () => {
+    const L = makeLayer({ name: 'A', pos: [100, 100], anchor: [50, 50] });
+    const sc = L._ch[MATCH.scale];
+    const keys = [{ t: 0, v: [100, 100] }, { t: 1, v: [60, 80] }];
+    sc.numKeys = 2;
+    sc.keyTime = (k) => keys[k - 1].t;
+    sc.keyValue = (k) => keys[k - 1].v;
+    sc.setValueAtTime = (t, v) => { keys[t === 0 ? 0 : 1].v = v; };
+    comp.selectedLayers = [L];
+    const res = commands['flip.apply']({ axis: 'horizontal' });
     expect(res.flipped).toBe(1);
-    expect(res.skipped).toEqual(['A (position animated)']);
-    close(L1._ch[MATCH.scale].value, [100, 100]); // NOT negated: no half-flip
-    expect(L1._ch[MATCH.positionX].value).toBe(100);
+    expect(res.skipped).toEqual([]);
+    close(keys[0].v, [-100, 100]); // each key's X negated in place
+    close(keys[1].v, [-60, 80]);   // value magnitudes and times preserved
+    close(L._ch[MATCH.position].value, [100, 100]); // anchor pivot: position untouched
+  });
+
+  it('a scale EXPRESSION still skips with the reason', () => {
+    const L = makeLayer({ name: 'A', pos: [100, 100], anchor: [50, 50] });
+    L._ch[MATCH.scale].expressionEnabled = true;
+    L._ch[MATCH.scale].expression = 'wiggle(1, 5)';
+    comp.selectedLayers = [L];
+    const res = commands['flip.apply']({ axis: 'horizontal' });
+    expect(res.flipped).toBe(0);
+    expect(res.skipped).toEqual(['A (scale expression)']);
+    close(L._ch[MATCH.scale].value, [100, 100]);
   });
 
   it('comp-pivot flip on a separated layer still just negates scale', () => {

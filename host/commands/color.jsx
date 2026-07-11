@@ -120,6 +120,43 @@
       layer.source.mainSource instanceof SolidSource;
   }
 
+  // How many layers (across every comp that uses it) draw from this source.
+  // Recoloring a shared SolidSource would recolor every duplicate at once.
+  function solidUseCount(item) {
+    var count = 0;
+    try {
+      var comps = item.usedIn;
+      for (var i = 0; i < comps.length; i++) {
+        var c = comps[i];
+        for (var j = 1; j <= c.numLayers; j++) {
+          if (c.layer(j).source === item) count++;
+        }
+      }
+    } catch (e) { return 1; }
+    return count;
+  }
+
+  // Recolor a solid layer without touching its siblings: when the SolidSource
+  // is shared by more than one layer, mint a fresh source (FootageItem has no
+  // duplicate(), so a throwaway addSolid supplies one), swap it in with
+  // replaceSource, and name it after the layer. Only then set the color.
+  function recolorSolid(comp, layer, rgb) {
+    var src = layer.source;
+    if (solidUseCount(src) > 1) {
+      try {
+        var tmp = comp.layers.addSolid([rgb[0], rgb[1], rgb[2]], layer.name, src.width, src.height, src.pixelAspect);
+        var dup = tmp.source;
+        tmp.remove();
+        layer.replaceSource(dup, false);
+        try { dup.name = layer.name; } catch (eName) { /* name is cosmetic */ }
+        dup.mainSource.color = [rgb[0], rgb[1], rgb[2]];
+        return true;
+      } catch (eDup) { /* fall through: recolor the shared source */ }
+    }
+    src.mainSource.color = [rgb[0], rgb[1], rgb[2]];
+    return true;
+  }
+
   // Locate the Fill effect's Color parameter without relying on a localized
   // display name or a magic index: prefer the stable matchName, then fall back
   // to the first color-typed parameter on the effect.
@@ -149,7 +186,7 @@
   // target: 'fill' (default), 'stroke', or 'both'. Strokes only exist on shape
   // layers; solids and the Fill-effect path are fill-only, so a stroke-only
   // target leaves them untouched (reported as skipped).
-  function colorLayer(layer, rgb, target) {
+  function colorLayer(comp, layer, rgb, target) {
     var wantFill = target === 'fill' || target === 'both';
     var wantStroke = target === 'stroke' || target === 'both';
     var root = layer.property(ROOT);
@@ -172,26 +209,38 @@
     }
     if (!wantFill) return false;
     if (isSolid(layer)) {
-      layer.source.mainSource.color = [rgb[0], rgb[1], rgb[2]];
-      return true;
+      return recolorSolid(comp, layer, rgb);
     }
     return colorViaFillEffect(layer, rgb);
   }
 
+  // args.rgb: one [r,g,b] for every layer (unchanged path). args.rgbs: a list
+  // of [r,g,b] cycled per layer in top-to-bottom index order, so a palette
+  // spreads predictably across the selection no matter how it was clicked.
   function apply(args) {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
     if (!layers || !layers.length) throw new Error('Select one or more layers to color.');
 
-    var rgb = readColor(args && args.rgb);
+    var rgbs = null;
+    if (args && args.rgbs && args.rgbs.length) {
+      rgbs = [];
+      for (var c = 0; c < args.rgbs.length; c++) rgbs.push(readColor(args.rgbs[c]));
+    }
+    var rgb = rgbs ? null : readColor(args && args.rgb);
     var target = (args && (args.target === 'stroke' || args.target === 'both')) ? args.target : 'fill';
+
+    var ordered = [];
+    for (var i = 0; i < layers.length; i++) ordered.push(layers[i]);
+    if (rgbs) ordered.sort(function (a, b) { return a.index - b.index; });
 
     var colored = 0;
     var skipped = [];
 
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i];
-      if (colorLayer(layer, rgb, target)) colored++;
+    for (var j = 0; j < ordered.length; j++) {
+      var layer = ordered[j];
+      var col = rgbs ? rgbs[j % rgbs.length] : rgb;
+      if (colorLayer(comp, layer, col, target)) colored++;
       else skipped.push(layer.name + ' (cannot be colored)');
     }
 
@@ -252,6 +301,72 @@
     return { found: false };
   }
 
+  // ---- Collect a palette from the selection ---------------------------------
+
+  function hex2(n) {
+    var v = Math.round(clamp01(n) * 255);
+    var s = v.toString(16);
+    return s.length < 2 ? '0' + s : s;
+  }
+  function toHex(rgb) {
+    return '#' + hex2(rgb[0]) + hex2(rgb[1]) + hex2(rgb[2]);
+  }
+
+  // Every operator colour (Fill or Stroke) in a vectors tree, pushed in order.
+  function collectOpColors(group, opMatch, colorMatch, push) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      var child = group.property(i);
+      if (child.matchName === opMatch) {
+        var cp = child.property(colorMatch);
+        if (cp && cp.value) push([cp.value[0], cp.value[1], cp.value[2]]);
+      } else if (child.matchName === GROUP_CONTENTS) {
+        collectOpColors(child, opMatch, colorMatch, push);
+      } else if (child.matchName === VGROUP) {
+        var contents = child.property(GROUP_CONTENTS);
+        if (contents) collectOpColors(contents, opMatch, colorMatch, push);
+      }
+    }
+  }
+
+  // palette.collect: distinct fill/stroke/solid colours from the selected
+  // layers (or every comp layer when nothing is selected), deduped on rounded
+  // hex and capped at 10. Returned as '#rrggbb' strings for the panel.
+  function collect() {
+    var comp = util.activeComp();
+    var layers = [];
+    var sel = comp.selectedLayers;
+    if (sel && sel.length) {
+      for (var s = 0; s < sel.length; s++) layers.push(sel[s]);
+    } else {
+      for (var a = 1; a <= comp.numLayers; a++) layers.push(comp.layer(a));
+    }
+
+    var colors = [];
+    var seen = {};
+    function push(rgb) {
+      if (colors.length >= 10) return;
+      var h = toHex(rgb);
+      if (seen[h]) return;
+      seen[h] = true;
+      colors.push(h);
+    }
+
+    for (var i = 0; i < layers.length; i++) {
+      var layer = layers[i];
+      var root = null;
+      try { root = layer.property(ROOT); } catch (eRoot) { root = null; }
+      if (root) {
+        collectOpColors(root, FILL, FILL_COLOR, push);
+        collectOpColors(root, STROKE, STROKE_COLOR, push);
+      } else if (isSolid(layer)) {
+        var c = layer.source.mainSource.color;
+        push([c[0], c[1], c[2]]);
+      }
+    }
+    return { colors: colors };
+  }
+
   R.register('color.apply', apply, 'Rebound: Color');
   R.register('color.read', read); // read-only, no undo group
+  R.register('palette.collect', collect); // read-only, no undo group
 })();

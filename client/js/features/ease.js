@@ -172,7 +172,7 @@
     var allToggle = ui.toggle({
       label: 'Apply to every keyframe (not just selected)',
       value: applyToAll,
-      onChange: function (v) { applyToAll = v; }
+      onChange: function (v) { applyToAll = v; syncApplyEnabled(); }
     });
 
     // --- Copy / paste cubic-bezier ---
@@ -265,24 +265,20 @@
         ' · ' + props + ' propert' + (props === 1 ? 'y' : 'ies');
     }
 
+    function syncApplyEnabled() { applyBtn.disabled = !canApplyNow(); }
     var off = ctx.onSelection(function (sel) {
       lastSel = sel;
       scopeText.textContent = describeSelection(sel);
+      syncApplyEnabled();
       renderRealValues();
     });
     scopeText.textContent = describeSelection(lastSel);
+    syncApplyEnabled();
 
-    // Flow-style modifier override: hold a modifier while applying (Apply button
-    // or a preset tile) to force the eased side for that one apply, without
-    // touching the In/Out/Both control. Alt = Out only, Shift = In only, both =
-    // In & Out; no modifier = whatever the scope control says.
+    // Flow-style modifier override (shared): Alt = Out only, Shift = In only,
+    // both = In & Out; no modifier = whatever the scope control says.
     function scopeForEvent(e) {
-      if (!e) return scope;
-      var alt = !!e.altKey, shift = !!e.shiftKey;
-      if (alt && shift) return 'inout';
-      if (alt) return 'out';
-      if (shift) return 'in';
-      return scope;
+      return R.easing.scopeForEvent(e, scope);
     }
 
     function doApply(e) {

@@ -3,12 +3,31 @@
  *
  * Orders the selected layers (by stacking index, reversed, by name, by label
  * color, or a seeded shuffle), then shifts each whole layer so its in-point
- * lands one interval after the previous, starting from the playhead or the
- * earliest selected in-point.
+ * lands along the cascade, starting from the playhead or the earliest selected
+ * in-point. The cascade span comes from a fixed interval (span = interval *
+ * (n-1)) or a total span the whole cascade fits into, and the delays are
+ * distributed along it linearly or with a cubic ease (in / out / both):
+ * delay_k = span * f(k / (n-1)).
  */
 (function () {
   var R = $.__rebound;
   var util = R.util;
+
+  function num(v, fallback) {
+    return (v == null || isNaN(v)) ? fallback : v;
+  }
+
+  // Cubic distribution curves for the cascade delays (ES3-safe).
+  function distEaseIn(u) { return u * u * u; }
+  function distEaseOut(u) { var v = 1 - u; return 1 - v * v * v; }
+  function distEaseBoth(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
+  function distLinear(u) { return u; }
+  function distFn(kind) {
+    if (kind === 'in') return distEaseIn;
+    if (kind === 'out') return distEaseOut;
+    if (kind === 'both') return distEaseBoth;
+    return distLinear;
+  }
 
   // A tiny seeded PRNG so 'random' order is reproducible for a given seed.
   function makeRng(seed) {
@@ -50,7 +69,17 @@
     var seed = (args.seed == null || isNaN(args.seed)) ? 1 : args.seed;
     orderLayers(layers, order, seed);
 
-    var step = (args.intervalFrames || 0) / comp.frameRate;
+    // Total cascade span in seconds: interval mode spreads (n-1) fixed steps,
+    // span mode fits the whole cascade into spanFrames.
+    var n = layers.length;
+    var span;
+    if (args.mode === 'span') {
+      span = num(args.spanFrames, 24) / comp.frameRate;
+    } else {
+      span = num(args.intervalFrames, 0) * (n - 1) / comp.frameRate;
+    }
+    if (span < 0) span = 0;
+    var f = distFn(args.distribute);
 
     var base;
     if (args.anchor === 'first') {
@@ -65,7 +94,8 @@
     var staggered = 0;
     for (var k = 0; k < layers.length; k++) {
       var layer = layers[k];
-      var targetInPoint = base + k * step;
+      var u = n > 1 ? k / (n - 1) : 0;
+      var targetInPoint = base + span * f(u);
       var delta = targetInPoint - layer.inPoint;
       layer.startTime += delta;
       staggered++;

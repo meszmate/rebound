@@ -6,6 +6,66 @@ All notable changes to Rebound are documented here. The format follows
 
 ## [Unreleased]
 
+### Improved
+- **A full improvement pass over every tool group, aimed at "fully working and
+  looks cool".** Six scouts proposed, ~40 upgrades shipped, all locked by 91
+  new tests (478 total). The highlights, by group:
+  - *Easing.* Copy Ease now shows the ease you actually copied (reconstructed
+    on the host, persisted across tool switches and restarts) and its Scale
+    control finally previews what it does. Bake gained a Reduce mode
+    (Ramer-Douglas-Peucker key reduction with a tolerance slider) so baking no
+    longer produces frame-by-frame sludge. Every curve thumbnail panel-wide
+    got the Library's hover dot that rides the curve. The curve editor learned
+    Shift-snapping, double-click handle reset, and an (x, y) drag readout.
+    Library tiles honor the Alt/Shift in/out scope modifiers and grew the
+    pin-to-Home affordance. Velocity's preview is now unit-true to the
+    selection. The Keys tool draws real interpolation glyphs.
+  - *Springs and physics.* The five static previews (Drift, Follow, Lean,
+    Kinetic, Motion) are now live simulations reacting to their sliders, on a
+    shared mini-sim that pauses when hidden. Rigs are no longer write-only:
+    selecting a rigged layer loads its values back into the panel and flips
+    Apply to Update. Path Follow previews the user's actual mask path. Motion
+    gained real targets (look at or orbit a chosen layer) and a Distribute
+    toggle so N layers form a ring. Throw's launch vector is draggable right
+    on the preview. Drift gained axis constraints, seamless looping, and a
+    re-rollable seed. Follow can trail rotation and scale, not just position.
+  - *Timing and text.* Text Break now splits box (paragraph) text by its
+    visual wrap lines, with safe bail-outs to an honest skip. Break and Text
+    Break select the new pieces afterwards, so Break then Stagger just works.
+    Stagger got distribution curves (ease in/out/both) and a total-span mode.
+    Trim Paths got a write-off mode. The Shapes line primitive is a real
+    stroked open path (write-ons trace a line, not a rectangle). Stagger and
+    Sequence previews render your actual layers with real durations and label
+    colors, and Stagger, Sequence, and Fade previews play on a loop.
+  - *Transform and layout.* Align can align to a key layer. Nullify can drop
+    one control null per layer (named, label-matched, parented), place at the
+    visual bounds center, and take a custom name. Align, Flip, and Arrange
+    preview your real selection as a minimap and animate it to the computed
+    result on hover. Precompose can trim the new comp to the layers' span and
+    seeds its name from the topmost layer. Flip mirrors keyframed scale and
+    position instead of skipping. Arrange packs by spatial position and can
+    center layers in their cells. The comp editor got an aspect-ratio lock.
+    Anchor compensation is now exact per key under animated rotation/scale.
+  - *Generators, color, organize.* A whole palette can be spread across the
+    selection in one click (with a Shuffle offset), and palettes can be
+    harvested from the selection's own colors. Color and Stroke moved onto the
+    shared themed picker, so any stroke color is possible. Strokes gained
+    dashes and line caps. Lottie export now ships real static shape geometry
+    (paths, rects, ellipses, fills, strokes, nested groups) instead of a
+    placeholder rect. Recoloring a duplicated solid no longer recolors its
+    siblings. Vignette stopped littering the project panel with solids.
+    Rename disables itself when the pattern changes nothing.
+  - *Panel-wide.* Toasts no longer cover the action bar, and the Apply button
+    itself flashes success. Sliders show a filled track, active segments read
+    in accent, ghost buttons have a resting affordance, and the preview stage
+    got a designed idle state (start-parked dot, destination ghost, dot-grid
+    stage, loop chip). Tools with a live preview no longer also show a static
+    demo card. Empty states carry the bounce mark. The Add browser's cards
+    stopped truncating titles and its chip row scrolls with an edge fade.
+    Home edit-mode controls are contained in a pill instead of spilling over
+    tiles. Settings deduped its shortcut list and gained an About block. The
+    selection dot is green only when something is actually selected.
+
 ### Removed
 - **Pin Rig is gone.** The construction-overlay tool (pins, guides,
   measurements on artwork) never reached the quality bar of the rest of the

@@ -132,10 +132,25 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    // The host rescales properties carrying at least two selected keyframes
+    // (one key has no spacing to rescale).
+    function canApply(sel) {
+      if (!sel || !sel.hasComp) return false;
+      var props = sel.properties || [];
+      for (var i = 0; i < props.length; i++) {
+        if ((props[i].selectedKeys || []).length >= 2) return true;
+      }
+      return false;
+    }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('retime.apply', { mode: mode, factor: factor, duration: duration, anchor: anchor })

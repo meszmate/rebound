@@ -172,7 +172,7 @@
     function describe(sel) {
       if (!sel || !sel.hasComp) return 'Open a composition';
       if (sel.totalSelectedKeys < 2) return 'Select 2+ keyframes';
-      var base = sel.totalSelectedKeys + ' keys · ' + sel.properties.length + ' properties';
+      var base = sel.totalSelectedKeys + ' key' + (sel.totalSelectedKeys === 1 ? '' : 's') + ' · ' + sel.properties.length + ' propert' + (sel.properties.length === 1 ? 'y' : 'ies');
       var props = sel.properties || [];
       for (var i = 0; i < props.length; i++) {
         if ((props[i].selectedKeys || []).length >= 2 && props[i].currentEase && R.ui.curveName) { base += ' · ' + R.ui.curveName(props[i].currentEase.curve); break; }

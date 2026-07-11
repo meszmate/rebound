@@ -66,6 +66,66 @@
     return { dismiss: entry.dismiss };
   }
 
+  // ---- Success flash --------------------------------------------------------
+  // A quick "it worked" acknowledgment on a button: a green WAAPI ring pulse
+  // plus a transient check mark (~600ms). Used by the shared apply path so
+  // every tool's primary action confirms visually, not just via a toast.
+  function flashSuccess(btn) {
+    if (!btn || btn._rbFlashing) return;
+    btn._rbFlashing = true;
+    var rgb = '92,184,120';
+    try {
+      var v = window.getComputedStyle(document.documentElement).getPropertyValue('--rb-success-rgb').trim();
+      if (/^\d+\s*,\s*\d+\s*,\s*\d+$/.test(v)) rgb = v;
+    } catch (e) { /* keep the fallback green */ }
+    if (btn.animate) {
+      try {
+        btn.animate([
+          { boxShadow: '0 0 0 0 rgba(' + rgb + ', 0.6)' },
+          { boxShadow: '0 0 0 9px rgba(' + rgb + ', 0)' }
+        ], { duration: 600, easing: 'ease-out' });
+      } catch (e2) { /* ring is decoration only */ }
+    }
+    var check = el('span.rb-flash-check', { 'aria-hidden': 'true', text: '✓' });
+    // The button anchors the overlay; restore inline position afterwards.
+    var hadPos = btn.style.position;
+    if (window.getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
+    btn.appendChild(check);
+    if (check.animate) {
+      try {
+        check.animate([
+          { opacity: 0, transform: 'translate(-50%, -50%) scale(0.4)' },
+          { opacity: 1, transform: 'translate(-50%, -50%) scale(1.05)', offset: 0.35 },
+          { opacity: 1, transform: 'translate(-50%, -50%) scale(1)', offset: 0.75 },
+          { opacity: 0, transform: 'translate(-50%, -50%) scale(1)' }
+        ], { duration: 600, easing: 'ease-out' });
+      } catch (e3) { /* static check still shows + is removed below */ }
+    }
+    setTimeout(function () {
+      if (check.parentNode) check.parentNode.removeChild(check);
+      btn.style.position = hadPos;
+      btn._rbFlashing = false;
+    }, 620);
+  }
+
+  // ---- Branded empty state --------------------------------------------------
+  // One consistent "nothing here" block: the bounce mark, faint, above a title,
+  // an optional hint line and an optional action button.
+  //   R.ui.emptyState({ title, hint, action: { label, onClick } }) -> node
+  function emptyState(opts) {
+    opts = opts || {};
+    var kids = [];
+    var mark = el('span.rb-empty-mark', { 'aria-hidden': 'true' });
+    mark.innerHTML = (R.brand && R.brand.MARK) || '';
+    kids.push(mark);
+    if (opts.title) kids.push(el('div.rb-empty-title', { text: opts.title }));
+    if (opts.hint) kids.push(el('div.rb-empty-hint', { text: opts.hint }));
+    if (opts.action && opts.action.label) {
+      kids.push(el('button.rb-btn', { type: 'button', onclick: opts.action.onClick || null }, [opts.action.label]));
+    }
+    return el('div.rb-empty.is-branded', null, kids);
+  }
+
   // ---- Segmented control --------------------------------------------------
   function segmented(options, opts) {
     opts = opts || {};
@@ -322,6 +382,8 @@
 
   R.ui = R.ui || {};
   R.ui.toast = toast;
+  R.ui.flashSuccess = flashSuccess;
+  R.ui.emptyState = emptyState;
   R.ui.segmented = segmented;
   R.ui.numberField = numberField;
   R.ui.slider = slider;

@@ -8,7 +8,9 @@
  * original position is not the target index, leaving a single group. The group
  * count is captured before any duplicating, and pruning matches the original
  * child order so each duplicate keeps the right group. Non-shape layers are
- * skipped and their names returned.
+ * skipped and their names returned. Afterwards the sources are deselected and
+ * every created piece is selected, so a follow-up Stagger/Sequence acts on the
+ * pieces immediately.
  */
 (function () {
   var R = $.__rebound;
@@ -54,6 +56,7 @@
     var deleteOriginal = !!(args && args.deleteOriginal);
     var created = 0;
     var skipped = [];
+    var createdLayers = [];
 
     for (var i = 0; i < layers.length; i++) {
       var source = layers[i];
@@ -85,6 +88,7 @@
         var dup = source.duplicate();
         pruneToGroup(dup, groups[g].position);
         dup.name = groups[g].name;
+        createdLayers.push(dup);
         created++;
       }
 
@@ -93,7 +97,21 @@
       }
     }
 
-    return { created: created, skipped: skipped };
+    // Hand the selection over to the pieces: deselect whatever is still
+    // selected (the sources), then select every created layer.
+    if (createdLayers.length) {
+      var selNow = comp.selectedLayers;
+      var toClear = [];
+      for (var s = 0; s < selNow.length; s++) toClear.push(selNow[s]);
+      for (var c = toClear.length - 1; c >= 0; c--) {
+        try { toClear[c].selected = false; } catch (eSel) {}
+      }
+      for (var p = 0; p < createdLayers.length; p++) {
+        try { createdLayers[p].selected = true; } catch (eSel2) {}
+      }
+    }
+
+    return { created: created, skipped: skipped, selected: createdLayers.length };
   }
 
   R.register('break.apply', apply, 'Rebound: Break');

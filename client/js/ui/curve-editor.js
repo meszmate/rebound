@@ -231,8 +231,26 @@
       circle.addEventListener('mousedown', startHandle);
       circle.addEventListener('pointerdown', startHandle);
       circle.addEventListener('keydown', handleKey(key));
+      // Double-click a handle to reset just that handle to its Easy Ease
+      // default (h1 0.33/0, h2 0.67/1) and commit — a per-handle Reset.
+      var resetHandle = resetHandleFn(key);
+      hit.addEventListener('dblclick', resetHandle);
+      circle.addEventListener('dblclick', resetHandle);
       svgEl.appendChild(hit);
       svgEl.appendChild(circle);
+    }
+
+    function resetHandleFn(key) {
+      return function (e) {
+        if (e && e.preventDefault) e.preventDefault();
+        if (curve.type !== 'bezier') return;
+        if (key === 'h1') { curve.x1 = 0.33; curve.y1 = 0; }
+        else { curve.x2 = 0.67; curve.y2 = 1; }
+        onChange(clone(curve));
+        render();
+        hideReadout();
+        if (opts.onCommit) opts.onCommit(clone(curve));
+      };
     }
 
     function startDrag(key, circle) {
@@ -259,7 +277,7 @@
           // cursor on the next buttonless move. Treat that as the release.
           if (ev.buttons === 0) return up();
           var p = toPlot(ev);
-          applyHandle(key, domX(p.x), domV(p.y), ev);
+          applyHandle(key, domX(p.x), domV(p.y), ev, true);
         };
         var up = function () {
           if (ended) return; // mouseup + pointerup both fire; run cleanup once
@@ -306,7 +324,22 @@
       };
     }
 
-    function applyHandle(key, x, y, ev) {
+    // Shift while DRAGGING snaps to a working grid: X to 0.05 increments, Y to
+    // the meaningful levels {0, 0.5, 1} when within 0.04 of one. Drag-only
+    // (`snap`), so Shift+arrow keys keep their bigger-step meaning untouched.
+    function snapY(y) {
+      var targets = [0, 0.5, 1];
+      for (var i = 0; i < targets.length; i++) {
+        if (Math.abs(y - targets[i]) <= 0.04) return targets[i];
+      }
+      return y;
+    }
+
+    function applyHandle(key, x, y, ev, snap) {
+      if (snap && ev && ev.shiftKey) {
+        x = Math.round(x / 0.05) * 0.05;
+        y = snapY(y);
+      }
       // Keep X in [0.001, 0.999] (AE's real influence range). The handles may
       // cross in X: out/in influence are independent per keyframe, so x1 > x2
       // (a strong ease-in-out like 0.87/0.13) is exactly representable. Y is
@@ -346,6 +379,11 @@
       } else if (space === 'speed') {
         text = 'Speed ' + R.units.round(slope, 2) + '× avg · ' + text;
       }
+      // The raw handle pair, so the readout maps 1:1 onto the numeric x/y
+      // fields (and CSS cubic-bezier()) while dragging.
+      var hx = key === 'h1' ? curve.x1 : curve.x2;
+      var hy = key === 'h1' ? curve.y1 : curve.y2;
+      text += ' · (' + R.units.round(hx, 2) + ', ' + R.units.round(hy, 2) + ')';
       readoutEl.textContent = text;
       readoutEl.classList.remove('rb-hidden');
       if (ev && ev.clientX != null) {

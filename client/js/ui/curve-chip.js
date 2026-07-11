@@ -7,8 +7,37 @@
 ;(function (R) {
   'use strict';
 
+  // A dot that rides `pathD` on hover, so the easing can be felt before
+  // applying. The SMIL animations are dormant (begin:'indefinite') until
+  // attachHoverDot's mouseenter starts them; a thumbnail that is never hovered
+  // renders its static path exactly as before. opts: { r, fill, dur }.
+  function hoverDot(pathD, opts) {
+    opts = opts || {};
+    var dur = opts.dur || '1.1s';
+    return R.dom.svg('circle', { r: opts.r || 2.4, fill: opts.fill || 'var(--rb-accent)', opacity: 0 }, [
+      R.dom.svg('animateMotion', { dur: dur, repeatCount: 'indefinite', path: pathD, begin: 'indefinite' }),
+      R.dom.svg('animate', { attributeName: 'opacity', values: '0;1;1;0', dur: dur, repeatCount: 'indefinite', begin: 'indefinite' })
+    ]);
+  }
+
+  // Animate every dormant SMIL animation under `node` while it is hovered.
+  // begin/end methods can throw in some engines, so each call is guarded.
+  function attachHoverDot(node) {
+    function each(method) {
+      var anims = node.querySelectorAll('animateMotion, animate');
+      for (var i = 0; i < anims.length; i++) {
+        try { anims[i][method](); } catch (e) { /* SMIL not ready */ }
+      }
+    }
+    node.addEventListener('mouseenter', function () { each('beginElement'); });
+    node.addEventListener('mouseleave', function () { each('endElement'); });
+    return node;
+  }
+
   // Render `curve` into an SVG of the given size. opts: { width, height, pad,
-  // dim (draw in a muted color), dashed (dashed stroke, for hold/linear) }.
+  // dim (draw in a muted color), dashed (dashed stroke, for hold/linear),
+  // hoverDot (add a dormant hover dot riding the curve; pair the chip's
+  // container with attachHoverDot to start it on hover) }.
   function curveChip(curve, opts) {
     opts = opts || {};
     var w = opts.width || 120;
@@ -38,6 +67,7 @@
       R.dom.svg('circle', { cx: px(pts[0].x), cy: py(pts[0].y), r: 2.6, fill: stroke }),
       R.dom.svg('circle', { cx: px(pts[pts.length - 1].x), cy: py(pts[pts.length - 1].y), r: 2.6, fill: stroke })
     ];
+    if (opts.hoverDot) children.push(hoverDot(d));
     return R.dom.svg('svg', { viewBox: '0 0 ' + w + ' ' + h, width: w, height: h, 'class': 'rb-curve-chip' }, children);
   }
 
@@ -74,4 +104,6 @@
   R.ui.curveChip = curveChip;
   R.ui.flatChip = flatChip;
   R.ui.curveName = curveName;
+  R.ui.hoverDot = hoverDot;
+  R.ui.attachHoverDot = attachHoverDot;
 })(window.Rebound = window.Rebound || {});

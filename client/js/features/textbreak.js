@@ -3,6 +3,10 @@
  * Splits a text layer into separate text layers per line, word, character, or a
  * custom set of pieces you choose. Each piece keeps its EXACT original position
  * (the broken text looks identical), and is an independent, animatable layer.
+ * Box (paragraph) text is supported in Lines mode (the host detects the visual
+ * wrap lines); other modes skip it because a lone piece would re-justify inside
+ * the box. The host leaves the created pieces selected, so a follow-up Stagger
+ * or Sequence acts on them immediately.
  */
 ;(function (R) {
   'use strict';
@@ -114,7 +118,7 @@
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Splits each selected text layer into separate, animatable layers. With "Keep exact positions" on, every piece stays exactly where it was, so the result looks identical to the original.' }),
+      el('div.rb-faint', { text: 'Splits each selected text layer into separate, animatable layers. With "Keep exact positions" on, every piece stays exactly where it was, so the result looks identical to the original. Box (paragraph) text splits by its visual wrap lines in Lines mode; Words, Characters, and Custom skip it, since a lone piece would re-justify inside the box.' }),
       previewHost,
       ui.row('Mode', modeCtl.el),
       customBox,
@@ -124,10 +128,16 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.selectedLayerCount); }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       var args = { mode: mode, deleteOriginal: deleteOriginal, position: keepPositions };
@@ -147,7 +157,10 @@
             }
             return;
           }
-          var msg = 'Broke into ' + res.created + ' layer' + (res.created === 1 ? '' : 's');
+          // The host selected every created piece, so the next tool (Stagger,
+          // Sequence) acts on them with no extra clicking.
+          var n = res.selected != null ? res.selected : res.created;
+          var msg = n + ' piece' + (n === 1 ? '' : 's') + ' selected · ready to stagger';
           if (skips) {
             msg += ' · skipped ' + skips.join(', ');
           }

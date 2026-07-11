@@ -61,7 +61,9 @@
     // set, stored per instance. The grid is size-aware: it shows only as many
     // colours as comfortably fit, so it never crams or scrolls.
     if (ctx.widget) {
-      var DEFAULT_COLORS = ['#f4453a', '#54c245', '#1fa6e0', '#f0f1f5'];
+      // A tuned starter set (the Palette tool's Spectrum family) so a fresh
+      // widget doesn't read as raw RGB primaries next to the styled tiles.
+      var DEFAULT_COLORS = ['#4990e2', '#22b07d', '#e8a838', '#e5534b', '#eef0f4'];
       var colors = (ctx.config && ctx.config.colors && ctx.config.colors.length) ? ctx.config.colors.slice() : DEFAULT_COLORS.slice();
       var editing = false;
       var persistColors = function () { ctx.setConfig({ colors: colors.slice() }); };
@@ -169,6 +171,8 @@
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(colorSvg(currentState(), 90)); }
 
+    var applyEls = []; // every button that applies a color: dead without layers
+
     var swatchRow = el('div.rb-row.rb-wrap');
     for (var i = 0; i < PALETTE.length; i++) {
       swatchRow.appendChild(makeSwatch(PALETTE[i]));
@@ -178,23 +182,37 @@
       title: 'Apply the slider color',
       onclick: function () { apply(currentRgb()); }
     });
+    applyEls.push(applyBtn);
     paint(applyBtn, currentRgb());
 
-    // Native picker: pick any color, load it into the sliders, and refresh the
-    // preview so the chosen color drives the sample shape.
-    var hexInput = el('input.rb-color-input', { type: 'color', value: '#1fa6e0',
+    // '#rrggbb' of the current slider color, for the shared picker swatch.
+    function currentHex() {
+      var c = currentRgb();
+      return ui.colorUtil.rgbToHex(Math.round(c[0] * 255), Math.round(c[1] * 255), Math.round(c[2] * 255));
+    }
+
+    // Shared themed picker: pick any color, load it into the sliders, and
+    // refresh the preview; the sliders push back into the picker via set().
+    var picker = ui.colorPicker({
+      value: '#1fa6e0',
+      storageKey: 'color-recents',
       title: 'Pick any color to load it into the sliders',
-      onchange: function (e) { setFromHex(e.target.value); } });
+      onChange: function (c) { setFromHex(c.hex); }
+    });
+
+    // Sliders push into the picker; the picker pushes into the sliders (via
+    // setFromHex). picker.set() never re-emits, so the two cannot loop.
+    function syncPicker() { picker.set(currentHex()); }
 
     var hueSlider = ui.slider({ label: 'Hue', min: 0, max: 360, step: 1, value: hue,
       format: function (v) { return Math.round(v) + '°'; },
-      onInput: function (v) { hue = v; updatePreview(); } });
+      onInput: function (v) { hue = v; updatePreview(); syncPicker(); } });
     var satSlider = ui.slider({ label: 'Saturation', min: 0, max: 100, step: 1, value: saturation,
       format: function (v) { return Math.round(v) + '%'; },
-      onInput: function (v) { saturation = v; updatePreview(); } });
+      onInput: function (v) { saturation = v; updatePreview(); syncPicker(); } });
     var lightSlider = ui.slider({ label: 'Lightness', min: 0, max: 100, step: 1, value: lightness,
       format: function (v) { return Math.round(v) + '%'; },
-      onInput: function (v) { lightness = v; updatePreview(); } });
+      onInput: function (v) { lightness = v; updatePreview(); syncPicker(); } });
 
     var targetCtl = ui.segmented([
       { value: 'fill', label: 'Fill', title: 'Recolor fills' },
@@ -212,8 +230,9 @@
       lightSlider.el,
       el('div.rb-section-label', { text: 'Target' }),
       targetCtl.el,
-      el('div.rb-row', null, [applyBtn, el('span.rb-faint.rb-grow', { text: 'Slider color' }), hexInput])
+      el('div.rb-row', null, [applyBtn, el('span.rb-faint.rb-grow', { text: 'Slider color' }), picker.el])
     ]));
+    syncPicker();
 
     function updatePreview() {
       paint(applyBtn, currentRgb());
@@ -233,6 +252,7 @@
       b.style.background = hex;
       b.style.borderColor = hex;
       b.addEventListener('click', function () { apply(rgb); });
+      applyEls.push(b);
       return b;
     }
 
@@ -246,8 +266,20 @@
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn', { title: 'Read the selected layer colour into the sliders', onclick: doRead }, ['Read']));
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    // Applying only makes sense with layers selected (recoil.js syncButtons
+    // pattern); the sliders and Read stay live.
+    function setEnabled(sel) {
+      var ok = !!(sel && sel.hasComp && sel.selectedLayerCount);
+      for (var k = 0; k < applyEls.length; k++) {
+        applyEls[k].disabled = !ok;
+        applyEls[k].classList.toggle('is-disabled', !ok);
+      }
+    }
+
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); setEnabled(sel); });
+    var initSel = ctx.getSelection();
+    scopeText.textContent = describe(initSel);
+    setEnabled(initSel);
 
     // Scan the selected layer's current colour into the sliders, so you tune the
     // existing colour instead of dialing one from scratch.
@@ -260,6 +292,7 @@
           hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
           if (res.target) { target = res.target; targetCtl.set(res.target); }
           updatePreview();
+          syncPicker();
           ctx.toast('Read colour from ' + (res.layerName || 'layer'), { kind: 'info' });
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not read colour', { kind: 'error' }); });
@@ -289,9 +322,10 @@
       hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
       if (res.target) { target = res.target; targetCtl.set(res.target); }
       updatePreview();
+      syncPicker();
     }
     return {
-      destroy: off,
+      destroy: function () { off(); picker.destroy(); },
       selectionRead: {
         matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
         method: 'color.read',

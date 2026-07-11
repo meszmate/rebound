@@ -79,7 +79,14 @@
       title: 'Clear the target property keyframes first so the clone lands clean.', onChange: function (v) { replace = v; } });
 
     var stampBtn = el('button.rb-btn.is-primary.is-disabled', { title: 'Stamp the captured sequence onto the selected properties', onclick: doStamp }, ['Stamp']);
-    function setStampEnabled(on) { stampBtn.classList.toggle('is-disabled', !on); }
+    var lastSel = ctx.getSelection();
+    // Stamp needs BOTH a captured bundle and selected target properties.
+    function canTarget(sel) { return !!(sel && sel.hasComp && sel.properties && sel.properties.length); }
+    function syncStamp() {
+      var on = !!bundle && canTarget(lastSel);
+      stampBtn.classList.toggle('is-disabled', !on);
+      stampBtn.disabled = !on;
+    }
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
@@ -98,15 +105,20 @@
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(stampBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function sync(sel) {
+      lastSel = sel;
+      scopeText.textContent = describe(sel);
+      syncStamp();
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doCapture() {
       ctx.invoke('clone.capture', {})
         .then(function (res) {
           bundle = res;
           capturedText.textContent = 'Captured ' + res.count + ' key' + (res.count === 1 ? '' : 's') + ' from ' + res.sourceName + '.';
-          setStampEnabled(true);
+          syncStamp();
           renderPreview();
           ctx.toast('Captured ' + res.count + ' keyframe' + (res.count === 1 ? '' : 's'), { kind: 'success' });
         })

@@ -67,8 +67,40 @@
     var axis = 'horizontal';
     var pivot = 'anchor';
 
-    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(flipSvg(axis, 104)); }
+    // Live minimap of the real selection (shared helper from align.js); the
+    // illustrative sample is the fallback when nothing is selected.
+    var map = R.layoutPreview.create(ctx, { height: 104 });
+    var fallback = el('div');
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [map.el, fallback]);
+    function renderPreview() {
+      R.dom.clear(fallback);
+      if (!map.hasData()) fallback.appendChild(flipSvg(axis, 104));
+    }
+    map.onChange(function (d) { fallback.style.display = d ? 'none' : ''; renderPreview(); });
+
+    // Hover targets mirroring the host: 'selection' reflects each box across
+    // the union centre (a constant translation) while the mirror itself shows
+    // as the box squashing through scale -1; 'anchor' flips in place.
+    function flipDeltas() {
+      var d = map.data();
+      if (!d) return null;
+      var doX = axis === 'horizontal' || axis === 'both';
+      var doY = axis === 'vertical' || axis === 'both';
+      var out = [];
+      var u = R.layoutPreview.unionOf(d.boxes);
+      var cx = u.x + u.w / 2;
+      var cy = u.y + u.h / 2;
+      for (var i = 0; i < d.boxes.length; i++) {
+        var b = d.boxes[i];
+        var t = { sx: doX ? -1 : 1, sy: doY ? -1 : 1 };
+        if (pivot === 'selection') {
+          t.dx = doX ? 2 * (cx - (b.x + b.w / 2)) : 0;
+          t.dy = doY ? 2 * (cy - (b.y + b.h / 2)) : 0;
+        }
+        out.push(t);
+      }
+      return out;
+    }
 
     var axisCtl = ui.segmented([
       { value: 'horizontal', label: 'Horizontal', title: 'Mirror left to right' },
@@ -91,10 +123,21 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    applyBtn.addEventListener('mouseenter', function () { map.preview(flipDeltas()); });
+    applyBtn.addEventListener('mouseleave', function () { map.rest(); });
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncEnabled(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.selectedLayerCount);
+    }
+    var off = ctx.onSelection(function (sel) {
+      scopeText.textContent = describe(sel);
+      syncEnabled(sel);
+      map.refresh();
+    });
     scopeText.textContent = describe(ctx.getSelection());
+    syncEnabled(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('flip.apply', { axis: axis, pivot: pivot })
@@ -121,7 +164,7 @@
         thumbFor: function (st, opts) { return flipSvg(st.axis, (opts && opts.height) || 38); },
         defaults: FLIP_DEFAULTS
       },
-      destroy: off
+      destroy: function () { off(); map.destroy(); }
     };
   }
 

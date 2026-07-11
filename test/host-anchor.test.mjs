@@ -207,6 +207,67 @@ describe('anchor.move position compensation (real host code, mock AE tree)', () 
   });
 });
 
+describe('anchor.move under ANIMATED rotation/scale (per-key delta or a truthful skip)', () => {
+  it('keyed Position + keyed rotation: each key is offset by the delta at ITS OWN time', () => {
+    const L = makeLayer();
+    // Rotation animates 0 -> 90 across the keys; one delta sampled at
+    // comp.time (0) would mis-compensate the second key.
+    const rot = L._ch[MATCH.rotation];
+    rot.numKeys = 2;
+    rot.keyTime = (k) => k - 1;
+    rot.keyValue = (k) => (k - 1) * 90;
+    rot.valueAtTime = (t) => (t >= 1 ? 90 : 0);
+    const pos = L._ch[MATCH.position];
+    const keys = [{ t: 0, v: [640, 360] }, { t: 1, v: [700, 360] }];
+    pos.numKeys = 2;
+    pos.keyTime = (k) => keys[k - 1].t;
+    pos.keyValue = (k) => keys[k - 1].v;
+    pos.setValueAtTime = (t, v) => { keys[t === 0 ? 0 : 1].v = v; };
+    const res = move(L, 0.5, 1); // anchor delta [0, 25]
+    expect(res.moved).toBe(1);
+    expect(res.skipped).toEqual([]);
+    close(L._ch[MATCH.anchor].value, [0, 25]);
+    close(keys[0].v, [640, 385]); // rot 0 at t=0: delta [0, 25]
+    close(keys[1].v, [675, 360]); // rot 90 at t=1: delta rotZ([0,25]) = [-25, 0]
+  });
+
+  it('STATIC Position + keyed scale is skipped with the drift reason, nothing shifts', () => {
+    const L = makeLayer();
+    const sc = L._ch[MATCH.scale];
+    sc.numKeys = 2;
+    sc.keyTime = (k) => k - 1;
+    sc.keyValue = () => [100, 100];
+    const res = move(L, 0.5, 1);
+    expect(res.moved).toBe(0);
+    expect(res.skipped).toEqual(['Shape Layer 1 (rotation/scale animated, would drift)']);
+    close(L._ch[MATCH.anchor].value, [0, 0]);        // untouched
+    close(L._ch[MATCH.position].value, [640, 360]);  // untouched
+  });
+
+  it('STATIC Position + keyed 3D orientation is skipped too', () => {
+    const L = makeLayer({ threeD: true });
+    L._ch[MATCH.orientation].numKeys = 1;
+    const res = move(L, 0.5, 1);
+    expect(res.moved).toBe(0);
+    expect(res.skipped).toEqual(['Shape Layer 1 (rotation/scale animated, would drift)']);
+    close(L._ch[MATCH.position].value, [640, 360, 0]);
+  });
+
+  it('static rotation/scale still compensates keyed Position with one constant delta', () => {
+    const L = makeLayer();
+    const pos = L._ch[MATCH.position];
+    const keys = [{ t: 0, v: [640, 360] }, { t: 1, v: [700, 300] }];
+    pos.numKeys = 2;
+    pos.keyTime = (k) => keys[k - 1].t;
+    pos.keyValue = (k) => keys[k - 1].v;
+    pos.setValueAtTime = (t, v) => { keys[t === 0 ? 0 : 1].v = v; };
+    const res = move(L, 0.5, 1);
+    expect(res.moved).toBe(1);
+    close(keys[0].v, [640, 385]); // both keys shift by the same [0, 25]
+    close(keys[1].v, [700, 325]); // motion path translates intact
+  });
+});
+
 describe('anchor.centerInComp (skip reasons instead of a silent continue)', () => {
   it('centers a static layer and reports moved', () => {
     const L = makeLayer();

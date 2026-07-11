@@ -49,13 +49,36 @@
     var originX = u.minX;
     var originY = u.minY;
 
+    // Fill order: 'position' sorts by where the layers already sit on screen —
+    // row-ish bands (cell-height pitch from the union top), then left to right —
+    // so the grid keeps the visual arrangement; 'layer' (the default) fills in
+    // stacking order, the long-standing behaviour. Mirrored by the panel preview.
+    var ordered = boxes.slice(0);
+    if (args.order === 'position') {
+      var bandH = cellH > 0 ? cellH : 1;
+      ordered.sort(function (a, b) {
+        var ra = Math.round((a.minY - originY) / bandH);
+        var rb = Math.round((b.minY - originY) / bandH);
+        if (ra !== rb) return ra - rb;
+        return a.minX - b.minX;
+      });
+    }
+
+    // 'center' seats each layer in the middle of its cell's content area (the
+    // largest box, gaps excluded) instead of its top-left corner.
+    var centerInCell = args.cellAlign === 'center';
+
     var arranged = 0;
-    for (var j = 0; j < boxes.length; j++) {
-      var b = boxes[j];
+    for (var j = 0; j < ordered.length; j++) {
+      var b = ordered[j];
       var col = j % columns;
       var row = Math.floor(j / columns);
       var targetX = originX + col * cellW;
       var targetY = originY + row * cellH;
+      if (centerInCell) {
+        targetX += (maxW - (b.maxX - b.minX)) / 2;
+        targetY += (maxH - (b.maxY - b.minY)) / 2;
+      }
       var dx = targetX - b.minX;
       var dy = targetY - b.minY;
       if (util.moveLayer(b.layer, dx, dy, comp.time)) arranged++;

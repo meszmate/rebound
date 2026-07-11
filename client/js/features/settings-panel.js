@@ -1,5 +1,5 @@
 /*
- * Rebound, settings — shared preferences module.
+ * Rebound, settings: shared preferences module.
  *
  * Settings live INSIDE the main panel (opened in an in-panel modal) instead of
  * a separate window, so there is one Rebound surface, not two. Exposes
@@ -14,6 +14,9 @@
 
   var SETTINGS_EVENT = 'com.meszmate.rebound.settingsChanged';
   var SCHEMA_VERSION = 1;
+  // Shown in the About block. Keep in sync with CSXS/manifest.xml
+  // (ExtensionBundleVersion) and package.json.
+  var PANEL_VERSION = '0.1.0';
 
   var DEFAULTS = {
     schemaVersion: SCHEMA_VERSION,
@@ -113,7 +116,7 @@
         ev.stopPropagation();
         if (ev.key === 'Escape') { cleanup(); return; }
         var chord = R.keybinds.chordFromEvent(ev);
-        if (!chord) return; // a modifier alone — keep listening
+        if (!chord) return; // a modifier alone: keep listening
         if (R.keybinds.isReserved(chord)) {
           if (ui.toast) ui.toast(chord + ' is reserved by Rebound', { kind: 'error' });
           return;
@@ -137,6 +140,24 @@
     var raw = (R.homeActions && R.homeActions.all && R.homeActions.all()) || [];
     var seen = {}, list = [];
     raw.forEach(function (a) { if (a && a.id && !seen[a.id]) { seen[a.id] = 1; list.push(a); } });
+    // The catalog carries several actions per tool that render as the SAME row
+    // text (open-color / widget-color / quick-stroke are all just "Color" or
+    // "Stroke"), so the list showed duplicate rows. Collapse them per tool +
+    // label, preferring an action that already has a binding, then a one-click
+    // apply (the most useful thing to put on a key).
+    var byRow = {}, deduped = [];
+    list.forEach(function (a) {
+      var key = (a.toolId || '') + '|' + String(a.label || a.id).toLowerCase();
+      var prev = byRow[key];
+      if (!prev) { byRow[key] = a; deduped.push(a); return; }
+      var aBound = !!R.keybinds.bindingFor(a.id);
+      var pBound = !!R.keybinds.bindingFor(prev.id);
+      if ((aBound && !pBound) || (aBound === pBound && a.kind === 'apply' && prev.kind !== 'apply')) {
+        deduped[deduped.indexOf(prev)] = a;
+        byRow[key] = a;
+      }
+    });
+    list = deduped;
     list.sort(function (a, b) {
       var g = String(a.group || '').localeCompare(String(b.group || ''));
       return g || String(a.label || '').localeCompare(String(b.label || ''));
@@ -157,7 +178,7 @@
     searchInput.addEventListener('input', function () { render(searchInput.value); });
     render('');
     return section('Keyboard shortcuts', [
-      el('div.rb-faint', { text: 'Shortcuts run while the Rebound panel is focused (a CEP panel can’t register global After Effects hotkeys). Click Set, then press your combo — a letter, optionally with Alt / Shift / Cmd. Some combos are reserved.' }),
+      el('div.rb-faint', { text: 'Shortcuts run while the Rebound panel is focused (a CEP panel can’t register global After Effects hotkeys). Click Set, then press your combo: a letter, optionally with Alt / Shift / Cmd. Some combos are reserved.' }),
       el('div.rb-field.rb-field-text', null, [searchInput]),
       listEl
     ]);
@@ -219,6 +240,18 @@
       el('div.rb-faint', { text: R.disk.available
         ? 'Presets and settings are stored in your user data folder.'
         : 'Running without file access, settings are kept in this session only.' })
+    ]));
+
+    // About: the mark, the version, one plain line.
+    var aboutMark = el('span.rb-about-mark');
+    aboutMark.innerHTML = (R.brand && R.brand.MARK) || '';
+    body.appendChild(el('div.rb-card.rb-about', null, [
+      el('div.rb-about-row', null, [
+        aboutMark,
+        el('span.rb-about-name', { text: 'Rebound' }),
+        el('span.rb-about-ver', { text: 'v' + PANEL_VERSION })
+      ]),
+      el('div.rb-faint', { text: 'Animation tools for After Effects.' })
     ]));
 
     return body;

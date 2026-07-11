@@ -20,9 +20,9 @@
 
   function mountLottie(ctx) {
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Export the selected layers’ transform animation — position, scale, rotation, opacity, anchor — with their eases to a Lottie .json for the web (lottie-web) or app (Lottie iOS/Android).' }),
+      el('div.rb-faint', { text: 'Export the selected layers’ transform animation (position, scale, rotation, opacity, anchor) with their eases to a Lottie .json for the web (lottie-web) or app (Lottie iOS/Android).' }),
       el('div.rb-section-label', { text: 'What exports' }),
-      el('div.rb-hint', { text: 'Solids and shapes carry a colored fill; text and other layers export transform-only. Masks, effects, and full shape geometry aren’t exported yet — the eases and motion are exact.' })
+      el('div.rb-hint', { text: 'Layer transform animation and eases export exactly. Shape layers export their real geometry: groups, paths, rectangles, ellipses, fills, and strokes, frozen at the current frame. Shape-level keyframes export as that static value, and gradient fills become an approximate solid; both are flagged. Text and other layers export transform-only. Masks and effects are not exported.' })
     ]));
 
     var status = el('span.rb-scope', { text: '' });
@@ -39,8 +39,15 @@
       if (!n) return 'Select one or more layers';
       return n + ' layer' + (n === 1 ? '' : 's') + ' selected';
     }
-    var off = ctx.onSelection(function (sel) { status.textContent = describe(sel); });
-    status.textContent = describe(ctx.getSelection());
+    function setEnabled(sel) {
+      var ok = !!(sel && sel.hasComp && sel.selectedLayerCount);
+      exportBtn.disabled = !ok;
+      exportBtn.classList.toggle('is-disabled', !ok);
+    }
+    var off = ctx.onSelection(function (sel) { status.textContent = describe(sel); setEnabled(sel); });
+    var initSel = ctx.getSelection();
+    status.textContent = describe(initSel);
+    setEnabled(initSel);
 
     function doExport() {
       ctx.invoke('lottie.read', {})
@@ -52,7 +59,7 @@
           return ctx.invoke('lottie.save', { json: json, name: safeName }).then(function (res) {
             if (!res || res.cancelled) return;
             var partial = (doc.partial && doc.partial.length)
-              ? ' · ' + doc.partial.length + ' transform-only' : '';
+              ? ' · ' + doc.partial.length + ' partial' : '';
             ctx.toast('Exported ' + doc.layers.length + ' layer' + (doc.layers.length === 1 ? '' : 's') +
               partial + ' → ' + res.path, { kind: 'success' });
           });

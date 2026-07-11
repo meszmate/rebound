@@ -29,7 +29,10 @@
       return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
     }).join(' ');
     return svg('svg', { viewBox: '0 0 ' + w + ' ' + h }, [
-      svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5, 'stroke-linecap': 'round' })
+      svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5, 'stroke-linecap': 'round' }),
+      // Dormant hover dot (shared with the Library tiles); the tile's
+      // attachHoverDot starts it while hovered.
+      R.ui.hoverDot(d)
     ]);
   }
 
@@ -86,6 +89,9 @@
           mark(p.name);
         }
       }, children);
+      // Ride the dormant thumb dot along the curve while the tile is hovered
+      // (curve thumbs only; custom thumbFor visuals carry no SMIL animations).
+      if (!thumbFor && previewFor) R.ui.attachHoverDot(node);
 
       if (!p.builtin) {
         node.appendChild(el('span.rb-tile-del', {

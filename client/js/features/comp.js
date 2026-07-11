@@ -80,10 +80,47 @@
       onChange: function (v) { frameRate = v; } });
     var durationField = ui.numberField({ label: 'Duration', value: duration, min: 0, max: 86400, step: 0.1, decimals: 3, suffix: 's', width: '160px',
       onChange: function (v) { duration = v; } });
+    // Aspect lock: a chain link between W/H. While locked, editing one
+    // dimension scales the other to keep the ratio captured at lock time.
+    var aspectLock = false;
+    var lockedRatio = 0;
     var widthField = ui.numberField({ label: 'Width', value: width, min: 1, max: 30000, step: 1, decimals: 0, suffix: 'px', width: '160px',
-      onChange: function (v) { width = v; renderPreview(); } });
+      onChange: function (v) {
+        width = v;
+        if (aspectLock && lockedRatio > 0) { height = Math.max(1, Math.round(width / lockedRatio)); heightField.set(height); }
+        renderPreview();
+      } });
     var heightField = ui.numberField({ label: 'Height', value: height, min: 1, max: 30000, step: 1, decimals: 0, suffix: 'px', width: '160px',
-      onChange: function (v) { height = v; renderPreview(); } });
+      onChange: function (v) {
+        height = v;
+        if (aspectLock && lockedRatio > 0) { width = Math.max(1, Math.round(height * lockedRatio)); widthField.set(width); }
+        renderPreview();
+      } });
+
+    function captureRatio() { lockedRatio = (width > 0 && height > 0) ? width / height : 0; }
+    var linkBtn = el('button.rb-btn.is-ghost', {
+      type: 'button',
+      'aria-label': 'Lock aspect ratio',
+      'aria-pressed': 'false',
+      style: { padding: '3px 7px', alignSelf: 'center', flex: 'none' },
+      onclick: function () {
+        aspectLock = !aspectLock;
+        if (aspectLock) captureRatio();
+        syncLinkBtn();
+      }
+    });
+    linkBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M10 13a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1.5 1.5"/>' +
+      '<path d="M14 11a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1.5-1.5"/></svg>';
+    function syncLinkBtn() {
+      linkBtn.style.color = aspectLock ? 'var(--rb-accent)' : '';
+      linkBtn.style.borderColor = aspectLock ? 'var(--rb-accent)' : '';
+      linkBtn.setAttribute('aria-pressed', aspectLock ? 'true' : 'false');
+      linkBtn.title = aspectLock && lockedRatio > 0
+        ? 'Aspect ratio locked at ' + ratioLabel(width, height) + '. Click to unlock.'
+        : 'Lock aspect ratio: editing one dimension scales the other to match.';
+    }
+    syncLinkBtn();
     var recenterToggle = ui.toggle({ label: 'Keep content centered', value: recenter,
       title: 'When changing resolution, shift every layer so the existing framing stays centered instead of drifting toward a corner.',
       onChange: function (v) { recenter = v; } });
@@ -101,7 +138,7 @@
     var cropBtn = el('button.rb-btn', { title: 'Resize the composition to fit the content', onclick: doCrop }, ['Crop comp to content']);
 
     var resRow = el('div.rb-row.rb-wrap', null, RES.map(function (r) {
-      return el('button.rb-btn.is-ghost', { title: r.w + ' × ' + r.h, style: { display: 'inline-flex', alignItems: 'center', gap: '5px' }, onclick: function () { width = r.w; height = r.h; widthField.set(r.w); heightField.set(r.h); renderPreview(); } }, [aspectGlyph(r.w, r.h), el('span', { text: r.name })]);
+      return el('button.rb-btn.is-ghost', { title: r.w + ' × ' + r.h, style: { display: 'inline-flex', alignItems: 'center', gap: '5px' }, onclick: function () { width = r.w; height = r.h; widthField.set(r.w); heightField.set(r.h); if (aspectLock) { captureRatio(); syncLinkBtn(); } renderPreview(); } }, [aspectGlyph(r.w, r.h), el('span', { text: r.name })]);
     }));
     var fpsRow = el('div.rb-row.rb-wrap', null, FPS.map(function (f) {
       return el('button.rb-btn.is-ghost', { onclick: function () { frameRate = f; frameRateField.set(f); } }, [String(f)]);
@@ -112,8 +149,13 @@
       previewHost,
       el('div.rb-section-label', { text: 'Resolution presets' }),
       resRow,
-      ui.row('Width', widthField.el),
-      ui.row('Height', heightField.el),
+      el('div.rb-row', { style: { alignItems: 'stretch', gap: '8px' } }, [
+        el('div.rb-col', { style: { flex: '1 1 auto' } }, [
+          ui.row('Width', widthField.el),
+          ui.row('Height', heightField.el)
+        ]),
+        linkBtn
+      ]),
       el('div.rb-section-label', { text: 'Frame rate' }),
       fpsRow,
       ui.row('Frame rate', frameRateField.el),
@@ -127,10 +169,17 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncEnabled(sel) {
+      var ok = !!(sel && sel.hasComp);
+      applyBtn.disabled = !ok;
+      cropBtn.disabled = !ok;
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); syncEnabled(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+    syncEnabled(ctx.getSelection());
 
     // Pull live width/height/duration/frameRate from the host to pre-fill.
     function prefill() {
@@ -140,6 +189,7 @@
           duration = info.duration; durationField.set(duration);
           width = info.width; widthField.set(width);
           height = info.height; heightField.set(height);
+          if (aspectLock) { captureRatio(); syncLinkBtn(); }
           renderPreview();
         })
         .catch(function () { /* no comp open, leave fields at zero */ });

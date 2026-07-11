@@ -8,10 +8,20 @@
  *   - feeds the panel a realistic fake selection (there is no host in a browser),
  *   - drives the shell into one named screen so each screen is a stable URL.
  *
- * URL params (all optional):
- *   screen = home | browse:<sectionId> | search:<query> | tool:<toolId> | settings
+ * URL params (all optional, WORKING as of the harness fix — each screen is
+ * driven through the shell's real APIs and verified, and a failure is loud:
+ * a red banner, console.error, and data-preview-error on <html>):
+ *   screen = home                 the configurable Home board (default)
+ *          | browse:<sectionId>   a category, e.g. browse:ease, browse:physics
+ *          | search:<query>       search results, e.g. search:spring
+ *          | tool:<toolId>        a focused tool, e.g. tool:ease, tool:align
+ *          | settings             the in-panel Settings modal
+ *          | add                  the Home's "Add to Home" browser sheet
  *   w, h   = panel width / height in px         (default 400 x 880)
  *   sel    = segment | layers | none            (default segment — a live ease)
+ *
+ * The page marks itself ready with data-preview-ready="1" on <html>, so a
+ * headless screenshot (or Figma capture) can wait on it.
  *
  * Figma capture params travel in the hash (#figmacapture=...&figmadelay=...) and
  * are read by Figma's own capture.js, so they never collide with these.
@@ -122,29 +132,69 @@
     for (var c = 0; c < colors.length; c++) colors[c].style.backgroundColor = colors[c].value;
   }
 
+  // Loud failure: the whole point of the harness is trustworthy screenshots, so
+  // a screen that did not actually come up must never pass silently.
+  function fail(msg) {
+    /* eslint-disable-next-line no-console */
+    console.error('[rb-preview] ' + msg);
+    document.documentElement.setAttribute('data-preview-error', msg);
+    var banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;' +
+      'background:#c0392b;color:#fff;font:12px sans-serif;padding:6px 10px;';
+    banner.textContent = 'PREVIEW HARNESS FAILED: ' + msg;
+    document.body.appendChild(banner);
+  }
+
   function drive() {
+    if (!window.Rebound || !Rebound.shell || !Rebound.shell.openTool || !Rebound._debug) {
+      fail('panel never booted (Rebound.shell / Rebound._debug missing). Is js/dev/preview.js being injected by tools/serve.mjs?');
+      return;
+    }
     try {
-      if (window.Rebound && Rebound._debug) Rebound._debug.setSelection(SELS[selKey] || SELS.segment);
-    } catch (e) { /* ignore */ }
+      Rebound._debug.setSelection(SELS[selKey] || SELS.segment);
+    } catch (e) {
+      fail('setSelection threw: ' + (e.message || e));
+      return;
+    }
 
     var kind = screen.split(':')[0];
     var arg = screen.split(':')[1];
+    var verify = null; // () -> true when the requested screen is actually up
 
     if (kind === 'browse') {
       var list = Rebound.toolMeta.SECTIONS;
       var sect = list.filter(function (s) { return s.id === (arg || 'ease'); })[0] || list[0];
       var b = railBtn(sect.name);
-      if (b) b.click();
+      if (!b) { fail('no rail button for section "' + sect.name + '"'); return; }
+      b.click();
+      verify = function () { return document.querySelector('#rb-app.is-view-browse .rb-card'); };
     } else if (kind === 'search') {
       var inp = document.querySelector('.rb-topbar input');
-      if (inp) { inp.value = arg || 'spring'; inp.dispatchEvent(new window.Event('input', { bubbles: true })); }
+      if (!inp) { fail('no topbar search input in the DOM'); return; }
+      inp.value = arg || 'spring';
+      inp.dispatchEvent(new window.Event('input', { bubbles: true }));
+      verify = function () { return document.querySelector('#rb-app.is-view-browse .rb-cat-head'); };
     } else if (kind === 'tool') {
-      if (Rebound.shell) Rebound.shell.openTool(arg || 'ease');
+      var toolId = arg || 'ease';
+      Rebound.shell.openTool(toolId);
+      verify = function () { return document.querySelector('.rb-tool[data-tool="' + toolId + '"]:not(.rb-hidden)'); };
     } else if (kind === 'settings') {
-      var s = railBtn('Settings');
-      if (s) s.click();
+      var s = document.querySelector('.rb-home-head button[title="Settings"]') || railBtn('Settings');
+      if (!s) { fail('no Settings button found'); return; }
+      s.click();
+      verify = function () { return document.querySelector('.rb-modal, .rb-modal-body'); };
+    } else if (kind === 'add') {
+      var add = document.querySelector('.rb-home-head button[title="Add to Home"]');
+      if (!add) { fail('no "Add to Home" button on the Home header'); return; }
+      add.click();
+      verify = function () { return document.querySelector('.rb-home-browser'); };
+    } else if (kind !== 'home') {
+      fail('unknown screen "' + screen + '" (see the param list at the top of js/dev/preview.js)');
+      return;
     }
     // 'home' is the default landing — nothing to drive.
+
+    if (verify && !verify()) { fail('screen "' + screen + '" did not come up after driving it'); return; }
 
     // Keep attributes mirrored so capture.js serializes live form values whenever
     // it fires (after figmadelay). Cheap and idempotent; harmless in the browser.
@@ -158,7 +208,8 @@
     tries++;
     var ready = window.Rebound && Rebound.shell && Rebound.shell.openTool &&
       Rebound._debug && document.querySelector('.rb-rail');
-    if (ready || tries > 240) { drive(); return; }
+    if (ready) { drive(); return; }
+    if (tries > 240) { drive(); return; } // drive() reports exactly what is missing
     setTimeout(wait, 25);
   })();
 })();

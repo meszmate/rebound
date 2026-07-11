@@ -84,6 +84,23 @@
       }
     }
 
+    // How many of the current names the pattern would actually change. With
+    // real layer names this is exact; with the sample names it is only used
+    // via isIdentity() below, so a find that misses the samples cannot
+    // wrongly disable the button.
+    function changedCount() {
+      var names = currentNames();
+      var n = 0;
+      for (var i = 0; i < names.length; i++) {
+        if (makeName(names[i], st, i) !== names[i]) n++;
+      }
+      return n;
+    }
+    // A pattern that can never change any name, whatever the layers are called.
+    function isIdentity() {
+      return !st.base && !st.find && !st.prefix && !st.suffix && !st.number;
+    }
+
     var previewHost = el('div.rb-rename-preview');
     function renderPreview() {
       R.dom.clear(previewHost);
@@ -91,13 +108,20 @@
       var max = 8;
       if (!liveNames) previewHost.appendChild(el('div.rb-faint', { text: 'Examples (select layers to preview the real names):' }));
       for (var i = 0; i < Math.min(names.length, max); i++) {
-        previewHost.appendChild(el('div.rb-rename-row', null, [
+        var next = makeName(names[i], st, i);
+        var row = el('div.rb-rename-row', null, [
           el('span.rb-rename-old', { text: names[i] }),
           el('span.rb-rename-arrow', { text: '→' }),
-          el('span.rb-rename-new', { text: makeName(names[i], st, i) })
-        ]));
+          el('span.rb-rename-new', { text: next })
+        ]);
+        if (next === names[i]) { // unchanged: gray the row out
+          row.style.opacity = '0.45';
+          row.title = 'Unchanged';
+        }
+        previewHost.appendChild(row);
       }
       if (names.length > max) previewHost.appendChild(el('div.rb-faint', { text: 'and ' + (names.length - max) + ' more' }));
+      syncApply();
     }
 
     var baseF = field('New base name (keeps original if blank)', function (v) { st.base = v; renderPreview(); });
@@ -129,22 +153,38 @@
     var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Rename']);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(applyBtn);
+    var curSel = null;
     function setEnabled(sel) {
-      var ok = !!(sel && sel.hasComp && sel.selectedLayerCount > 0);
+      curSel = sel;
+      syncApply();
+    }
+    // Rename is enabled only with layers selected AND a pattern that would
+    // actually change at least one name (exact against the live names,
+    // identity-only against the samples).
+    function syncApply() {
+      if (!applyBtn) return; // preview renders before the footer exists
+      var ok = !!(curSel && curSel.hasComp && curSel.selectedLayerCount > 0) &&
+        (liveNames ? changedCount() > 0 : !isIdentity());
       applyBtn.disabled = !ok;
       applyBtn.classList.toggle('is-disabled', !ok);
     }
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); updateNames(sel); renderPreview(); setEnabled(sel); });
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); updateNames(sel); setEnabled(sel); renderPreview(); });
     var initSel = ctx.getSelection();
     scopeText.textContent = describe(initSel);
     updateNames(initSel);
-    renderPreview();
     setEnabled(initSel);
+    renderPreview();
 
     function doApply() {
       ctx.invoke('rename.apply', st)
-        .then(function (res) { ctx.toast('Renamed ' + res.renamed + ' layer' + (res.renamed === 1 ? '' : 's'), { kind: 'success' }); ctx.refreshSelection(); })
+        .then(function (res) {
+          // The host counts (and touches) only real changes, so this is honest.
+          ctx.toast(res.renamed
+            ? 'Renamed ' + res.renamed + ' layer' + (res.renamed === 1 ? '' : 's')
+            : 'No names changed', { kind: res.renamed ? 'success' : 'info' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not rename', { kind: 'error' }); });
     }
 

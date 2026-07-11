@@ -2,7 +2,8 @@
  * Rebound, Break tool.
  * Splits a multi-group shape layer into one shape layer per top-level group,
  * so each group can be animated and ordered on its own. Optionally removes the
- * original after the split.
+ * original after the split. The host leaves the created pieces selected, so a
+ * follow-up Stagger or Sequence acts on them immediately.
  */
 ;(function (R) {
   'use strict';
@@ -63,10 +64,16 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.selectedLayerCount); }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('break.apply', { deleteOriginal: deleteOriginal })
@@ -80,7 +87,10 @@
             }
             return;
           }
-          var msg = 'Broke into ' + res.created + ' layer' + (res.created === 1 ? '' : 's');
+          // The host selected every created piece, so the next tool (Stagger,
+          // Sequence) acts on them with no extra clicking.
+          var n = res.selected != null ? res.selected : res.created;
+          var msg = n + ' piece' + (n === 1 ? '' : 's') + ' selected · ready to stagger';
           if (skips) {
             msg += ' · skipped ' + skips.join(', ');
           }

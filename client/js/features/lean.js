@@ -54,15 +54,34 @@
     var amount = 8;
     var smoothing = 4;
 
-    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(leanSvg({ amount: amount, smoothing: smoothing }, 90)); }
+    // ---- live preview: a card slides left-right and banks into the motion ---
+    var cx = 80, cy = 41;
+    var card = svg('g', null, [svg('rect', { x: -26, y: -14, width: 52, height: 28, rx: 3, fill: 'var(--rb-accent)', 'fill-opacity': '0.9' })]);
+    var stage = svg('svg', { viewBox: '0 0 160 90', width: '100%', height: 90 }, [
+      svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }),
+      svg('line', { x1: 12, y1: cy + 30, x2: 148, y2: cy + 30, stroke: 'var(--rb-text-faint)', 'stroke-width': 1 }),
+      card
+    ]);
+    var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stage]);
+
+    // The card sweeps sinusoidally; its bank is the velocity smoothed over the
+    // Smoothing window (the same windowed average the rig's expression takes),
+    // scaled so the peak bank equals Amount.
+    var sim = R.ui.miniSim({ el: previewHost, draw: function (t) {
+      var w = 2.2;
+      var x = cx + Math.sin(t * w) * 42;
+      var ws = Math.max(smoothing, 0.5) / 30;
+      // average of cos over [t-ws, t]: the smoothed, lagged velocity
+      var vAvg = (Math.sin(t * w) - Math.sin((t - ws) * w)) / (ws * w);
+      var bank = -vAvg * amount;
+      card.setAttribute('transform', 'translate(' + x.toFixed(1) + ',' + cy + ') rotate(' + bank.toFixed(1) + ')');
+    } });
 
     var amountSlider = ui.slider({ label: 'Amount', min: 0, max: 45, step: 0.5, value: amount,
-      format: function (v) { return R.units.round(v, 1) + '°'; }, onInput: function (v) { amount = v; renderPreview(); } });
+      format: function (v) { return R.units.round(v, 1) + '°'; }, onInput: function (v) { amount = v; } });
     var smoothSlider = ui.slider({ label: 'Smoothing', min: 0, max: 30, step: 1, value: smoothing,
-      format: function (v) { return Math.round(v) + 'f'; }, onInput: function (v) { smoothing = v; renderPreview(); } });
+      format: function (v) { return Math.round(v) + 'f'; }, onInput: function (v) { smoothing = v; } });
 
-    renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
       el('div.rb-faint', { text: 'Tilts each layer into its own motion, rotation reacts to horizontal velocity. Amount is degrees per 1000 px/s.' }),
       previewHost,
@@ -73,10 +92,39 @@
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove']));
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncButtons(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.selectedLayerCount);
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); syncButtons(sel); syncRig(); });
     scopeText.textContent = describe(ctx.getSelection());
+    syncButtons(ctx.getSelection());
+
+    // ---- rig read-back: selecting a rigged layer loads its values -----------
+    var riggedCount = 0, rigSig = null, rigBusy = false;
+    function syncRig() {
+      applyBtn.textContent = riggedCount > 0 ? 'Update' : 'Apply';
+      if (riggedCount > 0) scopeText.textContent = 'Lean on ' + riggedCount + ' layer' + (riggedCount === 1 ? '' : 's');
+    }
+    function readRig(sel) {
+      if (!sel || !sel.hasComp || !sel.selectedLayerCount) { riggedCount = 0; rigSig = null; syncRig(); return; }
+      var sig = (sel.layers || []).map(function (l) { return l.index + ':' + l.name + ':' + l.effectCount; }).join('|');
+      if (sig === rigSig || rigBusy) return;
+      rigBusy = true;
+      ctx.invoke('rig.read', { tag: 'lean', sliders: ['Lean Amount', 'Lean Smooth'] })
+        .then(function (r) {
+          rigBusy = false;
+          rigSig = sig;
+          riggedCount = (r && r.rigged) || 0;
+          if (riggedCount > 0 && r.values) {
+            applyState({ amount: r.values['Lean Amount'], smoothing: r.values['Lean Smooth'] });
+          }
+          syncRig();
+        })
+        .catch(function () { rigBusy = false; });
+    }
 
     function doApply() {
       ctx.invoke('lean.apply', { amount: amount, smoothing: smoothing })
@@ -96,7 +144,6 @@
       if (!s) return;
       if (s.amount != null) { amount = s.amount; amountSlider.set(s.amount); }
       if (s.smoothing != null) { smoothing = s.smoothing; smoothSlider.set(s.smoothing); }
-      renderPreview();
     }
 
     return {
@@ -107,7 +154,11 @@
         thumbFor: function (st, opts) { return leanSvg(st, (opts && opts.height) || 34); },
         defaults: LEAN_DEFAULTS
       },
-      destroy: off
+      selectionRead: {
+        matches: function (sel) { return !!(sel && sel.hasComp); },
+        apply: function (res, sel) { readRig(sel); }
+      },
+      destroy: function () { sim.destroy(); off(); }
     };
   }
 

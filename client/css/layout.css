@@ -316,7 +316,9 @@
   background: var(--rb-text-faint);
   flex: none;
 }
+/* Green only with a live selection; amber = comp open, nothing selected. */
 .rb-selstrip.is-live .rb-dot { background: var(--rb-success); }
+.rb-selstrip.is-comp .rb-dot { background: var(--rb-warning); }
 
 /* Control rows used by tools. */
 .rb-control-row {

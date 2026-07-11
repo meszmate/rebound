@@ -120,7 +120,10 @@
   background: var(--rb-text-faint);
   flex: none;
 }
+/* Green = something is selected and ready to act on; amber = a comp is open
+   but nothing is selected; neutral = no comp at all. */
 .rb-selchip .rb-dot.is-live { background: var(--rb-success); }
+.rb-selchip .rb-dot.is-comp { background: var(--rb-warning); }
 .rb-seltext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 /* Quiet action chip, used by the Context Home suggested-actions row. */
 .rb-ctx-chip {

@@ -61,6 +61,41 @@
     return shape;
   }
 
+  // A project solid source we can reuse for this comp's vignette: a
+  // SolidSource footage item named 'Vignette' matching the comp size. Reusing
+  // it (recolored black) instead of addSolid on every apply keeps repeated
+  // applies from piling orphaned 'Vignette' footage items into the project.
+  function findVignetteSource(comp) {
+    try {
+      var items = app.project.items;
+      for (var i = 1; i <= items.length; i++) {
+        var it = items[i];
+        if (it instanceof FootageItem && it.mainSource && (it.mainSource instanceof SolidSource) &&
+            it.name === 'Vignette' && it.width === comp.width && it.height === comp.height) {
+          return it;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // Drop any 'Vignette' solid source left with zero uses (the layer that used
+  // it was removed by a replace), so the project stays clean.
+  function pruneOrphanSources() {
+    try {
+      var items = app.project.items;
+      for (var i = items.length; i >= 1; i--) {
+        var it = items[i];
+        try {
+          if (it instanceof FootageItem && it.mainSource && (it.mainSource instanceof SolidSource) &&
+              it.name === 'Vignette' && it.usedIn.length === 0) {
+            it.remove();
+          }
+        } catch (eItem) {}
+      }
+    } catch (e) {}
+  }
+
   function apply(args) {
     var comp = util.activeComp();
 
@@ -72,7 +107,17 @@
     // Replace any earlier Vignette layer instead of stacking a new one.
     if (args.replace !== false) util.removeLayersNamed(comp, 'Vignette');
 
-    var layer = comp.layers.addSolid([0, 0, 0], 'Vignette', comp.width, comp.height, 1);
+    var layer = null;
+    var existing = findVignetteSource(comp);
+    if (existing) {
+      try {
+        existing.mainSource.color = [0, 0, 0];
+        layer = comp.layers.add(existing);
+        layer.name = 'Vignette';
+      } catch (eReuse) { layer = null; }
+    }
+    if (!layer) layer = comp.layers.addSolid([0, 0, 0], 'Vignette', comp.width, comp.height, 1);
+    pruneOrphanSources();
 
     // Mask is described in layer space; the solid spans the full comp.
     var cx = comp.width / 2;

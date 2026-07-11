@@ -179,11 +179,33 @@
       'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + inner + '</svg>';
   }
 
+  // Strip a redundant leading tool name from a description shown next to a
+  // title ("Spring. The engine's real overshoot…" -> "The engine's real
+  // overshoot…"). Mechanical: name + separator (". : , -" or a dash) at the
+  // very start, case-insensitive; the remainder is re-capitalised.
+  function stripLead(name, text) {
+    var t = String(text || '');
+    var n = String(name || '').trim();
+    if (!n || !t) return t;
+    var esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var out = t.replace(new RegExp('^\\s*' + esc + '\\s*[.:,\\u2013\\u2014-]\\s+', 'i'), '');
+    if (out === t) return t;
+    return out ? out.charAt(0).toUpperCase() + out.slice(1) : t;
+  }
+  // Apply the same strip at load to the static catalog, so no TOOLS entry can
+  // ship a "Name. …" description either.
+  for (var _id in TOOLS) {
+    if (TOOLS.hasOwnProperty(_id) && TOOLS[_id].desc) {
+      TOOLS[_id].desc = stripLead(_id, TOOLS[_id].desc);
+    }
+  }
+
   R.toolMeta = {
     ICONS: ICONS,
     SECTIONS: SECTIONS,
     TOOLS: TOOLS,
     svg: svg,
+    stripLead: stripLead,
     forTool: function (id) { return TOOLS[id] || null; }
   };
 })(window.Rebound = window.Rebound || {});

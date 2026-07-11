@@ -39,6 +39,15 @@ http
         res.end('not found');
         return;
       }
+      // Dev-only: give the served index.html the preview driver. The script
+      // self-gates on a `?preview=1` query string, so a plain open of the page
+      // is untouched, and the shipped extension (which never goes through this
+      // server) never loads it.
+      if (p === '/index.html') {
+        data = Buffer.from(
+          data.toString('utf8').replace('</body>', '  <script src="js/dev/preview.js"></script>\n</body>')
+        );
+      }
       res.writeHead(200, {
         'Content-Type': types[path.extname(file)] || 'application/octet-stream',
         'Cache-Control': 'no-cache',

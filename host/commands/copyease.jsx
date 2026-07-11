@@ -35,7 +35,50 @@
     return { speed: ke.speed, influence: ke.influence };
   }
 
-  // Read the ease off the first selected key at dim 0.
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+  function valuesAt(prop, index) {
+    var v = prop.keyValue(index);
+    return v instanceof Array ? v : [v];
+  }
+
+  // Signed average speed (dv/dt) of the segment between keys a and b at dim 0
+  // (the dimension the copied ease is read from). Spatial props measure along
+  // the motion path. Returns 0 for a degenerate / non-moving segment, which the
+  // curve reconstruction treats as "no recoverable timing" (linear side).
+  function segmentAvg(prop, a, b) {
+    var dt = prop.keyTime(b) - prop.keyTime(a);
+    if (dt <= 0) return 0;
+    var aVals = valuesAt(prop, a);
+    var bVals = valuesAt(prop, b);
+    var dv;
+    if (util.isSpatial(prop)) {
+      dv = util.spatialDelta(prop, prop.keyTime(a), prop.keyTime(b), aVals, bVals);
+    } else {
+      dv = (bVals[0] || 0) - (aVals[0] || 0);
+    }
+    var avg = dv / dt;
+    return isFinite(avg) ? avg : 0;
+  }
+
+  // Reconstruct a normalized cubic-bezier from the copied key's in/out ease, so
+  // the panel can PREVIEW the real copied ease (same math as ease.jsx's
+  // reconstructSegment, adapted to a single key). The out handle normalizes by
+  // the FOLLOWING segment's average speed, the in handle by the PRECEDING
+  // segment's; a missing or non-moving side carries no recoverable timing and
+  // reads back as the linear diagonal on that side.
+  function reconstructCurve(prop, index, inE, outE) {
+    var x1 = clamp01(outE.influence / 100);
+    var x2 = 1 - clamp01(inE.influence / 100);
+    var avgOut = index < prop.numKeys ? segmentAvg(prop, index, index + 1) : 0;
+    var avgIn = index > 1 ? segmentAvg(prop, index - 1, index) : 0;
+    var y1 = Math.abs(avgOut) < 1e-6 ? x1 : (outE.speed / avgOut) * x1;
+    var y2 = Math.abs(avgIn) < 1e-6 ? x2 : 1 - (inE.speed / avgIn) * (1 - x2);
+    return { type: 'bezier', x1: x1, y1: y1, x2: x2, y2: y2 };
+  }
+
+  // Read the ease off the first selected key at dim 0, plus a normalized curve
+  // and the source names so the panel can show WHAT was copied and from where.
   function copyEase() {
     var list = selectedProps();
     if (!list.length) {
@@ -45,9 +88,14 @@
     var index = prop.selectedKeys[0];
     var inE = prop.keyInTemporalEase(index)[0];
     var outE = prop.keyOutTemporalEase(index)[0];
+    var layerName = '';
+    try { layerName = util.layerOfProperty(prop).name; } catch (e) { /* orphan */ }
     return {
       inEase: easeToPlain(inE),
-      outEase: easeToPlain(outE)
+      outEase: easeToPlain(outE),
+      curve: reconstructCurve(prop, index, inE, outE),
+      layerName: layerName,
+      propertyName: prop.name
     };
   }
 

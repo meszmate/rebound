@@ -12,7 +12,22 @@
   var el = R.dom.el;
 
   // Tools that render their own live preview, so the shell skips the demo card.
+  // This map is the fast path for the interactive PreviewStage tools; any OTHER
+  // tool that mounts a live preview is detected structurally after mount (see
+  // hasOwnPreview), so Align / Stagger / Backdrop and friends never show the
+  // static demo card above an identical live preview.
   var PREVIEW_TOOLS = { ease: 1, spring: 1, recoil: 1, bounce: 1, gradient: 1 };
+
+  // Does the freshly mounted tool body already contain a live preview? Two
+  // families exist: the PreviewStage/curve/gradient surfaces (classed), and the
+  // shared previewHost pattern — a sunken inline-styled box holding a rendered
+  // SVG/canvas (Align, Stagger, Backdrop, Drift, Lean, Motion, Follow...).
+  function hasOwnPreview(host) {
+    return !!host.querySelector(
+      '.rb-preview, .rb-preview-stage, .rb-curve, .rb-grad-editor, ' +
+      'div[style*="rb-bg-sunken"] svg, div[style*="rb-bg-sunken"] canvas'
+    );
+  }
   var STAR_ICON = '<path d="M12 3l2.6 6.3L21 10l-4.8 4.2L17.5 21 12 17.3 6.5 21l1.3-6.8L3 10l6.4-.7z"/>';
 
   var appStore = R.createStore({
@@ -143,8 +158,6 @@
     var kicks = 0;
     var kickTimer = setInterval(function () { nudgeRepaint(); if (++kicks >= 4) clearInterval(kickTimer); }, 300);
     nudgeRepaint(true);
-
-    R.ui.toast('Rebound ready', { kind: 'info', duration: 1400 });
   }
 
   var repaintTimer = null;
@@ -196,6 +209,9 @@
     var btn = m.wrap.querySelector('.rb-action-bar .rb-btn.is-primary');
     if (!btn || btn.disabled) return false;
     btn.click();
+    // Acknowledge the apply right on the button (green ring + check), so a
+    // keyboard apply is as visible as a click.
+    if (R.ui.flashSuccess) R.ui.flashSuccess(btn);
     return true;
   }
 
@@ -291,7 +307,11 @@
     var selText = el('span.rb-seltext', { text: '' });
     appStore.select(function (s) { return s.selection; }, function (sel) {
       var ok = sel && sel.hasComp;
-      selDot.classList.toggle('is-live', !!ok);
+      var layers = (ok && sel.selectedLayerCount) || 0;
+      // Green only when something is actually selected; amber when a comp is
+      // open but nothing is selected; neutral with no comp at all.
+      selDot.classList.toggle('is-live', layers > 0);
+      selDot.classList.toggle('is-comp', !!ok && layers === 0);
       selText.textContent = !ok ? 'No comp'
         : (sel.totalSelectedKeys + ' key' + (sel.totalSelectedKeys === 1 ? '' : 's') +
            ' · ' + sel.selectedLayerCount + ' layer' + (sel.selectedLayerCount === 1 ? '' : 's'));
@@ -390,10 +410,11 @@
       el('span.rb-cat-count', { text: results.length + ' match' + (results.length === 1 ? '' : 'es') })
     ]));
     if (!results.length) {
-      browseEl.appendChild(el('div.rb-empty', null, [
-        el('div', { text: 'No tool matches “' + searchQuery + '”' }),
-        el('button.rb-btn', { onclick: function () { searchInput.value = ''; searchQuery = ''; showCategory('ease'); } }, ['Browse all'])
-      ]));
+      browseEl.appendChild(R.ui.emptyState({
+        title: 'No tool matches “' + searchQuery + '”',
+        hint: 'Try another word, or browse the categories on the left.',
+        action: { label: 'Browse all', onClick: function () { searchInput.value = ''; searchQuery = ''; showCategory('ease'); } }
+      }));
       return;
     }
     var grid = el('div.rb-card-grid');
@@ -494,7 +515,7 @@
         host.appendChild(el('div.rb-empty', null, ['This tool failed to load: ' + (err.message || err)]));
       }
       var demoNode = null;
-      if (R.toolDemos && R.toolDemos[tool.id] && !PREVIEW_TOOLS[tool.id]) {
+      if (R.toolDemos && R.toolDemos[tool.id] && !PREVIEW_TOOLS[tool.id] && !hasOwnPreview(host)) {
         demoNode = buildDemo(R.toolDemos[tool.id]);
         host.insertBefore(demoNode, host.firstChild);
       }

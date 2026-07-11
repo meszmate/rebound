@@ -16,12 +16,22 @@
  *   layers: [{
  *     name, inFrame, outFrame, type: 'solid'|'null'|'shape'|'text'|'other',
  *     color?: [r,g,b] (0..1), size?: [w,h],
+ *     shapes?: [SHAPE],                       // static geometry (shape layers)
  *     transform: { anchor, position, scale, rotation, opacity }   // each a PROP
  *   }]
  * }
  * PROP = { static:true, value:Number|Number[] }
  *      | { static:false, keys:[ { t:frame, v:Number|Number[], bez:{x1,y1,x2,y2}|null } ] }
  *   bez is the ease of the segment FROM this key to the next (null => linear).
+ * SHAPE = { ty:'gr', name, transform:{anchor,position,scale,rotation,skew,skewAxis,opacity}, items:[SHAPE] }
+ *       | { ty:'sh', name, closed, vertices:[[x,y]], inTangents:[[x,y]], outTangents:[[x,y]] }
+ *       | { ty:'rc', name, size:[w,h], position:[x,y], roundness }
+ *       | { ty:'el', name, size:[w,h], position:[x,y] }
+ *       | { ty:'fl', name, color:[r,g,b], opacity }
+ *       | { ty:'st', name, color:[r,g,b], opacity, width, lineCap, lineJoin }
+ *   Coordinates are group-local, exactly as AE nests them, which is also
+ *   Lottie's convention — so the tree maps 1:1 (each 'gr' gains a trailing
+ *   'tr' item carrying its transform).
  */
 ;(function (root, factory) {
   var mod = factory();
@@ -106,11 +116,104 @@
       L.sh = Math.round(size[1]);
       L.sc = hex(layer.color);
     } else if (ty === 4) {
-      // v1: a colored rectangle the size of the layer carries the visual so the
-      // transform animation reads correctly; full shape geometry is a later pass.
-      L.shapes = rectShape(layer.size || [100, 100], layer.color || [0.5, 0.5, 0.5]);
+      // Real geometry when the host read it; otherwise fall back to a colored
+      // rectangle the size of the layer so the transform animation still reads.
+      L.shapes = (layer.shapes && layer.shapes.length)
+        ? shapeItems(layer.shapes)
+        : rectShape(layer.size || [100, 100], layer.color || [0.5, 0.5, 0.5]);
     }
     return L;
+  }
+
+  // ---- Shape geometry (static, group-local, mirrors the AE nesting) ---------
+
+  function pt2(v, dx, dy) { return (v && v.length >= 2) ? [r3(v[0]), r3(v[1])] : [dx, dy]; }
+
+  function shapeTransformItem(t) {
+    t = t || {};
+    var it = {
+      ty: 'tr',
+      p: { a: 0, k: pt2(t.position, 0, 0) },
+      a: { a: 0, k: pt2(t.anchor, 0, 0) },
+      s: { a: 0, k: pt2(t.scale, 100, 100) },
+      r: { a: 0, k: r3(t.rotation || 0) },
+      o: { a: 0, k: t.opacity == null ? 100 : r3(t.opacity) }
+    };
+    if (t.skew) {
+      it.sk = { a: 0, k: r3(t.skew) };
+      it.sa = { a: 0, k: r3(t.skewAxis || 0) };
+    }
+    return it;
+  }
+
+  function shapeItem(item) {
+    if (!item || !item.ty) return null;
+    if (item.ty === 'gr') {
+      return {
+        ty: 'gr',
+        nm: item.name || 'Group',
+        it: shapeItems(item.items).concat([shapeTransformItem(item.transform)])
+      };
+    }
+    if (item.ty === 'sh') {
+      var v = [], ti = [], to = [];
+      var n = (item.vertices || []).length;
+      for (var i = 0; i < n; i++) {
+        v.push(pt2(item.vertices[i], 0, 0));
+        ti.push(pt2(item.inTangents && item.inTangents[i], 0, 0));
+        to.push(pt2(item.outTangents && item.outTangents[i], 0, 0));
+      }
+      return {
+        ty: 'sh', d: 1, nm: item.name || 'Path',
+        ks: { a: 0, k: { i: ti, o: to, v: v, c: !!item.closed } }
+      };
+    }
+    if (item.ty === 'rc') {
+      return {
+        ty: 'rc', d: 1, nm: item.name || 'Rectangle',
+        s: { a: 0, k: pt2(item.size, 100, 100) },
+        p: { a: 0, k: pt2(item.position, 0, 0) },
+        r: { a: 0, k: r3(item.roundness || 0) }
+      };
+    }
+    if (item.ty === 'el') {
+      return {
+        ty: 'el', d: 1, nm: item.name || 'Ellipse',
+        s: { a: 0, k: pt2(item.size, 100, 100) },
+        p: { a: 0, k: pt2(item.position, 0, 0) }
+      };
+    }
+    if (item.ty === 'fl') {
+      var fc = item.color || [0, 0, 0];
+      return {
+        ty: 'fl', nm: item.name || 'Fill',
+        c: { a: 0, k: [r3(fc[0]), r3(fc[1]), r3(fc[2]), 1] },
+        o: { a: 0, k: item.opacity == null ? 100 : r3(item.opacity) },
+        r: 1
+      };
+    }
+    if (item.ty === 'st') {
+      var sc = item.color || [0, 0, 0];
+      return {
+        ty: 'st', nm: item.name || 'Stroke',
+        c: { a: 0, k: [r3(sc[0]), r3(sc[1]), r3(sc[2]), 1] },
+        o: { a: 0, k: item.opacity == null ? 100 : r3(item.opacity) },
+        w: { a: 0, k: item.width == null ? 1 : r3(item.width) },
+        lc: item.lineCap || 1, // AE and Lottie share the enum: 1 butt, 2 round, 3 square
+        lj: item.lineJoin || 1,
+        ml: 4
+      };
+    }
+    return null; // unknown item kinds are dropped, not corrupted
+  }
+
+  function shapeItems(items) {
+    var out = [];
+    for (var i = 0; i < (items || []).length; i++) {
+      var it = shapeItem(items[i]);
+      if (it) out.push(it);
+    }
+    return out;
   }
 
   function rectShape(size, color) {
@@ -146,6 +249,7 @@
     lottieProp: lottieProp,
     transformBlock: transformBlock,
     buildLayer: buildLayer,
+    shapeItems: shapeItems,
     hex: hex,
     LINEAR: LINEAR
   };

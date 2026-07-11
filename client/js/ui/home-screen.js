@@ -1304,6 +1304,14 @@
       var section = 'all';
       var listEl = el('div.rb-home-browser-list');
       var chipsEl = el('div.rb-home-bchips');
+      // The chip row scrolls horizontally; a plain mouse wheel only produces
+      // deltaY, so map it onto scrollLeft (trackpads already pan natively).
+      chipsEl.addEventListener('wheel', function (e) {
+        if (!e.deltaX && e.deltaY && chipsEl.scrollWidth > chipsEl.clientWidth) {
+          chipsEl.scrollLeft += e.deltaY;
+          e.preventDefault();
+        }
+      }, { passive: false });
 
       var search = el('input', { type: 'text', spellcheck: 'false', 'aria-label': 'Search everything',
         placeholder: 'Search everything: spring, wiggle, align…',
@@ -1412,7 +1420,10 @@
           listEl.appendChild(gridEl);
         });
         if (!any) {
-          listEl.appendChild(el('div.rb-empty', { text: 'Nothing matches “' + query + '”.' }));
+          listEl.appendChild(R.ui.emptyState ? R.ui.emptyState({
+            title: 'Nothing matches “' + query + '”',
+            hint: 'Search across widgets, actions, presets, expressions and tools.'
+          }) : el('div.rb-empty', { text: 'Nothing matches “' + query + '”.' }));
         }
         listEl.scrollTop = 0;
       }
@@ -1428,7 +1439,10 @@
             : a.presetState ? el('span.rb-home-badge.is-open', { text: 'preset', title: 'Opens the tool with this preset loaded' })
               : el('span.rb-home-badge.is-open', { text: 'open', title: 'Opens the full tool in the panel' });
         var vis = tileVisual(a, {});
-        var visWrap = el('div.rb-home-card-vis', null, [vis || iconSpan(a.toolId, 'rb-home-ico')]);
+        var countChip = el('span.rb-home-card-count');
+        // The count chip lives on the thumbnail corner, not in the title row,
+        // so "1 on board" never truncates the card's name.
+        var visWrap = el('div.rb-home-card-vis', null, [vis || iconSpan(a.toolId, 'rb-home-ico'), countChip]);
         if (!vis) visWrap.classList.add('is-icon');
         // A 1-click action carries its own specific line; for a widget/open of a
         // tool, the tool's own demo caption explains it far better than the generic
@@ -1438,13 +1452,19 @@
         // A preset card explains ITS preset (never the tool's generic demo line);
         // a plain tool/widget card reads better with the demo caption.
         var descText = (a.kind === 'apply' || a.presetState) ? (a.desc || cap) : (cap || a.desc || '');
-        var countChip = el('span.rb-home-card-count');
         var addBtn = el('button.rb-home-card-add', { type: 'button' });
         var nameText = (copts && copts.shortName && a.presetName) ? a.presetName : a.label;
+        // Drop a redundant leading tool name ("Spring. The engine's…"): the card
+        // title already says it.
+        if (R.toolMeta && R.toolMeta.stripLead) {
+          var t = R.tools.get(a.toolId);
+          descText = R.toolMeta.stripLead(a.label, descText);
+          if (t && t.title) descText = R.toolMeta.stripLead(t.title, descText);
+        }
         var card = el('div.rb-home-card', { title: a.label }, [
           visWrap,
           el('div.rb-home-card-body', null, [
-            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: nameText }), countChip, badge]),
+            el('div.rb-home-card-top', null, [el('span.rb-home-card-name', { text: nameText }), badge]),
             el('div.rb-home-card-desc', { text: descText }),
             addBtn
           ])

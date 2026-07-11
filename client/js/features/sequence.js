@@ -3,6 +3,10 @@
  * Lines the selected layers up end-to-end in time so each one begins when the
  * previous ends, with an overlap control (negative leaves gaps, positive
  * overlaps) and an optional trim-to-fit that clips each layer to its slot.
+ * The preview chains the REAL selection when layers are selected (truncated
+ * names, real relative durations, via R.timingBars from the Stagger tool) and
+ * plays a sweeping playhead that lights each bar as it starts; four canned
+ * bars stand in when nothing is selected.
  */
 ;(function (R) {
   'use strict';
@@ -12,24 +16,65 @@
   var ui = R.ui;
 
   var LABELS = ['A', 'B', 'C', 'D'];
-  // Four layer bars chained end-to-end: overlap slides each next bar left
-  // (overlap) or right (gap); Trim clips each bar to its slot so they tile.
+  // Layer bars chained end-to-end: overlap slides each next bar left (overlap)
+  // or right (gap); Trim clips each bar where the next one starts. Live bars
+  // ({ name, stack, durFrac } from R.timingBars.layerBars) carry real names
+  // and relative durations; `animate` adds the shared playable sweep.
   function seqSvg(state, h) {
-    var W = 160, H = 100, pad = 8, n = 4;
-    var rowH = (H - 2 * pad) / n, barH = Math.max(6, rowH - 4), bw = 46;
-    var ov = Math.max(-30, Math.min(30, state.overlapFrames || 0));
-    var slot = bw - ov; if (slot < 6) slot = 6;
-    var idx = (state.order === 'reverse') ? [3, 2, 1, 0] : [0, 1, 2, 3];
-    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
-    for (var r = 0; r < n; r++) {
-      var start = pad + r * slot;
-      var w = state.trim ? slot : bw;
-      var y = pad + r * rowH + (rowH - barH) / 2;
-      if (start + w > W - pad) w = (W - pad) - start;
-      if (w < 5) w = 5;
-      kids.push(svg('rect', { x: start.toFixed(1), y: y.toFixed(1), width: w.toFixed(1), height: barH.toFixed(1), rx: 2, fill: 'var(--rb-accent)', 'fill-opacity': state.trim ? '0.9' : '0.7' }));
-      kids.push(svg('text', { x: (start + 5).toFixed(1), y: (y + barH - 3).toFixed(1), 'font-size': 8, 'font-weight': 700, fill: '#fff', opacity: '0.9' }, [LABELS[idx[r]]]));
+    var W = 160, H = 100, pad = 8;
+    var tb = R.timingBars;
+    var live = !!(state.bars && state.bars.length);
+    var bars, i;
+    if (live) {
+      bars = state.bars.slice();
+      if (state.order === 'topdown') bars.sort(function (a, b) { return a.stack - b.stack; });
+      else if (state.order === 'reverse') bars.reverse();
+    } else {
+      bars = [];
+      var idx = (state.order === 'reverse') ? [3, 2, 1, 0] : [0, 1, 2, 3];
+      for (i = 0; i < 4; i++) bars.push({ name: LABELS[idx[i]], durFrac: 1 });
     }
+    var n = bars.length;
+    var gutter = live ? 36 : 0;
+    var x0 = pad + gutter, x1 = W - pad;
+    var rowH = (H - 2 * pad) / n, barH = Math.max(6, Math.min(14, rowH - 4));
+    var ov = Math.max(-30, Math.min(30, state.overlapFrames || 0));
+
+    // Chain the bars (each starts where the previous ends minus the overlap),
+    // then scale the whole chain down if it runs past the box.
+    var starts = [], widths = [], cursor = 0, extent = 1;
+    for (i = 0; i < n; i++) {
+      var w = live ? Math.max(14, 46 * (bars[i].durFrac || 1)) : 46;
+      var slot = w - ov; if (slot < 6) slot = 6;
+      starts.push(cursor); widths.push(w);
+      if (cursor + w > extent) extent = cursor + w;
+      cursor += slot;
+    }
+    var scale = Math.min(1, (x1 - x0) / extent);
+
+    var kids = [svg('rect', { x: 1, y: 1, width: W - 2, height: H - 2, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 })];
+    for (i = 0; i < n; i++) {
+      var x = x0 + starts[i] * scale;
+      var bw = widths[i] * scale;
+      // Trim clips a bar where the next one starts (the host only ever clips
+      // outPoints, never extends them).
+      if (state.trim && i < n - 1) {
+        var next = x0 + starts[i + 1] * scale;
+        if (next > x && next < x + bw) bw = next - x;
+      }
+      if (bw < 5) bw = 5;
+      var y = pad + i * rowH + (rowH - barH) / 2;
+      var bar = svg('rect', { x: x.toFixed(1), y: y.toFixed(1), width: bw.toFixed(1), height: barH.toFixed(1), rx: 2,
+        fill: 'var(--rb-accent)', 'fill-opacity': state.animate ? '0.3' : (state.trim ? '0.9' : '0.7') });
+      if (state.animate && tb) bar.appendChild(tb.lightUp((x - x0) / (x1 - x0)));
+      kids.push(bar);
+      if (live) {
+        kids.push(svg('text', { x: pad, y: (y + barH / 2 + 2.5).toFixed(1), 'font-size': 6.5, fill: 'var(--rb-text-faint)' }, [bars[i].name]));
+      } else {
+        kids.push(svg('text', { x: (x + 5).toFixed(1), y: (y + barH - 3).toFixed(1), 'font-size': 8, 'font-weight': 700, fill: '#fff', opacity: '0.9' }, [bars[i].name]));
+      }
+    }
+    if (state.animate && tb) kids.push(tb.sweepLine(x0, x1, H));
     return svg('svg', { viewBox: '0 0 160 100', width: '100%', height: h }, kids);
   }
 
@@ -66,9 +111,14 @@
     var order = 'selection';
     var overlapFrames = 0;
     var trim = false;
+    var lastSel = ctx.getSelection();
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(seqSvg({ order: order, overlapFrames: overlapFrames, trim: trim }, 100)); }
+    function renderPreview() {
+      R.dom.clear(previewHost);
+      var bars = R.timingBars ? R.timingBars.layerBars(lastSel, 5) : null;
+      previewHost.appendChild(seqSvg({ order: order, overlapFrames: overlapFrames, trim: trim, bars: bars, animate: true }, 100));
+    }
 
     var orderSeg = ui.segmented([
       { value: 'selection', label: 'Selection', title: 'Use the order the layers were selected in' },
@@ -92,10 +142,18 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.selectedLayerCount >= 2); }
+    function sync(sel) {
+      lastSel = sel;
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+      renderPreview();
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('sequence.apply', { order: order, overlapFrames: overlapFrames, trim: trim })

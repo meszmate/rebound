@@ -17,6 +17,10 @@
   var STROKE = 'ADBE Vector Graphic - Stroke';
   var STROKE_COLOR = 'ADBE Vector Stroke Color';
   var STROKE_WIDTH = 'ADBE Vector Stroke Width';
+  var STROKE_CAP = 'ADBE Vector Stroke Line Cap';
+  var STROKE_DASHES = 'ADBE Vector Stroke Dashes';
+  var DASH_1 = 'ADBE Vector Stroke Dash 1';
+  var GAP_1 = 'ADBE Vector Stroke Gap 1';
 
   function clamp01(v) {
     if (v == null || isNaN(v)) return 0;
@@ -51,14 +55,55 @@
     return null;
   }
 
+  // First immediate child of a group with the given matchName, or null. The
+  // Dashes group's entries are dynamic, so we must scan instead of property().
+  function findChild(group, matchName) {
+    for (var i = 1; i <= group.numProperties; i++) {
+      if (group.property(i).matchName === matchName) return group.property(i);
+    }
+    return null;
+  }
+
+  // Line cap and dash pattern. style.cap is 'butt'/'round' (AE enum 1/2) or
+  // null to leave the cap alone; style.dashed true adds Dash 1 + Gap 1 (with
+  // canAddProperty guards), false clears any dash/gap entries, null leaves the
+  // pattern untouched (quick actions send no style).
+  function applyStrokeStyle(stroke, style) {
+    if (!style) return;
+    if (style.cap) {
+      try { setProp(stroke.property(STROKE_CAP), style.cap === 'round' ? 2 : 1); } catch (eCap) {}
+    }
+    if (style.dashed == null) return;
+    var dashes = null;
+    try { dashes = stroke.property(STROKE_DASHES); } catch (eDash) {}
+    if (!dashes) return;
+    if (style.dashed) {
+      var d = findChild(dashes, DASH_1);
+      if (!d && dashes.canAddProperty(DASH_1)) d = dashes.addProperty(DASH_1);
+      if (d) setProp(d, style.dash);
+      var g = findChild(dashes, GAP_1);
+      if (!g && dashes.canAddProperty(GAP_1)) g = dashes.addProperty(GAP_1);
+      if (g) setProp(g, style.gap);
+    } else {
+      // Solid again: strip every dash/gap entry (leave Offset etc. alone).
+      for (var i = dashes.numProperties; i >= 1; i--) {
+        var mn = dashes.property(i).matchName;
+        if (mn.indexOf('ADBE Vector Stroke Dash') === 0 || mn.indexOf('ADBE Vector Stroke Gap') === 0) {
+          try { dashes.property(i).remove(); } catch (eRm) {}
+        }
+      }
+    }
+  }
+
   // Add (or reuse) a Stroke on a single shape group's contents collection and
-  // set its color and width.
-  function strokeContents(contents, rgb, width) {
+  // set its color, width, cap, and dash pattern.
+  function strokeContents(contents, rgb, width, style) {
     var stroke = findStroke(contents);
     if (!stroke) stroke = contents.addProperty(STROKE);
     if (!stroke) return 0;
     setProp(stroke.property(STROKE_COLOR), [rgb[0], rgb[1], rgb[2]]);
     setProp(stroke.property(STROKE_WIDTH), width);
+    applyStrokeStyle(stroke, style);
     return 1;
   }
 
@@ -66,15 +111,15 @@
   // Each shape group within ('ADBE Vector Group') exposes its own contents
   // collection ('ADBE Vectors Group'); stroke that collection, then descend into
   // any groups nested inside it. The container collection itself is not stroked.
-  function strokeTree(contents, rgb, width) {
+  function strokeTree(contents, rgb, width, style) {
     var hit = 0;
     for (var i = 1; i <= contents.numProperties; i++) {
       var child = contents.property(i);
       if (child.matchName === GROUP) {
         var inner = child.property(GROUP_CONTENTS);
         if (inner) {
-          hit += strokeContents(inner, rgb, width);
-          hit += strokeTree(inner, rgb, width);
+          hit += strokeContents(inner, rgb, width, style);
+          hit += strokeTree(inner, rgb, width, style);
         }
       }
     }
@@ -105,6 +150,12 @@
     var rgb = readColor(args && args.rgb);
     var width = num(args && args.width, 4);
     if (width < 0) width = 0;
+    var style = {
+      cap: (args && (args.cap === 'round' || args.cap === 'butt')) ? args.cap : null,
+      dashed: (args && args.dashed != null) ? !!args.dashed : null,
+      dash: Math.max(0, num(args && args.dash, 10)),
+      gap: Math.max(0, num(args && args.gap, 10))
+    };
 
     var stroked = 0;
     var skipped = [];
@@ -112,7 +163,7 @@
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
       var root = layer.property(ROOT);
-      if (root && strokeTree(root, rgb, width) > 0) {
+      if (root && strokeTree(root, rgb, width, style) > 0) {
         stroked++;
       } else {
         skipped.push(layer.name + ' (not a shape layer)');
@@ -167,7 +218,20 @@
       var col = [0, 0, 0], w = 4;
       try { var c = stroke.property(STROKE_COLOR).value; col = [c[0], c[1], c[2]]; } catch (e) {}
       try { w = stroke.property(STROKE_WIDTH).value; } catch (e2) {}
-      return { found: true, layerName: layers[i].name, rgb: col, width: w };
+      var cap = 'butt';
+      try { if (stroke.property(STROKE_CAP).value === 2) cap = 'round'; } catch (e3) {}
+      var dashed = false, dash = null, gap = null;
+      try {
+        var dashes = stroke.property(STROKE_DASHES);
+        if (dashes) {
+          for (var d = 1; d <= dashes.numProperties; d++) {
+            var p = dashes.property(d);
+            if (p.matchName === DASH_1) { dashed = true; dash = p.value; }
+            else if (p.matchName === GAP_1) { gap = p.value; }
+          }
+        }
+      } catch (e4) {}
+      return { found: true, layerName: layers[i].name, rgb: col, width: w, cap: cap, dashed: dashed, dash: dash, gap: gap };
     }
     return { found: false };
   }

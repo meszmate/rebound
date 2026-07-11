@@ -53,8 +53,10 @@
       if (number) name += pad(start + j * step, width);
       name += suffix;
       if (name === '') name = layer.name; // never blank a layer name
-      layer.name = name;
-      renamed++;
+      if (name !== layer.name) { // only count (and touch) real changes
+        layer.name = name;
+        renamed++;
+      }
     }
     return { renamed: renamed };
   }

@@ -67,11 +67,33 @@
   function pencilSvg() { return svg('svg', { viewBox: '0 0 24 24', width: 13, height: 13, fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [svg('path', { d: 'M4 20h4L18 10l-4-4L4 16z' }), svg('path', { d: 'M13 7l4 4' })]); }
   function plusSvg() { return svg('svg', { viewBox: '0 0 24 24', width: 13, height: 13, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round' }, [svg('path', { d: 'M12 5v14M5 12h14' })]); }
   function copySvg() { return svg('svg', { viewBox: '0 0 24 24', width: 11, height: 11, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [svg('rect', { x: 9, y: 9, width: 11, height: 11, rx: 2 }), svg('path', { d: 'M5 15V5a2 2 0 0 1 2-2h10' })]); }
+  function eyedropSvg() { return svg('svg', { viewBox: '0 0 24 24', width: 13, height: 13, fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, [svg('path', { d: 'M18.3 5.7a2.4 2.4 0 0 0-3.4 0l-1.2 1.2 3.4 3.4 1.2-1.2a2.4 2.4 0 0 0 0-3.4z' }), svg('path', { d: 'M13 8l-8 8-1 4 4-1 8-8' })]); }
 
   function mount(ctx) {
     var target = 'fill';
     var openId = null;
     var lastAppliedId = null;
+    var shuffle = false;
+    var shuffleOffset = 0;
+
+    // The palette's colors as 0..1 RGB triplets, rotated by the running
+    // shuffle offset when Shuffle is on so each apply starts one color later.
+    function paletteRgbs(colors) {
+      var cols = colors.map(hexToRgb01);
+      if (shuffle && cols.length > 1) {
+        var offset = shuffleOffset % cols.length;
+        cols = cols.slice(offset).concat(cols.slice(0, offset));
+        shuffleOffset++;
+      }
+      return cols;
+    }
+
+    // Cycle the whole palette across the selected layers, top to bottom.
+    function applyPalette(pal) {
+      ctx.invoke('color.apply', { rgbs: paletteRgbs(pal.colors), target: target })
+        .then(function (res) { ctx.toast('Colored ' + res.colored + ' layer' + (res.colored === 1 ? '' : 's'), { kind: res.colored ? 'success' : 'info' }); })
+        .catch(function (err) { ctx.toast(err.message || 'Could not apply palette', { kind: 'error' }); });
+    }
 
     // Widget: one palette at a time as a grid of big swatches; click a swatch to
     // recolour the selection's fill, and use the arrows to switch palette. The
@@ -106,10 +128,17 @@
       };
       var setIdx = function (i) { activeIdx = (i + palettes.length) % palettes.length; ctx.setConfig({ palette: palettes[activeIdx].name }); renderW(); };
       sel.addEventListener('change', function () { setIdx(parseInt(sel.value, 10) || 0); });
+      // Cycle the whole palette across the selected layers, top to bottom.
+      var applyAllW = function () {
+        ctx.invoke('color.apply', { rgbs: palettes[activeIdx].colors.map(hexToRgb01), target: 'fill' })
+          .then(function (res) { ctx.toast('Colored ' + res.colored + ' layer' + (res.colored === 1 ? '' : 's'), { kind: res.colored ? 'success' : 'info' }); })
+          .catch(function (err) { ctx.toast(err.message || 'Could not apply palette', { kind: 'error' }); });
+      };
       var head = el('div.rb-wgt-pickhead', null, [
         el('button.rb-wgt-navbtn', { type: 'button', title: 'Previous palette', onclick: function () { setIdx(activeIdx - 1); } }, ['‹']),
         sel,
-        el('button.rb-wgt-navbtn', { type: 'button', title: 'Next palette', onclick: function () { setIdx(activeIdx + 1); } }, ['›'])
+        el('button.rb-wgt-navbtn', { type: 'button', title: 'Next palette', onclick: function () { setIdx(activeIdx + 1); } }, ['›']),
+        el('button.rb-wgt-navbtn', { type: 'button', title: 'Apply palette to layers (cycles the colors top to bottom)', onclick: applyAllW }, ['All'])
       ]);
       renderW();
       ctx.body.appendChild(el('div.rb-wgt', null, [head, swatchGrid]));
@@ -176,7 +205,16 @@
         var detailKids = [
           preview,
           el('div.rb-detail-meta', null, [hexEl, rgbEl]),
-          el('div.rb-row', null, [el('button.rb-btn.is-ghost', { onclick: function () { copyHex(curFocus); } }, ['Copy'])])
+          el('div.rb-row', null, [el('button.rb-btn.is-ghost', { onclick: function () { copyHex(curFocus); } }, ['Copy'])]),
+          el('div.rb-row', null, [
+            el('button.rb-btn', {
+              title: 'Cycle every color of this palette across the selected layers, top to bottom',
+              onclick: function () { applyPalette(pal); }
+            }, ['Apply palette to layers']),
+            R.ui.toggle({ label: 'Shuffle', value: shuffle,
+              title: 'Start one color later on each apply, so repeated applies rotate the palette.',
+              onChange: function (v) { shuffle = v; shuffleOffset = 0; } }).el
+          ])
         ];
         if (isCustom) detailKids.push(el('button.rb-btn.is-ghost', { onclick: function () { buildModal(pal, customIdx); } }, ['Edit palette']));
         detail = el('div.rb-palette-detail', null, detailKids);
@@ -218,8 +256,24 @@
         cust.forEach(function (p, i) { shelf.appendChild(buildCard(p, 'c:' + i, true, i)); });
       }
       shelf.appendChild(el('button.rb-palette-new', { onclick: function () { buildModal(null, null); } }, [plusSvg(), 'New palette']));
+      shelf.appendChild(el('button.rb-palette-new', {
+        title: 'Collect the distinct fill, stroke, and solid colors of the selected layers (or the whole comp) into a new palette',
+        onclick: fromSelection
+      }, [eyedropSvg(), 'From selection']));
     }
     function toggle(id) { openId = (openId === id ? null : id); render(); }
+
+    // Gather the selection's colors on the host and open the palette editor
+    // prefilled with them (named and saved by you, like any custom palette).
+    function fromSelection() {
+      ctx.invoke('palette.collect', {})
+        .then(function (res) {
+          var cols = (res && res.colors) || [];
+          if (!cols.length) { ctx.toast('No fill, stroke, or solid colors found', { kind: 'info' }); return; }
+          buildModal({ name: '', colors: cols }, null);
+        })
+        .catch(function (err) { ctx.toast(err.message || 'Could not collect colors', { kind: 'error' }); });
+    }
 
     function removeCustom(idx, pal) {
       var data = loadCustom();
@@ -295,9 +349,12 @@
         ])
       ]);
 
+      // Editing means an existing SAVED palette (index != null); a prefilled
+      // one (From selection passes colors but no index) is still a new palette.
+      var isEdit = existing != null && index != null;
       var cancelBtn = el('button.rb-btn.is-ghost', { onclick: function () { dlg.close('close'); } }, ['Cancel']);
-      saveBtn = el('button.rb-btn.is-primary', { onclick: doSave }, [existing ? 'Save' : 'Create']);
-      var dlg = R.ui.modal({ title: existing ? 'Edit palette' : 'New palette', width: 360, className: 'rb-modal-save', body: body, footer: [cancelBtn, saveBtn], initialFocus: nameInput });
+      saveBtn = el('button.rb-btn.is-primary', { onclick: doSave }, [isEdit ? 'Save' : 'Create']);
+      var dlg = R.ui.modal({ title: isEdit ? 'Edit palette' : 'New palette', width: 360, className: 'rb-modal-save', body: body, footer: [cancelBtn, saveBtn], initialFocus: nameInput });
 
       function doSave() {
         var nm = nameInput.value.trim();

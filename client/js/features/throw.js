@@ -4,9 +4,11 @@
  * coefficient-of-restitution bounces (so it bounces many shrinking times and
  * settles), ground friction to roll-to-rest, optional box walls, spin, and
  * squash-on-impact. The preview runs the SAME simulation and animates a ball
- * down the actual trajectory so every control is visible. Bakes Position
+ * down the actual trajectory so every control is visible, and the launch
+ * vector is draggable right on the stage (drag from anywhere: direction sets
+ * Angle, length sets Strength; the sliders follow). Bakes Position
  * (+ Rotation / Scale) keyframes. CEP can't grab a layer in the viewport, so
- * this is parameter-driven rather than a literal drag-throw.
+ * the in-comp part stays parameter-driven.
  */
 ;(function (R) {
   'use strict';
@@ -174,11 +176,14 @@
     // Live preview: static path/floor/ticks rebuilt on change, plus a marker
     // PLAYED by time so the motion accelerates and bounces like the real bake.
     var pathGroup = svg('g');
+    var vectorGroup = svg('g'); // the faint, draggable launch vector
     var ghosts = [];
     for (var gi = 0; gi < 4; gi++) ghosts.push(svg('ellipse', { cx: 0, cy: 0, rx: 4.5, ry: 4.5, fill: 'var(--rb-accent)', 'fill-opacity': '0' }));
     var marker = svg('ellipse', { cx: 0, cy: 0, rx: 4.5, ry: 4.5, fill: 'var(--rb-accent)' });
     var stage = svg('svg', { viewBox: '0 0 160 90', width: '100%', height: '90' },
-      [svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }), pathGroup].concat(ghosts, [marker]));
+      [svg('rect', { x: 1, y: 1, width: 158, height: 88, fill: 'var(--rb-bg)', stroke: 'var(--rb-border)', 'stroke-width': 1, rx: 3 }), pathGroup, vectorGroup].concat(ghosts, [marker]));
+    stage.style.cursor = 'crosshair';
+    stage.style.touchAction = 'none';
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stage]);
     var geom = computeGeom(st);
     function renderPreview() {
@@ -188,7 +193,57 @@
       if (geom.floorY != null) pathGroup.appendChild(svg('line', { x1: 2, y1: geom.floorY, x2: 158, y2: geom.floorY, stroke: 'var(--rb-text-faint)', 'stroke-width': 1 }));
       for (var i = 0; i < geom.ticks.length; i++) pathGroup.appendChild(svg('line', { x1: geom.ticks[i].x, y1: geom.ticks[i].y - 4, x2: geom.ticks[i].x, y2: geom.ticks[i].y, stroke: 'var(--rb-accent)', 'stroke-width': 1, opacity: '0.5' }));
       pathGroup.appendChild(svg('path', { d: geom.d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.4, 'stroke-linejoin': 'round', opacity: '0.4' }));
+      renderVector();
     }
+
+    // The current launch vector, drawn faint from the launch point. Screen
+    // direction is (cos, -sin): +90 degrees is up, SVG y grows downward.
+    function renderVector() {
+      R.dom.clear(vectorGroup);
+      if (!geom.fitted.length) return;
+      var p0 = geom.fitted[0];
+      var rad = st.angle * Math.PI / 180;
+      var len = 12 + Math.min(1, st.strength / 4000) * 34;
+      var tipX = p0.x + Math.cos(rad) * len, tipY = p0.y - Math.sin(rad) * len;
+      var ha = Math.atan2(tipY - p0.y, tipX - p0.x);
+      var h1x = tipX + Math.cos(ha + 2.6) * 5, h1y = tipY + Math.sin(ha + 2.6) * 5;
+      var h2x = tipX + Math.cos(ha - 2.6) * 5, h2y = tipY + Math.sin(ha - 2.6) * 5;
+      vectorGroup.appendChild(svg('line', { x1: round(p0.x), y1: round(p0.y), x2: round(tipX), y2: round(tipY), stroke: 'var(--rb-text-faint)', 'stroke-width': 1.2, opacity: '0.65' }));
+      vectorGroup.appendChild(svg('path', { d: 'M' + round(h1x) + ' ' + round(h1y) + ' L' + round(tipX) + ' ' + round(tipY) + ' L' + round(h2x) + ' ' + round(h2y), fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1.2, opacity: '0.65' }));
+    }
+
+    // Drag the launch vector right on the stage: direction = Angle (atan2),
+    // length = Strength; the sliders follow live. Pointer events are bound to
+    // the stage (an svg), NOT a button: CEF fires pointerdown on plain
+    // elements but swallows it on <button>s.
+    function stagePoint(e) {
+      var r = stage.getBoundingClientRect();
+      if (!r.width || !r.height) return null;
+      return { x: (e.clientX - r.left) / r.width * 160, y: (e.clientY - r.top) / r.height * 90 };
+    }
+    function dragTo(e) {
+      var pt = stagePoint(e);
+      if (!pt || !geom.fitted.length) return;
+      var p0 = geom.fitted[0];
+      var dx = pt.x - p0.x, dy = pt.y - p0.y;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 1.5) return; // a click right on the launch point is not a throw
+      st.angle = Math.round(Math.atan2(-dy, dx) * 180 / Math.PI);
+      st.strength = Math.round(Math.min(4000, len * 45) / 10) * 10;
+      angleS.set(st.angle);
+      strengthS.set(st.strength);
+      renderPreview();
+    }
+    var dragging = false;
+    function onDragMove(e) { if (dragging) dragTo(e); }
+    function onDragEnd() { dragging = false; window.removeEventListener('pointermove', onDragMove); window.removeEventListener('pointerup', onDragEnd); }
+    stage.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      dragTo(e);
+      window.addEventListener('pointermove', onDragMove);
+      window.addEventListener('pointerup', onDragEnd);
+      if (e.preventDefault) e.preventDefault();
+    });
     // Place a marker ellipse at a (fractional) frame index, applying squash,
     // stretch and spin so all three are visible in the preview.
     function place(elm, idx, opacity) {
@@ -205,24 +260,18 @@
       elm.setAttribute('transform', 'translate(' + round(x) + ',' + round(y) + ') rotate(' + round(rot) + ')');
       elm.setAttribute('fill-opacity', '' + opacity);
     }
-    var raf = null, start = (window.performance && performance.now) ? performance.now() : 0, running = true;
-    function play(now) {
-      if (!running) return;
+    var sim = R.ui.miniSim({ el: previewHost, draw: function (te) {
       var f = geom.fitted;
-      if (f.length) {
-        var te = ((window.performance && performance.now) ? now : Date.now()) / 1000 - start / 1000;
-        var span = (geom.settled != null ? geom.settled / 60 : st.duration);
-        var t = te % (span + 0.6);
-        var idx = t * 60; if (idx > f.length - 1) idx = f.length - 1;
-        place(marker, idx, 1);
-        for (var k = 0; k < ghosts.length; k++) {
-          if (st.motionBlur) place(ghosts[k], idx - (k + 1) * 2.5, 0.26 - k * 0.06);
-          else ghosts[k].setAttribute('fill-opacity', '0');
-        }
+      if (!f.length) return;
+      var span = (geom.settled != null ? geom.settled / 60 : st.duration);
+      var t = te % (span + 0.6);
+      var idx = t * 60; if (idx > f.length - 1) idx = f.length - 1;
+      place(marker, idx, 1);
+      for (var k = 0; k < ghosts.length; k++) {
+        if (st.motionBlur) place(ghosts[k], idx - (k + 1) * 2.5, 0.26 - k * 0.06);
+        else ghosts[k].setAttribute('fill-opacity', '0');
       }
-      raf = requestAnimationFrame(play);
-    }
-    raf = requestAnimationFrame(play);
+    } });
 
     var angleS = ui.slider({ label: 'Angle', min: -180, max: 180, step: 1, value: st.angle, format: function (v) { return Math.round(v) + '°'; }, onInput: function (v) { st.angle = v; renderPreview(); } });
     var strengthS = ui.slider({ label: 'Strength', min: 0, max: 4000, step: 10, value: st.strength, format: function (v) { return Math.round(v) + ' px/s'; }, onInput: function (v) { st.strength = v; renderPreview(); } });
@@ -275,9 +324,14 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Throw']));
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Throw']);
+    ctx.footer.appendChild(applyBtn);
+    function syncButtons(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.selectedLayerCount);
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); syncButtons(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+    syncButtons(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('throw.apply', st)
@@ -321,7 +375,7 @@
         thumbFor: function (s, opts) { return throwSvg(s, (opts && opts.height) || 34); },
         defaults: THROW_DEFAULTS
       },
-      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
+      destroy: function () { sim.destroy(); onDragEnd(); off(); }
     };
   }
 

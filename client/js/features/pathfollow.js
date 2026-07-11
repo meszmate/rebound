@@ -5,8 +5,8 @@
  * even pace through curves; even-parameter mode does not. Ease presets shape the
  * velocity over time; start/end offset, reverse, loop / ping-pong, orient + angle
  * offset, and stagger round it out. The preview animates a marker traveling the
- * actual path with the same sampler Apply uses, plus equal-time trail dots that
- * make constant vs even speed visible.
+ * USER'S actual mask path (pathfollow.read echoes the bezier data) with their
+ * settings; the canned S-curve only stands in while no route is selected.
  */
 ;(function (R) {
   'use strict';
@@ -32,28 +32,82 @@
     return out;
   }
 
-  // Fixed demonstrative S-curve (one cubic) sampled densely for the preview.
+  // A route the preview samples: a dense polyline with cumulative arc lengths
+  // and the path's `d` string. One is built from the canned S-curve (empty
+  // state), another from the user's actual mask via pathfollow.read.
+  function buildRoute(dense, d) {
+    var L = [0];
+    for (var i = 1; i < dense.length; i++) {
+      var dx = dense[i][0] - dense[i - 1][0], dy = dense[i][1] - dense[i - 1][1];
+      L.push(L[i - 1] + Math.sqrt(dx * dx + dy * dy));
+    }
+    return { dense: dense, len: L, total: L[L.length - 1] || 1, d: d };
+  }
+
+  // Fixed demonstrative S-curve (one cubic) sampled densely: the empty state.
   var P0 = [16, 60], C0 = [40, 2], C1 = [82, 74], P1 = [104, 16];
   function cubic(t) {
     var u = 1 - t;
     return [u * u * u * P0[0] + 3 * u * u * t * C0[0] + 3 * u * t * t * C1[0] + t * t * t * P1[0],
             u * u * u * P0[1] + 3 * u * u * t * C0[1] + 3 * u * t * t * C1[1] + t * t * t * P1[1]];
   }
-  var DENSE = (function () { var a = []; for (var i = 0; i <= 140; i++) a.push(cubic(i / 140)); return a; })();
-  var DLEN = (function () { var L = [0]; for (var i = 1; i < DENSE.length; i++) { var dx = DENSE[i][0] - DENSE[i - 1][0], dy = DENSE[i][1] - DENSE[i - 1][1]; L.push(L[i - 1] + Math.sqrt(dx * dx + dy * dy)); } return L; })();
-  var DTOTAL = DLEN[DLEN.length - 1];
+  var CANNED = (function () {
+    var a = [];
+    for (var i = 0; i <= 140; i++) a.push(cubic(i / 140));
+    return buildRoute(a, 'M' + P0[0] + ' ' + P0[1] + ' C ' + C0[0] + ' ' + C0[1] + ', ' + C1[0] + ' ' + C1[1] + ', ' + P1[0] + ' ' + P1[1]);
+  })();
 
-  function pointAtLen(target) {
-    if (target <= 0) return DENSE[0];
-    if (target >= DTOTAL) return DENSE[DENSE.length - 1];
-    var lo = 0, hi = DLEN.length - 1;
-    while (lo < hi - 1) { var mid = (lo + hi) >> 1; if (DLEN[mid] < target) lo = mid; else hi = mid; }
-    var seg = DLEN[hi] - DLEN[lo], f = seg > 0 ? (target - DLEN[lo]) / seg : 0;
-    return [DENSE[lo][0] + (DENSE[hi][0] - DENSE[lo][0]) * f, DENSE[lo][1] + (DENSE[hi][1] - DENSE[lo][1]) * f];
+  // The user's mask as a route: sample each bezier segment (AE tangents are
+  // relative to their vertex), then fit the whole thing into the stage.
+  function userRoute(r) {
+    var v = r.vertices, ti = r.inTangents, to = r.outTangents;
+    if (!v || v.length < 2) return null;
+    var segs = v.length - 1 + (r.closed ? 1 : 0);
+    var pts = [];
+    for (var s = 0; s < segs; s++) {
+      var a = s, b = (s + 1) % v.length;
+      var q0 = v[a], q3 = v[b];
+      var q1 = [q0[0] + (to && to[a] ? to[a][0] : 0), q0[1] + (to && to[a] ? to[a][1] : 0)];
+      var q2 = [q3[0] + (ti && ti[b] ? ti[b][0] : 0), q3[1] + (ti && ti[b] ? ti[b][1] : 0)];
+      for (var k = (s === 0 ? 0 : 1); k <= 24; k++) {
+        var t = k / 24, u = 1 - t;
+        pts.push([
+          u * u * u * q0[0] + 3 * u * u * t * q1[0] + 3 * u * t * t * q2[0] + t * t * t * q3[0],
+          u * u * u * q0[1] + 3 * u * u * t * q1[1] + 3 * u * t * t * q2[1] + t * t * t * q3[1]
+        ]);
+      }
+    }
+    var minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity, i;
+    for (i = 0; i < pts.length; i++) {
+      if (pts[i][0] < minx) minx = pts[i][0];
+      if (pts[i][0] > maxx) maxx = pts[i][0];
+      if (pts[i][1] < miny) miny = pts[i][1];
+      if (pts[i][1] > maxy) maxy = pts[i][1];
+    }
+    var m = 10, w = Math.max(1, maxx - minx), h = Math.max(1, maxy - miny);
+    var sc = Math.min((120 - 2 * m) / w, (76 - 2 * m) / h);
+    var ox = (120 - w * sc) / 2 - minx * sc, oy = (76 - h * sc) / 2 - miny * sc;
+    var fitted = [], d = '';
+    for (i = 0; i < pts.length; i++) {
+      var x = pts[i][0] * sc + ox, y = pts[i][1] * sc + oy;
+      fitted.push([x, y]);
+      d += (i ? 'L' : 'M') + r1(x) + ' ' + r1(y);
+    }
+    return buildRoute(fitted, d);
+  }
+
+  function pointAtLen(route, target) {
+    var dense = route.dense, L = route.len;
+    if (target <= 0) return dense[0];
+    if (target >= route.total) return dense[dense.length - 1];
+    var lo = 0, hi = L.length - 1;
+    while (lo < hi - 1) { var mid = (lo + hi) >> 1; if (L[mid] < target) lo = mid; else hi = mid; }
+    var seg = L[hi] - L[lo], f = seg > 0 ? (target - L[lo]) / seg : 0;
+    return [dense[lo][0] + (dense[hi][0] - dense[lo][0]) * f, dense[lo][1] + (dense[hi][1] - dense[lo][1]) * f];
   }
   // Always constant-speed (arc-length): an even pace through curves is what
   // users want, and the only thing that read as "doing nothing" was the toggle.
-  function sampleAt(st, p) { return pointAtLen(p * DTOTAL); }
+  function sampleAt(route, p) { return pointAtLen(route, p * route.total); }
 
   // Built-in presets, module-level so each is a pinnable Home action at load
   // (R.toolPresets), without the tool ever having been opened.
@@ -91,27 +145,27 @@
     ]);
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } }, [stage]);
 
+    // The route being previewed: the user's actual mask when one is selected
+    // (pathfollow.read echoes its bezier data), the canned S-curve otherwise.
+    var route = CANNED;
+
     function rebuildPath() {
       R.dom.clear(pathGroup);
-      var d = 'M' + P0[0] + ' ' + P0[1] + ' C ' + C0[0] + ' ' + C0[1] + ', ' + C1[0] + ' ' + C1[1] + ', ' + P1[0] + ' ' + P1[1];
       var s0 = st.startOffset / 100, s1 = st.endOffset / 100;
-      pathGroup.appendChild(svg('path', { d: d, fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1.4, opacity: '0.4' }));
+      pathGroup.appendChild(svg('path', { d: route.d, fill: 'none', stroke: 'var(--rb-text-faint)', 'stroke-width': 1.4, opacity: '0.4' }));
       // equal-time trail dots: bunch in curves for even-t, even for arc-length
       var fn = easeFnFor(st.ease);
       for (var i = 0; i <= 10; i++) {
         var ph = i / 10;
         var p = s0 + fn(ph) * (s1 - s0);
         if (st.reverse) p = s0 + (1 - fn(ph)) * (s1 - s0);
-        var pt = sampleAt(st, p);
+        var pt = sampleAt(route, p);
         pathGroup.appendChild(svg('circle', { cx: r1(pt[0]), cy: r1(pt[1]), r: 1.6, fill: 'var(--rb-accent)', opacity: '0.5' }));
       }
     }
     rebuildPath();
 
-    var raf = null, start = (window.performance && performance.now) ? performance.now() : 0, running = true;
-    function tick(now) {
-      if (!running) return;
-      var tsec = ((window.performance && performance.now) ? now : Date.now()) / 1000 - start / 1000;
+    var sim = R.ui.miniSim({ el: previewHost, draw: function (tsec) {
       var loops = st.loop ? Math.max(1, st.loopCount) : 1;
       var u = (tsec % (st.duration * loops)) / st.duration;
       var cyc = Math.floor(u); if (cyc >= loops) cyc = loops - 1;
@@ -120,13 +174,11 @@
       var eph = easeFnFor(st.ease)(ph);
       if (st.reverse) eph = 1 - eph;
       var p = st.startOffset / 100 + eph * (st.endOffset / 100 - st.startOffset / 100);
-      var pt = sampleAt(st, p);
-      var ahead = sampleAt(st, Math.min(1, p + 0.01));
+      var pt = sampleAt(route, p);
+      var ahead = sampleAt(route, Math.min(1, p + 0.01));
       var ang = st.orient ? (Math.atan2(ahead[1] - pt[1], ahead[0] - pt[0]) * 180 / Math.PI + st.angleOffset) : st.angleOffset;
       markerG.setAttribute('transform', 'translate(' + r1(pt[0]) + ',' + r1(pt[1]) + ') rotate(' + r1(ang) + ')');
-      raf = requestAnimationFrame(tick);
-    }
-    raf = requestAnimationFrame(tick);
+    } });
 
     // ---- controls ----------------------------------------------------------
     var easeSeg = ui.segmented([{ value: 'linear', label: 'Linear' }, { value: 'in', label: 'In' }, { value: 'out', label: 'Out' }, { value: 'both', label: 'Both' }], { value: st.ease, onChange: function (v) { st.ease = v; rebuildPath(); } });
@@ -161,15 +213,30 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Send along path']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Send along path']);
+    ctx.footer.appendChild(applyBtn);
+
+    // Swap the preview onto the user's actual path (or back to the canned
+    // S-curve when there is none), only rebuilding when the route changed.
+    function setRoute(r) {
+      var next = (r && r.ok && r.vertices) ? userRoute(r) : null;
+      if (!next) next = CANNED;
+      if (next.d === route.d) return;
+      route = next;
+      rebuildPath();
+    }
 
     // Read the actual route (the first selected layer's mask) so the scope text
-    // tells the user exactly what will happen, not just a layer count.
+    // tells the user exactly what will happen, not just a layer count, and so
+    // the preview marker travels THEIR path.
     function refreshScope(sel) {
       scopeText.textContent = describe(sel);
+      applyBtn.disabled = !(sel && sel.hasComp && sel.selectedLayerCount);
       if (!ctx.invoke) return;
+      if (!sel || !sel.hasComp || !sel.selectedLayerCount) { setRoute(null); return; }
       ctx.invoke('pathfollow.read', {}).then(function (r) {
         if (!r) return;
+        setRoute(r);
         if (!r.ok) scopeText.textContent = r.reason === 'none' ? 'Select the masked layer, then the layers to send' : ('“' + (r.layerName || 'Layer') + '” has no mask, draw a path on it');
         else if (r.self) scopeText.textContent = 'Self-follow: “' + r.layerName + '” rides its own mask';
         else if (r.targets > 0) scopeText.textContent = 'Route: “' + r.maskName + '” mask, sending ' + r.targets + ' layer' + (r.targets === 1 ? '' : 's');
@@ -217,7 +284,7 @@
         toolId: 'pathfollow', get: getState, set: applyState,
         defaults: PATHFOLLOW_DEFAULTS
       },
-      destroy: function () { running = false; if (raf) cancelAnimationFrame(raf); off(); }
+      destroy: function () { sim.destroy(); off(); }
     };
   }
 

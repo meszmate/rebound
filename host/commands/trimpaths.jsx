@@ -6,8 +6,13 @@
  *   start-end : End  0 -> 100
  *   end-start : Start 100 -> 0   (stroke drains from its start, revealing the end)
  *   center    : Start 50 -> 0 and End 50 -> 100, growing outward from the middle
- * The write-on keyframes are Linear by default, or eased in and out when the
- * Smooth ease is chosen. Re-applying replaces the earlier Trim Paths instead of
+ * Write-off (mode 'off') inverts each value pair and anchors the keys so the
+ * animation ENDS at the playhead (the stroke is fully gone right now):
+ *   start-end : End  100 -> 0   (retracts back into its start)
+ *   end-start : Start 0 -> 100  (drains out through its end)
+ *   center    : Start 0 -> 50 and End 100 -> 50, collapsing into the middle
+ * The keyframes are Linear by default, or eased in and out when the Smooth
+ * ease is chosen. Re-applying replaces the earlier Trim Paths instead of
  * stacking another. Non-shape layers are collected by name and reported skipped.
  */
 (function () {
@@ -74,9 +79,20 @@
     if (durationFrames < 1) durationFrames = 1;
     var smooth = args.ease === 'smooth';
     var replace = args.replace !== false;
+    var writeOff = args.mode === 'off';
 
-    var t0 = comp.time;
-    var t1 = t0 + durationFrames / comp.frameRate;
+    // Write-on starts at the playhead; write-off ends at it (clamped so both
+    // keys stay inside the comp when the playhead sits near time zero).
+    var dur = durationFrames / comp.frameRate;
+    var t0, t1;
+    if (writeOff) {
+      t1 = comp.time;
+      t0 = t1 - dur;
+      if (t0 < 0) { t0 = 0; t1 = dur; }
+    } else {
+      t0 = comp.time;
+      t1 = t0 + dur;
+    }
 
     var applied = 0;
     var skipped = [];
@@ -93,17 +109,34 @@
       var endProp = trim.property(TRIM_END);
       if (!startProp || !endProp) { skipped.push(layer.name + ' (no trim controls)'); continue; }
 
+      // Write-off is the write-on with each key pair's values swapped.
       var keyed = [];
       if (direction === 'end-start') {
         if (isClear(endProp)) endProp.setValue(100);
-        if (isClear(startProp)) { keyTwo(startProp, t0, 100, t1, 0); keyed.push(startProp); }
+        if (isClear(startProp)) {
+          if (writeOff) keyTwo(startProp, t0, 0, t1, 100);
+          else keyTwo(startProp, t0, 100, t1, 0);
+          keyed.push(startProp);
+        }
       } else if (direction === 'center') {
-        if (isClear(startProp)) { keyTwo(startProp, t0, 50, t1, 0); keyed.push(startProp); }
-        if (isClear(endProp)) { keyTwo(endProp, t0, 50, t1, 100); keyed.push(endProp); }
+        if (isClear(startProp)) {
+          if (writeOff) keyTwo(startProp, t0, 0, t1, 50);
+          else keyTwo(startProp, t0, 50, t1, 0);
+          keyed.push(startProp);
+        }
+        if (isClear(endProp)) {
+          if (writeOff) keyTwo(endProp, t0, 100, t1, 50);
+          else keyTwo(endProp, t0, 50, t1, 100);
+          keyed.push(endProp);
+        }
       } else {
         // start-end (default)
         if (isClear(startProp)) startProp.setValue(0);
-        if (isClear(endProp)) { keyTwo(endProp, t0, 0, t1, 100); keyed.push(endProp); }
+        if (isClear(endProp)) {
+          if (writeOff) keyTwo(endProp, t0, 100, t1, 0);
+          else keyTwo(endProp, t0, 0, t1, 100);
+          keyed.push(endProp);
+        }
       }
 
       if (smooth) {

@@ -15,8 +15,23 @@
  * is an exact vector identity), so the broken-apart text looks the same as before
  * and every piece is an independent, animatable layer.
  *
+ * Box (paragraph) text soft-wraps with no \r/\n in the string, so the string
+ * alone cannot say where the visual lines fall. Lines mode finds the wrap
+ * points on a temp duplicate: grow the text word-by-word and watch
+ * sourceRectAtTime().height climb by one leading step each time a word starts
+ * a new visual line. Each piece keeps the source's text box, so justification
+ * and the box origin are preserved for free; only the line stacking moves
+ * (anchor.y - lineIndex * leading). Every guard falls back to the honest skip,
+ * never mangled pieces: a mid-word wrap, a line count that fails to verify
+ * against the full block, or anything throwing all bail out cleanly. Words /
+ * characters mode on box text stays skipped (a lone word re-justifies inside
+ * the box, so exact positions are impossible with this technique).
+ *
  * Mixed per-character styling in one layer is flattened when the text is
  * overwritten (a scripting-API limit); single-style layers are exact.
+ *
+ * Afterwards the sources are deselected and every created piece is selected,
+ * so a follow-up Stagger/Sequence acts on the pieces immediately.
  */
 (function () {
   var R = $.__rebound;
@@ -149,6 +164,146 @@
     return name;
   }
 
+  // ---- Box (paragraph) text: visual-line detection --------------------------
+
+  // Words of a string as [start, end) index ranges (runs of non-space).
+  function wordRanges(text) {
+    var out = [], i = 0;
+    while (i < text.length) {
+      if (isSpace(text.charAt(i))) { i++; continue; }
+      var st = i;
+      while (i < text.length && !isSpace(text.charAt(i))) i++;
+      out.push({ s: st, e: i });
+    }
+    return out;
+  }
+
+  // One- and two-line reference heights measured inside the source's own box,
+  // so any height can be turned into a line count. Null when the rect does not
+  // track the text (some hosts report the box, not the ink), which makes the
+  // whole detection blind: bail.
+  function boxLineProbe(meas, t) {
+    setTextStr(meas, 'X');
+    var h1 = rectAt(meas, t).height;
+    setTextStr(meas, 'X\rX');
+    var h2 = rectAt(meas, t).height;
+    var lead = h2 - h1;
+    if (!(lead > 0)) return null;
+    return { h1: h1, lead: lead };
+  }
+
+  function boxLineCount(probe, height) {
+    return Math.round((height - probe.h1) / probe.lead) + 1;
+  }
+
+  // The [start, end) range of each visual line: grow the text word-by-word on
+  // the measuring duplicate and watch the height. +1 line = this word starts a
+  // new line; same height = it joined the current line; anything else (a jump
+  // of 2+, or a first word already 2 lines tall) is a mid-word wrap with no
+  // word boundary to cut at: return null and bail.
+  function detectBoxLines(meas, text, probe, t) {
+    var words = wordRanges(text);
+    if (!words.length) return null;
+    var lines = [];
+    var lineCount = 0;
+    for (var w = 0; w < words.length; w++) {
+      setTextStr(meas, text.substring(0, words[w].e));
+      var count = boxLineCount(probe, rectAt(meas, t).height);
+      if (count === lineCount + 1) {
+        lines.push({ s: words[w].s, e: words[w].e });
+        lineCount = count;
+      } else if (count === lineCount && lines.length) {
+        lines[lines.length - 1].e = words[w].e;
+      } else {
+        return null;
+      }
+    }
+    return lines;
+  }
+
+  // Left / center / right paragraphs render identically once a line stands
+  // alone in the same box; full-justify stretches its spaces per line, so a
+  // lone line would re-rag and shift. Treat a failed read as unsafe.
+  function boxJustifySafe(doc) {
+    try {
+      var j = doc.justification;
+      return j === ParagraphJustification.LEFT_JUSTIFY ||
+             j === ParagraphJustification.CENTER_JUSTIFY ||
+             j === ParagraphJustification.RIGHT_JUSTIFY;
+    } catch (e) { return false; }
+  }
+
+  // The anchor shift assumes lines stack down from the box top. The vertical
+  // alignment property is 24.6+; when it is absent the classic top behaviour
+  // applies.
+  function boxTopAligned(doc) {
+    try {
+      if (doc.boxVerticalAlignment !== undefined && typeof BoxVerticalAlignment !== 'undefined') {
+        return doc.boxVerticalAlignment === BoxVerticalAlignment.TOP;
+      }
+    } catch (e) {}
+    return true;
+  }
+
+  // Break one box-text layer into per-visual-line pieces. Returns
+  // { created: [layers] } on success or { reason: '...' } on any bail; never
+  // leaves the temp duplicate or half-made pieces behind.
+  function breakBoxLayer(source, doc0, text, t, doPosition) {
+    if (!boxJustifySafe(doc0)) return { reason: 'box text: justified paragraphs re-flow' };
+    if (!boxTopAligned(doc0)) return { reason: 'box text: only top-aligned boxes' };
+    var meas = null;
+    var made = [];
+    try {
+      meas = source.duplicate();
+      var probe = boxLineProbe(meas, t);
+      if (!probe) return { reason: 'box text did not measure' };
+      var lines = detectBoxLines(meas, text, probe, t);
+      if (!lines) return { reason: 'box text wraps mid-word' };
+      if (lines.length < 2) return { reason: 'single line' };
+      // Verify before touching anything: the full block's height must agree
+      // with the detected line count, and every piece must render as exactly
+      // one line inside the source's box (a clipped or re-wrapping piece
+      // would come out mangled).
+      setTextStr(meas, text);
+      if (boxLineCount(probe, rectAt(meas, t).height) !== lines.length) {
+        return { reason: 'box text lines did not verify' };
+      }
+      for (var v = 0; v < lines.length; v++) {
+        setTextStr(meas, text.substring(lines[v].s, lines[v].e));
+        if (boxLineCount(probe, rectAt(meas, t).height) !== 1) {
+          return { reason: 'box text lines did not verify' };
+        }
+      }
+      var anchorVal = source.property(XFORM).property(ANCHOR).value;
+      for (var k = 0; k < lines.length; k++) {
+        var pieceText = text.substring(lines[k].s, lines[k].e);
+        var dup = source.duplicate();
+        made.push(dup);
+        setTextStr(dup, pieceText);
+        dup.name = nameFor(pieceText);
+        if (doPosition) {
+          // The piece keeps the source's text box (justification + box origin
+          // for free); only the line stacking moves, one leading per line.
+          var na = [anchorVal[0], anchorVal[1] - k * probe.lead];
+          if (anchorVal.length > 2) na.push(anchorVal[2]);
+          dup.property(XFORM).property(ANCHOR).setValue(na);
+        }
+      }
+      var out = made;
+      made = null; // success: the finally must not roll these back
+      return { created: out };
+    } catch (e) {
+      return { reason: 'box text could not be broken safely' };
+    } finally {
+      if (meas) { try { meas.remove(); } catch (e2) {} }
+      if (made) {
+        for (var r = made.length - 1; r >= 0; r--) {
+          try { made[r].remove(); } catch (e3) {}
+        }
+      }
+    }
+  }
+
   function apply(args) {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
@@ -163,6 +318,7 @@
     var t = comp.time;
     var created = 0;
     var skipped = [];
+    var createdLayers = [];
 
     for (var li = 0; li < layers.length; li++) {
       var source = layers[li];
@@ -181,13 +337,24 @@
         continue;
       }
 
-      // Box (paragraph) text soft-wraps with no \r/\n in the string, so line
-      // splitting and per-piece measuring would both be wrong, and every piece
-      // would keep the source's text box and re-wrap inside it. Skip honestly.
+      // Box (paragraph) text: Lines mode detects the visual wrap points on a
+      // temp duplicate (see breakBoxLayer). Words / characters would re-justify
+      // inside the box, so they stay skipped with the honest reason.
       var isBox = false;
       try { isBox = !!doc0.boxText; } catch (eBox) {}
       if (isBox) {
-        skipped.push(source.name + ' (box text is not supported yet)');
+        if (mode !== 'lines') {
+          skipped.push(source.name + ' (box text: use Lines mode)');
+          continue;
+        }
+        var box = breakBoxLayer(source, doc0, text, t, doPosition);
+        if (!box.created) {
+          skipped.push(source.name + ' (' + box.reason + ')');
+          continue;
+        }
+        for (var bc = 0; bc < box.created.length; bc++) createdLayers.push(box.created[bc]);
+        created += box.created.length;
+        if (deleteOriginal) source.remove();
         continue;
       }
 
@@ -226,6 +393,7 @@
           var dup = source.duplicate();
           setTextStr(dup, pieceText);
           dup.name = nameFor(pieceText);
+          createdLayers.push(dup);
           created++;
 
           if (doPosition && meas) {
@@ -250,7 +418,21 @@
       if (deleteOriginal) source.remove();
     }
 
-    return { created: created, skipped: skipped };
+    // Hand the selection over to the pieces: deselect whatever is still
+    // selected (the sources), then select every created layer.
+    if (createdLayers.length) {
+      var selNow = comp.selectedLayers;
+      var toClear = [];
+      for (var sc = 0; sc < selNow.length; sc++) toClear.push(selNow[sc]);
+      for (var cc = toClear.length - 1; cc >= 0; cc--) {
+        try { toClear[cc].selected = false; } catch (eSel) {}
+      }
+      for (var pc = 0; pc < createdLayers.length; pc++) {
+        try { createdLayers[pc].selected = true; } catch (eSel2) {}
+      }
+    }
+
+    return { created: created, skipped: skipped, selected: createdLayers.length };
   }
 
   // Return the source string of each selected text layer, so the panel can

@@ -1,7 +1,9 @@
 /*
  * Rebound, Trim Paths tool.
- * Adds an animated Trim Paths write-on to selected shape layers, sweeping the
- * stroke on (or off) over a chosen number of frames in the chosen direction.
+ * Adds an animated Trim Paths write-on (or write-off) to selected shape layers,
+ * sweeping the stroke over a chosen number of frames in the chosen direction.
+ * On starts at the playhead and draws the stroke in; Off inverts the keys and
+ * ends at the playhead, retracting the stroke away.
  */
 ;(function (R) {
   'use strict';
@@ -16,13 +18,19 @@
     if (direction === 'center') return { tx: 62, x1: -52, x2: 52 };
     return { tx: 10, x1: 0, x2: 104 };
   }
-  // Animated write-on: a stroke that grows from the chosen end with the chosen ease.
-  function trimAnim(direction, ease) {
+  // Animated preview: a stroke that grows from the chosen end (On) or holds
+  // and then retracts back into it (Off), with the chosen ease. Off is the On
+  // animation with the values/keyTimes reversed, mirroring the host's
+  // swapped key pairs.
+  function trimAnim(direction, ease, mode) {
     var a = anchorFor(direction);
+    var off = mode === 'off';
     var anim = svg('animateTransform', { attributeName: 'transform', type: 'scale',
-      values: '0 1;1 1;1 1', keyTimes: '0;0.62;1', dur: '2.4s', repeatCount: 'indefinite',
+      values: off ? '1 1;1 1;0 1' : '0 1;1 1;1 1',
+      keyTimes: off ? '0;0.38;1' : '0;0.62;1',
+      dur: '2.4s', repeatCount: 'indefinite',
       calcMode: ease === 'linear' ? 'linear' : 'spline' });
-    if (ease !== 'linear') anim.setAttribute('keySplines', '0.4 0 0.2 1;0 0 1 1');
+    if (ease !== 'linear') anim.setAttribute('keySplines', off ? '0 0 1 1;0.4 0 0.2 1' : '0.4 0 0.2 1;0 0 1 1');
     return svg('svg', { viewBox: '0 0 124 60', width: '100%', height: 60 }, [
       svg('line', { x1: 10, y1: 30, x2: 114, y2: 30, stroke: 'var(--rb-border)', 'stroke-width': 5, 'stroke-linecap': 'round' }),
       svg('g', { transform: 'translate(' + a.tx + ' 30)' }, [
@@ -30,10 +38,11 @@
       ])
     ]);
   }
-  // Static thumbnail: the stroke drawn ~60% from the chosen end.
+  // Static thumbnail: the stroke drawn ~60% from the chosen end (write-on) or
+  // the ~40% left mid-retract (write-off).
   function trimThumb(state, h) {
     var dir = state.direction || 'start-end';
-    var a = anchorFor(dir), L = 104, frac = 0.62, bx1, bx2;
+    var a = anchorFor(dir), L = 104, frac = state.mode === 'off' ? 0.38 : 0.62, bx1, bx2;
     if (dir === 'center') { bx1 = -L * frac / 2; bx2 = L * frac / 2; }
     else if (dir === 'end-start') { bx1 = -L * frac; bx2 = 0; }
     else { bx1 = 0; bx2 = L * frac; }
@@ -52,7 +61,8 @@
     { name: 'Slow Draw', state: { direction: 'start-end', durationFrames: 48, ease: 'smooth' } },
     { name: 'Reverse', state: { direction: 'end-start', durationFrames: 24, ease: 'smooth' } },
     { name: 'Mechanical', state: { direction: 'start-end', durationFrames: 24, ease: 'linear' } },
-    { name: 'Center Burst', state: { direction: 'center', durationFrames: 18, ease: 'smooth' } }
+    { name: 'Center Burst', state: { direction: 'center', durationFrames: 18, ease: 'smooth' } },
+    { name: 'Write-off', state: { mode: 'off', direction: 'start-end', durationFrames: 24, ease: 'smooth' } }
   ];
   R.toolPresets.declare('trimpaths', { defaults: TRIMPATHS_DEFAULTS });
 
@@ -64,7 +74,7 @@
     quick: {
       desc: 'Add an animated Trim Paths write-on to the selected shape layers at the playhead.',
       method: 'trimpaths.apply',
-      args: { direction: 'start-end', durationFrames: 24, ease: 'smooth', replace: true },
+      args: { mode: 'on', direction: 'start-end', durationFrames: 24, ease: 'smooth', replace: true },
       config: [{ arg: 'direction', label: 'Direction', type: 'select', options: [
         { value: 'start-end', label: 'Start to End' },
         { value: 'end-start', label: 'End to Start' },
@@ -76,13 +86,19 @@
   });
 
   function mount(ctx) {
+    var mode = 'on';
     var direction = 'start-end';
     var durationFrames = 24;
     var ease = 'smooth';
     var replace = true;
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(trimAnim(direction, ease)); }
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(trimAnim(direction, ease, mode)); }
+
+    var modeCtl = ui.segmented([
+      { value: 'on', label: 'On', title: 'Write the stroke on, starting at the playhead' },
+      { value: 'off', label: 'Off', title: 'Retract the stroke away, ending at the playhead' }
+    ], { value: mode, onChange: function (v) { mode = v; renderPreview(); } });
 
     var directionCtl = ui.segmented([
       { value: 'start-end', label: 'Start to End', title: 'Sweep the stroke on from its start' },
@@ -104,8 +120,9 @@
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Adds an animated Trim Paths write-on to each selected shape layer, starting at the playhead. Non-shape layers are skipped.' }),
+      el('div.rb-faint', { text: 'Adds an animated Trim Paths sweep to each selected shape layer. On writes the stroke on from the playhead; Off retracts it, ending at the playhead. Non-shape layers are skipped.' }),
       previewHost,
+      ui.row('Animate', modeCtl.el),
       ui.row('Direction', directionCtl.el),
       ui.row('Duration', durationField.el),
       ui.row('Ease', easeCtl.el),
@@ -114,13 +131,19 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.selectedLayerCount); }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('trimpaths.apply', { direction: direction, durationFrames: durationFrames, ease: ease, replace: replace })
+      ctx.invoke('trimpaths.apply', { mode: mode, direction: direction, durationFrames: durationFrames, ease: ease, replace: replace })
         .then(function (res) {
           var msg = 'Trim Paths on ' + res.applied + ' layer' + (res.applied === 1 ? '' : 's');
           if (res.skipped && res.skipped.length) {
@@ -133,10 +156,13 @@
     }
 
     function getState() {
-      return { direction: direction, durationFrames: durationFrames, ease: ease, replace: replace };
+      return { mode: mode, direction: direction, durationFrames: durationFrames, ease: ease, replace: replace };
     }
     function applyState(s) {
       if (!s) return;
+      // Older presets carry no mode: they are write-ons, so absent means 'on'.
+      mode = s.mode != null ? s.mode : 'on';
+      modeCtl.set(mode);
       if (s.direction != null) { direction = s.direction; directionCtl.set(s.direction); }
       if (s.durationFrames != null) { durationFrames = s.durationFrames; durationField.set(s.durationFrames); }
       if (s.ease != null) { ease = s.ease; easeCtl.set(s.ease); }

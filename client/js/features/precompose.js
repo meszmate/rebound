@@ -44,9 +44,10 @@
   });
 
   function mount(ctx) {
-    var name = 'Precomp';
+    var name = '';
     var moveAttributes = true;
     var open = false;
+    var trim = false;
 
     var nameInput = el('input', {
       type: 'text',
@@ -57,6 +58,17 @@
     });
     var nameField = el('div.rb-field', null, [nameInput]);
 
+    // Seed the placeholder from the TOPMOST selected layer, so an untouched
+    // name field yields '<layer> Precomp' instead of a generic 'Precomp'.
+    function seedName(sel) {
+      var layers = (sel && sel.layers) || [];
+      var top = null;
+      for (var i = 0; i < layers.length; i++) {
+        if (layers[i] && layers[i].name && (!top || layers[i].index < top.index)) top = layers[i];
+      }
+      nameInput.placeholder = top ? top.name + ' Precomp' : 'Precomp';
+    }
+
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(precompSvg({ moveAttributes: moveAttributes }, 80)); }
 
@@ -64,6 +76,9 @@
       onChange: function (v) { moveAttributes = v; renderPreview(); } });
     var openToggle = ui.toggle({ label: 'Open new comp', value: open,
       onChange: function (v) { open = v; } });
+    var trimToggle = ui.toggle({ label: 'Trim to layer span', value: trim,
+      title: 'Cut the new comp down to the combined in/out span of the moved layers and re-time the nested layer, so the content still plays exactly where it was.',
+      onChange: function (v) { trim = v; } });
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
@@ -71,19 +86,32 @@
       previewHost,
       ui.row('Name', nameField),
       moveToggle.el,
+      trimToggle.el,
       openToggle.el
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncEnabled(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.selectedLayerCount);
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); seedName(sel); syncEnabled(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+    seedName(ctx.getSelection());
+    syncEnabled(ctx.getSelection());
 
     function doApply() {
-      ctx.invoke('precompose.apply', { name: name, moveAttributes: moveAttributes, open: open })
-        .then(function (res) { ctx.toast('Precomposed into ' + res.name, { kind: 'success' }); ctx.refreshSelection(); })
+      // An untouched field sends the seeded placeholder, so what the input
+      // shows is what the comp is called.
+      var finalName = name || nameInput.placeholder || 'Precomp';
+      ctx.invoke('precompose.apply', { name: finalName, moveAttributes: moveAttributes, open: open, trim: trim })
+        .then(function (res) {
+          ctx.toast('Precomposed into ' + res.name + (res.trimmed ? ' (trimmed to the layer span)' : ''), { kind: 'success' });
+          ctx.refreshSelection();
+        })
         .catch(function (err) { ctx.toast(err.message || 'Could not precompose', { kind: 'error' }); });
     }
 

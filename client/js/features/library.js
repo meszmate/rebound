@@ -57,8 +57,10 @@
         var picks = widgetPicks(wFilter);
         if (!picks.length) { wGrid.appendChild(el('div.rb-empty', { style: { gridColumn: '1 / -1' } }, ['No presets, star some in the Library'])); return; }
         picks.forEach(function (p) {
-          wGrid.appendChild(el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
-            onclick: function () { apply(p); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]));
+          var wTile = el('button.rb-wgt-picktile', { type: 'button', title: p.name + (p.collection ? ' · ' + p.collection : ''),
+            onclick: function (ev) { apply(p, ev); } }, [miniCurve(p.curve), el('span.rb-wgt-picktile-name', { text: p.name })]);
+          R.ui.attachHoverDot(wTile);
+          wGrid.appendChild(wTile);
         });
       };
       wSel.addEventListener('change', function () { wFilter = wSel.value; ctx.setConfig({ filter: wFilter }); renderWGrid(); });
@@ -168,7 +170,7 @@
         toggleFav(preset.id);
       } });
       var node = el('div.rb-tile', { title: preset.name + (preset.collection ? ' · ' + preset.collection : ''),
-        onclick: function () { apply(preset); } }, [
+        onclick: function (ev) { apply(preset, ev); } }, [
         star,
         miniCurve(preset.curve),
         el('div.rb-tile-name', { text: preset.name })
@@ -179,20 +181,20 @@
           manageDialog(preset);
         });
       }
-      // Animate the curve dot while the tile is hovered. SMIL begin/end methods
-      // can throw in some engines, so each call is guarded.
-      node.addEventListener('mouseenter', function () {
-        var anims = node.querySelectorAll('animateMotion, animate');
-        for (var i = 0; i < anims.length; i++) {
-          try { anims[i].beginElement(); } catch (e) { /* SMIL not ready */ }
-        }
-      });
-      node.addEventListener('mouseleave', function () {
-        var anims = node.querySelectorAll('animateMotion, animate');
-        for (var i = 0; i < anims.length; i++) {
-          try { anims[i].endElement(); } catch (e) { /* SMIL not ready */ }
-        }
-      });
+      // Hover pin: put THIS preset on the Home board as its own tile (the same
+      // affordance the preset-gallery tiles have). Library presets are already
+      // catalog actions via R.presets.homeActions, id 'easepreset-<preset id>'.
+      if (R.shell && R.shell.pinToHome) {
+        node.appendChild(el('span.rb-tile-pin', {
+          title: 'Add ' + preset.name + ' to Home', 'aria-label': 'Add ' + preset.name + ' to Home',
+          onclick: function (e) {
+            e.stopPropagation();
+            R.shell.pinToHome('easepreset-' + preset.id);
+          }
+        }, ['+']));
+      }
+      // Animate the curve dot while the tile is hovered (shared helper).
+      R.ui.attachHoverDot(node);
       return node;
     }
 
@@ -250,7 +252,7 @@
       render();
     }
 
-    function apply(preset) {
+    function apply(preset, ev) {
       // Overshooting/oscillating curves (elastic, spring) can't be a single
       // temporal ease; apply them per the "Apply as" setting (sparse editable
       // keyframes by default, or a clean remap expression). Monotonic curves
@@ -259,7 +261,10 @@
         R.easing.applyCurve(ctx, preset.curve, preset.name);
         return;
       }
-      ctx.invoke('ease.apply', { curve: preset.curve, scope: scope, applyToAll: applyToAll })
+      // Same modifier override as the Ease tool's tiles: Alt = Out only,
+      // Shift = In only, Alt+Shift = In & Out; no modifier = the scope control.
+      var useScope = R.easing.scopeForEvent(ev, scope);
+      ctx.invoke('ease.apply', { curve: preset.curve, scope: useScope, applyToAll: applyToAll })
         .then(function (res) {
           R.easing.applyResultToast(ctx, res,
             'Applied ' + preset.name + ' to ' + res.segments + ' segment' + (res.segments === 1 ? '' : 's'));
@@ -300,17 +305,11 @@
       var y = (h - pad) - ((pt.y - lo) / span) * (h - 2 * pad);
       return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
     }).join(' ');
-    // A dot that rides the same curve path on hover, so the easing can be felt
-    // before applying. The SMIL animations are dormant (begin:'indefinite') until
-    // the tile starts them; tiles that are never hovered render the static path
-    // exactly as before.
-    var dot = R.dom.svg('circle', { r: 2.4, fill: 'var(--rb-accent)', opacity: 0 }, [
-      R.dom.svg('animateMotion', { dur: '1.1s', repeatCount: 'indefinite', path: d, begin: 'indefinite' }),
-      R.dom.svg('animate', { attributeName: 'opacity', values: '0;1;1;0', dur: '1.1s', repeatCount: 'indefinite', begin: 'indefinite' })
-    ]);
+    // The shared dormant hover dot (curve-chip.js) rides the same curve path
+    // when the tile is hovered, via R.ui.attachHoverDot on the tile.
     return R.dom.svg('svg', { 'class': 'rb-mini-curve', viewBox: '0 0 ' + w + ' ' + h }, [
       R.dom.svg('path', { d: d, fill: 'none', stroke: 'var(--rb-accent)', 'stroke-width': 1.5 }),
-      dot
+      R.ui.hoverDot(d)
     ]);
   }
 

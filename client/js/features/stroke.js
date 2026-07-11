@@ -1,7 +1,8 @@
 /*
  * Rebound, Stroke tool.
- * Adds or updates a stroke on selected shape layers. Pick a width and a color
- * swatch and apply, or remove every stroke. Colors are sent as 0..1 RGB.
+ * Adds or updates a stroke on selected shape layers. Pick a width, any color
+ * (shared themed picker + quick swatches), a cap, and an optional dash pattern,
+ * then apply, or remove every stroke. Colors are sent as 0..1 RGB.
  */
 ;(function (R) {
   'use strict';
@@ -10,13 +11,12 @@
   var svg = R.dom.svg;
   var ui = R.ui;
 
-  var PALETTE = [
-    '#f4453a', '#f5910b', '#f7d000', '#54c245',
-    '#1fa6e0', '#3a52d6', '#9b3fd6', '#1a1c20'
-  ];
+  // Quick one-click swatches beside the full picker.
+  var QUICK = ['#1a1c20', '#f4453a', '#f7d000', '#1fa6e0', '#f0f1f5'];
 
-  // A sample shape outlined with the live stroke width, color, and dash. The
-  // real px width is mapped onto a clamped on-screen width so it always reads.
+  // A sample shape outlined with the live stroke width, color, cap, and dash.
+  // The real px width is mapped onto a clamped on-screen width so it always
+  // reads.
   function strokeSvg(state, h) {
     var raw = state.width == null ? 4 : state.width;
     var sw = Math.max(1, Math.min(8, raw / 2 + 1));
@@ -25,7 +25,8 @@
       fill: 'none',
       stroke: state.hex || 'var(--rb-accent)',
       'stroke-width': sw,
-      'stroke-linejoin': 'round'
+      'stroke-linejoin': 'round',
+      'stroke-linecap': state.cap === 'round' ? 'round' : 'butt'
     };
     if (state.dash) attrs['stroke-dasharray'] = state.dash;
     return svg('svg', { viewBox: '0 0 160 90', width: '100%', height: h }, [
@@ -60,55 +61,98 @@
 
   function mount(ctx) {
     var width = 4;
-    var activeHex = PALETTE[7];
+    var activeHex = QUICK[0];
     var rgb = hexToRgb(activeHex);
+    var cap = 'butt';
+    var dashed = false;
+    var dash = 10;
+    var gap = 10;
 
+    function previewDash() {
+      if (!dashed) return null;
+      return Math.max(1, dash / 2 + 1) + ' ' + Math.max(1, gap / 2 + 1);
+    }
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(strokeSvg({ width: width, hex: activeHex }, 90)); }
+    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(strokeSvg({ width: width, hex: activeHex, cap: cap, dash: previewDash() }, 90)); }
 
     var widthField = ui.numberField({ label: 'Width', value: width, min: 0, step: 1, decimals: 0, suffix: 'px', width: '110px',
       onChange: function (v) { width = v; renderPreview(); } });
 
-    var swatches = [];
+    // The shared themed picker (any color) plus a small quick-swatch row.
+    var picker = ui.colorPicker({
+      value: activeHex,
+      storageKey: 'stroke-colors',
+      title: 'Pick any stroke color',
+      onChange: function (c) { activeHex = c.hex; rgb = [c.r, c.g, c.b]; renderPreview(); }
+    });
     var swatchRow = el('div.rb-row.rb-wrap');
-    for (var i = 0; i < PALETTE.length; i++) {
-      swatchRow.appendChild(makeSwatch(PALETTE[i]));
+    for (var i = 0; i < QUICK.length; i++) {
+      swatchRow.appendChild(makeSwatch(QUICK[i]));
     }
-    setActive(PALETTE[7]);
+
+    function setHex(hex) {
+      activeHex = hex;
+      rgb = hexToRgb(hex);
+      picker.set(hex);
+      renderPreview();
+    }
 
     function makeSwatch(hex) {
       var b = el('button.rb-btn.is-icon', { title: 'Stroke ' + hex });
       b.style.background = hex;
       b.style.borderColor = hex;
-      b.addEventListener('click', function () { activeHex = hex; rgb = hexToRgb(hex); setActive(hex); renderPreview(); });
-      swatches.push({ hex: hex, el: b });
+      b.addEventListener('click', function () { setHex(hex); });
       return b;
     }
 
-    function setActive(hex) {
-      for (var k = 0; k < swatches.length; k++) {
-        swatches[k].el.classList.toggle('is-active', swatches[k].hex === hex);
-      }
-    }
+    var capCtl = ui.segmented([
+      { value: 'butt', label: 'Butt', title: 'Flat line ends' },
+      { value: 'round', label: 'Round', title: 'Rounded line ends' }
+    ], { value: cap, onChange: function (v) { cap = v; renderPreview(); } });
+
+    var dashField = ui.numberField({ label: 'Dash', value: dash, min: 0, step: 1, decimals: 0, suffix: 'px', width: '100px',
+      onChange: function (v) { dash = v; renderPreview(); } });
+    var gapField = ui.numberField({ label: 'Gap', value: gap, min: 0, step: 1, decimals: 0, suffix: 'px', width: '100px',
+      onChange: function (v) { gap = v; renderPreview(); } });
+    var dashRow = el('div.rb-row.rb-wrap', null, [dashField.el, gapField.el]);
+    function syncDashRow() { dashRow.style.display = dashed ? '' : 'none'; }
+    var dashTog = ui.toggle({ label: 'Dashed', value: dashed,
+      title: 'Draw the stroke as dashes instead of a solid line.',
+      onChange: function (v) { dashed = v; syncDashRow(); renderPreview(); } });
+    syncDashRow();
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Adds or updates a stroke on selected shape layers. Pick a width and a color, then apply, or remove every stroke.' }),
+      el('div.rb-faint', { text: 'Adds or updates a stroke on selected shape layers. Pick a width, a color, a cap, and an optional dash pattern, then apply, or remove every stroke.' }),
       previewHost,
       widthField.el,
-      ui.row('Color', swatchRow),
+      ui.row('Color', el('div.rb-row.rb-wrap', null, [picker.el, swatchRow])),
+      ui.row('Cap', capCtl.el),
+      dashTog.el,
+      dashRow,
       el('div.rb-row.rb-wrap', null, [
         el('button.rb-btn.is-ghost', { onclick: doRemove }, ['Remove stroke'])
       ])
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn', { title: 'Read the selected shape stroke into the fields', onclick: doRead }, ['Read']));
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    // Apply only makes sense with a shape layer in the selection.
+    function setEnabled(sel) {
+      var ok = !!(sel && sel.hasComp && sel.selectedLayerCount &&
+        (!sel.layerKinds || sel.layerKinds.indexOf('shape') !== -1));
+      applyBtn.disabled = !ok;
+      applyBtn.classList.toggle('is-disabled', !ok);
+    }
+
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); setEnabled(sel); });
+    var initSel = ctx.getSelection();
+    scopeText.textContent = describe(initSel);
+    setEnabled(initSel);
 
     // Scan the selected shape layer's current stroke (width + colour) into the
     // fields, so you tweak the existing stroke instead of rebuilding it.
@@ -116,14 +160,26 @@
       ctx.invoke('stroke.read', {})
         .then(function (res) {
           if (!res || !res.found) { ctx.toast('Select a shape layer with a stroke to read', { kind: 'error' }); return; }
-          applyState({ width: res.width, hex: rgb01ToHex(res.rgb) });
+          applyState(readState(res));
           ctx.toast('Read stroke from ' + (res.layerName || 'layer'), { kind: 'info' });
         })
         .catch(function (err) { ctx.toast(err.message || 'Could not read stroke', { kind: 'error' }); });
     }
 
+    // Host read result -> panel state (cap/dash are optional on older reads).
+    function readState(res) {
+      return {
+        width: res.width,
+        hex: rgb01ToHex(res.rgb),
+        cap: res.cap,
+        dashed: res.dashed,
+        dash: res.dash,
+        gap: res.gap
+      };
+    }
+
     function doApply() {
-      ctx.invoke('stroke.apply', { rgb: rgb, width: width })
+      ctx.invoke('stroke.apply', { rgb: rgb, width: width, cap: cap, dashed: dashed, dash: dash, gap: gap })
         .then(function (res) {
           if (!res.stroked) {
             ctx.toast('No shape layers were stroked', { kind: 'info' });
@@ -145,12 +201,17 @@
     }
 
     function getState() {
-      return { width: width, hex: activeHex };
+      return { width: width, hex: activeHex, cap: cap, dashed: dashed, dash: dash, gap: gap };
     }
     function applyState(s) {
       if (!s) return;
       if (s.width != null) { width = s.width; widthField.set(s.width); }
-      if (s.hex != null) { activeHex = s.hex; rgb = hexToRgb(s.hex); setActive(s.hex); }
+      if (s.hex != null) { activeHex = s.hex; rgb = hexToRgb(s.hex); picker.set(s.hex); }
+      if (s.cap != null) { cap = s.cap === 'round' ? 'round' : 'butt'; capCtl.set(cap); }
+      if (s.dashed != null) { dashed = !!s.dashed; dashTog.set(dashed); }
+      if (s.dash != null) { dash = s.dash; dashField.set(s.dash); }
+      if (s.gap != null) { gap = s.gap; gapField.set(s.gap); }
+      syncDashRow();
       renderPreview();
     }
 
@@ -171,9 +232,9 @@
       selectionRead: {
         matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
         method: 'stroke.read',
-        apply: function (res) { if (res && res.found) applyState({ width: res.width, hex: rgb01ToHex(res.rgb) }); }
+        apply: function (res) { if (res && res.found) applyState(readState(res)); }
       },
-      destroy: off
+      destroy: function () { off(); picker.destroy(); }
     };
   }
 

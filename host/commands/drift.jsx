@@ -2,25 +2,44 @@
  * Rebound host, Drift (organic wiggle / randomizer).
  *
  * Adds living, random motion to any selected property via a wiggle expression
- * backed by Amount + Frequency sliders, with a per-layer random seed and an
- * optional stepped (Hold) mode. Works on static or animated properties.
+ * backed by Amount + Frequency sliders, with a per-layer random seed (a "Drift
+ * Seed" slider feeds seedRandom, so a dice re-roll changes the noise), an
+ * optional stepped (Hold) mode, an Axis restriction (All / X / Y with 2D/3D
+ * guards), and an optional seamless Loop (the standard blend of wiggle(t) and
+ * wiggle(t - period)). Works on static or animated properties.
  */
 (function () {
   var R = $.__rebound;
   var util = R.util;
   var rig = R.rig;
 
-  function expression(hold) {
+  function expression(opts) {
     var lines = [
       'amt = effect("Drift Amount")("Slider");',
       'frq = effect("Drift Frequency")("Slider");',
-      'seedRandom(index, true);'
+      'sd = effect("Drift Seed")("Slider");',
+      'seedRandom(index + sd, true);'
     ];
-    if (hold) {
-      lines.push('posterizeTime(frq);');
-      lines.push('wiggle(frq, amt);');
+    if (opts.hold) lines.push('posterizeTime(frq);');
+    if (opts.loop) {
+      // Seamless loop: crossfade this cycle's wiggle into the previous cycle's
+      // over the period, so t = per lands exactly back on t = 0.
+      lines.push('per = Math.max(0.1, effect("Drift Loop")("Slider"));');
+      lines.push('t = time % per;');
+      lines.push('w1 = wiggle(frq, amt, 1, 0.5, t);');
+      lines.push('w2 = wiggle(frq, amt, 1, 0.5, t - per);');
+      lines.push('w = linear(t, 0, per, w1, w2);');
     } else {
-      lines.push('wiggle(frq, amt);');
+      lines.push('w = wiggle(frq, amt);');
+    }
+    // Axis restriction with dimension guards (scalar props ignore the axis;
+    // 3D keeps its untouched components).
+    if (opts.axis === 'x') {
+      lines.push('(value instanceof Array) ? ((value.length > 2) ? [w[0], value[1], value[2]] : [w[0], value[1]]) : w;');
+    } else if (opts.axis === 'y') {
+      lines.push('(value instanceof Array) ? ((value.length > 2) ? [value[0], w[1], value[2]] : [value[0], w[1]]) : w;');
+    } else {
+      lines.push('w;');
     }
     return lines.join('\n');
   }
@@ -30,7 +49,11 @@
     var props = comp.selectedProperties;
     var applied = 0;
     var skipped = [];
-    var hold = args.type === 'hold';
+    var opts = {
+      hold: args.type === 'hold',
+      axis: (args.axis === 'x' || args.axis === 'y') ? args.axis : 'all',
+      loop: !!args.loop
+    };
 
     for (var i = 0; i < props.length; i++) {
       var p = props[i];
@@ -43,8 +66,10 @@
 
       rig.ensureSlider(layer, 'Drift Amount', args.amount != null ? args.amount : 20);
       rig.ensureSlider(layer, 'Drift Frequency', args.frequency != null ? args.frequency : 2);
+      rig.ensureSlider(layer, 'Drift Seed', args.seed != null ? args.seed : 0);
+      if (opts.loop) rig.ensureSlider(layer, 'Drift Loop', (args.loopSec != null && args.loopSec > 0) ? args.loopSec : 3);
 
-      if (rig.setExpression(p, expression(hold), 'drift')) applied++;
+      if (rig.setExpression(p, expression(opts), 'drift')) applied++;
       else skipped.push(p.name + ' (has an expression)');
     }
 
@@ -64,7 +89,7 @@
       if (rig.clearExpression(p, 'drift')) {
         cleared++;
         var layer = util.layerOfProperty(p);
-        if (layer) rig.removeControls(layer, ['Drift Amount', 'Drift Frequency']);
+        if (layer) rig.removeControls(layer, ['Drift Amount', 'Drift Frequency', 'Drift Seed', 'Drift Loop']);
       }
     }
     return { cleared: cleared };

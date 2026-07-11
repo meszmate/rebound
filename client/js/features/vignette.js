@@ -78,11 +78,22 @@
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    // The vignette needs an open comp, nothing more (recoil.js syncButtons
+    // pattern: dead primary button instead of an error toast).
+    function setEnabled(sel) {
+      var ok = !!(sel && sel.hasComp);
+      applyBtn.disabled = !ok;
+      applyBtn.classList.toggle('is-disabled', !ok);
+    }
+
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); setEnabled(sel); });
+    var initSel = ctx.getSelection();
+    scopeText.textContent = describe(initSel);
+    setEnabled(initSel);
 
     function doApply() {
       ctx.invoke('vignette.apply', { amount: amount, feather: feather, scale: scale, replace: replace })

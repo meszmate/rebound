@@ -113,12 +113,19 @@
       parentIndex: layer.parent ? layer.parent.index : 0,
       parentName: layer.parent ? layer.parent.name : null,
       effectCount: 0,
+      inPoint: 0,
+      outPoint: 0,
+      label: 0,
       transformHasExpression: transformHasExpression(layer),
       kindState: kindState(layer, kind)
     };
     try { info.threeD = layer.threeDLayer === true; } catch (e1) {}
     try { info.isGuide = layer.guideLayer === true; } catch (e2) {}
     try { var fx = layer.property('ADBE Effect Parade'); info.effectCount = fx ? fx.numProperties : 0; } catch (e3) {}
+    // Cheap timing + label reads so the panel's timing tools (Stagger,
+    // Sequence) can preview the REAL selection on every poll tick.
+    try { info.inPoint = layer.inPoint; info.outPoint = layer.outPoint; } catch (e4) {}
+    try { info.label = layer.label; } catch (e5) {}
     return info;
   }
 

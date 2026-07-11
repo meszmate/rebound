@@ -15,15 +15,27 @@
   function clampY(v) { return v < -0.3 ? -0.3 : v > 1.3 ? 1.3 : v; }
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
-  // A representative ease, and the same ease after the current transform, so the
-  // preview shows what Mirror and Scale do to a copied ease. Nonzero y1 and
-  // y2 < 1 so scaling the speed (handle slope) is visible in the preview too.
+  // A representative ease shown until something real was copied, so the preview
+  // still demonstrates what Mirror and Scale do. Nonzero y1 and y2 < 1 so
+  // scaling the speed (handle slope) is visible in the preview too.
   var SAMPLE = { type: 'bezier', x1: 0.35, y1: 0.15, x2: 0.55, y2: 0.8 };
+  var SAMPLE_CAPTION = 'Sample — copy an ease to see yours';
+  var DISK_KEY = 'copyease-last';
+
+  // The last copied ease, module-level so it survives tool remounts, and
+  // mirrored to disk (R.disk) so it survives panel restarts too.
+  var lastCopied = null;
+
+  // A stored copy is usable when it carries what copyease.paste needs.
+  function validCopy(c) {
+    return (c && c.inEase && c.outEase) ? c : null;
+  }
+
   // Mirror what the host paste does: Scale multiplies the stored INFLUENCE
   // (out = 100*x1, in = 100*(1-x2)) and speed. In handle terms that pushes x1
   // out and pulls x2 in, and stretches the y components with it.
-  function transformed(state) {
-    var c = { x1: SAMPLE.x1, y1: SAMPLE.y1, x2: SAMPLE.x2, y2: SAMPLE.y2 };
+  function transformed(base, state) {
+    var c = { x1: base.x1, y1: base.y1, x2: base.x2, y2: base.y2 };
     if (state.mirror) c = { x1: 1 - c.x2, y1: 1 - c.y2, x2: 1 - c.x1, y2: 1 - c.y1 };
     var s = state.scale || 1;
     return {
@@ -35,9 +47,9 @@
     };
   }
 
-  function copyeaseSvg(result, h) {
+  function copyeaseSvg(base, result, h) {
     var W = 240, H = 92, pad = 8;
-    var rs = R.easing.sampler.range(SAMPLE, 60), rr = R.easing.sampler.range(result, 60);
+    var rs = R.easing.sampler.range(base, 60), rr = R.easing.sampler.range(result, 60);
     var lo = Math.min(0, rs.min, rr.min), hi = Math.max(1, rs.max, rr.max), span = (hi - lo) || 1;
     function px(x) { return pad + x * (W - 2 * pad); }
     function py(y) { return (H - pad) - ((y - lo) / span) * (H - 2 * pad); }
@@ -49,7 +61,7 @@
     return svg('svg', { viewBox: '0 0 240 92', width: '100%', height: h }, [
       svg('line', { x1: pad, y1: py(0), x2: W - pad, y2: py(0), stroke: 'var(--rb-border)', 'stroke-width': 1 }),
       svg('line', { x1: pad, y1: py(1), x2: W - pad, y2: py(1), stroke: 'var(--rb-border)', 'stroke-width': 1, 'stroke-dasharray': '2 3', opacity: '0.5' }),
-      path(SAMPLE, 'var(--rb-text-faint)', '4 3'),
+      path(base, 'var(--rb-text-faint)', '4 3'),
       path(result, 'var(--rb-accent)')
     ]);
   }
@@ -64,7 +76,10 @@
   });
 
   function mount(ctx) {
-    var stored = null;
+    // Restore the last copy: from this session (module-level) or a previous one
+    // (disk), so a remount or panel restart does not lose what was copied.
+    if (!lastCopied) lastCopied = validCopy(R.disk.read(DISK_KEY, null));
+    var stored = lastCopied;
     var mode = 'both';
     var mirror = false;
     var scale = 1;
@@ -76,7 +91,18 @@
     }, ['Copy']);
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
-    function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(copyeaseSvg(transformed({ mirror: mirror, scale: scale }), 92)); }
+    var previewCaption = el('div.rb-faint', { style: { textAlign: 'center', fontSize: '11px', marginTop: '2px' }, text: SAMPLE_CAPTION });
+    function baseCurve() { return (stored && stored.curve) ? stored.curve : SAMPLE; }
+    function captionText() {
+      if (!stored || !stored.curve) return SAMPLE_CAPTION;
+      return 'Copied from ' + (stored.layerName || 'layer') + ' · ' + (stored.propertyName || 'property');
+    }
+    function renderPreview() {
+      R.dom.clear(previewHost);
+      var base = baseCurve();
+      previewHost.appendChild(copyeaseSvg(base, transformed(base, { mirror: mirror, scale: scale }), 92));
+      previewCaption.textContent = captionText();
+    }
 
     var modeCtl = ui.segmented([
       { value: 'influence', label: 'Influence', title: 'Paste only the influence' },
@@ -97,13 +123,15 @@
 
     function setPasteEnabled(on) {
       pasteBtn.classList.toggle('is-disabled', !on);
+      pasteBtn.disabled = !on;
     }
 
     renderPreview();
     ctx.body.appendChild(el('div.rb-col', null, [
-      el('div.rb-faint', { text: 'Copy the ease from one keyframe and paste it onto others. The preview shows a sample ease (dashed) and how Mirror and Scale transform it (solid).' }),
+      el('div.rb-faint', { text: 'Copy the ease from one keyframe and paste it onto others. The preview shows the copied ease (dashed) and how Mirror and Scale transform it (solid).' }),
       el('div.rb-row', null, [copyBtn]),
       previewHost,
+      previewCaption,
       el('div.rb-section-label', { text: 'Paste' }),
       modeCtl.el,
       mirrorToggle.el,
@@ -122,16 +150,29 @@
       return sel.totalSelectedKeys + ' keyframe' + (sel.totalSelectedKeys === 1 ? '' : 's') + ' selected';
     }
 
+    // Copy needs a selected key to read; Paste needs a stored copy AND selected
+    // keys to write onto (the recoil.js syncButtons pattern).
+    function syncButtons(sel) {
+      var hasKeys = !!(sel && sel.hasComp && sel.totalSelectedKeys);
+      copyBtn.disabled = !hasKeys;
+      setPasteEnabled(!!stored && hasKeys);
+    }
+
     var off = ctx.onSelection(function (sel) {
       scopeText.textContent = describeSelection(sel);
+      syncButtons(sel);
     });
     scopeText.textContent = describeSelection(ctx.getSelection());
+    syncButtons(ctx.getSelection());
 
     function doCopy() {
       ctx.invoke('copyease.copy', {})
         .then(function (res) {
-          stored = res;
-          setPasteEnabled(true);
+          stored = validCopy(res);
+          lastCopied = stored;
+          R.disk.write(DISK_KEY, stored);
+          syncButtons(ctx.getSelection());
+          renderPreview();
           ctx.toast('Ease copied', { kind: 'success' });
         })
         .catch(function (err) {

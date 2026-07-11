@@ -23,7 +23,9 @@
   transition: background var(--rb-transition), border-color var(--rb-transition);
 }
 .rb-btn:hover { background: var(--rb-control-hover); }
-.rb-btn:active { transform: translateY(0.5px); }
+/* Pressed state with real depth: a slight shrink + brightness lift, so every
+   button in the panel acknowledges the press. */
+.rb-btn:active { transform: scale(0.98); filter: brightness(1.12); }
 .rb-btn[disabled],
 .rb-btn.is-disabled {
   opacity: 0.45;
@@ -39,8 +41,12 @@
 .rb-btn.is-primary:hover { filter: brightness(1.08); }
 .rb-btn.is-ghost {
   background: transparent;
-  border-color: transparent;
+  /* A subtle resting border so a text ghost still reads as a button, not as a
+     bare word floating in the layout. Icon ghosts (rail chrome, play/pause…)
+     stay borderless below: their glyph already carries the affordance. */
+  border-color: var(--rb-border);
 }
+.rb-btn.is-ghost.is-icon { border-color: transparent; }
 .rb-btn.is-ghost:hover { background: var(--rb-control); }
 .rb-btn.is-danger:hover { border-color: var(--rb-danger); color: var(--rb-danger); }
 .rb-btn.is-block { width: 100%; }
@@ -82,9 +88,12 @@
   transition: background var(--rb-transition), color var(--rb-transition);
 }
 .rb-segmented button:hover { color: var(--rb-text); }
+/* The active segment is accent-tinted, not gray-on-gray, so the chosen option
+   reads at a glance. */
 .rb-segmented button.is-active {
-  background: var(--rb-control);
-  color: var(--rb-text);
+  background: rgba(var(--rb-accent-rgb), 0.18);
+  color: var(--rb-accent);
+  font-weight: 600;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
@@ -149,7 +158,14 @@
   width: 100%;
   height: 4px;
   border-radius: var(--rb-radius-pill);
-  background: var(--rb-bg-sunken);
+  /* Filled track: the slider builder keeps --pct at the thumb position, so the
+     travelled part of the track carries the accent and the value reads without
+     the numeric readout. Falls back to a plain sunken track (--pct 0%). */
+  background: linear-gradient(
+    to right,
+    var(--rb-accent) var(--pct, 0%),
+    var(--rb-bg-sunken) var(--pct, 0%)
+  );
   outline: none;
 }
 .rb-slider input[type='range']::-webkit-slider-thumb {
@@ -299,7 +315,9 @@
 #rb-toasts {
   position: fixed;
   left: 50%;
-  bottom: var(--rb-gap-4);
+  /* Clear the sticky action bar (~44px of controls + border): a toast must
+     never cover the footer's Apply/Read buttons. */
+  bottom: calc(var(--rb-gap-4) + 46px);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
@@ -660,6 +678,47 @@
   padding: var(--rb-gap-6) var(--rb-gap-4);
   text-align: center;
   color: var(--rb-text-muted);
+}
+/* Branded variant (R.ui.emptyState): the bounce mark, faint, above the text. */
+.rb-empty.is-branded .rb-empty-mark {
+  display: inline-flex;
+  color: var(--rb-text-faint);
+  opacity: 0.55;
+}
+.rb-empty.is-branded .rb-empty-mark svg { display: block; width: auto; height: 28px; }
+.rb-empty.is-branded .rb-empty-title { font-weight: 600; color: var(--rb-text); }
+.rb-empty.is-branded .rb-empty-hint {
+  font-size: calc(var(--rb-font-size) - 1px);
+  color: var(--rb-text-faint);
+  max-width: 260px;
+  line-height: 1.4;
+}
+
+/* ---- About block (Settings) ----------------------------------------------- */
+.rb-about { display: flex; flex-direction: column; gap: var(--rb-gap-2); }
+.rb-about-row { display: flex; align-items: center; gap: var(--rb-gap-2); }
+.rb-about-mark { display: inline-flex; color: var(--rb-accent); }
+.rb-about-mark svg { display: block; width: auto; height: 16px; }
+.rb-about-name { font-weight: 700; color: var(--rb-text); }
+.rb-about-ver {
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 1px);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Success flash (R.ui.flashSuccess) ------------------------------------ */
+/* The transient check that rides the WAAPI ring on an applied button. */
+.rb-flash-check {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--rb-success);
+  font-weight: 700;
+  font-size: calc(var(--rb-font-size) + 2px);
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 /* ---- Text field (full-width / row-sharing variant of rb-field) ----------- */

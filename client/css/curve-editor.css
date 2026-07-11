@@ -34,7 +34,9 @@
   fill: none;
   stroke-dasharray: 4 4;
 }
-.rb-curve .rb-overshoot-band { fill: var(--rb-warning); opacity: 0.06; }
+/* Overshoot headroom above/below the 0..1 value range: a quiet accent tint
+   (the muddy warning tint read as a stain on the graph). */
+.rb-curve .rb-overshoot-band { fill: var(--rb-accent); opacity: 0.05; }
 
 /* Handles + tangent lines. */
 .rb-curve .rb-tangent { stroke: var(--rb-text-faint); stroke-width: 1; }

@@ -190,7 +190,9 @@
     return { applied: applied, skipped: skipped, points: pts.length };
   }
 
-  // Echo the resolved route so the panel can explain what will happen.
+  // Echo the resolved route so the panel can explain what will happen AND
+  // preview it: the mask's bezier data (vertices + tangents + closed) rides
+  // back so the in-panel marker travels the user's actual path.
   function read() {
     var comp = util.activeComp();
     var layers = comp.selectedLayers;
@@ -201,8 +203,24 @@
     if (!parade || parade.numProperties < 1) return { ok: false, reason: 'nomask', layerName: ref.name };
     var mask = parade.property(1);
     var pts = 0;
-    try { pts = mask.property('ADBE Mask Shape').value.vertices.length; } catch (e2) { pts = 0; }
-    return { ok: true, maskName: mask.name, points: pts, layerName: ref.name, targets: layers.length > 1 ? layers.length - 1 : 0, self: layers.length === 1 };
+    var vv = null, ii = null, oo = null, closed = false;
+    try {
+      var shp = mask.property('ADBE Mask Shape').value;
+      var V = shp.vertices, I = shp.inTangents, O = shp.outTangents;
+      pts = V.length;
+      vv = []; ii = []; oo = [];
+      for (var k = 0; k < V.length; k++) {
+        vv.push([V[k][0], V[k][1]]);
+        ii.push([I[k][0], I[k][1]]);
+        oo.push([O[k][0], O[k][1]]);
+      }
+      closed = !!shp.closed;
+    } catch (e2) { pts = 0; vv = null; ii = null; oo = null; }
+    return {
+      ok: true, maskName: mask.name, points: pts, layerName: ref.name,
+      targets: layers.length > 1 ? layers.length - 1 : 0, self: layers.length === 1,
+      vertices: vv, inTangents: ii, outTangents: oo, closed: closed
+    };
   }
 
   R.register('pathfollow.apply', apply, 'Rebound: Path Follow');

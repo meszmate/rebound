@@ -32,10 +32,27 @@
     return out;
   }
 
-  function followExpression(parentName) {
+  // One expression shape per trailed property, all reading the one shared
+  // "Follow Delay" slider. Position keeps the 3D-aware dimensionality handling;
+  // Rotation is a plain scalar; Scale copies X/Y and keeps the follower's Z.
+  function followExpression(parentName, channel) {
+    var lead = 'thisComp.layer("' + escapeName(parentName) + '")';
+    if (channel === 'rotation') {
+      return [
+        'd = effect("Follow Delay")("Slider") / thisComp.frameRate;',
+        lead + '.transform.rotation.valueAtTime(time - d);'
+      ].join('\n');
+    }
+    if (channel === 'scale') {
+      return [
+        'd = effect("Follow Delay")("Slider") / thisComp.frameRate;',
+        's = ' + lead + '.transform.scale.valueAtTime(time - d);',
+        '(value.length > 2) ? [s[0], s[1], value[2]] : [s[0], s[1]];'
+      ].join('\n');
+    }
     return [
       'd = effect("Follow Delay")("Slider") / thisComp.frameRate;',
-      'p = thisComp.layer("' + escapeName(parentName) + '").transform.position.valueAtTime(time - d);',
+      'p = ' + lead + '.transform.position.valueAtTime(time - d);',
       // Match the follower's own dimensionality: a 2D follower truncates a 3D
       // lead, a 3D follower keeps its own Z when the lead is 2D.
       '(value.length > 2) ? ((p.length > 2) ? p : [p[0], p[1], value[2]]) : [p[0], p[1]];'
@@ -52,6 +69,11 @@
     var delayFrames = num(args.delayFrames, 4);
     if (delayFrames < 0) delayFrames = 0;
     var cascade = !!args.cascade;
+    // What trails: Position stays the default; Rotation / Scale are opt-in.
+    var wantPos = args.position !== false;
+    var wantRot = !!args.rotation;
+    var wantScale = !!args.scale;
+    if (!wantPos && !wantRot && !wantScale) throw new Error('Choose at least one property to follow.');
 
     var parent = layers[0];
     var applied = 0;
@@ -61,17 +83,30 @@
       var child = layers[i];
       if (child instanceof CameraLayer || child instanceof LightLayer) { skipped.push(child.name + ' (camera/light)'); continue; }
 
-      var pos = child.property(M.transform).property(M.position);
-      // With separated dimensions AE drives X/Y Position separately and the
-      // composite property can't hold the rig.
-      var sep = false; try { sep = pos.dimensionsSeparated; } catch (eSep) { sep = false; }
-      if (sep) { skipped.push(child.name + ' (separate dimensions is on)'); continue; }
+      var tg = child.property(M.transform);
       var step = cascade ? delayFrames * i : delayFrames;
-
       rig.ensureSlider(child, 'Follow Delay', step);
 
-      if (rig.setExpression(pos, followExpression(parent.name), 'follow')) applied++;
-      else skipped.push(child.name + ' (has an expression)');
+      var wrote = 0;
+      if (wantPos) {
+        var pos = tg.property(M.position);
+        // With separated dimensions AE drives X/Y Position separately and the
+        // composite property can't hold the rig.
+        var sep = false; try { sep = pos.dimensionsSeparated; } catch (eSep) { sep = false; }
+        if (sep) skipped.push(child.name + ' (position: separate dimensions is on)');
+        else if (rig.setExpression(pos, followExpression(parent.name, 'position'), 'follow')) wrote++;
+        else skipped.push(child.name + ' (position has an expression)');
+      }
+      if (wantRot) {
+        if (rig.setExpression(tg.property(M.rotation), followExpression(parent.name, 'rotation'), 'follow')) wrote++;
+        else skipped.push(child.name + ' (rotation has an expression)');
+      }
+      if (wantScale) {
+        if (rig.setExpression(tg.property(M.scale), followExpression(parent.name, 'scale'), 'follow')) wrote++;
+        else skipped.push(child.name + ' (scale has an expression)');
+      }
+
+      if (wrote) applied++;
     }
 
     if (!applied) throw new Error('No followers rigged: ' + skipped.join(', '));
@@ -87,9 +122,13 @@
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i];
       if (layer instanceof CameraLayer || layer instanceof LightLayer) continue;
-      var pos = layer.property(M.transform).property(M.position);
-      if (rig.clearExpression(pos, 'follow')) cleared++;
+      var tg = layer.property(M.transform);
+      var hit = false;
+      if (rig.clearExpression(tg.property(M.position), 'follow')) hit = true;
+      if (rig.clearExpression(tg.property(M.rotation), 'follow')) hit = true;
+      if (rig.clearExpression(tg.property(M.scale), 'follow')) hit = true;
       rig.removeControls(layer, ['Follow Delay']);
+      if (hit) cleared++;
     }
 
     return { cleared: cleared };

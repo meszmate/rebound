@@ -51,9 +51,17 @@
     var n = pts.length, x0 = pts[0].x, xn = pts[n - 1].x;
     return pts.map(function (p, i) { return { x: x0 + (xn - x0) * i / (n - 1), y: p.y }; });
   }
+  // Both dots share one duration so hovering the row races them: the After dot
+  // glides through the rounded corners while the Before dot lurches through the
+  // hard ones — the smoothing is FELT, not just seen.
+  var DOT_DUR = '1.6s';
   function sketch(pts, round, stroke) {
-    var kids = [svg('path', { d: smoothPath(pts, round), fill: 'none', stroke: stroke, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })];
+    var d = smoothPath(pts, round);
+    var kids = [svg('path', { d: d, fill: 'none', stroke: stroke, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })];
     pts.forEach(function (p) { kids.push(svg('circle', { cx: p.x, cy: p.y, r: 2.6, fill: stroke })); });
+    // Dormant SMIL dot riding this path (shared curve-chip helper); the
+    // before/after row's attachHoverDot starts both dots together on hover.
+    kids.push(R.ui.hoverDot(d, { r: 3, fill: stroke, dur: DOT_DUR }));
     return svg('svg', { viewBox: '0 0 122 56', width: '100%', height: 56 }, kids);
   }
 
@@ -82,6 +90,8 @@
       panel('Before', sketch(PTS, 0, 'var(--rb-text-faint)')),
       panel('After', afterHost)
     ]);
+    // Hovering the comparison rides a dot along BOTH paths on a shared clock.
+    R.ui.attachHoverDot(beforeAfter);
 
     var smoothnessSlider = ui.slider({ label: 'Smoothness', min: 0, max: 100, step: 1, value: smoothness,
       format: function (v) { return Math.round(v) + '%'; }, onInput: function (v) { smoothness = v; renderAfter(); } });
@@ -110,12 +120,17 @@
     ]));
 
     var scopeText = el('span.rb-scope', { text: '' });
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(R.easing.removeButton(ctx));
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
+    function syncButtons(sel) {
+      applyBtn.disabled = !(sel && sel.hasComp && sel.totalSelectedKeys);
+    }
+    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); syncButtons(sel); });
     scopeText.textContent = describe(ctx.getSelection());
+    syncButtons(ctx.getSelection());
 
     function doApply() {
       ctx.invoke('smooth.apply', { amount: smoothness, sides: sides, autoBezier: autoBezier, roving: roving })

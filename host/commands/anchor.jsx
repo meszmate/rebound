@@ -5,7 +5,10 @@
  * layer, by compensating Position. The exact relationship is:
  *   newPosition = oldPosition + R*S*(newAnchor - oldAnchor)
  * where S is the layer's scale and R its rotation at the evaluated time. When
- * Position is keyframed, every key is offset by the same delta.
+ * Position is keyframed, each key is offset by the delta evaluated AT that
+ * key's time — with animated rotation/scale one constant delta would silently
+ * mis-compensate every key sampled away from comp.time. A STATIC Position
+ * under animated rotation/scale is skipped (it would drift between times).
  */
 (function () {
   var R = $.__rebound;
@@ -103,28 +106,77 @@
     return s.length > 90 ? s.substring(0, 90) : s;
   }
 
-  // Offset a 1D property (a separated X/Y/Z Position) by d, keys included.
-  function offsetScalar(prop, d) {
+  // True when any rotation/scale channel that feeds compensate() is keyframed.
+  // A single delta sampled at comp.time is then only right at that instant, so
+  // callers must either compensate per key time or skip.
+  function rotScaleAnimated(layer, tr) {
+    var names = [M.scale, M.rotation];
+    var is3d = false;
+    try { is3d = layer.threeDLayer === true; } catch (e3d) { is3d = false; }
+    if (is3d) {
+      names.push(M.rotationX);
+      names.push(M.rotationY);
+      names.push(M.orientation);
+    }
+    for (var i = 0; i < names.length; i++) {
+      var p = null;
+      try { p = tr.property(names[i]); } catch (e1) { p = null; }
+      if (p && p.numKeys > 0) return true;
+    }
+    return false;
+  }
+
+  // True when Position carries keys (the unified property, or any separated
+  // X/Y/Z follower when dimensions are separated).
+  function positionHasKeys(tr, posProp) {
+    if (posProp.numKeys > 0) return true;
+    var sep = false;
+    try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
+    if (!sep) return false;
+    var names = [M.positionX, M.positionY, M.positionZ];
+    for (var i = 0; i < names.length; i++) {
+      var p = null;
+      try { p = tr.property(names[i]); } catch (e1) { p = null; }
+      if (p && p.numKeys > 0) return true;
+    }
+    return false;
+  }
+
+  // The offset helpers take deltaAt(t) — the compensation delta AT a time —
+  // instead of one constant vector, so a keyed Position under ANIMATED
+  // rotation/scale gets each key offset by the delta valid at that key's own
+  // time (one delta sampled at comp.time silently mis-compensated every other
+  // key). Static channels still evaluate deltaAt once, at `time`.
+
+  // Offset a 1D property (a separated X/Y/Z Position follower, component
+  // `dim` of the delta), keys included.
+  function offsetScalar(prop, deltaAt, dim, time) {
     if (prop.numKeys > 0) {
-      for (var k = 1; k <= prop.numKeys; k++) prop.setValueAtTime(prop.keyTime(k), prop.keyValue(k) + d);
+      for (var k = 1; k <= prop.numKeys; k++) {
+        var t = prop.keyTime(k);
+        prop.setValueAtTime(t, prop.keyValue(k) + (deltaAt(t)[dim] || 0));
+      }
     } else {
-      prop.setValue(prop.value + d);
+      prop.setValue(prop.value + (deltaAt(time)[dim] || 0));
     }
   }
 
-  // Offset a 2D/3D vector property by delta, keys included.
-  function offsetVector(prop, delta) {
+  // Offset a 2D/3D vector property, keys included, delta sampled per key time.
+  function offsetVector(prop, deltaAt, time) {
     if (prop.numKeys > 0) {
       for (var k = 1; k <= prop.numKeys; k++) {
+        var t = prop.keyTime(k);
+        var delta = deltaAt(t);
         var v = prop.keyValue(k);
         var nv = [v[0] + delta[0], v[1] + delta[1]];
         if (v.length > 2) nv.push(v[2] + (delta[2] || 0));
-        prop.setValueAtTime(prop.keyTime(k), nv);
+        prop.setValueAtTime(t, nv);
       }
     } else {
+      var d0 = deltaAt(time);
       var pv = prop.value;
-      var np = [pv[0] + delta[0], pv[1] + delta[1]];
-      if (pv.length > 2) np.push(pv[2] + (delta[2] || 0));
+      var np = [pv[0] + d0[0], pv[1] + d0[1]];
+      if (pv.length > 2) np.push(pv[2] + (d0[2] || 0));
       prop.setValue(np);
     }
   }
@@ -135,13 +187,13 @@
   // the same way throw / pathfollow do. We try the unified property first and
   // fall back to the separated trio on any failure, so it works even if
   // dimensionsSeparated reports unreliably.
-  function offsetSeparated(tr, delta) {
+  function offsetSeparated(tr, deltaAt, time) {
     var fx = tr.property(M.positionX);
     var fy = tr.property(M.positionY);
     var fz = tr.property(M.positionZ);
-    if (fx) offsetScalar(fx, delta[0] || 0);
-    if (fy) offsetScalar(fy, delta[1] || 0);
-    if (fz && (delta[2] || 0) !== 0) offsetScalar(fz, delta[2] || 0);
+    if (fx) offsetScalar(fx, deltaAt, 0, time);
+    if (fy) offsetScalar(fy, deltaAt, 1, time);
+    if (fz && (deltaAt(time)[2] || 0) !== 0) offsetScalar(fz, deltaAt, 2, time);
   }
   // True when Position is separated and any X/Y/Z follower is expression-driven.
   // Writing those would fight the expression (the layer jumps while the toast
@@ -164,16 +216,16 @@
     return false;
   }
 
-  function offsetPosition(tr, posProp, delta) {
+  function offsetPosition(tr, posProp, deltaAt, time) {
     var sep = false;
     try { sep = posProp.dimensionsSeparated; } catch (e) { sep = false; }
-    if (sep) { offsetSeparated(tr, delta); return; }
+    if (sep) { offsetSeparated(tr, deltaAt, time); return; }
     try {
-      offsetVector(posProp, delta);
+      offsetVector(posProp, deltaAt, time);
     } catch (e2) {
       // The unified Position refused (hidden / separated leader). If separated
       // followers exist, drive those; otherwise surface the real error.
-      if (tr.property(M.positionX)) { offsetSeparated(tr, delta); return; }
+      if (tr.property(M.positionX)) { offsetSeparated(tr, deltaAt, time); return; }
       throw e2;
     }
   }
@@ -244,7 +296,32 @@
           details.push({ layer: layer.name, from: a0, to: a1, distance: 0, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } });
           continue;
         }
-        var delta = compensate(layer, tr, dA, time);
+
+        // compensate() samples rotation/scale at ONE time. With rotation/scale
+        // keyframed, a STATIC Position can only be right at that instant — the
+        // layer would drift everywhere else — so skip with the reason. A KEYED
+        // Position is safe: each key gets the delta valid at its own time.
+        var rsAnim = rotScaleAnimated(layer, tr);
+        if (rsAnim && !positionHasKeys(tr, posProp)) {
+          skipped.push(layer.name + ' (rotation/scale animated, would drift)');
+          continue;
+        }
+        var deltaAt;
+        if (rsAnim) {
+          deltaAt = (function (ly, trr, d) {
+            return function (t) { return compensate(ly, trr, d, t); };
+          })(layer, tr, dA);
+        } else {
+          deltaAt = (function (d) {
+            return function () { return d; };
+          })(compensate(layer, tr, dA, time));
+        }
+        var negDeltaAt = (function (fn) {
+          return function (t) {
+            var d = fn(t);
+            return [-d[0], -d[1], -(d[2] || 0)];
+          };
+        })(deltaAt);
 
         // Atomic: move the anchor, then compensate Position. If either step
         // fails, restore the anchor so the layer never ends up half-moved, and
@@ -256,7 +333,7 @@
           continue;
         }
         try {
-          offsetPosition(tr, posProp, delta);
+          offsetPosition(tr, posProp, deltaAt, time);
         } catch (ep) {
           try { anchorProp.setValue(a0); } catch (er) {}
           skipped.push(layer.name + ' (position: ' + brief(ep) + ')');
@@ -268,7 +345,7 @@
         try { aNow = anchorProp.value; } catch (eRb) { aNow = null; }
         if (aNow && (Math.abs(aNow[0] - a1[0]) > 0.01 || Math.abs(aNow[1] - a1[1]) > 0.01)) {
           skipped.push(layer.name + ' (anchor did not hold: set ' + Math.round(a1[0]) + ',' + Math.round(a1[1]) + ' but reads ' + Math.round(aNow[0]) + ',' + Math.round(aNow[1]) + ')');
-          try { if (!sepPosExpression(tr, posProp)) offsetPosition(tr, posProp, [-delta[0], -delta[1], -(delta[2] || 0)]); } catch (eU) {}
+          try { if (!sepPosExpression(tr, posProp)) offsetPosition(tr, posProp, negDeltaAt, time); } catch (eU) {}
           continue;
         }
         details.push({ layer: layer.name, from: a0, to: a1, distance: dist, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } });

@@ -11,10 +11,23 @@
 .rb-preview-stage {
   position: relative;
   height: 96px;
-  background: var(--rb-bg-sunken);
+  /* A faint dot grid over the sunken base gives the stage a sense of space
+     (neutral gray so it reads on both themes). */
+  background:
+    radial-gradient(circle, rgba(128, 128, 128, 0.16) 1px, transparent 1.4px) 8px 8px / 14px 14px,
+    var(--rb-bg-sunken);
   border: 1px solid var(--rb-border);
   border-radius: var(--rb-radius-3);
   overflow: hidden;
+}
+/* Soft vignette so the edges recede and the moving dot carries the focus. */
+.rb-preview-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.22);
 }
 
 .rb-preview-track {
@@ -27,9 +40,42 @@
   background: var(--rb-border-strong);
   border-radius: 2px;
 }
+/* The linear-reference lane is context, not content: keep it well behind the
+   real track. */
 .rb-preview-track-ghost {
   top: calc(50% - 30px);
-  opacity: 0.5;
+  height: 1px;
+  margin-top: 0;
+  opacity: 0.3;
+}
+
+/* Destination ghost: an outlined stand-in for the dot at the end of the track,
+   so the run always has a visible target (also while the dot rests at start). */
+.rb-preview-dest {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  border: 1.5px dashed rgba(var(--rb-accent-rgb), 0.55);
+  border-radius: var(--rb-radius-2);
+  background: rgba(var(--rb-accent-rgb), 0.06);
+  pointer-events: none;
+}
+
+/* Loop-duration chip, quiet in the stage corner. */
+.rb-preview-durchip {
+  position: absolute;
+  right: 5px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: var(--rb-radius-pill);
+  background: rgba(var(--rb-bg-rgb), 0.65);
+  color: var(--rb-text-faint);
+  font-size: calc(var(--rb-font-size) - 2px);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 .rb-preview-marker {

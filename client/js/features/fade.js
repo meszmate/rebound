@@ -12,6 +12,8 @@
 
   // The opacity envelope of a fade over time: ramp up (in), hold, ramp down
   // (out), shaped by the frame counts and ease, for the preset thumbnails.
+  // With `animate` on, a dot rides the envelope on a 2.4s SMIL loop, its
+  // opacity (and height) following the fade so the timing is visible live.
   function fadeThumb(state, h) {
     var W = 120, pad = 6, top = pad, bot = 40 - pad;
     var doIn = state.doIn !== false, doOut = state.doOut !== false;
@@ -30,9 +32,27 @@
     d += ' L' + (doOut ? (x1 - outW) : x1).toFixed(1) + ' ' + top;
     if (doOut) d += ' ' + ramp(x1 - outW, top, x1, bot);
     d += ' L' + x1 + ' ' + bot + ' L' + x0 + ' ' + bot + ' Z';
-    return svg('svg', { viewBox: '0 0 120 40', width: '100%', height: h }, [
+    var kids = [
       svg('path', { d: d, fill: 'var(--rb-accent)', 'fill-opacity': '0.35', stroke: 'var(--rb-accent)', 'stroke-width': 1.5, 'stroke-linejoin': 'round' })
-    ]);
+    ];
+    if (state.animate) {
+      // The dot's key moments as fractions of the sweep: the end of the fade
+      // in and the start of the fade out.
+      var fullSpan = x1 - x0;
+      var uIn = Math.max(0.001, Math.min(0.92, inW / fullSpan));
+      var uOut = Math.max(uIn + 0.01, Math.min(0.999, (fullSpan - outW) / fullSpan));
+      var keyTimes = '0;' + uIn.toFixed(3) + ';' + uOut.toFixed(3) + ';1';
+      var dot = svg('circle', { cx: x0, cy: doIn ? bot : top, r: 3.2, fill: 'var(--rb-accent)' });
+      dot.appendChild(svg('animate', { attributeName: 'cx', values: x0 + ';' + x1, dur: '2.4s', repeatCount: 'indefinite' }));
+      dot.appendChild(svg('animate', { attributeName: 'cy',
+        values: (doIn ? bot : top) + ';' + top + ';' + top + ';' + (doOut ? bot : top),
+        keyTimes: keyTimes, dur: '2.4s', repeatCount: 'indefinite' }));
+      dot.appendChild(svg('animate', { attributeName: 'opacity',
+        values: (doIn ? '0.05' : '1') + ';1;1;' + (doOut ? '0.05' : '1'),
+        keyTimes: keyTimes, dur: '2.4s', repeatCount: 'indefinite' }));
+      kids.push(dot);
+    }
+    return svg('svg', { viewBox: '0 0 120 40', width: '100%', height: h }, kids);
   }
 
   // Built-in presets, module-level so each is a pinnable Home action at load
@@ -70,7 +90,7 @@
 
     // Live opacity-over-time graph that reacts to the toggles, frames, and ease.
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '8px' } });
-    function renderFade() { R.dom.clear(previewHost); previewHost.appendChild(fadeThumb({ doIn: doIn, doOut: doOut, inFrames: inFrames, outFrames: outFrames, ease: ease }, 72)); }
+    function renderFade() { R.dom.clear(previewHost); previewHost.appendChild(fadeThumb({ doIn: doIn, doOut: doOut, inFrames: inFrames, outFrames: outFrames, ease: ease, animate: true }, 72)); }
 
     var inToggle = ui.toggle({ label: 'Fade in', value: doIn,
       onChange: function (v) { doIn = v; renderFade(); } });
@@ -98,10 +118,16 @@
 
     var scopeText = el('span.rb-scope', { text: '' });
     ctx.footer.appendChild(scopeText);
-    ctx.footer.appendChild(el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']));
+    var applyBtn = el('button.rb-btn.is-primary', { onclick: doApply }, ['Apply']);
+    ctx.footer.appendChild(applyBtn);
 
-    var off = ctx.onSelection(function (sel) { scopeText.textContent = describe(sel); });
-    scopeText.textContent = describe(ctx.getSelection());
+    function canApply(sel) { return !!(sel && sel.hasComp && sel.selectedLayerCount); }
+    function sync(sel) {
+      scopeText.textContent = describe(sel);
+      applyBtn.disabled = !canApply(sel);
+    }
+    var off = ctx.onSelection(sync);
+    sync(ctx.getSelection());
 
     function doApply() {
       if (!doIn && !doOut) {

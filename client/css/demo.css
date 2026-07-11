@@ -40,11 +40,18 @@
   width: 100%;
   height: 88px;
   color: var(--rb-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+/* Center the art at a sensible width: full-bleed 400px-wide SVGs read as a
+   sparse strip of empty stage, so cap and center them instead. */
 .rb-demo-stage svg {
   width: 100%;
+  max-width: 240px;
   height: 100%;
   display: block;
+  margin: 0 auto;
 }
 .rb-demo-caption {
   color: var(--rb-text-muted);
