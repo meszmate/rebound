@@ -791,9 +791,50 @@
     });
   }
 
+  // A boot throw used to leave the panel permanently black with nothing on
+  // screen (the error only reached the dev console, invisible without CEP
+  // remote debugging), which reads to users as "the panel is broken / blank".
+  // Catch it and paint a readable failure instead, using only vanilla DOM so it
+  // still works when the thing that failed is one of our own modules.
+  function showBootError(err) {
+    var msg = (err && (err.stack || err.message)) ? String(err.stack || err.message) : String(err);
+    try { if (R.log && R.log.error) R.log.error('Rebound failed to start', err); } catch (e) { /* ignore */ }
+    var host = document.getElementById('rb-app') || document.body;
+    if (!host) return;
+    host.textContent = '';
+    var box = document.createElement('div');
+    box.setAttribute('style', 'font:13px/1.5 -apple-system,Segoe UI,sans-serif;color:#e7e7ea;background:#17181b;padding:18px;height:100%;box-sizing:border-box;overflow:auto');
+    var h = document.createElement('div');
+    h.setAttribute('style', 'font-weight:600;font-size:14px;margin-bottom:6px');
+    h.textContent = 'Rebound could not start';
+    var p = document.createElement('div');
+    p.setAttribute('style', 'color:#9aa0a8;margin-bottom:10px');
+    p.textContent = 'Something failed while the panel was loading. Reload the panel, and if it keeps happening please report this text.';
+    var pre = document.createElement('pre');
+    pre.setAttribute('style', 'white-space:pre-wrap;word-break:break-word;background:#0e0f12;border-radius:8px;padding:10px;color:#c7ccd4;font-size:11.5px;margin:0');
+    pre.textContent = msg;
+    var btn = document.createElement('button');
+    btn.setAttribute('style', 'margin-top:12px;border:0;border-radius:999px;background:#fff;color:#17181b;font:500 13px/1 inherit;padding:9px 16px;cursor:pointer');
+    btn.textContent = 'Reload panel';
+    btn.onclick = function () { window.location.reload(); };
+    box.appendChild(h); box.appendChild(p); box.appendChild(pre); box.appendChild(btn);
+    host.appendChild(box);
+  }
+
+  function safeBoot() {
+    try { boot(); } catch (err) { showBootError(err); }
+  }
+
+  // Also surface a hard error thrown outside boot (e.g. during a later paint)
+  // if it happens before anything rendered, rather than staying black.
+  window.addEventListener('error', function (ev) {
+    var app = document.getElementById('rb-app');
+    if (app && !app.firstChild) showBootError(ev.error || ev.message);
+  });
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', safeBoot);
   } else {
-    boot();
+    safeBoot();
   }
 })(window.Rebound = window.Rebound || {});
