@@ -57,10 +57,12 @@ review, so keep it accurate.
 
 ## After Effects distribution
 
-The panel ships as a signed ZXP (`npm run pack`, needs `cert.p12` from `npm run
-cert`). Distribute it free on aescripts.com (the best motion-design channel, it
-accepts free tools and handles install trust) and self-host the ZXP. For
-development, `npm run debug:on` + `npm run install:dev` loads it unsigned.
+The panel ships as a signed ZXP. Pushing a `vX.Y.Z` tag runs the release
+workflow, which packs and signs the ZXP (`npm run pack`, backed by a self-signed
+`cert.p12` from `npm run cert`) and publishes it to the
+[GitHub Releases page](https://github.com/meszmate/rebound/releases); users
+install it with any ZXP installer. For development, `npm run debug:on` +
+`npm run install:dev` loads it unsigned.
 
 ## Launch order
 

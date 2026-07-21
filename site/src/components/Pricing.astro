@@ -1,37 +1,40 @@
 ---
 import Mark from './Mark.astro';
+
+const REPO = 'https://github.com/meszmate/rebound';
+const RELEASES = 'https://github.com/meszmate/rebound/releases';
 ---
 
-<section id="pricing" class="scroll-mt-20 py-24 sm:py-32">
+<section id="open-source" class="scroll-mt-20 py-24 sm:py-32">
   <div class="mx-auto max-w-6xl px-5 sm:px-8">
     <div class="mx-auto max-w-2xl text-center">
-      <p class="text-sm font-medium text-live" data-reveal>Pricing</p>
+      <p class="text-sm font-medium text-live" data-reveal>Open source</p>
       <h2
         class="mt-3 text-balance text-3xl font-semibold tracking-[-0.03em] text-ink sm:text-[2.5rem] sm:leading-[1.1]"
         data-reveal
         style="--reveal-delay: 0.06s"
       >
-        Free for non-commercial work.
+        Free and open source. Forever.
       </h2>
       <p
         class="mt-4 text-pretty text-[1.0625rem] leading-relaxed text-mute"
         data-reveal
         style="--reveal-delay: 0.12s"
       >
-        The full panel is free for personal and non-commercial work. Work that earns money
-        needs a commercial license.
+        Every tool in the panel, MIT licensed. No account, no telemetry, no paywall. Install a
+        release or build it from source.
       </p>
     </div>
 
     <div class="mx-auto mt-14 grid max-w-3xl gap-4 sm:grid-cols-2" data-reveal style="--reveal-delay: 0.16s">
-      <!-- Free tier: the anchor card -->
+      <!-- Install: the anchor card -->
       <div class="relative flex flex-col overflow-hidden rounded-3xl bg-[#141518] p-8 shadow-[0_30px_70px_-30px_rgb(16_17_20/0.6)]">
         <Mark class="pointer-events-none absolute -right-8 -bottom-8 h-40 w-44 text-white opacity-[0.05]" />
         <div class="flex items-baseline justify-between gap-3">
-          <h3 class="text-lg font-semibold tracking-[-0.01em] text-white">Non-commercial</h3>
+          <h3 class="text-lg font-semibold tracking-[-0.01em] text-white">Install the release</h3>
           <span class="rounded-full bg-white/10 px-2.5 py-1 text-[0.6875rem] font-medium text-white/80">For everyone</span>
         </div>
-        <p class="mt-1 text-sm text-[#9aa0a8]">Personal work, learning, portfolio pieces.</p>
+        <p class="mt-1 text-sm text-[#9aa0a8]">A signed .zxp, ready in a minute.</p>
         <p class="mt-7 text-5xl font-semibold tracking-[-0.03em] text-white">
           Free<span class="ml-2 text-base font-normal text-white/40">forever</span>
         </p>
@@ -60,20 +63,21 @@ import Mark from './Mark.astro';
         </a>
       </div>
 
-      <!-- Commercial tier -->
+      <!-- Build from source -->
       <div class="flex flex-col rounded-3xl border border-line bg-white p-8 shadow-[0_1px_2px_rgb(16_17_20/0.04)]">
-        <h3 class="text-lg font-semibold tracking-[-0.01em] text-ink">Commercial</h3>
-        <p class="mt-1 text-sm text-mute">Client work, studios, and companies.</p>
-        <p class="mt-7 text-5xl font-semibold tracking-[-0.03em] text-ink">
-          License<span class="ml-2 text-base font-normal text-faint">per seat</span>
-        </p>
+        <h3 class="text-lg font-semibold tracking-[-0.01em] text-ink">Build from source</h3>
+        <p class="mt-1 text-sm text-mute">Clone it, read it, ship a change.</p>
+        <div class="mt-7 rounded-xl bg-ink px-4 py-3 font-mono text-[0.8125rem] leading-relaxed text-paper/90">
+          <span class="text-paper/40">$</span> git clone<br />
+          <span class="pl-3">github.com/meszmate/rebound</span>
+        </div>
         <ul class="mt-7 space-y-2.5 text-sm text-ink-soft">
           {
             [
-              'Everything in the free tier',
-              'Use on paid and client projects',
-              'One seat per license',
-              'Sold through aescripts + aeplugins',
+              'MIT licensed, no restrictions',
+              'Buildless, fully unit-tested core',
+              'Read every line, open a pull request',
+              'Own your install',
             ].map((f) => (
               <li class="flex gap-2.5">
                 <svg class="mt-0.5 h-4 w-4 shrink-0 text-ink" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -85,17 +89,22 @@ import Mark from './Mark.astro';
           }
         </ul>
         <a
-          href="https://aescripts.com/rebound/"
-          class="mt-8 inline-flex items-center justify-center rounded-full border border-line bg-paper/60 px-5 py-2.5 text-[0.9375rem] font-medium text-ink transition-all duration-300 [transition-timing-function:var(--ease-out-quart)] hover:-translate-y-px hover:border-[rgb(16_17_20/0.2)] hover:bg-mist/70 active:scale-[0.97]"
+          href={REPO}
+          target="_blank"
+          rel="noopener"
+          class="mt-8 inline-flex items-center justify-center gap-2 rounded-full border border-line bg-paper/60 px-5 py-2.5 text-[0.9375rem] font-medium text-ink transition-all duration-300 [transition-timing-function:var(--ease-out-quart)] hover:-translate-y-px hover:border-[rgb(16_17_20/0.2)] hover:bg-mist/70 active:scale-[0.97]"
         >
-          Get a license on aescripts
+          View on GitHub
+          <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M5.5 3.5h7v7M12.5 3.5 3.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </a>
       </div>
     </div>
 
     <p class="mx-auto mt-6 max-w-3xl text-center text-[0.8125rem] text-faint" data-reveal>
-      Rebound is proprietary software, written from scratch. It is not open source. The free
-      tier covers any use that doesn&rsquo;t make money.
+      Rebound is free and open source under the MIT license. Use it for anything, personal or
+      commercial, with no restrictions.
     </p>
   </div>
 </section>

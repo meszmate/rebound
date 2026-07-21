@@ -1,13 +1,15 @@
 ---
 import Mark from './Mark.astro';
 
+const REPO = 'https://github.com/meszmate/rebound';
 const links = [
   { href: '#playground', label: 'Playground' },
   { href: '#boards', label: 'Home board' },
   { href: '#import', label: 'Import' },
   { href: '#tools', label: 'Tools' },
-  { href: '#pricing', label: 'Pricing' },
+  { href: '#open-source', label: 'Open source' },
   { href: '#faq', label: 'FAQ' },
+  { href: REPO, label: 'GitHub', external: true },
 ];
 ---
 
@@ -26,6 +28,7 @@ const links = [
         links.map((l) => (
           <a
             href={l.href}
+            {...(l.external ? { target: '_blank', rel: 'noopener' } : {})}
             class="rounded-full px-3.5 py-1.5 text-sm font-medium text-mute transition-colors duration-200 hover:bg-mist hover:text-ink"
           >
             {l.label}

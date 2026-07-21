@@ -1,0 +1,95 @@
+name: Release
+
+# Build and publish a signed ZXP to GitHub Releases when a version tag is pushed.
+#
+#   git tag v0.1.0    # must match "version" in package.json
+#   git push origin v0.1.0
+#
+# The job runs on an Intel macOS runner because Adobe's ZXPSignCmd (the only
+# tool that can sign a CEP extension) ships as an x86_64 macOS binary. It is
+# fetched from Adobe's own CEP-Resources repository, pinned to a commit and
+# verified by SHA-256 before use. Signing uses a self-signed certificate
+# generated in the job and a public timestamp authority, so the signature
+# outlives the certificate. Users install the result with any ZXP installer.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {} # run manually against a v* tag ref
+
+permissions:
+  contents: write # create the release and upload the asset
+
+jobs:
+  release:
+    name: Build & publish signed ZXP
+    runs-on: macos-13 # Intel runner: runs the x86_64 ZXPSignCmd natively
+    env:
+      # Adobe ZXPSignCmd 4.1.3, pinned to a commit in Adobe-CEP/CEP-Resources.
+      SIGNER_URL: https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/45667fc2953688ea4dec45361e5e5efb80f30211/ZXPSignCMD/4.1.3/macOS/ZXPSignCmd
+      SIGNER_SHA256: bc773fae0b97416fc7a462e7dadcc00270428a9913480c9b78b5606ff1cfb095
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Never ship a release that fails the suite.
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+
+      - name: Check the tag matches package.json version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="${GITHUB_REF_NAME}"
+          echo "package.json version: $VERSION"
+          echo "tag:                  $TAG"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag '$TAG' does not match package.json version 'v$VERSION'. Bump the version or retag."
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Fetch and verify Adobe ZXPSignCmd
+        run: |
+          set -euo pipefail
+          SIGNER="$RUNNER_TEMP/ZXPSignCmd"
+          curl -fsSL "$SIGNER_URL" -o "$SIGNER"
+          echo "$SIGNER_SHA256  $SIGNER" | shasum -a 256 -c -
+          chmod +x "$SIGNER"
+          echo "REBOUND_ZXPSIGN=$SIGNER" >> "$GITHUB_ENV"
+
+      - name: Package the signed ZXP
+        env:
+          # A self-signed cert is fine for a ZXP installer; the timestamp keeps
+          # the signature valid past the cert's own expiry. Override the TSA
+          # with a repo variable if DigiCert's is ever unreachable.
+          REBOUND_CERT_PASSWORD: ${{ secrets.REBOUND_CERT_PASSWORD }}
+          REBOUND_TSA: ${{ vars.REBOUND_TSA || 'http://timestamp.digicert.com' }}
+        run: |
+          set -euo pipefail
+          npm run cert
+          npm run pack
+          ls -lh "dist/rebound_${VERSION}.zxp"
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ASSET="dist/rebound_${VERSION}.zxp"
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ASSET" --clobber
+          else
+            gh release create "$TAG" "$ASSET" \
+              --title "Rebound $TAG" \
+              --generate-notes
+          fi

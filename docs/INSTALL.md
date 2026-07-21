@@ -8,7 +8,8 @@ or from source (for development).
 
 ## 1. Install from a `.zxp` (users)
 
-1. Download `rebound_x.y.z.zxp` from the project's Releases page.
+1. Download `rebound_x.y.z.zxp` from the project's
+   [Releases page](https://github.com/meszmate/rebound/releases).
 2. Install it with any ZXP installer:
    - [ZXPInstaller](https://zxpinstaller.com/) (free, Windows + macOS), or
    - the [Anastasiy Extension Manager](https://install.anastasiy.com/).

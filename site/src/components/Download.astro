@@ -1,9 +1,12 @@
 ---
 import Mark from './Mark.astro';
 
+const REPO = 'https://github.com/meszmate/rebound';
+const RELEASES = 'https://github.com/meszmate/rebound/releases';
+
 const steps = [
-  { n: '1', text: 'Get Rebound from aescripts + aeplugins' },
-  { n: '2', text: 'Install it with the manager app or any ZXP installer' },
+  { n: '1', text: 'Download the latest .zxp from GitHub Releases' },
+  { n: '2', text: 'Install it with any ZXP installer, like the free ZXPInstaller' },
   { n: '3', text: 'Restart After Effects' },
   { n: '4', text: 'Window ▸ Extensions ▸ Rebound' },
 ];
@@ -27,15 +30,17 @@ const steps = [
           Get Rebound for After Effects.
         </h2>
         <p class="mt-4 text-pretty text-[#9aa0a8]">
-          After Effects 2019 or newer, on macOS and Windows. Distributed through aescripts +
-          aeplugins. Free for non-commercial use, no trial clock.
+          After Effects 2019 or newer, on macOS and Windows. Free and open source under the MIT
+          license. No account, no trial clock.
         </p>
         <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a
-            href="https://aescripts.com/rebound/"
+            href={RELEASES}
+            target="_blank"
+            rel="noopener"
             class="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-[0.9375rem] font-medium text-ink transition-all duration-300 [transition-timing-function:var(--ease-out-quart)] hover:-translate-y-px hover:shadow-[0_10px_30px_-10px_rgb(255_255_255/0.4)] active:scale-[0.97]"
           >
-            Get it on aescripts + aeplugins
+            Download the latest release
             <svg class="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path
                 d="M5.5 3.5h7v7M12.5 3.5 3.5 12.5"
@@ -44,6 +49,14 @@ const steps = [
                 stroke-linecap="round"
                 stroke-linejoin="round"></path>
             </svg>
+          </a>
+          <a
+            href={REPO}
+            target="_blank"
+            rel="noopener"
+            class="inline-flex items-center gap-2 rounded-full border border-white/15 px-6 py-3 text-[0.9375rem] font-medium text-white/90 transition-all duration-300 [transition-timing-function:var(--ease-out-quart)] hover:-translate-y-px hover:border-white/30 active:scale-[0.97]"
+          >
+            View source on GitHub
           </a>
         </div>
 

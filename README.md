@@ -120,7 +120,8 @@ in [docs/FEATURES.md](docs/FEATURES.md). Expect rough edges.
 
 ### From a release (recommended for users)
 
-1. Download the latest `rebound_x.y.z.zxp` from the Releases page.
+1. Download the latest `rebound_x.y.z.zxp` from the
+   [Releases page](https://github.com/meszmate/rebound/releases).
 2. Install it with a ZXP installer (e.g. the free
    [ZXPInstaller](https://zxpinstaller.com/)) or Adobe's Extension Manager
    equivalent.
@@ -154,6 +155,24 @@ You can preview the panel UI in a normal browser (without After Effects), see
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and how to add a tool is in
 [AGENTS.md](AGENTS.md).
 
+### Releasing
+
+Releases are automated. Push a `vX.Y.Z` tag whose version matches
+`package.json`, and the [release workflow](.github/workflows/release.yml)
+lints, tests, packs a signed ZXP, and publishes it to the
+[Releases page](https://github.com/meszmate/rebound/releases):
+
+```bash
+npm version patch        # bumps package.json + creates the tag
+git push --follow-tags
+```
+
+The workflow signs with a self-signed certificate and a public timestamp
+authority, so the signature stays valid past the certificate's expiry. To build
+a ZXP locally instead, run `npm run cert` then `npm run pack` (both need Adobe's
+[ZXPSignCmd](https://github.com/Adobe-CEP/CEP-Resources) on `PATH` or in
+`REBOUND_ZXPSIGN`); the result lands in `dist/`.
+
 ## Compatibility
 
 After Effects 2019 (16.0) and newer, on Windows and macOS. Rebound is a CEP
@@ -177,4 +196,5 @@ assets, or interface are reused; the only vendored file is Adobe's
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE). Rebound is free and open source; use it for anything, personal
+or commercial, with no restrictions.
