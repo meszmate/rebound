@@ -23,7 +23,7 @@ permissions:
 jobs:
   release:
     name: Build & publish signed ZXP
-    runs-on: macos-13 # Intel runner: runs the x86_64 ZXPSignCmd natively
+    runs-on: macos-latest # arm64 runner; the x86_64 ZXPSignCmd runs under Rosetta 2 (preinstalled)
     env:
       # Adobe ZXPSignCmd 4.1.3, pinned to a commit in Adobe-CEP/CEP-Resources.
       SIGNER_URL: https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/45667fc2953688ea4dec45361e5e5efb80f30211/ZXPSignCMD/4.1.3/macOS/ZXPSignCmd
@@ -45,17 +45,27 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Check the tag matches package.json version
+      - name: Resolve version and release tag
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          TAG="${GITHUB_REF_NAME}"
-          echo "package.json version: $VERSION"
-          echo "tag:                  $TAG"
-          if [ "$TAG" != "v$VERSION" ]; then
-            echo "::error::Tag '$TAG' does not match package.json version 'v$VERSION'. Bump the version or retag."
-            exit 1
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # Manual run: (re)build the release for the current package.json version.
+            TAG="v$VERSION"
+          else
+            # Tag push: the tag must match package.json.
+            TAG="$GITHUB_REF_NAME"
+            if [ "$TAG" != "v$VERSION" ]; then
+              echo "::error::Tag '$TAG' does not match package.json version 'v$VERSION'. Bump the version or retag."
+              exit 1
+            fi
           fi
+          echo "package.json version: $VERSION"
+          echo "release tag:          $TAG"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Ensure Rosetta 2 (for the x86_64 signer)
+        run: softwareupdate --install-rosetta --agree-to-license || true
 
       - name: Fetch and verify Adobe ZXPSignCmd
         run: |
@@ -85,7 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           ASSET="dist/rebound_${VERSION}.zxp"
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${RELEASE_TAG}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ASSET" --clobber
           else
