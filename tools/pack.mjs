@@ -17,7 +17,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const pkg = JSON.parse(fs.readFileSync(path.join(repoRoot, 'package.json'), 'utf8'));
 const dist = path.join(repoRoot, 'dist');
 const staging = path.join(dist, 'staging');
-const zxp = path.join(dist, `rebound_${pkg.version}.zxp`);
+// A platform suffix (set by the release workflow) keeps the macOS and Windows
+// builds side by side, since a ZXP signed on one OS renders blank on the other
+// (a documented Adobe signing issue). Local builds stay plain `rebound_x.y.z`.
+const suffix = process.env.REBOUND_ZXP_SUFFIX ? `_${process.env.REBOUND_ZXP_SUFFIX}` : '';
+const zxp = path.join(dist, `rebound_${pkg.version}${suffix}.zxp`);
 const cert = path.join(repoRoot, 'cert.p12');
 const password = process.env.REBOUND_CERT_PASSWORD || 'rebound-dev';
 // Timestamp authority keeps the signature valid past the certificate's own
@@ -29,9 +33,13 @@ const useTsa = tsa && tsa !== 'none';
 
 const INCLUDE = ['CSXS', 'client', 'host', 'shared', '.debug', 'LICENSE', 'README.md'];
 
+// macOS cruft (.DS_Store, __MACOSX, AppleDouble ._ files) can break CEP
+// signature verification, so it never goes into the package.
+const SKIP = new Set(['.DS_Store', '__MACOSX', 'Thumbs.db']);
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (SKIP.has(entry.name) || entry.name.startsWith('._')) continue;
     const s = path.join(src, entry.name);
     const d = path.join(dest, entry.name);
     if (entry.isDirectory()) copyDir(s, d);

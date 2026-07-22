@@ -8,15 +8,25 @@ or from source (for development).
 
 ## 1. Install from a `.zxp` (users)
 
-1. Download `rebound_x.y.z.zxp` from the project's
-   [Releases page](https://github.com/meszmate/rebound/releases).
+1. From the [Releases page](https://github.com/meszmate/rebound/releases),
+   download the `.zxp` **for your operating system**:
+   - macOS: `rebound_x.y.z_macos.zxp`
+   - Windows: `rebound_x.y.z_windows.zxp`
+
+   This matters. A ZXP is signed on the OS it is built on, and a ZXP signed on
+   the *other* OS installs fine but renders **blank** (a documented Adobe
+   signing issue). Grab the one that matches your machine.
 2. Install it with any ZXP installer:
    - [ZXPInstaller](https://zxpinstaller.com/) (free, Windows + macOS), or
    - the [Anastasiy Extension Manager](https://install.anastasiy.com/).
-3. Quit and reopen After Effects.
+
+   If the installer offers a choice, install **for the current user**, not for
+   all users. The all-users location needs admin rights and a partial write
+   there leaves the panel unable to find its files.
+3. Quit and reopen After Effects (quit the whole app, not just the panel).
 4. Open it from **Window ▸ Extensions ▸ Rebound**.
 
-If the panel doesn't appear, see [Troubleshooting](#troubleshooting).
+If the panel is blank or does not appear, see [Troubleshooting](#troubleshooting).
 
 ---
 
@@ -102,13 +112,30 @@ npm run pack     # produces dist/rebound_x.y.z.zxp (timestamped signature)
 
 ## Troubleshooting
 
+**Installed from a release and the panel is blank or missing?** Work down this
+list; one of these is almost always it:
+
 | Symptom | Fix |
 | --- | --- |
-| Panel missing from the Extensions menu | Confirm PlayerDebugMode is on for your AE's CSXS version, then fully restart AE. |
-| Panel is blank / white | Open the remote debugger (below) and check the console for errors. |
-| "Rebound" loads but does nothing | The ExtendScript host failed to load, use the **⟳** (reload host) button in the header, or check the debugger console. |
+| Panel is blank / black (installed the ZXP) | You likely have the wrong OS's file. A ZXP signed on the other platform loads blank. Download the `_macos` build on macOS or the `_windows` build on Windows, reinstall, and fully restart AE. |
+| Blank on macOS even with the right file | Gatekeeper quarantined it. Clear the flag: `xattr -cr ~/Library/Application\ Support/Adobe/CEP/extensions/com.meszmate.rebound`, then restart AE. |
+| `ERR_FILE_NOT_FOUND` for `client/index.html` | A half-written install (usually an all-users install without admin rights). Delete the folder at that path and reinstall for the current user. |
+| Panel missing from the Extensions menu | Reinstall for the current user, fully quit and reopen AE. If you built from source instead, confirm PlayerDebugMode is on for your AE's CSXS version. |
+| "Rebound" loads but does nothing | The ExtendScript host failed to load; use the **⟳** (reload host) button in the header, or check the debugger console. |
+
+Extension locations (delete a stale/broken install here before reinstalling):
+
+- macOS user: `~/Library/Application Support/Adobe/CEP/extensions/com.meszmate.rebound`
+- macOS all users: `/Library/Application Support/Adobe/CEP/extensions/com.meszmate.rebound`
+- Windows user: `%APPDATA%\Adobe\CEP\extensions\com.meszmate.rebound`
+
+**Building from source (developer symptoms):**
+
+| Symptom | Fix |
+| --- | --- |
 | Link step fails with `EPERM` (Windows) | Run the terminal as Administrator, or `npm run install:dev -- --copy`. |
 | Changes don't show up | If you used `--copy`, re-run install; if you linked, just reload the panel (right-click ▸ Reload, or the ⟳ button). |
+| Unsigned dev install rejected | Recent CEP verifies signatures even in debug mode. Use `npm run deploy` to install a signed copy instead of the dev symlink. |
 
 ### Remote debugging
 

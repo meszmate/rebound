@@ -1,105 +1,129 @@
 name: Release
 
-# Build and publish a signed ZXP to GitHub Releases when a version tag is pushed.
+# Build and publish signed ZXPs to GitHub Releases when a version tag is pushed.
 #
 #   git tag v0.1.0    # must match "version" in package.json
 #   git push origin v0.1.0
 #
-# The job runs on an Intel macOS runner because Adobe's ZXPSignCmd (the only
-# tool that can sign a CEP extension) ships as an x86_64 macOS binary. It is
-# fetched from Adobe's own CEP-Resources repository, pinned to a commit and
-# verified by SHA-256 before use. Signing uses a self-signed certificate
-# generated in the job and a public timestamp authority, so the signature
-# outlives the certificate. Users install the result with any ZXP installer.
+# A CEP extension must be signed by Adobe's ZXPSignCmd, and a ZXP signed on one
+# OS renders BLANK on the other (a documented Adobe issue), so we build and sign
+# separately on macOS and Windows and attach both. Each signer binary is fetched
+# from Adobe's own CEP-Resources repo, pinned to a commit and checked by SHA-256.
+# Users download the file for their OS and install it with any ZXP installer.
 
 on:
   push:
     tags: ['v*']
-  workflow_dispatch: {} # run manually against a v* tag ref
+  workflow_dispatch: {} # run manually against a v* tag ref (or from main to rebuild the current version)
 
 permissions:
-  contents: write # create the release and upload the asset
+  contents: write
 
 jobs:
-  release:
-    name: Build & publish signed ZXP
-    runs-on: macos-latest # arm64 runner; the x86_64 ZXPSignCmd runs under Rosetta 2 (preinstalled)
-    env:
-      # Adobe ZXPSignCmd 4.1.3, pinned to a commit in Adobe-CEP/CEP-Resources.
-      SIGNER_URL: https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/45667fc2953688ea4dec45361e5e5efb80f30211/ZXPSignCMD/4.1.3/macOS/ZXPSignCmd
-      SIGNER_SHA256: bc773fae0b97416fc7a462e7dadcc00270428a9913480c9b78b5606ff1cfb095
+  prepare:
+    name: Gate & create the release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - run: npm ci
-
       # Never ship a release that fails the suite.
-      - name: Lint
-        run: npm run lint
-      - name: Unit tests
-        run: npm test
-
-      - name: Resolve version and release tag
+      - run: npm run lint
+      - run: npm test
+      - name: Resolve version and tag
+        id: v
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            # Manual run: (re)build the release for the current package.json version.
             TAG="v$VERSION"
           else
-            # Tag push: the tag must match package.json.
             TAG="$GITHUB_REF_NAME"
             if [ "$TAG" != "v$VERSION" ]; then
-              echo "::error::Tag '$TAG' does not match package.json version 'v$VERSION'. Bump the version or retag."
+              echo "::error::Tag '$TAG' does not match package.json version 'v$VERSION'."
               exit 1
             fi
           fi
-          echo "package.json version: $VERSION"
-          echo "release tag:          $TAG"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - name: Ensure the release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.v.outputs.tag }}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "Rebound $TAG" --generate-notes
+          fi
 
-      - name: Ensure Rosetta 2 (for the x86_64 signer)
+  build:
+    name: Build & sign (${{ matrix.name }})
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            os: macos-latest
+            suffix: macos
+            signer_url: https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/45667fc2953688ea4dec45361e5e5efb80f30211/ZXPSignCMD/4.1.3/macOS/ZXPSignCmd
+            signer_sha256: bc773fae0b97416fc7a462e7dadcc00270428a9913480c9b78b5606ff1cfb095
+          - name: Windows
+            os: windows-latest
+            suffix: windows
+            signer_url: https://raw.githubusercontent.com/Adobe-CEP/CEP-Resources/45667fc2953688ea4dec45361e5e5efb80f30211/ZXPSignCMD/4.1.3/x64/ZXPSignCmd.exe
+            signer_sha256: ffc2223167225ce61d024eb463fc5ad1a1be16133f99ef334a646f7311916c98
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Ensure Rosetta 2 (macOS runner runs the x86_64 signer)
+        if: runner.os == 'macOS'
         run: softwareupdate --install-rosetta --agree-to-license || true
 
       - name: Fetch and verify Adobe ZXPSignCmd
         run: |
           set -euo pipefail
-          SIGNER="$RUNNER_TEMP/ZXPSignCmd"
-          curl -fsSL "$SIGNER_URL" -o "$SIGNER"
-          echo "$SIGNER_SHA256  $SIGNER" | shasum -a 256 -c -
-          chmod +x "$SIGNER"
-          echo "REBOUND_ZXPSIGN=$SIGNER" >> "$GITHUB_ENV"
+          if [ "${{ runner.os }}" = "Windows" ]; then SIGNER="$PWD/zxpsigncmd.exe"; else SIGNER="$PWD/zxpsigncmd"; fi
+          curl -fsSL "${{ matrix.signer_url }}" -o "$SIGNER"
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            echo "${{ matrix.signer_sha256 }}  $SIGNER" | shasum -a 256 -c -
+          else
+            echo "${{ matrix.signer_sha256 }}  $SIGNER" | sha256sum -c -
+          fi
+          chmod +x "$SIGNER" || true
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            echo "REBOUND_ZXPSIGN=$(cygpath -w "$SIGNER")" >> "$GITHUB_ENV"
+          else
+            echo "REBOUND_ZXPSIGN=$SIGNER" >> "$GITHUB_ENV"
+          fi
 
       - name: Package the signed ZXP
         env:
-          # A self-signed cert is fine for a ZXP installer; the timestamp keeps
-          # the signature valid past the cert's own expiry. Override the TSA
-          # with a repo variable if DigiCert's is ever unreachable.
           REBOUND_CERT_PASSWORD: ${{ secrets.REBOUND_CERT_PASSWORD }}
           REBOUND_TSA: ${{ vars.REBOUND_TSA || 'http://timestamp.digicert.com' }}
+          REBOUND_ZXP_SUFFIX: ${{ matrix.suffix }}
         run: |
           set -euo pipefail
-          npm run cert
-          npm run pack
-          ls -lh "dist/rebound_${VERSION}.zxp"
+          node tools/make-cert.mjs
+          node tools/pack.mjs
+          ls -lh "dist/rebound_${{ needs.prepare.outputs.version }}_${{ matrix.suffix }}.zxp"
 
-      - name: Publish the GitHub Release
+      - name: Upload to the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          ASSET="dist/rebound_${VERSION}.zxp"
-          TAG="${RELEASE_TAG}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$ASSET" --clobber
-          else
-            gh release create "$TAG" "$ASSET" \
-              --title "Rebound $TAG" \
-              --generate-notes
-          fi
+          gh release upload "${{ needs.prepare.outputs.tag }}" \
+            "dist/rebound_${{ needs.prepare.outputs.version }}_${{ matrix.suffix }}.zxp" --clobber

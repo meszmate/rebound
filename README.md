@@ -122,12 +122,19 @@ in [docs/FEATURES.md](docs/FEATURES.md). Expect rough edges.
 
 ### From a release (recommended for users)
 
-1. Download the latest `rebound_x.y.z.zxp` from the
-   [Releases page](https://github.com/meszmate/rebound/releases).
+1. From the [Releases page](https://github.com/meszmate/rebound/releases),
+   download the `.zxp` **for your OS**: `rebound_x.y.z_macos.zxp` on macOS,
+   `rebound_x.y.z_windows.zxp` on Windows. Each is signed on its own platform;
+   a ZXP signed on the other OS installs but renders blank (a known Adobe
+   signing issue).
 2. Install it with a ZXP installer (e.g. the free
-   [ZXPInstaller](https://zxpinstaller.com/)) or Adobe's Extension Manager
-   equivalent.
-3. Restart After Effects → **Window ▸ Extensions ▸ Rebound**.
+   [ZXPInstaller](https://zxpinstaller.com/)). If it asks, install **for the
+   current user**, not all users.
+3. Fully quit and reopen After Effects → **Window ▸ Extensions ▸ Rebound**.
+
+**Panel blank, or not in the Extensions menu?** It is almost always the wrong
+platform's file, macOS quarantine, or a stale install. The fixes are in
+[docs/INSTALL.md ▸ Troubleshooting](docs/INSTALL.md#troubleshooting).
 
 ### From source (for development)
 
