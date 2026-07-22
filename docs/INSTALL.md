@@ -28,6 +28,31 @@ or from source (for development).
 
 If the panel is blank or does not appear, see [Troubleshooting](#troubleshooting).
 
+### If your installer does nothing
+
+A `.zxp` is a signed zip, and extracting it into the extensions folder is a
+valid install on its own, no installer required. This always works when
+ZXPInstaller or Anastasiy silently fail (common on brand-new macOS builds).
+
+**macOS**
+
+```bash
+D=~/Library/Application\ Support/Adobe/CEP/extensions/com.meszmate.rebound
+rm -rf "$D" && mkdir -p "$D"
+unzip -o ~/Downloads/rebound_x.y.z_macos.zxp -d "$D"
+```
+
+**Windows** (PowerShell):
+
+```powershell
+$D = "$env:APPDATA\Adobe\CEP\extensions\com.meszmate.rebound"
+Remove-Item -Recurse -Force $D -ErrorAction SilentlyContinue
+Expand-Archive "$HOME\Downloads\rebound_x.y.z_windows.zxp" -DestinationPath $D
+```
+
+Then quit and reopen After Effects. (The signature travels inside the zip, so
+the manually placed folder still verifies.)
+
 ---
 
 ## 2. Install from source (developers)
@@ -119,6 +144,7 @@ list; one of these is almost always it:
 | --- | --- |
 | Panel is blank / black (installed the ZXP) | You likely have the wrong OS's file. A ZXP signed on the other platform loads blank. Download the `_macos` build on macOS or the `_windows` build on Windows, reinstall, and fully restart AE. |
 | Blank on macOS even with the right file | Gatekeeper quarantined it. Clear the flag: `xattr -cr ~/Library/Application\ Support/Adobe/CEP/extensions/com.meszmate.rebound`, then restart AE. |
+| Installer runs but no folder appears | ZXPInstaller silently failed (common on very new macOS). Try the [Anastasiy Extension Manager](https://install.anastasiy.com/), or use the manual install above; both are reliable. |
 | `ERR_FILE_NOT_FOUND` for `client/index.html` | A half-written install (usually an all-users install without admin rights). Delete the folder at that path and reinstall for the current user. |
 | Panel missing from the Extensions menu | Reinstall for the current user, fully quit and reopen AE. If you built from source instead, confirm PlayerDebugMode is on for your AE's CSXS version. |
 | "Rebound" loads but does nothing | The ExtendScript host failed to load; use the **⟳** (reload host) button in the header, or check the debugger console. |
