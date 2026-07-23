@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="docs/logo.svg" alt="Rebound" width="116" height="106" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-white.svg" />
+  <img src="docs/logo.svg" alt="Rebound" width="116" height="106" />
+</picture>
 
 # Rebound
 
