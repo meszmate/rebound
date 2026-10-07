@@ -610,8 +610,15 @@
     function colsBtn(n) { var x = el('button.rb-home-sizebtn', { type: 'button', title: n + ' columns', onclick: function () { setCols(n); } }, [String(n)]); colsBtns[n] = x; return x; }
     var colsControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Columns' }), colsBtn(3), colsBtn(4), colsBtn(5), colsBtn(6)]);
     var boardColorInput = el('input.rb-appe-color.rb-home-boardcolor', { type: 'color', title: 'Board accent colour' });
-    boardColorInput.addEventListener('input', function () { boards[activeIdx].theme = { accent: boardColorInput.value }; setAccentVar(grid, boardColorInput.value); persist(); });
-    var boardColorClear = el('button.rb-home-sizebtn.rb-home-autobtn', { type: 'button', title: 'Use the global theme', onclick: function () { boards[activeIdx].theme = null; grid.style.removeProperty('--rb-accent'); boardColorInput.value = accentHex(); persist(); } }, ['Auto']);
+    function onBoardColorChange() {
+      boardColorInput.style.backgroundColor = boardColorInput.value;
+      boards[activeIdx].theme = { accent: boardColorInput.value };
+      setAccentVar(grid, boardColorInput.value);
+      persist();
+    }
+    boardColorInput.addEventListener('input', onBoardColorChange);
+    boardColorInput.addEventListener('change', onBoardColorChange);
+    var boardColorClear = el('button.rb-home-sizebtn.rb-home-autobtn', { type: 'button', title: 'Use the global theme', onclick: function () { boards[activeIdx].theme = null; grid.style.removeProperty('--rb-accent'); boardColorInput.value = accentHex(); boardColorInput.style.backgroundColor = boardColorInput.value; persist(); } }, ['Auto']);
     var boardThemeControl = el('div.rb-home-sizectl', null, [el('span.rb-faint', { text: 'Board' }), boardColorInput, boardColorClear]);
     var hintText = el('span.rb-grow', { text: '' });
     var hint = el('div.rb-home-hint', null, [hintText, boardThemeControl, colsControl, boardControl]);
@@ -1033,9 +1040,16 @@
       svgInput.addEventListener('input', function () { draft.svg = svgInput.value.trim(); if (draft.svg) { draft.icon = null; draft.iconKey = null; } renderPrev(); renderIcons(); });
 
       // Per-tile colour: scopes the accent to just this tile.
-      var colorInput = el('input.rb-appe-color', { type: 'color', value: draft.color || accentHex() });
-      colorInput.addEventListener('input', function () { draft.color = colorInput.value; renderPrev(); });
-      var colorClear = el('button.rb-appe-clear', { type: 'button', title: 'Use the theme accent', onclick: function () { draft.color = null; colorInput.value = accentHex(); renderPrev(); } }, ['Auto']);
+      var initTileColor = draft.color || accentHex();
+      var colorInput = el('input.rb-appe-color', { type: 'color', value: initTileColor, style: { backgroundColor: initTileColor } });
+      function onTileColorChange() {
+        colorInput.style.backgroundColor = colorInput.value;
+        draft.color = colorInput.value;
+        renderPrev();
+      }
+      colorInput.addEventListener('input', onTileColorChange);
+      colorInput.addEventListener('change', onTileColorChange);
+      var colorClear = el('button.rb-appe-clear', { type: 'button', title: 'Use the theme accent', onclick: function () { draft.color = null; colorInput.value = accentHex(); colorInput.style.backgroundColor = colorInput.value; renderPrev(); } }, ['Auto']);
 
       renderPrev();
       renderIcons();
@@ -1122,8 +1136,17 @@
         onclick: function (e) { e.stopPropagation(); toggleMaximize(action.id); } }, [maximizedId === action.id ? '⤡' : '⤢']);
       var removeBtn = el('button.rb-home-wbtn.rb-home-wbtn-x.rb-home-wbtn-edit', { type: 'button', title: 'Remove', onclick: function (e) { e.stopPropagation(); removeItem(action.id); } }, ['×']);
       var wColor = el('input.rb-home-wcolor.rb-home-wbtn-edit', { type: 'color', title: 'Widget colour' });
-      function autoWColor() { if (meta[action.id]) delete meta[action.id].color; setAccentVar(card, null); wColor.value = accentHex(); persist(); }
-      wColor.addEventListener('input', function () { var mm = meta[action.id] || {}; mm.color = wColor.value; meta[action.id] = mm; setAccentVar(card, wColor.value); persist(); });
+      function autoWColor() { if (meta[action.id]) delete meta[action.id].color; setAccentVar(card, null); wColor.value = accentHex(); wColor.style.backgroundColor = wColor.value; persist(); }
+      function onWColorChange() {
+        wColor.style.backgroundColor = wColor.value;
+        var mm = meta[action.id] || {};
+        mm.color = wColor.value;
+        meta[action.id] = mm;
+        setAccentVar(card, wColor.value);
+        persist();
+      }
+      wColor.addEventListener('input', onWColorChange);
+      wColor.addEventListener('change', onWColorChange);
       wColor.addEventListener('dblclick', autoWColor);
       // Explicit Auto (use the theme accent), matching the tile and board controls.
       var wColorAuto = el('button.rb-home-wbtn.rb-home-wbtn-edit.rb-home-wbtn-auto', { type: 'button', title: 'Auto colour (use the theme)', onclick: function (e) { e.stopPropagation(); autoWColor(); } }, ['Auto']);
@@ -1342,8 +1365,17 @@
       }
 
       function matching() {
+        var q = String(query || '').trim().toLowerCase();
+        var tokens = q ? q.split(/\s+/) : [];
         return R.homeActions.all().filter(function (a) {
-          return !query || (a.label + ' ' + a.group + ' ' + (a.desc || '')).toLowerCase().indexOf(query) !== -1;
+          if (!tokens.length) return true;
+          var t = (a.toolId && R.tools && R.tools.get) ? R.tools.get(a.toolId) : null;
+          var kw = (t && t.keywords) ? t.keywords.join(' ') : '';
+          var hay = (a.label + ' ' + a.group + ' ' + (a.desc || '') + ' ' + kw).toLowerCase();
+          for (var i = 0; i < tokens.length; i++) {
+            if (hay.indexOf(tokens[i]) === -1) return false;
+          }
+          return true;
         });
       }
 

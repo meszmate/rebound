@@ -21,7 +21,7 @@
   // is Stroke or Both, and a small hue strip plus the swatch sit underneath so
   // hue, saturation, lightness, hex, and the target all drive the preview.
   function colorSvg(state, h) {
-    var rgb = hslToRgb(state.hue, state.saturation / 100, state.lightness / 100);
+    var rgb = state.rgb || hslToRgb(state.hue, state.saturation / 100, state.lightness / 100);
     var css = rgbCss(rgb);
     var target = state.target;
     var fillCss = (target === 'fill' || target === 'both') ? css : 'none';
@@ -45,14 +45,16 @@
     title: 'Color',
     group: 'Color',
     order: 0,
-    keywords: ['color', 'colour', 'fill', 'tint', 'swatch', 'palette', 'hue', 'recolor'],
+    keywords: ['color', 'colour', 'picker', 'color picker', 'fill', 'tint', 'swatch', 'palette', 'hue', 'hex', 'hsl', 'rgb', 'recolor'],
     mount: mount
   });
 
   function mount(ctx) {
-    var hue = 210;
-    var saturation = 100;
-    var lightness = 55;
+    var exactRgb = hexToRgb('#1fa6e0');
+    var initHsl = rgbToHsl(exactRgb);
+    var hue = initHsl[0];
+    var saturation = initHsl[1];
+    var lightness = initHsl[2];
     var target = 'fill';
 
     // Widget: YOUR own quick-colour set (not a fixed palette). Click a swatch to
@@ -67,9 +69,6 @@
       var colors = (ctx.config && ctx.config.colors && ctx.config.colors.length) ? ctx.config.colors.slice() : DEFAULT_COLORS.slice();
       var editing = false;
       var persistColors = function () { ctx.setConfig({ colors: colors.slice() }); };
-      // A REAL in-place colour input (not an off-screen one, which never opens the
-      // native picker in CEP): it fills its tile invisibly, so a click on the tile
-      // is a genuine click on the input and the OS colour picker opens reliably.
       var colorInput = function (value, onLive, onCommit) {
         var inp = el('input.rb-wgt-cinput', { type: 'color', value: value || '#1fa6e0' });
         inp.addEventListener('input', function () { if (onLive) onLive(inp.value); });
@@ -131,9 +130,38 @@
           })(i);
         }
         if (showAdd) {
-          var addTile = el('label.rb-wgt-picktile.rb-wgt-addtile', { title: 'Add a colour' });
-          addTile.appendChild(colorInput('#1fa6e0', null, function (v) { colors.push(v); persistColors(); render(); }));
-          addTile.appendChild(el('span.rb-wgt-addplus', { text: '+' }));
+          var addTile = el('button.rb-wgt-picktile.rb-wgt-addtile', {
+            type: 'button',
+            title: 'Add a colour',
+            onclick: function (e) {
+              e.preventDefault();
+              e.stopPropagation();
+              var newIdx = colors.length;
+              colors.push('#1fa6e0');
+              persistColors();
+              render();
+              var cells = grid.querySelectorAll('.rb-wgt-swatchedit');
+              var targetCell = cells[newIdx] || cells[cells.length - 1];
+              if (targetCell && ui.openColorPopover) {
+                var targetInp = targetCell.querySelector('input[type="color"]');
+                ui.openColorPopover(targetCell, {
+                  targetInput: targetInp,
+                  value: '#1fa6e0',
+                  onInput: function (c) {
+                    colors[newIdx] = c.hex;
+                    targetCell.style.background = c.hex;
+                    if (targetInp) targetInp.value = c.hex;
+                  },
+                  onCommit: function (c) {
+                    colors[newIdx] = c.hex;
+                    targetCell.style.background = c.hex;
+                    if (targetInp) targetInp.value = c.hex;
+                    persistColors();
+                  }
+                });
+              }
+            }
+          }, [el('span.rb-wgt-addplus', { text: '+' })]);
           grid.appendChild(addTile);
         }
       };
@@ -165,13 +193,13 @@
       return { destroy: function () { if (ro) { try { ro.disconnect(); } catch (e) { /* ignore */ } } } };
     }
 
-    function currentRgb() { return hslToRgb(hue, saturation / 100, lightness / 100); }
-    function currentState() { return { hue: hue, saturation: saturation, lightness: lightness, target: target }; }
+    function currentRgb() { return exactRgb ? exactRgb.slice() : hslToRgb(hue, saturation / 100, lightness / 100); }
+    function currentState() { return { hue: hue, saturation: saturation, lightness: lightness, target: target, rgb: currentRgb() }; }
 
     var previewHost = el('div', { style: { border: '1px solid var(--rb-border)', borderRadius: 'var(--rb-radius-2)', background: 'var(--rb-bg-sunken)', padding: '6px' } });
     function renderPreview() { R.dom.clear(previewHost); previewHost.appendChild(colorSvg(currentState(), 90)); }
 
-    var applyEls = []; // every button that applies a color: dead without layers
+    var applyEls = []; // buttons that apply to layers
 
     var swatchRow = el('div.rb-row.rb-wrap');
     for (var i = 0; i < PALETTE.length; i++) {
@@ -197,7 +225,12 @@
       value: '#1fa6e0',
       storageKey: 'color-recents',
       title: 'Pick any color to load it into the sliders',
-      onChange: function (c) { setFromHex(c.hex); }
+      onChange: function (c) { setFromHex(c.hex, false); },
+      onCommit: function (c) {
+        setFromHex(c.hex, false);
+        var sel = ctx.getSelection && ctx.getSelection();
+        if (sel && sel.hasComp && sel.selectedLayerCount) apply(currentRgb());
+      }
     });
 
     // Sliders push into the picker; the picker pushes into the sliders (via
@@ -206,13 +239,13 @@
 
     var hueSlider = ui.slider({ label: 'Hue', min: 0, max: 360, step: 1, value: hue,
       format: function (v) { return Math.round(v) + '°'; },
-      onInput: function (v) { hue = v; updatePreview(); syncPicker(); } });
+      onInput: function (v) { exactRgb = null; hue = v; updatePreview(); syncPicker(); } });
     var satSlider = ui.slider({ label: 'Saturation', min: 0, max: 100, step: 1, value: saturation,
       format: function (v) { return Math.round(v) + '%'; },
-      onInput: function (v) { saturation = v; updatePreview(); syncPicker(); } });
+      onInput: function (v) { exactRgb = null; saturation = v; updatePreview(); syncPicker(); } });
     var lightSlider = ui.slider({ label: 'Lightness', min: 0, max: 100, step: 1, value: lightness,
       format: function (v) { return Math.round(v) + '%'; },
-      onInput: function (v) { lightness = v; updatePreview(); syncPicker(); } });
+      onInput: function (v) { exactRgb = null; lightness = v; updatePreview(); syncPicker(); } });
 
     var targetCtl = ui.segmented([
       { value: 'fill', label: 'Fill', title: 'Recolor fills' },
@@ -239,20 +272,26 @@
       renderPreview();
     }
 
-    function setFromHex(hex) {
-      var hsl = rgbToHsl(hexToRgb(hex));
+    function setFromHex(hex, syncPick) {
+      var rgb = hexToRgb(hex);
+      exactRgb = rgb;
+      var hsl = rgbToHsl(rgb);
       hue = hsl[0]; saturation = hsl[1]; lightness = hsl[2];
       hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
       updatePreview();
+      if (syncPick) syncPicker();
     }
 
     function makeSwatch(hex) {
       var rgb = hexToRgb(hex);
-      var b = el('button.rb-btn.is-icon', { title: 'Set ' + hex });
+      var b = el('button.rb-btn.is-icon', { type: 'button', title: 'Set ' + hex });
       b.style.background = hex;
       b.style.borderColor = hex;
-      b.addEventListener('click', function () { apply(rgb); });
-      applyEls.push(b);
+      b.addEventListener('click', function () {
+        setFromHex(hex, true);
+        var sel = ctx.getSelection && ctx.getSelection();
+        if (sel && sel.hasComp && sel.selectedLayerCount) apply(rgb);
+      });
       return b;
     }
 
@@ -263,11 +302,17 @@
     }
 
     var scopeText = el('span.rb-scope', { text: '' });
+    var footerApplyBtn = el('button.rb-btn.is-primary', {
+      title: 'Apply the current color to selected layers',
+      onclick: function () { apply(currentRgb()); }
+    }, ['Apply']);
+    applyEls.push(footerApplyBtn);
     ctx.footer.appendChild(scopeText);
     ctx.footer.appendChild(el('button.rb-btn', { title: 'Read the selected layer colour into the sliders', onclick: doRead }, ['Read']));
+    ctx.footer.appendChild(footerApplyBtn);
 
     // Applying only makes sense with layers selected (recoil.js syncButtons
-    // pattern); the sliders and Read stay live.
+    // pattern); the sliders, swatches, picker, and Read stay live.
     function setEnabled(sel) {
       var ok = !!(sel && sel.hasComp && sel.selectedLayerCount);
       for (var k = 0; k < applyEls.length; k++) {
@@ -287,6 +332,7 @@
       ctx.invoke('color.read', {})
         .then(function (res) {
           if (!res || !res.found) { ctx.toast('Select a layer with a colour to read', { kind: 'error' }); return; }
+          exactRgb = res.rgb ? res.rgb.slice() : null;
           var hsl = rgbToHsl(res.rgb);
           hue = hsl[0]; saturation = hsl[1]; lightness = hsl[2];
           hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
@@ -317,6 +363,7 @@
     // Selecting a colored layer loads its current fill colour into the sliders.
     function loadColor(res) {
       if (!res || !res.found) return;
+      exactRgb = res.rgb ? res.rgb.slice() : null;
       var hsl = rgbToHsl(res.rgb);
       hue = hsl[0]; saturation = hsl[1]; lightness = hsl[2];
       hueSlider.set(hue); satSlider.set(saturation); lightSlider.set(lightness);
@@ -325,7 +372,7 @@
       syncPicker();
     }
     return {
-      destroy: function () { off(); picker.destroy(); },
+      destroy: function () { off(); if (picker && picker.destroy) picker.destroy(); },
       selectionRead: {
         matches: function (sel) { return !!(sel && sel.selectedLayerCount); },
         method: 'color.read',
@@ -334,12 +381,19 @@
     };
   }
 
-  // Hex string ('#rrggbb') to 0..1 RGB triplet.
+  // Hex string ('#rrggbb' or '#rgb') to 0..1 RGB triplet.
   function hexToRgb(hex) {
-    var h = hex.charAt(0) === '#' ? hex.substring(1) : hex;
-    var r = parseInt(h.substring(0, 2), 16);
-    var g = parseInt(h.substring(2, 4), 16);
-    var b = parseInt(h.substring(4, 6), 16);
+    if (ui && ui.colorUtil && ui.colorUtil.hexToRgb) {
+      var c = ui.colorUtil.hexToRgb(hex);
+      if (c) return [c[0] / 255, c[1] / 255, c[2] / 255];
+    }
+    var h = String(hex == null ? '' : hex).trim().replace(/^#+/, '');
+    if (h.length === 3) {
+      h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    }
+    var r = parseInt(h.substring(0, 2), 16) || 0;
+    var g = parseInt(h.substring(2, 4), 16) || 0;
+    var b = parseInt(h.substring(4, 6), 16) || 0;
     return [r / 255, g / 255, b / 255];
   }
 

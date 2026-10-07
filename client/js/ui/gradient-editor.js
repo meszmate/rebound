@@ -153,9 +153,17 @@
       return c;
     }
 
-    // Open a native colour picker for a stop (used when a stop is tapped in a
+    // Open a colour picker for a stop (used when a stop is tapped in a
     // compact/widget editor, which has no colour field).
     function openColor(s) {
+      if (ui && ui.openColorPopover) {
+        ui.openColorPopover(bar, {
+          value: s.color,
+          onInput: function (c) { s.color = c.hex; renderStage(); renderSelected(); emit(); },
+          onCommit: function (c) { s.color = c.hex; renderStage(); renderSelected(); emit(); }
+        });
+        return;
+      }
       var inp = el('input', { type: 'color', value: s.color,
         style: { position: 'fixed', left: '0', bottom: '0', width: '1px', height: '1px', opacity: '0', border: '0', padding: '0' } });
       function done() { try { if (inp.parentNode) inp.parentNode.removeChild(inp); } catch (e) { /* ignore */ } }
@@ -206,8 +214,11 @@
     });
 
     // ---- control card ----
-    var colorInput = el('input.rb-color-input', { type: 'color',
-      oninput: function (e) { selected.color = e.target.value; renderStage(); emit(); } });
+    var colorInput = el('input.rb-color-input', {
+      type: 'color',
+      oninput: function (e) { selected.color = e.target.value; colorInput.style.backgroundColor = selected.color; renderStage(); emit(); },
+      onchange: function (e) { selected.color = e.target.value; colorInput.style.backgroundColor = selected.color; renderStage(); emit(); }
+    });
     var posInput = ui.numberField({ label: 'Position', value: 0, min: 0, max: 100, step: 1, decimals: 0, suffix: '%', width: '92px',
       onChange: function (v) { selected.pos = clamp01(v / 100); renderStage(); emit(); } });
     var delBtn = el('button.rb-btn.is-ghost', { title: 'Delete the selected stop', onclick: function () {
@@ -216,6 +227,7 @@
     function renderSelected() {
       if (model.stops.indexOf(selected) < 0) selected = model.stops[0];
       colorInput.value = selected.color;
+      colorInput.style.backgroundColor = selected.color;
       posInput.set(Math.round(selected.pos * 100));
       delBtn.disabled = model.stops.length <= 2;
     }

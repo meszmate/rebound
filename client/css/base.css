@@ -87,6 +87,20 @@ body {
   cursor: default;
 }
 
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+input[type='color'],
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'] {
+  cursor: pointer;
+}
+
 #rb-app {
   display: flex;
   flex-direction: column;

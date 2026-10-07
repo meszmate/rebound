@@ -429,10 +429,13 @@
       var m = R.toolMeta.forTool(t.id) || {};
       var title = t.title.toLowerCase();
       var hay = (t.title + ' ' + (t.keywords || []).join(' ') + ' ' + (m.desc || '')).toLowerCase();
+      var tokens = q.split(/\s+/).filter(Boolean);
+      var allTokensMatch = tokens.length > 1 && tokens.every(function (tk) { return hay.indexOf(tk) !== -1; });
       var score = -1;
       if (title === q) score = 100;
       else if (title.indexOf(q) === 0) score = 80;
       else if (hay.indexOf(q) !== -1) score = 50;
+      else if (allTokensMatch) score = 45;
       else if (fuzzy(q, hay)) score = 20;
       if (score >= 0) scored.push({ t: t, score: score });
     });

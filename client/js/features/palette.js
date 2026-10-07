@@ -34,21 +34,26 @@
     title: 'Palette',
     group: 'Color',
     order: 1,
-    keywords: ['palette', 'colors', 'swatch', 'scheme', 'theme', 'recolor'],
+    keywords: ['palette', 'color', 'colour', 'color palette', 'colors', 'swatch', 'scheme', 'theme', 'picker', 'hex', 'recolor'],
     mount: mount
   });
 
   function loadCustom() { return R.disk.read('palettes', { schemaVersion: 1, items: [] }); }
   function saveCustom(data) { R.disk.write('palettes', data); }
 
+  function cleanHex(h) { return String(h == null ? '' : h).trim().replace(/^#+/, ''); }
   function normHex(h) {
-    h = ('' + h).replace('#', '');
-    if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
-    return '#' + h.toLowerCase();
+    var c = cleanHex(h);
+    if (c.length === 3) c = c.charAt(0) + c.charAt(0) + c.charAt(1) + c.charAt(1) + c.charAt(2) + c.charAt(2);
+    else if (c.length === 8) c = c.substring(0, 6);
+    return '#' + c.toLowerCase();
   }
   function hexToRgb01(hex) { var r = hexToRgb255(hex); return [r[0] / 255, r[1] / 255, r[2] / 255]; }
-  function hexToRgb255(hex) { var h = normHex(hex).substring(1); return [parseInt(h.substr(0, 2), 16), parseInt(h.substr(2, 2), 16), parseInt(h.substr(4, 2), 16)]; }
-  function isHex(h) { return /^#?[0-9a-f]{6}$/i.test(h) || /^#?[0-9a-f]{3}$/i.test(h); }
+  function hexToRgb255(hex) { var h = normHex(hex).substring(1); return [parseInt(h.substr(0, 2), 16) || 0, parseInt(h.substr(2, 2), 16) || 0, parseInt(h.substr(4, 2), 16) || 0]; }
+  function isHex(h) {
+    var c = cleanHex(h);
+    return /^[0-9a-f]{6}$/i.test(c) || /^[0-9a-f]{3}$/i.test(c) || /^[0-9a-f]{8}$/i.test(c);
+  }
 
   // A sample shape painted the way the current Target (fill / stroke / both)
   // would recolor: filled accent when fill is included, an accent outline when
@@ -189,23 +194,107 @@
     function buildCard(pal, idAttr, isCustom, customIdx) {
       var open = openId === idAttr;
       var detail = null, setFocus = function () {};
+      var swatchEls = [];
+      var curFocusIdx = 0;
 
       if (open) {
         var curFocus = pal.colors[0];
-        var preview = el('div.rb-detail-preview');
-        var hexEl = el('span.rb-detail-hex', { text: '' });
+        var preview = el('div.rb-detail-preview', { title: 'Click to pick a color for this swatch' });
+        var hexEl = el('input.rb-detail-hex', { type: 'text', spellcheck: 'false', 'aria-label': 'Hex color' });
         var rgbEl = el('span.rb-detail-rgb', { text: '' });
-        setFocus = function (hex) {
+
+        function updateFocusedSwatch(newHex, persist, keepHexInput) {
+          curFocus = normHex(newHex);
+          pal.colors[curFocusIdx] = curFocus;
+          preview.style.background = curFocus;
+          if (!keepHexInput) {
+            hexEl.value = curFocus.toUpperCase();
+            hexEl.textContent = curFocus.toUpperCase();
+            hexEl.classList.remove('is-invalid');
+          }
+          var r = hexToRgb255(curFocus);
+          rgbEl.textContent = 'R ' + r[0] + '  G ' + r[1] + '  B ' + r[2];
+          var swBtn = swatchEls[curFocusIdx];
+          if (swBtn) {
+            swBtn.style.background = curFocus;
+            swBtn.setAttribute('aria-label', pal.name + ' ' + curFocus.toUpperCase());
+            var tipSpan = swBtn.querySelector('.rb-swatch-tip');
+            if (tipSpan) tipSpan.textContent = curFocus.toUpperCase();
+          }
+          if (persist && isCustom && customIdx != null) {
+            var d = loadCustom();
+            if (d.items && d.items[customIdx]) {
+              d.items[customIdx].colors = pal.colors.slice();
+              saveCustom(d);
+            }
+          }
+        }
+
+        setFocus = function (hex, idx) {
+          if (typeof idx === 'number') curFocusIdx = idx;
           curFocus = normHex(hex);
           preview.style.background = curFocus;
+          hexEl.value = curFocus.toUpperCase();
           hexEl.textContent = curFocus.toUpperCase();
+          hexEl.classList.remove('is-invalid');
           var r = hexToRgb255(curFocus);
           rgbEl.textContent = 'R ' + r[0] + '  G ' + r[1] + '  B ' + r[2];
         };
+
+        if (R.ui && R.ui.selectAllOnFocus) R.ui.selectAllOnFocus(hexEl);
+        hexEl.addEventListener('input', function () {
+          var v = String(hexEl.value || '').trim();
+          if (isHex(v)) {
+            hexEl.classList.remove('is-invalid');
+            updateFocusedSwatch(v, true, true);
+          } else if (/^#*([0-9a-f]{0,6})$/i.test(v)) {
+            hexEl.classList.remove('is-invalid');
+          } else {
+            hexEl.classList.add('is-invalid');
+          }
+        });
+        hexEl.addEventListener('change', function () {
+          if (isHex(hexEl.value)) updateFocusedSwatch(hexEl.value, true, false);
+          else setFocus(curFocus, curFocusIdx);
+        });
+        hexEl.addEventListener('blur', function () {
+          if (isHex(hexEl.value)) updateFocusedSwatch(hexEl.value, true, false);
+          else setFocus(curFocus, curFocusIdx);
+        });
+        hexEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (isHex(hexEl.value)) updateFocusedSwatch(hexEl.value, true, false);
+            hexEl.blur();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            setFocus(curFocus, curFocusIdx);
+            hexEl.blur();
+          } else {
+            e.stopPropagation();
+          }
+        });
+
+        preview.addEventListener('click', function (e) {
+          e.stopPropagation();
+          if (R.ui && R.ui.openColorPopover) {
+            R.ui.openColorPopover(preview, {
+              value: curFocus,
+              onInput: function (c) { updateFocusedSwatch(c.hex, false, false); },
+              onCommit: function (c) { updateFocusedSwatch(c.hex, true, false); }
+            });
+          }
+        });
+
         var detailKids = [
           preview,
           el('div.rb-detail-meta', null, [hexEl, rgbEl]),
-          el('div.rb-row', null, [el('button.rb-btn.is-ghost', { onclick: function () { copyHex(curFocus); } }, ['Copy'])]),
+          el('div.rb-row', null, [
+            el('button.rb-btn.is-ghost', { onclick: function () { applyColor(curFocus, idAttr, swatchEls[curFocusIdx] || preview); } }, ['Apply color']),
+            el('button.rb-btn.is-ghost', { onclick: function () { copyHex(curFocus); } }, ['Copy'])
+          ]),
           el('div.rb-row', null, [
             el('button.rb-btn', {
               title: 'Cycle every color of this palette across the selected layers, top to bottom',
@@ -218,19 +307,24 @@
         ];
         if (isCustom) detailKids.push(el('button.rb-btn.is-ghost', { onclick: function () { buildModal(pal, customIdx); } }, ['Edit palette']));
         detail = el('div.rb-palette-detail', null, detailKids);
-        setFocus(pal.colors[0]);
+        setFocus(pal.colors[0], 0);
       }
 
       var bar = el('div.rb-palette-bar');
       if (!open) bar.onclick = function () { toggle(idAttr); };
-      pal.colors.forEach(function (hex) {
-        var sw = el('button.rb-swatch', { style: { background: hex }, 'aria-label': pal.name + ' ' + hex.toUpperCase() }, [
+      pal.colors.forEach(function (hex, swIdx) {
+        var sw = el('button.rb-swatch', { type: 'button', style: { background: hex }, 'aria-label': pal.name + ' ' + hex.toUpperCase() }, [
           el('span.rb-swatch-tip', { text: hex.toUpperCase() }),
-          el('button.rb-swatch-copy', { title: 'Copy hex', onclick: function (e) { e.stopPropagation(); copyHex(hex); } }, [copySvg()])
+          el('span.rb-swatch-copy', { role: 'button', tabindex: '-1', title: 'Copy hex', onclick: function (e) { e.stopPropagation(); copyHex(pal.colors[swIdx] || hex); } }, [copySvg()])
         ]);
+        swatchEls.push(sw);
         if (open) {
-          sw.addEventListener('mouseenter', function () { setFocus(hex); });
-          sw.addEventListener('click', function () { setFocus(hex); applyColor(hex, idAttr, sw); });
+          sw.addEventListener('mouseenter', function () { setFocus(pal.colors[swIdx] || hex, swIdx); });
+          sw.addEventListener('click', function () {
+            var curHex = pal.colors[swIdx] || hex;
+            setFocus(curHex, swIdx);
+            applyColor(curHex, idAttr, sw);
+          });
         }
         bar.appendChild(sw);
       });
@@ -304,17 +398,64 @@
         hint.classList.remove('is-error', 'is-warn');
         if (!cols.length) { hint.classList.add('is-warn'); hint.textContent = 'Add at least one color'; }
         else if (nInvalid) { hint.classList.add('is-error'); hint.textContent = 'Fix ' + nInvalid + ' invalid color' + (nInvalid === 1 ? '' : 's'); }
-        else hint.textContent = cols.length + ' colors';
-        if (saveBtn) saveBtn.disabled = !((nameInput && nameInput.value.trim()) && cols.length);
+        else hint.textContent = cols.length + ' color' + (cols.length === 1 ? '' : 's');
+        if (saveBtn) saveBtn.disabled = !cols.length || nInvalid > 0;
       }
       function makeRow(hex) {
-        var ci = el('input.rb-color-input', { type: 'color', value: normHex(hex) });
-        var hi = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: normHex(hex) });
+        var initHex = normHex(hex);
+        var ci = el('input.rb-color-input', { type: 'color', value: initHex, style: { backgroundColor: initHex } });
+        var hi = el('input.rb-savedlg-input', { type: 'text', spellcheck: 'false', value: initHex });
         var r = { ci: ci, hi: hi, row: null };
-        ci.addEventListener('input', function () { hi.value = ci.value; hi.classList.remove('is-invalid'); refresh(); });
-        hi.addEventListener('input', function () { if (isHex(hi.value)) { hi.classList.remove('is-invalid'); ci.value = normHex(hi.value); } else hi.classList.add('is-invalid'); refresh(); });
-        hi.addEventListener('keydown', function (e) { if (e.key === 'Enter' && rows[rows.length - 1] === r && rows.length < 10) { addRow('#888888'); } });
-        var del = el('button.rb-btn.is-ghost.is-icon', { title: 'Remove color', onclick: function () { if (rows.length > 1) { var i = rows.indexOf(r); rows.splice(i, 1); rowsHost.removeChild(r.row); refresh(); } } }, ['×']);
+        function syncFromColorInput() {
+          var v = normHex(ci.value);
+          ci.style.backgroundColor = v;
+          hi.value = v;
+          hi.classList.remove('is-invalid');
+          refresh();
+        }
+        ci.addEventListener('input', syncFromColorInput);
+        ci.addEventListener('change', syncFromColorInput);
+        if (R.ui && R.ui.selectAllOnFocus) R.ui.selectAllOnFocus(hi);
+        hi.addEventListener('input', function () {
+          var raw = String(hi.value || '').trim();
+          if (isHex(raw)) {
+            hi.classList.remove('is-invalid');
+            var nh = normHex(raw);
+            ci.value = nh;
+            ci.style.backgroundColor = nh;
+          } else if (/^#*([0-9a-f]{0,6})$/i.test(raw)) {
+            hi.classList.remove('is-invalid');
+          } else {
+            hi.classList.add('is-invalid');
+          }
+          refresh();
+        });
+        hi.addEventListener('blur', function () {
+          if (isHex(hi.value)) {
+            var nh = normHex(hi.value);
+            hi.value = nh;
+            ci.value = nh;
+            ci.style.backgroundColor = nh;
+            hi.classList.remove('is-invalid');
+          } else {
+            hi.classList.add('is-invalid');
+          }
+          refresh();
+        });
+        hi.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (rows[rows.length - 1] === r && rows.length < 10 && e.shiftKey) {
+              addRow('#888888');
+            } else {
+              doSave();
+            }
+          } else if (e.key !== 'Escape') {
+            e.stopPropagation();
+          }
+        });
+        var del = el('button.rb-btn.is-ghost.is-icon', { type: 'button', title: 'Remove color', onclick: function () { if (rows.length > 1) { var i = rows.indexOf(r); rows.splice(i, 1); rowsHost.removeChild(r.row); refresh(); } } }, ['×']);
         r.row = el('div.rb-palette-edit-row', null, [ci, hi, del]);
         return r;
       }
@@ -333,7 +474,18 @@
 
       (existing ? existing.colors : ['#888888', '#888888', '#888888', '#888888', '#888888']).forEach(function (h) { addRow(h); });
 
-      nameInput = el('input.rb-savedlg-input', { type: 'text', 'data-autofocus': '1', spellcheck: 'false', placeholder: 'e.g. Sunset', value: existing ? existing.name : '', oninput: refresh });
+      nameInput = el('input.rb-savedlg-input', {
+        type: 'text',
+        'data-autofocus': '1',
+        spellcheck: 'false',
+        placeholder: 'e.g. Sunset',
+        value: existing ? existing.name : '',
+        oninput: refresh,
+        onkeydown: function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); doSave(); }
+          else if (e.key !== 'Escape') e.stopPropagation();
+        }
+      });
 
       var body = el('div.rb-savedlg', null, [
         el('div.rb-savedlg-field', null, [el('span.rb-savedlg-label', { text: 'Name' }), nameInput]),
@@ -341,8 +493,8 @@
           el('span.rb-savedlg-label', { text: 'Colors' }),
           rowsHost,
           el('div.rb-row', null, [
-            el('button.rb-btn.is-ghost', { onclick: function () { if (rows.length < 10) addRow('#888888'); } }, ['+ Add color']),
-            el('button.rb-btn.is-ghost', { onclick: pasteList }, ['Paste hex list'])
+            el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { if (rows.length < 10) addRow('#888888'); } }, ['+ Add color']),
+            el('button.rb-btn.is-ghost', { type: 'button', onclick: pasteList }, ['Paste hex list'])
           ]),
           preview,
           hint
@@ -352,16 +504,21 @@
       // Editing means an existing SAVED palette (index != null); a prefilled
       // one (From selection passes colors but no index) is still a new palette.
       var isEdit = existing != null && index != null;
-      var cancelBtn = el('button.rb-btn.is-ghost', { onclick: function () { dlg.close('close'); } }, ['Cancel']);
-      saveBtn = el('button.rb-btn.is-primary', { onclick: doSave }, [isEdit ? 'Save' : 'Create']);
+      var cancelBtn = el('button.rb-btn.is-ghost', { type: 'button', onclick: function () { dlg.close('close'); } }, ['Cancel']);
+      saveBtn = el('button.rb-btn.is-primary', { type: 'button', onclick: doSave }, [isEdit ? 'Save' : 'Create']);
       var dlg = R.ui.modal({ title: isEdit ? 'Edit palette' : 'New palette', width: 360, className: 'rb-modal-save', body: body, footer: [cancelBtn, saveBtn], initialFocus: nameInput });
 
       function doSave() {
-        var nm = nameInput.value.trim();
         var cols = validColors();
-        if (!nm || !cols.length) { refresh(); return; }
+        var nInvalid = rows.length - cols.length;
+        if (!cols.length || nInvalid > 0) { refresh(); return; }
         var data = loadCustom();
         data.items = data.items || [];
+        var nm = nameInput.value.trim();
+        if (!nm) {
+          nm = (existing && existing.name && existing.name.trim()) || ('Palette ' + (data.items.length + 1));
+          nameInput.value = nm;
+        }
         if (index != null) data.items[index] = { name: nm, colors: cols, builtin: false };
         else data.items.push({ name: nm, colors: cols, builtin: false });
         saveCustom(data);

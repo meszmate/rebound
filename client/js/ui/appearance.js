@@ -61,15 +61,72 @@
     s.colorOverrides = s.colorOverrides || {};
     var fields = []; // { key, swatch, hex, get } for syncing after preset/reset
 
+    function parseHexInput(raw) {
+      if (R.ui && R.ui.colorUtil && R.ui.colorUtil.normHex) return R.ui.colorUtil.normHex(raw);
+      var c = String(raw == null ? '' : raw).trim().replace(/^#+/, '');
+      if (/^[0-9a-f]{3}$/i.test(c)) c = c.charAt(0) + c.charAt(0) + c.charAt(1) + c.charAt(1) + c.charAt(2) + c.charAt(2);
+      if (!/^[0-9a-f]{6}$/i.test(c)) return null;
+      return '#' + c.toLowerCase();
+    }
+
     function apply() { R.disk.write('settings', s); broadcast(s); R.theme.applyFromSettings(s); }
-    function syncFields() { fields.forEach(function (f) { var v = f.get(); f.swatch.value = v; f.hex.value = v; }); }
+    function syncFields(skipHexEl) {
+      fields.forEach(function (f) {
+        var v = f.get();
+        f.swatch.value = v;
+        f.swatch.style.backgroundColor = v;
+        if (f.hex !== skipHexEl && document.activeElement !== f.hex) f.hex.value = v;
+      });
+    }
 
     // A swatch + hex pair bound to a getter/setter.
     function colorField(label, get, set, onClear) {
-      var swatch = el('input.rb-appe-color', { type: 'color', value: get() });
-      var hex = el('input.rb-appe-hex', { type: 'text', spellcheck: 'false', value: get() });
-      swatch.addEventListener('input', function () { hex.value = swatch.value; set(swatch.value); });
-      hex.addEventListener('input', function () { if (/^#[0-9a-fA-F]{6}$/.test(hex.value)) { swatch.value = hex.value; set(hex.value); } });
+      var initVal = get();
+      var swatch = el('input.rb-appe-color', { type: 'color', value: initVal, style: { backgroundColor: initVal } });
+      var hex = el('input.rb-appe-hex', { type: 'text', spellcheck: 'false', value: initVal });
+      function onSwatch() {
+        swatch.style.backgroundColor = swatch.value;
+        hex.value = swatch.value;
+        set(swatch.value);
+      }
+      swatch.addEventListener('input', onSwatch);
+      swatch.addEventListener('change', onSwatch);
+      if (R.ui && R.ui.selectAllOnFocus) R.ui.selectAllOnFocus(hex);
+      hex.addEventListener('input', function () {
+        var norm = parseHexInput(hex.value);
+        if (norm) {
+          swatch.value = norm;
+          swatch.style.backgroundColor = norm;
+          set(norm);
+        }
+      });
+      hex.addEventListener('blur', function () {
+        var norm = parseHexInput(hex.value);
+        if (norm) {
+          hex.value = norm;
+          swatch.value = norm;
+          swatch.style.backgroundColor = norm;
+          set(norm);
+        } else {
+          hex.value = get();
+        }
+      });
+      hex.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          var norm = parseHexInput(hex.value);
+          if (norm) {
+            hex.value = norm;
+            swatch.value = norm;
+            swatch.style.backgroundColor = norm;
+            set(norm);
+          }
+          hex.blur();
+        } else if (e.key !== 'Escape') {
+          e.stopPropagation();
+        }
+      });
       fields.push({ swatch: swatch, hex: hex, get: get });
       var kids = [swatch, hex];
       if (onClear) kids.push(el('button.rb-appe-clear', { type: 'button', title: 'Use the generated default', onclick: function () { onClear(); syncFields(); } }, ['Auto']));

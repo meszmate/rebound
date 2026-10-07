@@ -82,9 +82,26 @@
   padding: var(--rb-gap-3); border-top: 1px solid var(--rb-border);
   background: var(--rb-bg-raised);
 }
-.rb-detail-preview { height: 40px; border-radius: var(--rb-radius-2); border: 1px solid var(--rb-border); }
-.rb-detail-meta { display: flex; align-items: baseline; gap: var(--rb-gap-3); }
+.rb-detail-preview {
+  height: 40px; border-radius: var(--rb-radius-2); border: 1px solid var(--rb-border);
+  cursor: pointer; transition: border-color var(--rb-transition), box-shadow var(--rb-transition);
+}
+.rb-detail-preview:hover, .rb-detail-preview.is-active {
+  border-color: var(--rb-accent); box-shadow: 0 0 0 2px var(--rb-accent-soft);
+}
+.rb-detail-meta { display: flex; align-items: center; gap: var(--rb-gap-3); }
 .rb-detail-hex { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: calc(var(--rb-font-size) + 1px); color: var(--rb-text); letter-spacing: 0.02em; }
+input.rb-detail-hex {
+  width: 86px; height: 22px; padding: 0 6px; margin: 0;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: calc(var(--rb-font-size) + 1px); font-weight: 600;
+  color: var(--rb-text); letter-spacing: 0.02em;
+  background: var(--rb-bg-sunken); border: 1px solid var(--rb-border);
+  border-radius: var(--rb-radius-1);
+  user-select: text; -webkit-user-select: text;
+}
+input.rb-detail-hex:focus { outline: none; border-color: var(--rb-accent); box-shadow: 0 0 0 2px var(--rb-accent-soft); }
+input.rb-detail-hex.is-invalid { border-color: var(--rb-danger); color: var(--rb-danger); }
 .rb-detail-rgb { color: var(--rb-text-faint); font-variant-numeric: tabular-nums; }
 
 /* ---- New-palette card ---------------------------------------------------- */
